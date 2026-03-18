@@ -3,11 +3,13 @@ import Canvas, { CanvasRef } from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import SaveDialog from './components/SaveDialog'
 import { useThemeStore } from './store/useThemeStore'
+import { useServiceWorker } from './hooks/useServiceWorker'
 
 function App() {
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const canvasRef = useRef<CanvasRef>(null)
   const { initTheme } = useThemeStore()
+  const { updateAvailable, isOnline, skipWaiting } = useServiceWorker()
   
   // 初始化主题
   useEffect(() => {
@@ -23,6 +25,13 @@ function App() {
     window.addEventListener('mindnotes-save', handleSaveEvent)
     return () => window.removeEventListener('mindnotes-save', handleSaveEvent)
   }, [])
+  
+  // 提示用户更新
+  const handleUpdate = () => {
+    if (confirm('有新版本可用，是否立即更新并刷新页面？')) {
+      skipWaiting()
+    }
+  }
   
   return (
     <div className="w-full h-screen relative bg-[var(--bg-secondary)] overflow-hidden">
@@ -64,8 +73,37 @@ function App() {
       {/* 右上角状态指示器 */}
       <div className="fixed top-4 right-4 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] shadow-lg border border-[var(--border-color)]">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span>就绪</span>
+          <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+          <span>{isOnline ? '就绪' : '离线'}</span>
+        </div>
+      </div>
+      
+      {/* PWA 更新提示 */}
+      {updateAvailable && (
+        <div className="fixed bottom-20 right-4 bg-primary text-white rounded-lg px-4 py-3 text-sm shadow-xl z-50 animate-bounce">
+          <div className="flex items-center gap-2">
+            <span>🔄 新版本可用</span>
+            <button
+              onClick={handleUpdate}
+              className="ml-2 px-3 py-1 bg-white text-primary rounded hover:bg-gray-100 font-medium"
+            >
+              更新
+            </button>
+            <button
+              onClick={() => {}}
+              className="ml-1 px-2 py-1 hover:bg-white/20 rounded"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* PWA 安装提示（仅移动端） */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-xl px-4 py-2 text-xs text-[var(--text-secondary)] shadow-lg border border-[var(--border-color)] md:hidden">
+        <div className="flex items-center gap-2">
+          <span>📱</span>
+          <span>添加到主屏幕获得更好体验</span>
         </div>
       </div>
     </div>
