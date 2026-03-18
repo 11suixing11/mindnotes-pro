@@ -1,0 +1,96 @@
+import React from 'react'
+import { useAppStore } from '../store/useAppStore'
+
+const Toolbar: React.FC = () => {
+  const { tool, color, size, setTool, setColor, setSize, clearStrokes, undo } = useAppStore()
+  
+  const colors = [
+    '#000000', // 黑
+    '#ef4444', // 红
+    '#22c55e', // 绿
+    '#3b82f6', // 蓝
+    '#f59e0b', // 黄
+    '#8b5cf6', // 紫
+  ]
+  
+  const sizes = [2, 4, 6, 8, 10]
+  
+  return (
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 px-6 py-3 flex items-center gap-4 z-10">
+      {/* 工具选择 */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setTool('pen')}
+          className={`toolbar-btn ${tool === 'pen' ? 'active' : 'bg-gray-100 hover:bg-gray-200'}`}
+        >
+          ✏️ 笔
+        </button>
+        <button
+          onClick={() => setTool('eraser')}
+          className={`toolbar-btn ${tool === 'eraser' ? 'active' : 'bg-gray-100 hover:bg-gray-200'}`}
+        >
+          🧹 橡皮
+        </button>
+      </div>
+      
+      <div className="w-px h-8 bg-gray-200" />
+      
+      {/* 颜色选择 */}
+      <div className="flex items-center gap-2">
+        {colors.map((c) => (
+          <button
+            key={c}
+            onClick={() => setColor(c)}
+            className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${
+              color === c ? 'border-primary scale-110' : 'border-gray-300'
+            }`}
+            style={{ backgroundColor: c }}
+            title={c}
+          />
+        ))}
+      </div>
+      
+      <div className="w-px h-8 bg-gray-200" />
+      
+      {/* 粗细选择 */}
+      <div className="flex items-center gap-2">
+        {sizes.map((s) => (
+          <button
+            key={s}
+            onClick={() => setSize(s)}
+            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+              size === s 
+                ? 'bg-primary text-white' 
+                : 'bg-gray-100 hover:bg-gray-200'
+            }`}
+          >
+            <div 
+              className="rounded-full bg-current"
+              style={{ width: s * 2, height: s * 2 }}
+            />
+          </button>
+        ))}
+      </div>
+      
+      <div className="w-px h-8 bg-gray-200" />
+      
+      {/* 操作按钮 */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={undo}
+          className="toolbar-btn bg-gray-100 hover:bg-gray-200"
+        >
+          ↩️ 撤销
+        </button>
+        <button
+          onClick={clearStrokes}
+          className="toolbar-btn bg-red-100 hover:bg-red-200 text-red-600"
+        >
+          🗑️ 清空
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export default Toolbar
