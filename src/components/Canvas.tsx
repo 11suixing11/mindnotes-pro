@@ -276,7 +276,7 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
   return (
     <div 
       ref={containerRef}
-      className="canvas-container w-full h-full bg-white"
+      className="canvas-container w-full h-full bg-[var(--canvas-bg)]"
       style={{ touchAction: 'none' }}
       onWheel={handleWheel}
     >
@@ -294,10 +294,10 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
       />
       
       {/* 画布变换指示器 */}
-      <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 text-xs text-gray-600 shadow-lg border border-gray-200 pointer-events-none">
+      <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-lg px-4 py-2 text-xs text-[var(--text-secondary)] shadow-lg border border-[var(--border-color)] pointer-events-none">
         <div className="flex items-center gap-3">
           <span>🔍 {Math.round(viewBox.zoom * 100)}%</span>
-          <span className="text-gray-400">|</span>
+          <span className="opacity-50">|</span>
           <span>📍 {Math.round(viewBox.x)}, {Math.round(viewBox.y)}</span>
         </div>
       </div>

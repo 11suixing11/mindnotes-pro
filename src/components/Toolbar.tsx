@@ -18,30 +18,30 @@ const Toolbar: React.FC = () => {
   const sizes = [2, 4, 6, 8, 10]
   
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 px-6 py-3 flex items-center gap-4 z-10">
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-2xl shadow-xl border border-[var(--border-color)] px-6 py-3 flex items-center gap-4 z-10">
       {/* 工具选择 */}
       <div className="flex items-center gap-2">
         <button
           onClick={() => setTool('pen')}
-          className={`toolbar-btn ${tool === 'pen' ? 'active' : 'bg-gray-100 hover:bg-gray-200'}`}
+          className={`toolbar-btn ${tool === 'pen' ? 'active' : 'bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)]'}`}
         >
           ✏️ 笔
         </button>
         <button
           onClick={() => setTool('eraser')}
-          className={`toolbar-btn ${tool === 'eraser' ? 'active' : 'bg-gray-100 hover:bg-gray-200'}`}
+          className={`toolbar-btn ${tool === 'eraser' ? 'active' : 'bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)]'}`}
         >
           🧹 橡皮
         </button>
         <button
           onClick={() => setTool('pan')}
-          className={`toolbar-btn ${tool === 'pan' ? 'active' : 'bg-gray-100 hover:bg-gray-200'}`}
+          className={`toolbar-btn ${tool === 'pan' ? 'active' : 'bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)]'}`}
         >
           ✋ 平移
         </button>
       </div>
       
-      <div className="w-px h-8 bg-gray-200" />
+      <div className="w-px h-8 bg-[var(--border-color)]" />
       
       {/* 颜色选择 */}
       <div className="flex items-center gap-2">
@@ -50,7 +50,7 @@ const Toolbar: React.FC = () => {
             key={c}
             onClick={() => setColor(c)}
             className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${
-              color === c ? 'border-primary scale-110' : 'border-gray-300'
+              color === c ? 'border-primary scale-110' : 'border-[var(--border-color)]'
             }`}
             style={{ backgroundColor: c }}
             title={c}
@@ -58,7 +58,7 @@ const Toolbar: React.FC = () => {
         ))}
       </div>
       
-      <div className="w-px h-8 bg-gray-200" />
+      <div className="w-px h-8 bg-[var(--border-color)]" />
       
       {/* 粗细选择 */}
       <div className="flex items-center gap-2">
@@ -69,7 +69,7 @@ const Toolbar: React.FC = () => {
             className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
               size === s 
                 ? 'bg-primary text-white' 
-                : 'bg-gray-100 hover:bg-gray-200'
+                : 'bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)]'
             }`}
           >
             <div 
@@ -80,60 +80,60 @@ const Toolbar: React.FC = () => {
         ))}
       </div>
       
-      <div className="w-px h-8 bg-gray-200" />
+      <div className="w-px h-8 bg-[var(--border-color)]" />
       
       {/* 缩放控制 */}
       <div className="flex items-center gap-2">
         <button
           onClick={zoomOut}
-          className="toolbar-btn bg-gray-100 hover:bg-gray-200"
+          className="toolbar-btn bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] text-[var(--text-primary)]"
           title="缩小 (-)"
         >
           🔍-
         </button>
         <button
           onClick={resetView}
-          className="toolbar-btn bg-gray-100 hover:bg-gray-200"
+          className="toolbar-btn bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] text-[var(--text-primary)]"
           title="重置视图 (0)"
         >
           🔍100%
         </button>
         <button
           onClick={zoomIn}
-          className="toolbar-btn bg-gray-100 hover:bg-gray-200"
+          className="toolbar-btn bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] text-[var(--text-primary)]"
           title="放大 (+)"
         >
           🔍+
         </button>
       </div>
       
-      <div className="w-px h-8 bg-gray-200" />
+      <div className="w-px h-8 bg-[var(--border-color)]" />
       
       {/* 操作按钮 */}
       <div className="flex items-center gap-2">
         <button
           onClick={undo}
-          className="toolbar-btn bg-gray-100 hover:bg-gray-200"
+          className="toolbar-btn bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] text-[var(--text-primary)]"
         >
           ↩️ 撤销
         </button>
         <button
           onClick={clearStrokes}
-          className="toolbar-btn bg-red-100 hover:bg-red-200 text-red-600"
+          className="toolbar-btn bg-red-100 hover:bg-red-200 text-red-600 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400"
         >
           🗑️ 清空
         </button>
       </div>
       
-      <div className="w-px h-8 bg-gray-200" />
+      <div className="w-px h-8 bg-[var(--border-color)]" />
       
       {/* 主题切换 */}
       <button
         onClick={toggleTheme}
-        className="toolbar-btn bg-gray-100 hover:bg-gray-200"
+        className="toolbar-btn bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] text-[var(--text-primary)]"
         title={isDarkMode ? '切换到浅色模式' : '切换到深色模式'}
       >
-        {isDarkMode ? '☀️' : '🌙'}
+        {isDarkMode ? '☀️ 浅色' : '🌙 深色'}
       </button>
     </div>
   )
