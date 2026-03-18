@@ -19,18 +19,21 @@
   "author": "11suixing11",
   "license": "MIT",
   "dependencies": {
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
+    "file-saver": "^2.0.5",
+    "jspdf": "^2.5.1",
+    "openai": "^4.28.0",
+    "perfect-freehand": "^1.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "perfect-freehand": "^1.2.0",
-    "zustand": "^4.5.0",
-    "jspdf": "^2.5.1",
-    "file-saver": "^2.0.5",
-    "openai": "^4.28.0"
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.10.1",
+    "@types/file-saver": "^2.0.7",
     "@types/react": "^18.2.64",
     "@types/react-dom": "^18.2.21",
-    "@types/file-saver": "^2.0.7",
     "@typescript-eslint/eslint-plugin": "^7.1.1",
     "@typescript-eslint/parser": "^7.1.1",
     "@vitejs/plugin-react": "^4.2.1",
