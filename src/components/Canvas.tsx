@@ -23,6 +23,7 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
   
   const [isPanning, setIsPanning] = useState(false)
   const lastPanPosition = useRef<{ x: number; y: number } | null>(null)
+  const [currentPressure, setCurrentPressure] = useState(0)
   
   // 导出 canvas 引用
   useImperativeHandle(ref, () => ({
@@ -80,7 +81,9 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
     if (!state.isDrawing || !state.currentStroke) return
     
     const [x, y] = getCoordinates(e)
-    const newPoints = [...state.currentStroke.points, [x, y, e.pressure || 0.5]]
+    const pressure = e.pressure || 0.5
+    setCurrentPressure(pressure)
+    const newPoints = [...state.currentStroke.points, [x, y, pressure]]
     updateCurrentStroke(newPoints)
   }, [getCoordinates, updateCurrentStroke, isPanning, viewBox, setViewBox])
   
@@ -148,18 +151,25 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
     if (stroke.points.length === 0) return
     
     try {
+      // 计算平均压力值
+      const pressures = stroke.points.map((p: number[]) => p[2] || 0.5)
+      const avgPressure = pressures.reduce((a: number, b: number) => a + b, 0) / pressures.length
+      
+      // 根据压力动态调整参数
+      const pressureFactor = Math.max(0.2, Math.min(1.8, avgPressure * 2))
+      
       const pathData = getStroke(stroke.points, {
-        size: stroke.size,
-        thinning: 0.5,
+        size: stroke.size * pressureFactor, // 压力越大，线条越粗
+        thinning: 0.6 - (avgPressure * 0.4), // 压力越大，thinning 越小（线条变化更明显）
         smoothing: 0.5,
-        streamline: 0.5,
+        streamline: 0.6,
         easing: (t) => t,
         start: {
-          taper: 0,
+          taper: avgPressure < 0.3 ? 8 : 0, // 轻压力时自动变细
           cap: true,
         },
         end: {
-          taper: 0,
+          taper: avgPressure < 0.3 ? 8 : 0,
           cap: true,
         },
       })
@@ -173,7 +183,12 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
       }
       
       ctx.closePath()
-      ctx.fillStyle = stroke.color
+      
+      // 根据压力调整透明度
+      const alpha = Math.min(1, 0.7 + avgPressure * 0.3)
+      const colorWithAlpha = stroke.color + Math.round(alpha * 255).toString(16).padStart(2, '0')
+      
+      ctx.fillStyle = colorWithAlpha
       ctx.fill()
     } catch (error) {
       console.error('渲染笔迹失败:', error)
@@ -299,6 +314,8 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
           <span>🔍 {Math.round(viewBox.zoom * 100)}%</span>
           <span className="opacity-50">|</span>
           <span>📍 {Math.round(viewBox.x)}, {Math.round(viewBox.y)}</span>
+          <span className="opacity-50">|</span>
+          <span>✏️ 压力：{Math.round(currentPressure * 100)}%</span>
         </div>
       </div>
     </div>
