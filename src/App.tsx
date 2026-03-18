@@ -2,10 +2,17 @@ import { useState, useRef, useEffect } from 'react'
 import Canvas, { CanvasRef } from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import SaveDialog from './components/SaveDialog'
+import { useThemeStore } from './store/useThemeStore'
 
 function App() {
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const canvasRef = useRef<CanvasRef>(null)
+  const { initTheme } = useThemeStore()
+  
+  // 初始化主题
+  useEffect(() => {
+    initTheme()
+  }, [initTheme])
   
   // 监听保存快捷键
   useEffect(() => {
