@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Canvas, { CanvasRef } from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import SaveDialog from './components/SaveDialog'
