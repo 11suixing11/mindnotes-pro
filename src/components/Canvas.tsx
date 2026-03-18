@@ -6,14 +6,13 @@ export interface CanvasRef {
   getCanvas: () => HTMLCanvasElement | null
 }
 
-const Canvas = forwardRef<CanvasRef>((props, ref) => {
+const Canvas = forwardRef<CanvasRef>((_, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   
   const { 
     strokes, 
     currentStroke, 
-    isDrawing,
     updateCurrentStroke, 
     addStroke,
     clearStrokes
