@@ -14,9 +14,16 @@ interface AppState {
   currentStroke: Stroke | null
   
   // 工具状态
-  tool: 'pen' | 'eraser'
+  tool: 'pen' | 'eraser' | 'pan'
   color: string
   size: number
+  
+  // 画布变换
+  viewBox: {
+    x: number
+    y: number
+    zoom: number
+  }
   
   // 操作状态
   isDrawing: boolean
@@ -29,9 +36,15 @@ interface AppState {
   startStroke: () => void
   clearStrokes: () => void
   
-  setTool: (tool: 'pen' | 'eraser') => void
+  setTool: (tool: 'pen' | 'eraser' | 'pan') => void
   setColor: (color: string) => void
   setSize: (size: number) => void
+  
+  // 画布变换方法
+  setViewBox: (viewBox: { x: number; y: number; zoom: number }) => void
+  zoomIn: () => void
+  zoomOut: () => void
+  resetView: () => void
   
   undo: () => void
   redo: () => void
@@ -45,6 +58,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   tool: 'pen',
   color: '#000000',
   size: 4,
+  
+  viewBox: {
+    x: 0,
+    y: 0,
+    zoom: 1,
+  },
   
   isDrawing: false,
   canUndo: false,
@@ -71,13 +90,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   // 开始新笔迹
   startStroke: () => {
     const { tool, color, size } = get()
+    const strokeTool: 'pen' | 'eraser' = tool === 'pan' ? 'pen' : tool
     set({
       currentStroke: {
         id: Date.now().toString(),
         points: [],
         color: tool === 'eraser' ? '#ffffff' : color,
         size: tool === 'eraser' ? size * 2 : size,
-        tool,
+        tool: strokeTool,
       },
       isDrawing: true,
     })
@@ -96,6 +116,31 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   // 设置大小
   setSize: (size) => set({ size }),
+  
+  // 画布变换方法
+  setViewBox: (viewBox) => set({ viewBox }),
+  
+  zoomIn: () => {
+    set((state) => ({
+      viewBox: {
+        ...state.viewBox,
+        zoom: Math.min(state.viewBox.zoom * 1.2, 5),
+      },
+    }))
+  },
+  
+  zoomOut: () => {
+    set((state) => ({
+      viewBox: {
+        ...state.viewBox,
+        zoom: Math.max(state.viewBox.zoom / 1.2, 0.1),
+      },
+    }))
+  },
+  
+  resetView: () => {
+    set({ viewBox: { x: 0, y: 0, zoom: 1 } })
+  },
   
   // 撤销
   undo: () => {
