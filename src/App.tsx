@@ -25,7 +25,7 @@ function App() {
   }, [])
   
   return (
-    <div className="w-full h-screen relative bg-gray-50 overflow-hidden">
+    <div className="w-full h-screen relative bg-[var(--bg-secondary)] overflow-hidden">
       {/* 顶部工具栏 */}
       <Toolbar />
       
@@ -51,7 +51,7 @@ function App() {
       />
       
       {/* 使用说明 */}
-      <div className="fixed bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-3 text-sm text-gray-600 shadow-lg border border-gray-200">
+      <div className="fixed bottom-4 left-4 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-xl px-4 py-3 text-sm text-[var(--text-secondary)] shadow-lg border border-[var(--border-color)]">
         <div className="font-medium mb-2">💡 使用提示</div>
         <div className="space-y-1">
           <div>🖱️ 鼠标按住绘写</div>
@@ -62,7 +62,7 @@ function App() {
       </div>
       
       {/* 右上角状态指示器 */}
-      <div className="fixed top-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 text-xs text-gray-500 shadow-lg border border-gray-200">
+      <div className="fixed top-4 right-4 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] shadow-lg border border-[var(--border-color)]">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
           <span>就绪</span>
