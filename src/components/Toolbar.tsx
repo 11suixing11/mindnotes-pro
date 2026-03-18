@@ -3,7 +3,7 @@ import { useAppStore } from '../store/useAppStore'
 import { useThemeStore } from '../store/useThemeStore'
 
 const Toolbar: React.FC = () => {
-  const { tool, color, size, setTool, setColor, setSize, clearStrokes, undo } = useAppStore()
+  const { tool, color, size, setTool, setColor, setSize, clearStrokes, undo, zoomIn, zoomOut, resetView } = useAppStore()
   const { isDarkMode, toggleTheme } = useThemeStore()
   
   const colors = [
@@ -32,6 +32,12 @@ const Toolbar: React.FC = () => {
           className={`toolbar-btn ${tool === 'eraser' ? 'active' : 'bg-gray-100 hover:bg-gray-200'}`}
         >
           🧹 橡皮
+        </button>
+        <button
+          onClick={() => setTool('pan')}
+          className={`toolbar-btn ${tool === 'pan' ? 'active' : 'bg-gray-100 hover:bg-gray-200'}`}
+        >
+          ✋ 平移
         </button>
       </div>
       
@@ -72,6 +78,33 @@ const Toolbar: React.FC = () => {
             />
           </button>
         ))}
+      </div>
+      
+      <div className="w-px h-8 bg-gray-200" />
+      
+      {/* 缩放控制 */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={zoomOut}
+          className="toolbar-btn bg-gray-100 hover:bg-gray-200"
+          title="缩小 (-)"
+        >
+          🔍-
+        </button>
+        <button
+          onClick={resetView}
+          className="toolbar-btn bg-gray-100 hover:bg-gray-200"
+          title="重置视图 (0)"
+        >
+          🔍100%
+        </button>
+        <button
+          onClick={zoomIn}
+          className="toolbar-btn bg-gray-100 hover:bg-gray-200"
+          title="放大 (+)"
+        >
+          🔍+
+        </button>
       </div>
       
       <div className="w-px h-8 bg-gray-200" />
