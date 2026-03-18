@@ -1,185 +1,253 @@
+<div align="center">
+
 # MindNotes Pro 🧠✨
 
-> 基于浏览器的实时手写笔记工具，支持多种输入方式和 AI 增强功能
+> **下一代智能手写笔记应用**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![React](https://img.shields.io/badge/React-18.2-blue?logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.2-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-5.1-purple?logo=vite)](https://vitejs.dev/)
+
+[功能特性](#-功能特性) • [快速开始](#-快速开始) • [使用指南](#-使用指南) • [技术架构](#-技术架构) • [开发计划](#-开发计划) • [贡献](#-贡献)
+
+</div>
 
 ---
 
-## 🎯 项目定位
+## 📖 简介
 
-一个**现代化、隐私优先**的手写笔记应用，在浏览器中提供流畅的书写体验和智能 AI 辅助。
+**MindNotes Pro** 是一款基于浏览器的现代化手写笔记应用，提供流畅的书写体验和智能的 AI 辅助功能。
 
-### 核心特性
+### 🎯 核心理念
 
-- ✏️ **多种输入方式** - 鼠标、键盘、触控板、触屏
-- 🎨 **实时渲染** - 流畅的笔迹渲染，支持压感
-- 💾 **多格式导出** - PNG、PDF、JSON、Markdown
-- 🤖 **AI 增强** - 手写识别、笔记总结、内容优化
-- 🔒 **隐私优先** - 数据本地存储，可选云端同步
+- ✨ **简洁高效** - 专注核心功能，无干扰的书写体验
+- 🔒 **隐私优先** - 数据完全本地存储，不上传云端
+- 🤖 **智能增强** - AI 辅助识别、总结、优化笔记内容
+- 🎨 **流畅体验** - 基于 perfect-freehand 的自然笔迹渲染
+
+### 📸 预览
+
+<div align="center">
+  <img src="https://via.placeholder.com/800x450/4f46e5/ffffff?text=MindNotes+Pro+Preview" alt="应用预览" width="800" style="border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);"/>
+</div>
+
+---
+
+## ✨ 功能特性
+
+### 🎨 核心功能
+
+| 功能 | 说明 | 状态 |
+|------|------|------|
+| **多种输入** | 鼠标、触控板、触屏手写 | ✅ |
+| **实时渲染** | 流畅的笔迹渲染，支持压感 | ✅ |
+| **工具切换** | 笔/橡皮擦快速切换 | ✅ |
+| **颜色选择** | 6 种预设颜色 | ✅ |
+| **粗细调整** | 5 档笔迹粗细 | ✅ |
+| **撤销/重做** | 操作历史管理 | ✅ |
+| **多格式导出** | PNG/PDF/JSON | ✅ |
+
+### 🚀 高级功能
+
+| 功能 | 说明 | 状态 |
+|------|------|------|
+| **键盘快捷键** | Ctrl+Z 撤销，Ctrl+S 保存 | ✅ |
+| **自动保存** | 防止意外丢失 | 🚧 |
+| **手写识别** | 笔迹转文字 | ⏳ |
+| **AI 总结** | 自动提炼要点 | ⏳ |
+| **内容优化** | 智能润色 | ⏳ |
+| **翻译功能** | 多语言翻译 | ⏳ |
+| **云端同步** | 可选云端备份 | ⏳ |
 
 ---
 
 ## 🚀 快速开始
 
-### 安装依赖
+### 前置要求
+
+- Node.js 18+ 
+- npm 9+
+- 现代浏览器（Chrome 90+、Edge 90+、Firefox 88+）
+
+### 安装
 
 ```bash
+# 克隆项目
+git clone https://github.com/11suixing11/mindnotes-pro.git
+cd mindnotes-pro
+
+# 安装依赖
 npm install
-```
 
-### 开发模式
-
-```bash
+# 启动开发服务器
 npm run dev
 ```
 
 浏览器会自动打开 http://localhost:3000
 
-### 构建生产版本
+### 构建
 
 ```bash
+# 生产构建
 npm run build
-```
 
-### 预览生产版本
-
-```bash
+# 预览构建结果
 npm run preview
 ```
 
+### 部署
+
+推荐使用 [Vercel](https://vercel.com) 或 [Netlify](https://netlify.com) 部署：
+
+```bash
+# 构建
+npm run build
+
+# 输出目录：dist/
+# 上传到任意静态托管平台
+```
+
+<details>
+<summary><b>📦 Vercel 一键部署</b></summary>
+
+1. 访问 [Vercel](https://vercel.com/new)
+2. 导入 GitHub 仓库
+3. 自动构建部署
+4. 获得免费 HTTPS 域名
+
+</details>
+
 ---
 
-## 📋 功能模块
+## 📖 使用指南
 
-### 1. 实时输入与渲染
+### 基础操作
 
-| 输入方式 | 说明 |
-|---------|------|
-| 🖱️ 鼠标 | 按住左键绘写，实时渲染 |
-| ⌨️ 键盘 | 文字编辑模式（开发中） |
-| 🖐️ 触控板/触屏 | 支持压感、手势操作 |
+| 操作 | 方法 |
+|------|------|
+| **开始绘写** | 鼠标按住左键拖动 |
+| **切换工具** | 点击工具栏按钮 |
+| **选择颜色** | 点击颜色圆点 |
+| **调整粗细** | 点击粗细按钮 |
+| **撤销** | `Ctrl+Z` 或点击撤销按钮 |
+| **清空** | `Delete` 或点击清空按钮 |
+| **保存** | `Ctrl+S` 或点击保存按钮 |
 
-**画布功能**：
-- 撤销/重做
-- 橡皮擦
-- 颜色选择
-- 笔迹粗细
-- 缩放平移
+### 导出格式
 
-### 2. 保存与导出
-
-**支持的格式**：
-
-| 格式 | 用途 | 状态 |
+| 格式 | 用途 | 特点 |
 |------|------|------|
-| PNG | 图片分享 | ✅ |
-| PDF | 文档打印 | ✅ |
-| JSON | 原始笔迹数据（可再编辑） | ✅ |
-| Markdown | 结构化文本 | 🚧 |
-| SVG | 矢量图 | 🚧 |
+| **PNG** | 图片分享 | 兼容性好，文件小 |
+| **PDF** | 文档打印 | 适合正式文档 |
+| **JSON** | 数据备份 | 可再次编辑 |
 
-### 3. AI 增强功能（开发中）
+### 快捷键
 
-```
-POST /api/ai/recognize    → 手写识别（笔迹→文字）
-POST /api/ai/summarize    → 笔记摘要/总结
-POST /api/ai/enhance      → 内容优化/补全
-POST /api/ai/translate    → 翻译
-POST /api/ai/format       → 智能排版
-```
+| 快捷键 | 功能 |
+|--------|------|
+| `Ctrl+Z` | 撤销 |
+| `Ctrl+S` | 保存 |
+| `Delete` | 清空画布 |
+| `Esc` | 关闭对话框 |
 
 ---
 
 ## 🏗️ 技术架构
 
-### 前端技术栈
+### 技术栈
 
 ```
-React 18          - UI 框架
-TypeScript        - 类型系统
-Vite              - 构建工具
-Tailwind CSS      - 样式框架
-Zustand           - 状态管理
-perfect-freehand  - 平滑笔迹算法
-jsPDF             - PDF 生成
-FileSaver.js      - 文件下载
+┌─────────────────────────────────────────┐
+│           前端技术栈                      │
+├─────────────────────────────────────────┤
+│ React 18        - UI 框架                │
+│ TypeScript      - 类型系统               │
+│ Vite 5          - 构建工具               │
+│ Tailwind CSS    - 样式框架              │
+│ Zustand         - 状态管理               │
+├─────────────────────────────────────────┤
+│           核心库                         │
+├─────────────────────────────────────────┤
+│ perfect-freehand - 平滑笔迹算法          │
+│ jsPDF           - PDF 生成               │
+│ FileSaver.js    - 文件下载              │
+└─────────────────────────────────────────┘
 ```
 
-### 核心组件
-
-```
-src/
-├── components/
-│   ├── Canvas.tsx       # 画布组件（核心）
-│   ├── Toolbar.tsx      # 工具栏
-│   └── SaveDialog.tsx   # 保存对话框
-├── store/
-│   └── useAppStore.ts   # 状态管理
-├── utils/
-│   ├── export.ts        # 导出工具
-│   └── storage.ts       # 本地存储
-└── App.tsx              # 主应用
-```
-
----
-
-## 📁 项目结构
+### 项目结构
 
 ```
 mindnotes-pro/
-├── src/                    # 源代码
-│   ├── components/         # React 组件
-│   ├── store/              # 状态管理
-│   ├── utils/              # 工具函数
-│   ├── App.tsx             # 主应用
-│   └── main.tsx            # 入口文件
-├── public/                 # 静态资源
-├── index.html              # HTML 模板
-├── package.json            # 依赖配置
-├── tsconfig.json           # TypeScript 配置
-├── tailwind.config.js      # Tailwind 配置
-├── vite.config.ts          # Vite 配置
-└── README.md               # 项目说明
+├── 📂 src/
+│   ├── 📂 components/
+│   │   ├── Canvas.tsx       # 画布组件 ⭐
+│   │   ├── Toolbar.tsx      # 工具栏
+│   │   └── SaveDialog.tsx   # 保存对话框
+│   ├── 📂 store/
+│   │   └── useAppStore.ts   # 状态管理
+│   ├── App.tsx              # 主应用
+│   ├── main.tsx             # 入口文件
+│   └── index.css            # 全局样式
+├── 📂 public/               # 静态资源
+├── 📄 index.html            # HTML 模板
+├── 🔧 配置文件
+└── 📚 文档
+```
+
+### 核心算法
+
+**笔迹平滑** (perfect-freehand):
+
+```typescript
+const pathData = getStroke(points, {
+  size: 4,           // 笔迹大小
+  thinning: 0.5,     // 压感敏感度
+  smoothing: 0.5,    // 平滑度
+  streamline: 0.5,   // 防抖动
+})
 ```
 
 ---
 
-## 🎯 开发路线图
+## 📋 开发计划
 
-### P0 - 核心功能（已完成）
+### 当前版本：v1.0.0
 
-- ✅ 项目框架搭建
-- ✅ 画布组件（鼠标输入）
-- ✅ 工具栏（笔/橡皮/颜色/粗细）
-- ✅ 实时渲染笔迹
-- ✅ 基础导出（PNG/JSON/PDF）
+#### ✅ 已完成 (P0)
 
-### P1 - 增强功能（进行中）
+- [x] 项目框架搭建
+- [x] 画布组件（鼠标输入）
+- [x] 工具栏（笔/橡皮/颜色/粗细）
+- [x] 实时渲染笔迹
+- [x] 基础导出（PNG/JSON/PDF）
+- [x] 键盘快捷键支持
 
-- 🚧 键盘输入支持
-- 🚧 触控板/触屏优化
-- 🚧 撤销/重做功能
-- 🚧 自动保存草稿
-- 🚧 更多导出格式（SVG/MD）
+#### 🚧 进行中 (P1)
 
-### P2 - AI 集成（计划中）
+- [ ] 触屏优化
+- [ ] 自动保存草稿
+- [ ] 完整的撤销/重做
+- [ ] 更多导出格式（SVG/Markdown）
 
-- ⏳ 接入 OpenAI API
-- ⏳ 手写识别功能
-- ⏳ 笔记总结功能
-- ⏳ 内容优化功能
-- ⏳ 翻译功能
+#### ⏳ 计划中 (P2)
 
-### P3 - 高级功能（未来）
+- [ ] AI 手写识别
+- [ ] AI 笔记总结
+- [ ] AI 内容优化
+- [ ] AI 翻译功能
 
-- ⏳ 本地草稿自动保存
-- ⏳ 主题/样式自定义
-- ⏳ 笔记分类/标签
-- ⏳ 搜索功能
-- ⏳ 云端同步（可选）
+#### 📅 未来规划 (P3)
+
+- [ ] 云端同步（可选）
+- [ ] 笔记分类/标签
+- [ ] 搜索功能
+- [ ] 主题自定义
+- [ ] 多语言支持
 
 ---
 
-## 🤝 贡献指南
+## 🤝 贡献
 
 欢迎贡献代码、提出建议！
 
@@ -194,14 +262,22 @@ mindnotes-pro/
 ### 提交信息规范
 
 ```
-feat: 新功能
-fix: 修复 bug
-docs: 文档更新
-style: 代码格式调整
+feat:     新功能
+fix:      修复 bug
+docs:     文档更新
+style:    代码格式调整
 refactor: 重构代码
-test: 添加测试
-chore: 构建/工具相关
+test:     添加测试
+chore:    构建/工具相关
 ```
+
+### 需要帮助的地方
+
+- 🐛 Bug 修复
+- 📚 文档完善
+- 🌍 多语言翻译
+- 💡 新功能建议
+- 🎨 UI/UX 优化
 
 ---
 
@@ -209,21 +285,36 @@ chore: 构建/工具相关
 
 MIT License
 
+详见 [LICENSE](LICENSE) 文件
+
 ---
 
 ## 🙏 致谢
 
+感谢以下优秀的开源项目：
+
 - [perfect-freehand](https://github.com/steveruizok/perfect-freehand) - 平滑笔迹算法
-- [jsPDF](https://github.com/parallax/jsPDF) - PDF 生成
+- [jsPDF](https://github.com/parallax/jsPDF) - PDF 生成库
 - [Zustand](https://github.com/pmndrs/zustand) - 轻量状态管理
+- [Vite](https://github.com/vitejs/vite) - 下一代构建工具
+- [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) - 实用优先的 CSS 框架
 
 ---
 
 ## 📞 联系方式
 
-- **GitHub**: https://github.com/11suixing11/mindnotes-pro
-- **Issues**: https://github.com/11suixing11/mindnotes-pro/issues
+| 平台 | 链接 |
+|------|------|
+| **GitHub** | https://github.com/11suixing11/mindnotes-pro |
+| **Issues** | https://github.com/11suixing11/mindnotes-pro/issues |
+| **Discussions** | https://github.com/11suixing11/mindnotes-pro/discussions |
 
 ---
 
+<div align="center">
+
 **MindNotes Pro - 让笔记更智能！** 🧠✨
+
+[返回顶部](#mindnotes-pro-)
+
+</div>

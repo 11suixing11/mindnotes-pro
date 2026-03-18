@@ -1,8 +1,12 @@
-import React, { useRef, useEffect, useCallback } from 'react'
+import React, { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { getStroke } from 'perfect-freehand'
 
-const Canvas: React.FC = () => {
+export interface CanvasRef {
+  getCanvas: () => HTMLCanvasElement | null
+}
+
+const Canvas = forwardRef<CanvasRef>((props, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   
@@ -11,8 +15,14 @@ const Canvas: React.FC = () => {
     currentStroke, 
     isDrawing,
     updateCurrentStroke, 
-    addStroke 
+    addStroke,
+    clearStrokes
   } = useAppStore()
+  
+  // 导出 canvas 引用
+  useImperativeHandle(ref, () => ({
+    getCanvas: () => canvasRef.current
+  }))
   
   // 获取坐标
   const getCoordinates = useCallback((e: React.PointerEvent): [number, number] => {
@@ -42,26 +52,28 @@ const Canvas: React.FC = () => {
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
     
-    if (!isDrawing || !currentStroke) return
+    const state = useAppStore.getState()
+    if (!state.isDrawing || !state.currentStroke) return
     
     const [x, y] = getCoordinates(e)
-    const newPoints = [...currentStroke.points, [x, y, e.pressure || 0.5]]
+    const newPoints = [...state.currentStroke.points, [x, y, e.pressure || 0.5]]
     updateCurrentStroke(newPoints)
-  }, [isDrawing, currentStroke, getCoordinates, updateCurrentStroke])
+  }, [getCoordinates, updateCurrentStroke])
   
   // 结束绘制
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
     
-    if (!currentStroke) return
+    const state = useAppStore.getState()
+    if (!state.currentStroke) return
     
     const canvas = canvasRef.current
     if (canvas) {
       canvas.releasePointerCapture(e.pointerId)
     }
     
-    addStroke(currentStroke)
-  }, [currentStroke, addStroke])
+    addStroke(state.currentStroke)
+  }, [addStroke])
   
   // 渲染函数
   useEffect(() => {
@@ -89,33 +101,37 @@ const Canvas: React.FC = () => {
   const renderStroke = (ctx: CanvasRenderingContext2D, stroke: any) => {
     if (stroke.points.length === 0) return
     
-    const pathData = getStroke(stroke.points, {
-      size: stroke.size,
-      thinning: 0.5,
-      smoothing: 0.5,
-      streamline: 0.5,
-      easing: (t) => t,
-      start: {
-        taper: 0,
-        cap: true,
-      },
-      end: {
-        taper: 0,
-        cap: true,
-      },
-    })
-    
-    ctx.beginPath()
-    ctx.moveTo(pathData[0][0], pathData[0][1])
-    
-    for (let i = 1; i < pathData.length; i++) {
-      const [x, y] = pathData[i]
-      ctx.lineTo(x, y)
+    try {
+      const pathData = getStroke(stroke.points, {
+        size: stroke.size,
+        thinning: 0.5,
+        smoothing: 0.5,
+        streamline: 0.5,
+        easing: (t) => t,
+        start: {
+          taper: 0,
+          cap: true,
+        },
+        end: {
+          taper: 0,
+          cap: true,
+        },
+      })
+      
+      ctx.beginPath()
+      ctx.moveTo(pathData[0][0], pathData[0][1])
+      
+      for (let i = 1; i < pathData.length; i++) {
+        const [x, y] = pathData[i]
+        ctx.lineTo(x, y)
+      }
+      
+      ctx.closePath()
+      ctx.fillStyle = stroke.color
+      ctx.fill()
+    } catch (error) {
+      console.error('渲染笔迹失败:', error)
     }
-    
-    ctx.closePath()
-    ctx.fillStyle = stroke.color
-    ctx.fill()
   }
   
   // 响应式调整画布大小
@@ -124,19 +140,67 @@ const Canvas: React.FC = () => {
       if (!canvasRef.current || !containerRef.current) return
       
       const { width, height } = containerRef.current.getBoundingClientRect()
-      canvasRef.current.width = width
-      canvasRef.current.height = height
+      canvasRef.current.width = width * window.devicePixelRatio
+      canvasRef.current.height = height * window.devicePixelRatio
+      canvasRef.current.style.width = `${width}px`
+      canvasRef.current.style.height = `${height}px`
+      
+      const ctx = canvasRef.current.getContext('2d')
+      if (ctx) {
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
+      }
+      
+      // 重新渲染
+      ctx?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+      strokes.forEach((stroke) => {
+        if (ctx) renderStroke(ctx, stroke)
+      })
     }
     
     updateSize()
-    window.addEventListener('resize', updateSize)
-    return () => window.removeEventListener('resize', updateSize)
-  }, [])
+    
+    const resizeObserver = new ResizeObserver(updateSize)
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current)
+    }
+    
+    return () => resizeObserver.disconnect()
+  }, [strokes])
+  
+  // 键盘快捷键
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + Z = 撤销
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault()
+        useAppStore.getState().undo()
+      }
+      
+      // Ctrl/Cmd + S = 保存
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        // 触发保存事件
+        window.dispatchEvent(new CustomEvent('mindnotes-save'))
+      }
+      
+      // Delete = 清空
+      if (e.key === 'Delete') {
+        e.preventDefault()
+        if (confirm('确定要清空所有笔迹吗？')) {
+          clearStrokes()
+        }
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [clearStrokes])
   
   return (
     <div 
       ref={containerRef}
       className="canvas-container w-full h-full bg-white"
+      style={{ touchAction: 'none' }}
     >
       <canvas
         ref={canvasRef}
@@ -145,10 +209,15 @@ const Canvas: React.FC = () => {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
-        style={{ touchAction: 'none' }}
+        style={{ 
+          touchAction: 'none',
+          cursor: 'crosshair'
+        }}
       />
     </div>
   )
-}
+})
+
+Canvas.displayName = 'Canvas'
 
 export default Canvas
