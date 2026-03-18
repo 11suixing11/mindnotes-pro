@@ -6,49 +6,65 @@ import jsPDF from 'jspdf'
 interface SaveDialogProps {
   isOpen: boolean
   onClose: () => void
-  canvasRef: React.RefObject<HTMLCanvasElement>
+  canvas: HTMLCanvasElement | null
 }
 
-const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvasRef }) => {
+const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
   const { strokes } = useAppStore()
   const [format, setFormat] = useState<'png' | 'json' | 'pdf'>('png')
+  const [isSaving, setIsSaving] = useState(false)
   
   if (!isOpen) return null
   
   // 导出为 PNG
   const exportAsPNG = () => {
-    if (!canvasRef.current) return
+    if (!canvas) return
     
-    canvasRef.current.toBlob((blob) => {
+    setIsSaving(true)
+    canvas.toBlob((blob) => {
       if (!blob) return
       saveAs(blob, `mindnotes-${Date.now()}.png`)
+      setIsSaving(false)
       onClose()
     }, 'image/png')
   }
   
   // 导出为 JSON（原始笔迹数据）
   const exportAsJSON = () => {
-    const data = JSON.stringify(strokes, null, 2)
-    const blob = new Blob([data], { type: 'application/json' })
-    saveAs(blob, `mindnotes-${Date.now()}.json`)
+    setIsSaving(true)
+    try {
+      const data = JSON.stringify(strokes, null, 2)
+      const blob = new Blob([data], { type: 'application/json' })
+      saveAs(blob, `mindnotes-${Date.now()}.json`)
+    } catch (error) {
+      console.error('导出 JSON 失败:', error)
+      alert('导出失败，请重试')
+    }
+    setIsSaving(false)
     onClose()
   }
   
   // 导出为 PDF
   const exportAsPDF = () => {
-    if (!canvasRef.current) return
+    if (!canvas) return
     
-    const canvas = canvasRef.current
-    const imgData = canvas.toDataURL('image/png')
-    
-    const pdf = new jsPDF({
-      orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
-      unit: 'px',
-      format: [canvas.width, canvas.height]
-    })
-    
-    pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height)
-    pdf.save(`mindnotes-${Date.now()}.pdf`)
+    setIsSaving(true)
+    try {
+      const imgData = canvas.toDataURL('image/png')
+      
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      })
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height)
+      pdf.save(`mindnotes-${Date.now()}.pdf`)
+    } catch (error) {
+      console.error('导出 PDF 失败:', error)
+      alert('导出失败，请重试')
+    }
+    setIsSaving(false)
     onClose()
   }
   
@@ -69,47 +85,50 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvasRef }) =
   return (
     <div className="dialog-overlay" onClick={onClose}>
       <div className="dialog-content" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-2xl font-bold mb-4">💾 保存笔记</h2>
+        <h2 className="text-2xl font-bold mb-4 text-gray-800">💾 保存笔记</h2>
         
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            选择格式
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            选择导出格式
           </label>
           <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => setFormat('png')}
-              className={`p-4 rounded-lg border-2 transition-all ${
+              className={`p-4 rounded-xl border-2 transition-all duration-200 hover:scale-105 ${
                 format === 'png'
-                  ? 'border-primary bg-blue-50'
+                  ? 'border-primary bg-blue-50 shadow-md'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
-              <div className="text-2xl mb-1">🖼️</div>
-              <div className="text-sm font-medium">PNG 图片</div>
+              <div className="text-3xl mb-2">🖼️</div>
+              <div className="text-sm font-medium text-gray-700">PNG 图片</div>
+              <div className="text-xs text-gray-500 mt-1">适合分享</div>
             </button>
             
             <button
               onClick={() => setFormat('json')}
-              className={`p-4 rounded-lg border-2 transition-all ${
+              className={`p-4 rounded-xl border-2 transition-all duration-200 hover:scale-105 ${
                 format === 'json'
-                  ? 'border-primary bg-blue-50'
+                  ? 'border-primary bg-blue-50 shadow-md'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
-              <div className="text-2xl mb-1">📄</div>
-              <div className="text-sm font-medium">JSON 数据</div>
+              <div className="text-3xl mb-2">📄</div>
+              <div className="text-sm font-medium text-gray-700">JSON 数据</div>
+              <div className="text-xs text-gray-500 mt-1">可再次编辑</div>
             </button>
             
             <button
               onClick={() => setFormat('pdf')}
-              className={`p-4 rounded-lg border-2 transition-all ${
+              className={`p-4 rounded-xl border-2 transition-all duration-200 hover:scale-105 ${
                 format === 'pdf'
-                  ? 'border-primary bg-blue-50'
+                  ? 'border-primary bg-blue-50 shadow-md'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
-              <div className="text-2xl mb-1">📕</div>
-              <div className="text-sm font-medium">PDF 文档</div>
+              <div className="text-3xl mb-2">📕</div>
+              <div className="text-sm font-medium text-gray-700">PDF 文档</div>
+              <div className="text-xs text-gray-500 mt-1">适合打印</div>
             </button>
           </div>
         </div>
@@ -117,15 +136,26 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvasRef }) =
         <div className="flex gap-3 justify-end">
           <button
             onClick={onClose}
-            className="px-6 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+            disabled={isSaving}
+            className="px-6 py-2.5 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             取消
           </button>
           <button
             onClick={handleSave}
-            className="px-6 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
+            disabled={isSaving}
+            className="px-6 py-2.5 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
-            保存
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                保存中...
+              </>
+            ) : (
+              <>
+                💾 保存
+              </>
+            )}
           </button>
         </div>
       </div>
