@@ -1,8 +1,10 @@
 import React from 'react'
 import { useAppStore } from '../store/useAppStore'
+import { useThemeStore } from '../store/useThemeStore'
 
 const Toolbar: React.FC = () => {
   const { tool, color, size, setTool, setColor, setSize, clearStrokes, undo } = useAppStore()
+  const { isDarkMode, toggleTheme } = useThemeStore()
   
   const colors = [
     '#000000', // 黑
@@ -89,6 +91,17 @@ const Toolbar: React.FC = () => {
           🗑️ 清空
         </button>
       </div>
+      
+      <div className="w-px h-8 bg-gray-200" />
+      
+      {/* 主题切换 */}
+      <button
+        onClick={toggleTheme}
+        className="toolbar-btn bg-gray-100 hover:bg-gray-200"
+        title={isDarkMode ? '切换到浅色模式' : '切换到深色模式'}
+      >
+        {isDarkMode ? '☀️' : '🌙'}
+      </button>
     </div>
   )
 }

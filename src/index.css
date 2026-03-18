@@ -2,6 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
+/* CSS 变量主题系统 */
+:root {
+  /* 浅色主题 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --primary-color: #4f46e5;
+  --primary-hover: #4338ca;
+  --toolbar-bg: rgba(255, 255, 255, 0.95);
+  --canvas-bg: #ffffff;
+}
+
+.dark {
+  /* 深色主题 */
+  --bg-primary: #1f2937;
+  --bg-secondary: #111827;
+  --bg-tertiary: #030712;
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --border-color: #374151;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --primary-color: #6366f1;
+  --primary-hover: #818cf8;
+  --toolbar-bg: rgba(31, 41, 55, 0.95);
+  --canvas-bg: #1f2937;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -15,6 +46,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #root {
