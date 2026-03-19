@@ -100,16 +100,15 @@ jobs:
           path: artifacts
       - name: List artifacts
         run: find artifacts -type f
-      - uses: softprops/action-gh-release@v2
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: ${{ success() || failure() }}
         with:
           files: |
             artifacts/linux-appimage/*.AppImage
             artifacts/windows-exe/*.exe
             artifacts/macos-dmg/*.dmg
-            artifacts/android-apk/**/*.apk
           generate_release_notes: true
           fail_on_unmatched_files: false
-          draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
