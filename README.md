@@ -7,7 +7,7 @@
 [![Stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?style=social)](https://github.com/11suixing11/mindnotes-pro/stargazers)
 [![Issues](https://img.shields.io/github/issues/11suixing11/mindnotes-pro?style=flat-square)](https://github.com/11suixing11/mindnotes-pro/issues)
 
-**最新版本**: v1.1.4 (2026-03-19)  
+**最新版本**: v1.1.5 (2026-03-20)  
 **对标产品**: Notion, GoodNotes, Obsidian, 苹果应用  
 **许可证**: MIT (免费开源)
 
@@ -69,28 +69,28 @@
 #### Windows
 ```bash
 # 下载安装包
-https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.4/MindNotes.Pro.Setup.1.1.4.exe
+https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.5/MindNotes.Pro.Setup.1.1.5.exe
 
 # 或使用便携版
-https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.4/MindNotes.Pro.Portable.1.1.4.exe
+https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.5/MindNotes.Pro.Portable.1.1.5.exe
 ```
 
 #### macOS
 ```bash
 # 下载 DMG
-https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.4/MindNotes.Pro-1.1.4.dmg
+https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.5/MindNotes.Pro-1.1.5.dmg
 ```
 
 #### Linux
 ```bash
 # 下载 AppImage
-https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.4/MindNotes.Pro-1.1.4.AppImage
+https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.5/MindNotes.Pro-1.1.5.AppImage
 
 # 赋予执行权限
-chmod +x MindNotes.Pro-1.1.4.AppImage
+chmod +x MindNotes.Pro-1.1.5.AppImage
 
 # 运行
-./MindNotes.Pro-1.1.4.AppImage
+./MindNotes.Pro-1.1.5.AppImage
 ```
 
 ---
@@ -118,6 +118,14 @@ npm run electron:build
 ---
 
 ## 📋 功能清单
+
+### v1.1.5 新增 (最新) ⭐
+
+- ✅ 新手引导 (5 步交互式)
+- ✅ 性能监控 (Lighthouse 测试)
+- ✅ 用户反馈系统 (GitHub Issues 集成)
+- ✅ 欢迎引导组件 (首次使用)
+- ✅ 快捷键提示 (新手友好)
 
 ### v1.1.4 新增
 
@@ -202,6 +210,7 @@ npm run electron:build
 
 | 版本 | 日期 | 优化数 | 主要内容 |
 |------|------|--------|---------|
+| v1.1.5 | 2026-03-20 | 5/5 | 用户体验完善 ⭐ |
 | v1.1.4 | 2026-03-19 | 5/5 | 对标世界级优化 |
 | v1.1.3 | 2026-03-19 | 7/7 | PWA 离线功能 |
 | v1.1.2 | 2026-03-19 | 6/6 | 悬浮笔记组件 |
@@ -212,19 +221,20 @@ npm run electron:build
 
 ### 当前进度
 
-**版本**: v1.1.4 ✅  
-**下一版本**: v1.1.5 (0/5 进行中)  
+**版本**: v1.1.5 ✅ (最新)  
+**下一版本**: v1.1.6 (0/5 计划中)  
 **优化频率**: 每 5 个优化自动发布  
-**汇报频率**: 每 2 小时
+**汇报频率**: 每 2 小时  
+**累计优化**: 34 个
 
 ### 路线图
 
-**v1.1.5** (本周):
-- [ ] 新手引导
-- [ ] 性能优化
-- [ ] 品牌视觉
+**v1.1.6** (计划中):
+- [ ] 品牌视觉优化
 - [ ] 文档完善
-- [ ] 用户反馈
+- [ ] 性能优化实施
+- [ ] CDN 加速
+- [ ] 截图展示
 
 **v1.2.0** (下周):
 - [ ] 云端同步
