@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MindNotes Pro</string>
+    <string name="title_activity_main">MindNotes Pro</string>
+    <string name="package_name">com.mindnotes.pro</string>
+    <string name="custom_url_scheme">com.mindnotes.pro</string>
+</resources>
