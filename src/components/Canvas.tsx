@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback, forwardRef, useImperativeHandle, useState } from 'react'
 import { useAppStore, Shape } from '../store/useAppStore'
 import { getStroke } from 'perfect-freehand'
+import { calculateSnap, snapToGrid } from '../utils/snap'
 
 export interface CanvasRef {
   getCanvas: () => HTMLCanvasElement | null
@@ -24,12 +25,18 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
     updateCurrentShape,
     addShape,
     startShape,
+    showGuides,
+    snapToGrid: enableSnapToGrid,
+    gridSize,
+    setGuideLines,
+    clearGuideLines,
   } = useAppStore()
   
   const [isPanning, setIsPanning] = useState(false)
   const lastPanPosition = useRef<{ x: number; y: number } | null>(null)
   const [currentPressure, setCurrentPressure] = useState(0)
   const shapeStartPoint = useRef<{ x: number; y: number } | null>(null)
+  const SNAP_THRESHOLD = 5
   
   // 导出 canvas 引用
   useImperativeHandle(ref, () => ({
@@ -95,11 +102,43 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
     
     // 处理形状绘制
     if (currentShape && shapeStartPoint.current) {
-      const [x, y] = getCoordinates(e)
+      let [x, y] = getCoordinates(e)
       const startX = shapeStartPoint.current.x
       const startY = shapeStartPoint.current.y
+      
+      // 网格吸附
+      if (enableSnapToGrid) {
+        x = snapToGrid(x, gridSize)
+        y = snapToGrid(y, gridSize)
+      }
+      
       const width = x - startX
       const height = y - startY
+      
+      // 智能吸附（仅矩形/圆形/三角形）
+      if (!enableSnapToGrid && currentShape.type !== 'arrow' && currentShape.type !== 'line' && showGuides) {
+        const snapX = width < 0 ? x : startX
+        const snapY = height < 0 ? y : startY
+        const snapWidth = Math.abs(width)
+        const snapHeight = Math.abs(height)
+        
+        const snapResult = calculateSnap(snapX, snapY, snapWidth, snapHeight, shapes)
+        
+        if (snapResult.x != null) {
+          if (width < 0) {
+            x = snapResult.x
+          }
+        }
+        if (snapResult.y != null) {
+          if (height < 0) {
+            y = snapResult.y
+          }
+        }
+        
+        setGuideLines(snapResult.guides)
+      } else {
+        clearGuideLines()
+      }
       
       // 箭头和直线使用起点终点坐标
       if (currentShape.type === 'arrow' || currentShape.type === 'line') {
@@ -111,11 +150,16 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
         })
       } else {
         // 矩形、圆形、三角形使用位置 + 尺寸
+        const finalX = x
+        const finalY = y
+        const finalWidth = Math.abs(finalX - startX)
+        const finalHeight = Math.abs(finalY - startY)
+        
         updateCurrentShape({
-          x: width < 0 ? x : startX,
-          y: height < 0 ? y : startY,
-          width: Math.abs(width),
-          height: Math.abs(height),
+          x: finalWidth > 0 && (finalX - startX) < 0 ? finalX : startX,
+          y: finalHeight > 0 && (finalY - startY) < 0 ? finalY : startY,
+          width: finalWidth,
+          height: finalHeight,
         })
       }
       return
@@ -212,6 +256,46 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
     // 恢复变换状态
     ctx.restore()
   }, [strokes, currentStroke, shapes, currentShape, viewBox])
+  
+  // 渲染辅助线
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    
+    // 在变换后的画布上渲染辅助线
+    ctx.save()
+    ctx.translate(viewBox.x, viewBox.y)
+    ctx.scale(viewBox.zoom, viewBox.zoom)
+    
+    // 渲染辅助线
+    if (showGuides && currentShape) {
+      ctx.strokeStyle = '#FFD700'
+      ctx.lineWidth = 1 / viewBox.zoom
+      ctx.setLineDash([4 / viewBox.zoom, 4 / viewBox.zoom])
+      
+      shapes.forEach((shape) => {
+        // 水平辅助线
+        if (Math.abs(shape.y - currentShape.y) < SNAP_THRESHOLD) {
+          ctx.beginPath()
+          ctx.moveTo(0, shape.y)
+          ctx.lineTo(canvas.width / viewBox.zoom, shape.y)
+          ctx.stroke()
+        }
+        // 垂直辅助线
+        if (Math.abs(shape.x - currentShape.x) < SNAP_THRESHOLD) {
+          ctx.beginPath()
+          ctx.moveTo(shape.x, 0)
+          ctx.lineTo(shape.x, canvas.height / viewBox.zoom)
+          ctx.stroke()
+        }
+      })
+    }
+    
+    ctx.restore()
+  }, [shapes, currentShape, showGuides, viewBox])
   
   // 渲染单个笔迹
   const renderStroke = (ctx: CanvasRenderingContext2D, stroke: any) => {
