@@ -12,6 +12,7 @@ import { useShortcuts } from './hooks/useShortcuts'
 function App() {
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [useTldraw, setUseTldraw] = useState(false) // 切换模式
+  const [showWelcome, setShowWelcome] = useState(true)
   const canvasRef = useRef<CanvasRef>(null)
   const { initTheme } = useThemeStore()
   const { updateAvailable, isOnline, skipWaiting } = useServiceWorker()
@@ -62,6 +63,9 @@ function App() {
 
   return (
     <div className="w-full h-screen relative bg-[var(--bg-secondary)] overflow-hidden">
+      {/* 新手引导 */}
+      {showWelcome && <WelcomeGuide onComplete={() => setShowWelcome(false)} />}
+
       {/* 顶部工具栏 */}
       <Toolbar />
 
