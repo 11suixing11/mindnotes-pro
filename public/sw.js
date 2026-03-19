@@ -1,107 +1,125 @@
 // MindNotes Pro Service Worker
-// 提供离线缓存和后台同步功能
+// 离线优先策略，确保离线可用
 
-const CACHE_NAME = 'mindnotes-pro-v1'
-const urlsToCache = [
+const CACHE_NAME = 'mindnotes-pro-v1.1.3'
+const OFFLINE_URL = '/offline.html'
+
+// 核心资源（必须缓存）
+const CORE_ASSETS = [
   '/',
   '/index.html',
+  '/offline.html',
   '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
 ]
 
-// 安装事件 - 缓存核心资源
+// 安装事件 - 预缓存核心资源
 self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Installing...')
+  console.log('[SW] Installing...')
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('[Service Worker] Caching app shell')
-        return cache.addAll(urlsToCache)
+        console.log('[SW] Pre-caching core assets')
+        return cache.addAll(CORE_ASSETS)
       })
       .then(() => {
-        console.log('[Service Worker] Installation complete, skipping waiting')
+        console.log('[SW] Installation complete, skipping waiting')
         return self.skipWaiting()
+      })
+      .catch((error) => {
+        console.error('[SW] Installation failed:', error)
       })
   )
 })
 
 // 激活事件 - 清理旧缓存
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activating...')
+  console.log('[SW] Activating...')
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('[Service Worker] Deleting old cache:', cacheName)
-            return caches.delete(cacheName)
-          }
-        })
-      )
-    }).then(() => {
-      console.log('[Service Worker] Activation complete')
-      return self.clients.claim()
-    })
-  )
-})
-
-// 获取事件 - 网络优先，离线时返回缓存
-self.addEventListener('fetch', (event) => {
-  // 跳过非 GET 请求
-  if (event.request.method !== 'GET') {
-    return
-  }
-
-  // 跳过跨域请求
-  if (!event.request.url.startsWith(self.location.origin)) {
-    return
-  }
-
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // 网络请求成功，更新缓存
-        if (response.status === 200) {
-          const responseClone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone)
+    caches.keys()
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== CACHE_NAME) {
+              console.log('[SW] Deleting old cache:', cacheName)
+              return caches.delete(cacheName)
+            }
           })
-        }
-        return response
+        )
       })
-      .catch(() => {
-        // 网络失败，返回缓存
-        console.log('[Service Worker] Fetch failed, returning cached:', event.request.url)
-        return caches.match(event.request)
+      .then(() => {
+        console.log('[SW] Activation complete')
+        return self.clients.claim()
       })
   )
 })
 
-// 后台同步（可选功能）
-self.addEventListener('sync', (event) => {
-  console.log('[Service Worker] Sync event:', event.tag)
-  if (event.tag === 'sync-notes') {
-    event.waitUntil(syncNotes())
+// 获取事件 - 离线优先策略
+self.addEventListener('fetch', (event) => {
+  // 只处理 GET 请求
+  if (event.request.method !== 'GET') return
+
+  // 跳过非本域请求（CDN、API 等）
+  const isSameOrigin = event.request.url.startsWith(self.location.origin)
+  if (!isSameOrigin) {
+    // 对于 CDN 资源，使用网络优先
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const clone = response.clone()
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, clone)
+          })
+          return response
+        })
+        .catch(() => {
+          return caches.match(event.request)
+        })
+    )
+    return
   }
+
+  // 本域资源：离线优先
+  event.respondWith(
+    caches.match(event.request)
+      .then((cachedResponse) => {
+        if (cachedResponse) {
+          console.log('[SW] Serving from cache:', event.request.url)
+          // 后台更新缓存
+          fetchAndCache(event.request)
+          return cachedResponse
+        }
+
+        // 缓存未命中，尝试网络
+        return fetchAndCache(event.request)
+          .catch(() => {
+            // 网络失败，返回离线页面
+            console.log('[SW] Offline, serving offline page')
+            return caches.match(OFFLINE_URL)
+          })
+      })
+  )
 })
 
-async function syncNotes() {
-  // 这里可以实现笔记的后台同步逻辑
-  console.log('[Service Worker] Syncing notes...')
+// 网络请求并缓存
+async function fetchAndCache(request) {
+  const response = await fetch(request)
+  
+  // 只缓存成功响应
+  if (response.status === 200) {
+    const cache = await caches.open(CACHE_NAME)
+    cache.put(request, response.clone())
+  }
+  
+  return response
 }
 
-// 推送通知（可选功能）
-self.addEventListener('push', (event) => {
-  console.log('[Service Worker] Push received')
-  const options = {
-    body: event.data?.text() || '新通知',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
-    vibrate: [100, 50, 100],
+// 消息处理
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting()
   }
-
-  event.waitUntil(
-    self.registration.showNotification('MindNotes Pro', options)
-  )
 })
 
-console.log('[Service Worker] Script loaded')
+console.log('[SW] Service Worker loaded')
