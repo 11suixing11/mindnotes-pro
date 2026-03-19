@@ -182,6 +182,17 @@ const Toolbar: React.FC = () => {
       >
         {isDarkMode ? '☀️ 浅色' : '🌙 深色'}
       </button>
+      
+      <div className="w-px h-8 bg-[var(--border-color)]" />
+      
+      {/* 快捷键帮助 */}
+      <button
+        onClick={() => window.dispatchEvent(new CustomEvent('toggle-shortcuts'))}
+        className="toolbar-btn bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] text-[var(--text-primary)]"
+        title="查看快捷键 (?)"
+      >
+        ⌨️ 帮助
+      </button>
     </div>
   )
 }
