@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace 'com.mindnotes.pro'
-    compileSdk 34
+    compileSdk 36  // AndroidX 要求
     
     defaultConfig {
         applicationId "com.mindnotes.pro"
