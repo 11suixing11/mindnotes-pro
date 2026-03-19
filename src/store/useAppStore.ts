@@ -6,6 +6,11 @@ export interface Stroke {
   color: string
   size: number
   tool: 'pen' | 'eraser'
+  // 图层属性
+  name?: string
+  locked?: boolean
+  hidden?: boolean
+  opacity?: number
 }
 
 export interface Shape {
@@ -23,6 +28,11 @@ export interface Shape {
   startY?: number
   endX?: number
   endY?: number
+  // 图层属性
+  name?: string
+  locked?: boolean
+  hidden?: boolean
+  opacity?: number
 }
 
 interface AppState {
@@ -51,6 +61,10 @@ interface AppState {
   snapToGrid: boolean
   gridSize: number
   guideLines: Array<{ type: 'horizontal' | 'vertical'; position: number }> | null
+  
+  // 图层管理
+  selectedLayerId: string | null
+  showLayersPanel: boolean
   
   // 操作状态
   isDrawing: boolean
@@ -84,6 +98,15 @@ interface AppState {
   toggleShowGuides: () => void
   toggleSnapToGrid: () => void
   
+  // 图层管理方法
+  setSelectedLayer: (id: string | null) => void
+  toggleLayersPanel: () => void
+  toggleLayerLock: (id: string) => void
+  toggleLayerHidden: (id: string) => void
+  deleteLayer: (id: string) => void
+  moveLayerUp: (id: string) => void
+  moveLayerDown: (id: string) => void
+  
   undo: () => void
   redo: () => void
 }
@@ -110,6 +133,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   snapToGrid: false,
   gridSize: 20,
   guideLines: null,
+  
+  selectedLayerId: null,
+  showLayersPanel: false,
   
   isDrawing: false,
   canUndo: false,
@@ -193,6 +219,42 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearGuideLines: () => set({ guideLines: null }),
   toggleShowGuides: () => set((state) => ({ showGuides: !state.showGuides })),
   toggleSnapToGrid: () => set((state) => ({ snapToGrid: !state.snapToGrid })),
+  
+  // 图层管理方法
+  setSelectedLayer: (id) => set({ selectedLayerId: id }),
+  toggleLayersPanel: () => set((state) => ({ showLayersPanel: !state.showLayersPanel })),
+  
+  toggleLayerLock: (id) => {
+    set((state) => ({
+      strokes: state.strokes.map(s => s.id === id ? { ...s, locked: !s.locked } : s),
+      shapes: state.shapes.map(s => s.id === id ? { ...s, locked: !s.locked } : s),
+    }))
+  },
+  
+  toggleLayerHidden: (id) => {
+    set((state) => ({
+      strokes: state.strokes.map(s => s.id === id ? { ...s, hidden: !s.hidden } : s),
+      shapes: state.shapes.map(s => s.id === id ? { ...s, hidden: !s.hidden } : s),
+    }))
+  },
+  
+  deleteLayer: (id) => {
+    set((state) => ({
+      strokes: state.strokes.filter(s => s.id !== id),
+      shapes: state.shapes.filter(s => s.id !== id),
+      selectedLayerId: null,
+    }))
+  },
+  
+  moveLayerUp: (id) => {
+    // TODO: 实现图层上移
+    console.log('Move layer up:', id)
+  },
+  
+  moveLayerDown: (id) => {
+    // TODO: 实现图层下移
+    console.log('Move layer down:', id)
+  },
   
   // 形状方法
   addShape: (shape) => {

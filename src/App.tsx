@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import Canvas, { CanvasRef } from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import SaveDialog from './components/SaveDialog'
+import LayersPanel from './components/LayersPanel'
 import { useThemeStore } from './store/useThemeStore'
 import { useServiceWorker } from './hooks/useServiceWorker'
 import { useShortcuts } from './hooks/useShortcuts'
@@ -38,15 +39,15 @@ function App() {
     }
   }
   
-  // 监听快捷键面板切换事件（预留）
-  // useEffect(() => {
-  //   const handleToggleShortcuts = () => {
-  //     setShowShortcuts(prev => !prev)
-  //   }
-  //   
-  //   window.addEventListener('toggle-shortcuts', handleToggleShortcuts)
-  //   return () => window.removeEventListener('toggle-shortcuts', handleToggleShortcuts)
-  // }, [])
+  // 监听图层面板切换事件
+  useEffect(() => {
+    const handleToggleLayers = () => {
+      // 通过 store 管理，这里不需要额外状态
+    }
+    
+    window.addEventListener('toggle-layers', handleToggleLayers)
+    return () => window.removeEventListener('toggle-layers', handleToggleLayers)
+  }, [])
   
   return (
     <div className="w-full h-screen relative bg-[var(--bg-secondary)] overflow-hidden">
@@ -131,6 +132,9 @@ function App() {
           <span>查看快捷键</span>
         </div>
       </div>
+      
+      {/* 图层面板 */}
+      <LayersPanel />
     </div>
   )
 }
