@@ -74,18 +74,21 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx cap sync android
-      - uses: gradle/gradle-build-action@v3
-        with:
-          arguments: assembleRelease
-          build-root-directory: android
+      - name: Build Android APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+        continue-on-error: true
+      - name: Find APK files
+        run: find android/app/build/outputs -name "*.apk" || true
         continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: android-apk
-          path: |
-            android/app/build/outputs/apk/release/*.apk
-            android/app/build/outputs/apk/debug/*.apk
+          path: android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: ignore
 
   upload-release:
     needs: [build-linux, build-windows, build-macos, build-android]
@@ -106,5 +109,7 @@ jobs:
             artifacts/android-apk/**/*.apk
           generate_release_notes: true
           fail_on_unmatched_files: false
+          draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
