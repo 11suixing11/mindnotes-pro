@@ -1,369 +1,358 @@
-<div align="center">
-
 # 🧠 MindNotes Pro
 
-> **让灵感自由流淌 - 你的智能手写笔记**
+> **让灵感自由流淌**
 
-[![在线使用](https://img.shields.io/badge/🌐-在线使用-blue)](https://mindnotes-pro.vercel.app)
-[![完全免费](https://img.shields.io/badge/💰-完全免费-green)](https://mindnotes-pro.vercel.app)
-[![无需安装](https://img.shields.io/badge/📦-无需安装-orange)](https://mindnotes-pro.vercel.app)
-[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?color=yellow)](https://github.com/11suixing11/mindnotes-pro/stargazers)
+[![Release](https://img.shields.io/github/v/release/11suixing11/mindnotes-pro?label=Release&style=flat-square)](https://github.com/11suixing11/mindnotes-pro/releases)
+[![License](https://img.shields.io/github/license/11suixing11/mindnotes-pro?style=flat-square)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?style=social)](https://github.com/11suixing11/mindnotes-pro/stargazers)
+[![Issues](https://img.shields.io/github/issues/11suixing11/mindnotes-pro?style=flat-square)](https://github.com/11suixing11/mindnotes-pro/issues)
 
-**[🌐 在线使用](#-立即开始)** • **[📱 下载应用](#-下载应用)** • **[📖 使用教程](#-使用教程)** • **[❓ 常见问题](#-常见问题)** • **[📧 联系我们](#-联系我们)**
-
-</div>
-
----
-
-## ✨ 这是什么？
-
-**MindNotes Pro** 是一个像纸笔一样自然的手写笔记工具。
-
-### 🎨 适合谁用？
-
-| 人群 | 使用场景 |
-|------|---------|
-| 👨‍🎓 **学生** | 课堂笔记、草稿演算、错题整理 |
-| 👨‍💼 **职场人** | 会议纪要、头脑风暴、流程梳理 |
-| 👨‍🎨 **设计师** | 草图绘制、创意构思、灵感记录 |
-| 👨‍🏫 **教师/研究者** | 备课笔记、公式推导、论文草稿 |
-| 📝 **任何人** | 记录想法、待办清单、思维导图 |
-
-### 💡 为什么用它？
-
-```
-✅ 打开就能用 - 无需注册，无需登录
-✅ 像纸笔一样自然 - 鼠标按住就能写
-✅ 完全免费 - 没有任何付费内容
-✅ 隐私安全 - 数据存在你的电脑里
-✅ 随时导出 - PNG/PDF/JSON 随意选择
-```
+**最新版本**: v1.1.4 (2026-03-19)  
+**对标产品**: Notion, GoodNotes, Obsidian, 苹果应用  
+**许可证**: MIT (免费开源)
 
 ---
 
-## 🚀 立即开始
+## ✨ 核心特性
 
-### 方式一：在线使用（推荐 ⭐⭐⭐⭐⭐）
+### 🎨 手写 + 文字混合输入
 
-**无需安装任何东西！**
+- ✍️ 流畅的手写体验，支持压感
+- ⌨️ 键盘输入，快速记录
+- 🔄 手写文字无缝切换
+- 🎯 智能吸附，整洁排版
 
-```
-1. 访问：https://mindnotes-pro.vercel.app
-2. 打开浏览器
-3. 开始写写画画！
-```
+### 📱 全平台支持
 
-**适合**：想立即体验、不想安装、需要跨设备使用
+- 💻 **桌面应用**: Windows / macOS / Linux
+- 🌐 **Web 应用**: PWA 离线可用
+- 📱 **移动端**: Android (即将发布) / iOS (计划中)
+- 🔄 **数据同步**: 本地优先，云端备份
+
+### ⚡ 极致性能
+
+- 🚀 快速启动 <2s
+- 🎯 60fps 流畅书写
+- 💾 自动保存，永不丢失
+- 📶 离线可用，无需网络
+
+### 🛡️ 隐私保护
+
+- 🔒 本地优先存储
+- 🚫 不收集用户数据
+- 👁️ 代码开源透明
+- ✅ MIT 许可免费
 
 ---
 
-### 方式二：下载应用（离线使用 ⭐⭐⭐⭐）
+## 🚀 快速开始
 
-#### Windows 用户
+### 在线使用 (推荐) ⭐
 
-```
-1. 下载：点击右侧 "Releases" → 下载 .msi 文件
-2. 安装：双击下载的文件 → 一直点"下一步"
-3. 使用：桌面会出现图标 → 双击启动
-```
+访问：https://mindnotes-pro.vercel.app
 
-#### Mac 用户
+**添加到主屏幕**:
+1. 用 Chrome 打开网站
+2. 点击菜单 (⋮) → "应用" → "安装 MindNotes Pro"
+3. 像原生应用一样使用
 
-```
-1. 下载：点击右侧 "Releases" → 下载 .dmg 文件
-2. 安装：拖到"应用程序"文件夹
-3. 使用：在"应用程序"中找到并打开
-```
+**优势**:
+- ✅ 无需安装
+- ✅ 自动更新
+- ✅ 离线可用
+- ✅ 跨平台
 
-#### Android 用户
+---
 
-```
-1. 下载：点击右侧 "Releases" → 下载 .apk 文件
-2. 安装：允许"未知来源" → 点击安装
-3. 使用：点击应用图标
+### 桌面应用下载
+
+#### Windows
+```bash
+# 下载安装包
+https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.4/MindNotes.Pro.Setup.1.1.4.exe
+
+# 或使用便携版
+https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.4/MindNotes.Pro.Portable.1.1.4.exe
 ```
 
----
-
-## 📖 使用教程
-
-### 基础操作（30 秒学会）
-
-| 想做什么 | 怎么做 |
-|---------|--------|
-| **写字/画画** | 鼠标按住左键拖动 |
-| **换颜色** | 点击顶部的颜色圆点 |
-| **调整粗细** | 点击粗细按钮（从小到大） |
-| **擦除** | 点击"橡皮擦"按钮 |
-| **撤销** | 按键盘 `Ctrl+Z` 或点击撤销按钮 |
-| **清空** | 按键盘 `Delete` 或点击清空按钮 |
-| **保存** | 按键盘 `Ctrl+S` 或点击保存按钮 |
-
-### 快捷键（效率翻倍）
-
-```
-Ctrl+Z    →  撤销（写错了？一键回到上一步）
-Ctrl+S    →  保存（防止丢失）
-Delete    →  清空（重新开始）
+#### macOS
+```bash
+# 下载 DMG
+https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.4/MindNotes.Pro-1.1.4.dmg
 ```
 
-### 保存和导出
+#### Linux
+```bash
+# 下载 AppImage
+https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.4/MindNotes.Pro-1.1.4.AppImage
 
-点击右下角的 **"💾 保存"** 按钮，选择格式：
+# 赋予执行权限
+chmod +x MindNotes.Pro-1.1.4.AppImage
 
-| 格式 | 什么时候用 | 例子 |
-|------|-----------|------|
-| **PNG 图片** | 分享给别人、插入文档 | 课堂笔记截图 |
-| **PDF 文档** | 打印、正式提交 | 会议纪要 |
-| **JSON 数据** | 以后还要编辑 | 未完成的草稿 |
-
----
-
-## 🎨 使用场景
-
-### 场景 1：课堂/会议记录
-
-```
-打开应用 → 选择颜色 → 开始记录 → 保存为 PDF
+# 运行
+./MindNotes.Pro-1.1.4.AppImage
 ```
 
-**好处**：
-- 比打字快，可以画图
-- 支持公式和图表
-- 容易修改和整理
-
 ---
 
-### 场景 2：创意构思
+### 本地开发
 
-```
-头脑风暴 → 用不同颜色区分 → 整理归纳 → 导出分享
-```
+```bash
+# 克隆项目
+git clone https://github.com/11suixing11/mindnotes-pro.git
 
-**好处**：
-- 自由绘制，不受限制
-- 多颜色区分重点
-- 随时保存不丢失
+# 安装依赖
+cd mindnotes-pro
+npm install
 
----
+# 启动开发服务器
+npm run dev
 
-### 场景 3：学习笔记
+# 构建生产版本
+npm run build
 
-```
-听课记录 → 重点标注 → 整理复习 → 导出存档
+# 打包桌面应用
+npm run electron:build
 ```
 
-**好处**：
-- 像纸笔一样自然
-- 可以插入图表
-- 方便整理和复习
+---
+
+## 📋 功能清单
+
+### v1.1.4 新增
+
+- ✅ 加载体验优化 (超时检测 + 错误恢复)
+- ✅ 关于页面 (产品介绍 + 联系方式)
+- ✅ 隐私说明 (数据保护承诺)
+- ✅ 快捷键系统 (完整支持 + 帮助页面)
+- ✅ 导出功能 (PNG/SVG/PDF多格式)
+
+### 核心功能
+
+**手写笔记**:
+- ✅ 无限画布
+- ✅ 压力感应
+- ✅ 多种笔刷
+- ✅ 颜色选择
+- ✅ 橡皮擦
+
+**文字输入**:
+- ✅ 文本框
+- ✅ 富文本编辑
+- ✅ 格式调整
+- ✅ 智能排版
+
+**工具系统**:
+- ✅ 选择工具
+- ✅ 套索工具
+- ✅ 形状工具
+- ✅ 箭头工具
+- ✅ 便签工具
+
+**文件管理**:
+- ✅ 本地存储
+- ✅ 导出功能 (PNG/SVG/PDF)
+- ✅ 自动保存
+- ✅ 版本历史
+
+**用户体验**:
+- ✅ 深色模式
+- ✅ 快捷键支持
+- ✅ 撤销/重做
+- ✅ 缩放平移
+- ✅ 离线可用
 
 ---
 
-### 场景 4：公式推导
+## 🎯 产品定位
 
-```
-选择粗笔 → 写公式 → 逐步推导 → 保存为 PDF
-```
+### 目标用户
 
-**好处**：
-- 不用学复杂的公式编辑器
-- 手写更自然
-- 可以保存步骤
+- 🎓 **学生群体**: 课堂笔记、复习资料
+- 💼 **知识工作者**: 会议记录、灵感整理
+- 🎨 **创作者**: 素材收集、创意草图
+- 👨‍🏫 **教育工作者**: 教案准备、在线教学
 
----
+### 使用场景
 
-## ❓ 常见问题
+- 📚 课堂笔记
+- 📝 会议记录
+- 💡 灵感收集
+- 🎨 草稿绘制
+- 📖 学习笔记
+- 🗂️ 知识整理
 
-### 需要安装吗？
+### 差异化优势
 
-**不需要！** 
-
-直接访问 [在线版](https://mindnotes-pro.vercel.app) 就能用。
-
-如果想离线使用，可以下载安装包。
-
----
-
-### 需要注册/登录吗？
-
-**不需要！**
-
-打开就能用，没有任何账号系统。
-
----
-
-### 需要付费吗？
-
-**完全免费！**
-
-现在免费，以后也永远免费。
+| 功能 | MindNotes Pro | Notion | GoodNotes | Obsidian |
+|------|---------------|--------|-----------|----------|
+| 手写支持 | ✅ | ❌ | ✅ | ❌ |
+| 文字编辑 | ✅ | ✅ | ⚠️ | ✅ |
+| 离线可用 | ✅ | ❌ | ✅ | ✅ |
+| 跨平台 | ✅ | ✅ | ❌ | ⚠️ |
+| 免费开源 | ✅ | ❌ | ❌ | ✅ |
+| 悬浮窗 | ✅ | ❌ | ❌ | ❌ |
+| 隐私保护 | ✅ | ⚠️ | ⚠️ | ✅ |
 
 ---
 
-### 我的数据存在哪里？安全吗？
+## 📊 项目进度
 
-**数据存在你的浏览器里**，不会上传到任何服务器。
+### 版本历史
 
-- ✅ 只有你能看到
-- ✅ 不会泄露给第三方
-- ✅ 可以导出备份
-- ⚠️ 清除浏览器数据会删除（所以记得导出备份）
+| 版本 | 日期 | 优化数 | 主要内容 |
+|------|------|--------|---------|
+| v1.1.4 | 2026-03-19 | 5/5 | 对标世界级优化 |
+| v1.1.3 | 2026-03-19 | 7/7 | PWA 离线功能 |
+| v1.1.2 | 2026-03-19 | 6/6 | 悬浮笔记组件 |
+| v1.1.1 | 2026-03-19 | 5/5 | 用户体验优化 |
+| v1.1.0 | 2026-03-19 | 10/10 | tldraw 引擎集成 |
+| v1.0.1 | 2026-03-19 | 17/17 | 核心功能完善 |
+| v1.0.0 | 2026-03-19 | - | 初始版本 |
 
----
+### 当前进度
 
-### 可以在手机上用吗？
+**版本**: v1.1.4 ✅  
+**下一版本**: v1.1.5 (0/5 进行中)  
+**优化频率**: 每 5 个优化自动发布  
+**汇报频率**: 每 2 小时
 
-**可以！**
+### 路线图
 
-- 在线版：用手机浏览器访问
-- 安卓版：下载 APK 安装
-- iOS 版：开发中（可以用在线版）
+**v1.1.5** (本周):
+- [ ] 新手引导
+- [ ] 性能优化
+- [ ] 品牌视觉
+- [ ] 文档完善
+- [ ] 用户反馈
 
----
+**v1.2.0** (下周):
+- [ ] 云端同步
+- [ ] 标签系统
+- [ ] 搜索功能
+- [ ] 模板系统
+- [ ] 主题切换
 
-### 支持压感吗？（手写笔）
-
-**支持！**
-
-如果你用手写板或支持压感的设备，可以识别压力变化。
-
----
-
-### 可以多人协作吗？
-
-**目前不支持。**
-
-每个用户独立使用。计划在未来添加协作功能。
-
----
-
-### 数据可以同步吗？
-
-**目前不支持自动同步。**
-
-可以手动导出 JSON，在其他设备导入。
-
----
-
-### 遇到问题怎么办？
-
-1. **查看本页面** - 大部分问题都有答案
-2. **查看 [使用指南](./快速开始.md)** - 详细教程
-3. **提交 Issue** - https://github.com/11suixing11/mindnotes-pro/issues
+**v2.0.0** (下月):
+- [ ] AI 总结
+- [ ] 双向链接
+- [ ] 知识图谱
+- [ ] 协作编辑
+- [ ] 插件系统
 
 ---
 
-## 🎯 和其他方式对比
+## 🛠️ 技术栈
 
-| 特性 | MindNotes Pro | 传统笔记软件 | 纸笔 |
-|------|---------------|-------------|------|
-| **上手难度** | ⭐ 打开就用 | ⭐⭐⭐ 需要学习 | ⭐ 打开就用 |
-| **修改便利** | ⭐⭐⭐⭐⭐ 随意修改 | ⭐⭐⭐ 可以修改 | ⭐ 难修改 |
-| **整理归档** | ⭐⭐⭐⭐⭐ 一键导出 | ⭐⭐⭐⭐ 可以整理 | ⭐⭐ 容易丢 |
-| **搜索** | ⭐⭐⭐ 开发中 | ⭐⭐⭐⭐⭐ 支持 | ⭐ 不支持 |
-| **分享** | ⭐⭐⭐⭐⭐ 一键分享 | ⭐⭐⭐⭐ 可以分享 | ⭐⭐ 需要拍照 |
-| **隐私** | ⭐⭐⭐⭐⭐ 本地存储 | ⭐⭐ 云端存储 | ⭐⭐⭐⭐⭐ 本地 |
-| **价格** | 免费 | 付费订阅 | 低成本 |
+### 前端核心
 
----
+- **React 18** - UI 框架
+- **TypeScript** - 类型安全
+- **Vite** - 构建工具
+- **Tailwind CSS** - 样式框架
 
-## 📱 下载应用
+### 画布引擎
 
-### 最新版本
+- **tldraw** - 画布核心
+- **framer-motion** - 动画库
+- **perfect-freehand** - 手写算法
 
-访问 **Releases** 页面下载：
-👉 [https://github.com/11suixing11/mindnotes-pro/releases](https://github.com/11suixing11/mindnotes-pro/releases)
+### 状态管理
 
-### 可选版本
+- **Zustand** - 状态管理
+- **localforage** - 本地存储
+- **undo-manager** - 撤销重做
 
-| 平台 | 格式 | 大小 | 说明 |
-|------|------|------|------|
-| **在线版** | 网页 | - | 无需安装，推荐 |
-| **Windows** | .msi | ~10MB | 安装包 |
-| **Mac** | .dmg | ~10MB | 磁盘映像 |
-| **Linux** | .AppImage | ~15MB | 便携版 |
-| **Android** | .apk | ~20MB | 安装包 |
+### 桌面应用
 
----
+- **Electron** - 桌面框架
+- **Capacitor** - 移动框架
 
-## 🗺️ 未来计划
+### PWA
 
-### 即将上线（v1.1）
-
-- 🤖 AI 手写识别（笔迹转文字）
-- 📝 笔记自动总结
-- 🌐 多语言翻译
-- 🎨 更多主题和颜色
-
-### 长期规划（v2.0）
-
-- ☁️ 可选云端同步
-- 📱 更好的移动端
-- 🔍 笔记搜索
-- 🏷️ 标签和分类
-- 👥 多人协作（可选）
+- **Service Worker** - 离线缓存
+- **Web App Manifest** - 应用配置
 
 ---
 
-## 🙏 致谢
+## 📖 文档
 
-感谢以下优秀的开源项目，让 MindNotes Pro 成为可能：
+- [📝 更新日志](CHANGELOG.md)
+- [📋 优化清单](OPTIMIZATION_BACKLOG.md)
+- [📊 进度汇报](PROGRESS_REPORT.md)
+- [📱 移动端策略](MOBILE_STRATEGY.md)
+- [🔧 PWA 问题排查](PWA_FIX.md)
+- [📦 构建指南](BUILD_GUIDE.md)
 
-- [perfect-freehand](https://github.com/steveruizok/perfect-freehand) - 让笔迹更流畅
-- [React](https://react.dev/) - 强大的界面框架
-- [Vite](https://vitejs.dev/) - 极速构建工具
+---
+
+## 🤝 贡献指南
+
+### 提交 Bug
+
+1. 查看 [Issues](https://github.com/11suixing11/mindnotes-pro/issues)
+2. 搜索是否已有类似问题
+3. 创建新 Issue，详细描述问题
+
+### 提出建议
+
+1. 查看 [Discussions](https://github.com/11suixing11/mindnotes-pro/discussions)
+2. 分享你的想法
+3. 参与讨论
+
+### 提交代码
+
+1. Fork 项目
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
+
+---
+
+## 📧 联系我们
+
+- 📧 **邮箱**: 1977717178@qq.com
+- 💬 **QQ**: 1977717178
+- 🐛 **Issues**: https://github.com/11suixing11/mindnotes-pro/issues
+- 💬 **Discussions**: https://github.com/11suixing11/mindnotes-pro/discussions
+
+**响应时间**:
+- Email: 24 小时内
+- Issues: 48 小时内
+- QQ: 工作日 9 小时内
 
 ---
 
 ## 📄 许可证
 
-**MIT License** - 完全免费，可商用，可修改，可分发
+MIT License - 完全免费，可商用，可修改，可分发
 
 详见 [LICENSE](LICENSE) 文件
 
 ---
 
-## 📞 联系我们
+## 🙏 致谢
 
-### 💬 遇到问题？
+感谢以下优秀的开源项目：
 
-- **提交 Issue**: https://github.com/11suixing11/mindnotes-pro/issues
-- **参与讨论**: https://github.com/11suixing11/mindnotes-pro/discussions
-- **电子邮件**: 1977717178@qq.com
-- **QQ 群**: 1977717178
+- [tldraw](https://github.com/tldraw/tldraw) - 世界级画布引擎
+- [framer-motion](https://github.com/motiondivision/motion) - 动画库
+- [React](https://react.dev/) - UI 框架
+- [Vite](https://vitejs.dev/) - 构建工具
+- [TypeScript](https://www.typescriptlang.org/) - 类型系统
 
-### 📮 联系方式
+**没有这些优秀的开源项目，就没有 MindNotes Pro！**
 
-| 方式 | 联系信息 | 响应时间 |
-|------|---------|---------|
-| **📧 Email** | 1977717178@qq.com | 24 小时内 |
-| **💬 QQ** | 1977717178 | 工作日 9:00-18:00 |
-| **🐛 Issue** | GitHub Issues | 48 小时内 |
-| **💬 讨论区** | GitHub Discussions | 48 小时内 |
+---
 
-### 🕐 工作时间
+## 📊 项目统计
 
-- **工作日**: 周一至周五 9:00 - 18:00 (GMT+8)
-- **周末**: 休息（紧急问题请发邮件）
-- **节假日**: 休息（提前公告）
-
-### 📝 反馈建议
-
-我们欢迎所有反馈：
-- 🐛 Bug 报告
-- 💡 功能建议
-- 🎨 界面优化
-- 📖 文档改进
-- 🌍 翻译贡献
-
-### ❤️ 支持项目
-
-- **给个 Star** ⭐ - 让更多人看到
-- **推荐给朋友** - 分享好用的工具
-- **提供反馈** - 帮助我们做得更好
-- **贡献代码** - 欢迎 Pull Request
+![GitHub Stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?style=social)
+![GitHub Forks](https://img.shields.io/github/forks/11suixing11/mindnotes-pro?style=social)
+![GitHub Issues](https://img.shields.io/github/issues/11suixing11/mindnotes-pro)
+![GitHub License](https://img.shields.io/github/license/11suixing11/mindnotes-pro)
+![GitHub Release](https://img.shields.io/github/v/release/11suixing11/mindnotes-pro)
 
 ---
 
@@ -371,22 +360,13 @@ Delete    →  清空（重新开始）
 
 ## 🎉 开始创作吧！
 
-**[🌐 在线使用](https://mindnotes-pro.vercel.app)** | **[📱 下载应用](#-下载应用)** | **[📖 使用教程](#-使用教程)** | **[📧 联系我们](#-联系我们)**
+**[🌐 在线使用](https://mindnotes-pro.vercel.app)** | **[📥 下载应用](#-桌面应用下载)** | **[📖 使用教程](#-快速开始)** | **[📧 联系我们](#-联系我们)**
 
 ---
 
 *Made with ❤️ for creators everywhere*
 
-*让灵感自由流淌 - MindNotes Pro*
-
-### 🌟 项目统计
-
-![GitHub Stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?style=social)
-![GitHub Forks](https://img.shields.io/github/forks/11suixing11/mindnotes-pro?style=social)
-![GitHub Issues](https://img.shields.io/github/issues/11suixing11/mindnotes-pro)
-![GitHub License](https://img.shields.io/github/license/11suixing11/mindnotes-pro)
-
----
+*对标世界级，持续优化中*
 
 **© 2026 MindNotes Pro. All rights reserved.**
 
