@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 深色模式主题色 -->
+    <color name="colorPrimary">#6366f1</color>
+    <color name="colorPrimaryDark">#4f46e5</color>
+    <color name="colorAccent">#8b5cf6</color>
+    
+    <!-- 背景色 -->
+    <color name="backgroundColor">#1e1e2e</color>
+    <color name="surfaceColor">#2d2d44</color>
+    
+    <!-- 文字颜色 -->
+    <color name="textColorPrimary">#f1f5f9</color>
+    <color name="textColorSecondary">#94a3b8</color>
+    
+    <!-- 状态栏 -->
+    <color name="statusBarColor">#181825</color>
+</resources>
