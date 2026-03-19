@@ -8,8 +8,9 @@
 [![完全免费](https://img.shields.io/badge/💰-完全免费-green)](https://mindnotes-pro.vercel.app)
 [![无需安装](https://img.shields.io/badge/📦-无需安装-orange)](https://mindnotes-pro.vercel.app)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?color=yellow)](https://github.com/11suixing11/mindnotes-pro/stargazers)
 
-**[🌐 在线使用](#-立即开始)** • **[📱 下载应用](#-下载应用)** • **[📖 使用教程](#-使用教程)** • **[❓ 常见问题](#-常见问题)**
+**[🌐 在线使用](#-立即开始)** • **[📱 下载应用](#-下载应用)** • **[📖 使用教程](#-使用教程)** • **[❓ 常见问题](#-常见问题)** • **[📧 联系我们](#-联系我们)**
 
 </div>
 
@@ -324,18 +325,45 @@ Delete    →  清空（重新开始）
 
 ---
 
-## 📞 联系和反馈
+## 📞 联系我们
 
-### 遇到问题？
+### 💬 遇到问题？
 
 - **提交 Issue**: https://github.com/11suixing11/mindnotes-pro/issues
 - **参与讨论**: https://github.com/11suixing11/mindnotes-pro/discussions
+- **电子邮件**: 1977717178@qq.com
+- **QQ 群**: 1977717178
 
-### 喜欢这个项目？
+### 📮 联系方式
+
+| 方式 | 联系信息 | 响应时间 |
+|------|---------|---------|
+| **📧 Email** | 1977717178@qq.com | 24 小时内 |
+| **💬 QQ** | 1977717178 | 工作日 9:00-18:00 |
+| **🐛 Issue** | GitHub Issues | 48 小时内 |
+| **💬 讨论区** | GitHub Discussions | 48 小时内 |
+
+### 🕐 工作时间
+
+- **工作日**: 周一至周五 9:00 - 18:00 (GMT+8)
+- **周末**: 休息（紧急问题请发邮件）
+- **节假日**: 休息（提前公告）
+
+### 📝 反馈建议
+
+我们欢迎所有反馈：
+- 🐛 Bug 报告
+- 💡 功能建议
+- 🎨 界面优化
+- 📖 文档改进
+- 🌍 翻译贡献
+
+### ❤️ 支持项目
 
 - **给个 Star** ⭐ - 让更多人看到
 - **推荐给朋友** - 分享好用的工具
 - **提供反馈** - 帮助我们做得更好
+- **贡献代码** - 欢迎 Pull Request
 
 ---
 
@@ -343,12 +371,23 @@ Delete    →  清空（重新开始）
 
 ## 🎉 开始创作吧！
 
-**[🌐 在线使用](https://mindnotes-pro.vercel.app)** | **[📱 下载应用](#-下载应用)** | **[📖 使用教程](#-使用教程)**
+**[🌐 在线使用](https://mindnotes-pro.vercel.app)** | **[📱 下载应用](#-下载应用)** | **[📖 使用教程](#-使用教程)** | **[📧 联系我们](#-联系我们)**
 
 ---
 
 *Made with ❤️ for creators everywhere*
 
 *让灵感自由流淌 - MindNotes Pro*
+
+### 🌟 项目统计
+
+![GitHub Stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?style=social)
+![GitHub Forks](https://img.shields.io/github/forks/11suixing11/mindnotes-pro?style=social)
+![GitHub Issues](https://img.shields.io/github/issues/11suixing11/mindnotes-pro)
+![GitHub License](https://img.shields.io/github/license/11suixing11/mindnotes-pro)
+
+---
+
+**© 2026 MindNotes Pro. All rights reserved.**
 
 </div>
