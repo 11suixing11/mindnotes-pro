@@ -32,10 +32,7 @@ export default function MindNotesTldraw({ onReady }: MindNotesTldrawProps) {
 
   return (
     <div className="w-full h-screen">
-      <Tldraw
-        persistenceKey="mindnotes-pro"
-        onMount={handleMount}
-      />
+      <Tldraw persistenceKey="mindnotes-pro" onMount={handleMount} />
     </div>
   )
 }

@@ -57,18 +57,12 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
       <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 max-w-md w-full shadow-2xl">
         <div className="text-center">
           <div className="text-6xl mb-4">😕</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            出错了！
-          </h1>
-          <p className="text-gray-600 mb-6">
-            应用程序遇到了问题，但我们已经记录下来。
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">出错了！</h1>
+          <p className="text-gray-600 mb-6">应用程序遇到了问题，但我们已经记录下来。</p>
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-left">
-              <p className="text-sm font-mono text-red-800 break-all">
-                {error.message}
-              </p>
+              <p className="text-sm font-mono text-red-800 break-all">{error.message}</p>
             </div>
           )}
 

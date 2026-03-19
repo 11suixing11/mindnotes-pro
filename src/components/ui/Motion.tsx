@@ -58,7 +58,13 @@ export function ScaleIn({ children }: ScaleInProps) {
   )
 }
 
-export function StaggerContainer({ children, staggerDelay = 0.1 }: { children: React.ReactNode; staggerDelay?: number }) {
+export function StaggerContainer({
+  children,
+  staggerDelay = 0.1,
+}: {
+  children: React.ReactNode
+  staggerDelay?: number
+}) {
   return (
     <motion.div
       initial="hidden"

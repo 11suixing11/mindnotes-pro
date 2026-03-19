@@ -19,23 +19,23 @@ export function usePerformanceMonitor() {
     // First Contentful Paint
     const fcpEntry = performance.getEntriesByName('first-contentful-paint')[0]
     if (fcpEntry) {
-      setMetrics(prev => ({ ...prev, fcp: fcpEntry.startTime }))
+      setMetrics((prev) => ({ ...prev, fcp: fcpEntry.startTime }))
     }
 
     // Largest Contentful Paint
     const lcpObserver = new PerformanceObserver((entryList) => {
       const entries = entryList.getEntries()
       const lastEntry = entries[entries.length - 1]
-      setMetrics(prev => ({ ...prev, lcp: lastEntry.startTime }))
+      setMetrics((prev) => ({ ...prev, lcp: lastEntry.startTime }))
     })
     lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] })
 
     // First Input Delay
     const fidObserver = new PerformanceObserver((entryList) => {
       const entries = entryList.getEntries()
-      entries.forEach(entry => {
+      entries.forEach((entry) => {
         if (entry.entryType === 'first-input') {
-          setMetrics(prev => ({ ...prev, fid: entry.startTime }))
+          setMetrics((prev) => ({ ...prev, fid: entry.startTime }))
         }
       })
     })
@@ -45,13 +45,13 @@ export function usePerformanceMonitor() {
     const clsObserver = new PerformanceObserver((entryList) => {
       const entries = entryList.getEntries()
       let clsValue = 0
-      entries.forEach(entry => {
+      entries.forEach((entry) => {
         const layoutShift = entry as any
         if (!layoutShift.hadRecentInput) {
           clsValue += layoutShift.value || 0
         }
       })
-      setMetrics(prev => ({ ...prev, cls: clsValue }))
+      setMetrics((prev) => ({ ...prev, cls: clsValue }))
     })
     clsObserver.observe({ entryTypes: ['layout-shift'] })
 
@@ -66,8 +66,12 @@ export function usePerformanceMonitor() {
 }
 
 export function reportWebVitals() {
-  const fcp = performance.getEntriesByName('first-contentful-paint')[0] as PerformanceEntry | undefined
-  const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+  const fcp = performance.getEntriesByName('first-contentful-paint')[0] as
+    | PerformanceEntry
+    | undefined
+  const navigation = performance.getEntriesByType('navigation')[0] as
+    | PerformanceNavigationTiming
+    | undefined
   const resources = performance.getEntriesByType('resource')
 
   // 发送到分析服务

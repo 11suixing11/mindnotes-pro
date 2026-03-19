@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react'
 import App from './App'
 import LoadingScreen from './components/ui/LoadingScreen'
 import { ToastProvider } from './components/ui/Toast'
-import { ErrorBoundaryProvider, ErrorFallback, useErrorBoundary } from './components/ui/ErrorBoundary'
+import {
+  ErrorBoundaryProvider,
+  ErrorFallback,
+  useErrorBoundary,
+} from './components/ui/ErrorBoundary'
 
 function AppWrapper() {
   const [isLoading, setIsLoading] = useState(true)
@@ -14,15 +18,12 @@ function AppWrapper() {
       try {
         // 预加载字体
         await document.fonts.ready
-        
+
         // 预加载关键图片
-        const images = [
-          '/icon-192.png',
-          '/icon-512.png',
-        ]
-        
+        const images = ['/icon-192.png', '/icon-512.png']
+
         await Promise.all(
-          images.map(src => {
+          images.map((src) => {
             return new Promise((resolve, reject) => {
               const img = new Image()
               img.src = src

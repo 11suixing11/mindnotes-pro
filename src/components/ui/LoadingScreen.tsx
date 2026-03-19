@@ -11,7 +11,7 @@ export default function LoadingScreen({ onLoad }: LoadingScreenProps) {
   useEffect(() => {
     // 模拟加载进度
     const interval = setInterval(() => {
-      setProgress(prev => {
+      setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval)
           onLoad?.()

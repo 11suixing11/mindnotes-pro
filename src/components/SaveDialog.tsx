@@ -13,13 +13,13 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
   const { strokes } = useAppStore()
   const [format, setFormat] = useState<'png' | 'json' | 'pdf' | 'svg'>('png')
   const [isSaving, setIsSaving] = useState(false)
-  
+
   if (!isOpen) return null
-  
+
   // 导出为 PNG
   const exportAsPNG = () => {
     if (!canvas) return
-    
+
     setIsSaving(true)
     canvas.toBlob((blob) => {
       if (!blob) return
@@ -28,7 +28,7 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
       onClose()
     }, 'image/png')
   }
-  
+
   // 导出为 JSON（原始笔迹数据）
   const exportAsJSON = () => {
     setIsSaving(true)
@@ -43,28 +43,28 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
     setIsSaving(false)
     onClose()
   }
-  
+
   // 导出为 SVG
   const exportAsSVG = () => {
     setIsSaving(true)
     try {
       const { shapes } = useAppStore.getState()
-      
+
       // 生成 SVG 内容
       let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
   <rect width="100%" height="100%" fill="white"/>
 `
-      
+
       // 添加形状
-      shapes.forEach(shape => {
+      shapes.forEach((shape) => {
         if (shape.hidden) return
-        
+
         svgContent += `  <${shape.type === 'rectangle' ? 'rect' : shape.type === 'circle' ? 'ellipse' : 'path'}
     stroke="${shape.color}"
     stroke-width="${shape.size}"
     fill="none"
 `
-        
+
         if (shape.type === 'rectangle') {
           svgContent += `    x="${shape.x}" y="${shape.y}" width="${shape.width}" height="${shape.height}"
 `
@@ -76,17 +76,17 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
           svgContent += `    cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"
 `
         }
-        
+
         svgContent += `  />
 `
       })
-      
+
       // 添加笔迹（使用 perfect-freehand 生成的路径会更准确，这里简化处理）
       // 注意：完整实现需要重新计算笔迹路径
       // 当前版本优先保证形状导出
-      
+
       svgContent += `</svg>`
-      
+
       const blob = new Blob([svgContent], { type: 'image/svg+xml' })
       saveAs(blob, `mindnotes-${Date.now()}.svg`)
     } catch (error) {
@@ -96,21 +96,21 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
     setIsSaving(false)
     onClose()
   }
-  
+
   // 导出为 PDF
   const exportAsPDF = () => {
     if (!canvas) return
-    
+
     setIsSaving(true)
     try {
       const imgData = canvas.toDataURL('image/png')
-      
+
       const pdf = new jsPDF({
         orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
         unit: 'px',
-        format: [canvas.width, canvas.height]
+        format: [canvas.width, canvas.height],
       })
-      
+
       pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height)
       pdf.save(`mindnotes-${Date.now()}.pdf`)
     } catch (error) {
@@ -120,7 +120,7 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
     setIsSaving(false)
     onClose()
   }
-  
+
   const handleSave = () => {
     switch (format) {
       case 'png':
@@ -137,16 +137,14 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
         break
     }
   }
-  
+
   return (
     <div className="dialog-overlay" onClick={onClose}>
       <div className="dialog-content" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-2xl font-bold mb-4 text-gray-800">💾 保存笔记</h2>
-        
+
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            选择导出格式
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-3">选择导出格式</label>
           <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => setFormat('png')}
@@ -160,7 +158,7 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
               <div className="text-sm font-medium text-gray-700">PNG 图片</div>
               <div className="text-xs text-gray-500 mt-1">适合分享</div>
             </button>
-            
+
             <button
               onClick={() => setFormat('json')}
               className={`p-4 rounded-xl border-2 transition-all duration-200 hover:scale-105 ${
@@ -173,7 +171,7 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
               <div className="text-sm font-medium text-gray-700">JSON 数据</div>
               <div className="text-xs text-gray-500 mt-1">可再次编辑</div>
             </button>
-            
+
             <button
               onClick={() => setFormat('pdf')}
               className={`p-4 rounded-xl border-2 transition-all duration-200 hover:scale-105 ${
@@ -188,7 +186,7 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
             </button>
           </div>
         </div>
-        
+
         <div className="flex gap-3 justify-end">
           <button
             onClick={onClose}
@@ -208,9 +206,7 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
                 保存中...
               </>
             ) : (
-              <>
-                💾 保存
-              </>
+              <>💾 保存</>
             )}
           </button>
         </div>

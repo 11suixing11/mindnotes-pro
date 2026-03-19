@@ -20,45 +20,60 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined)
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
-  const showToast = useCallback((message: string, type: Toast['type'] = 'info', duration: number = 3000) => {
-    const id = Math.random().toString(36).substr(2, 9)
-    const toast: Toast = { id, message, type, duration }
+  const showToast = useCallback(
+    (message: string, type: Toast['type'] = 'info', duration: number = 3000) => {
+      const id = Math.random().toString(36).substr(2, 9)
+      const toast: Toast = { id, message, type, duration }
 
-    setToasts(prev => [...prev, toast])
+      setToasts((prev) => [...prev, toast])
 
-    // 自动移除
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id))
-    }, duration)
-  }, [])
+      // 自动移除
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id))
+      }, duration)
+    },
+    []
+  )
 
-  const showSuccess = useCallback((message: string) => {
-    showToast(message, 'success')
-  }, [showToast])
+  const showSuccess = useCallback(
+    (message: string) => {
+      showToast(message, 'success')
+    },
+    [showToast]
+  )
 
-  const showError = useCallback((message: string) => {
-    showToast(message, 'error')
-  }, [showToast])
+  const showError = useCallback(
+    (message: string) => {
+      showToast(message, 'error')
+    },
+    [showToast]
+  )
 
-  const showInfo = useCallback((message: string) => {
-    showToast(message, 'info')
-  }, [showToast])
+  const showInfo = useCallback(
+    (message: string) => {
+      showToast(message, 'info')
+    },
+    [showToast]
+  )
 
-  const showWarning = useCallback((message: string) => {
-    showToast(message, 'warning')
-  }, [showToast])
+  const showWarning = useCallback(
+    (message: string) => {
+      showToast(message, 'warning')
+    },
+    [showToast]
+  )
 
   const removeToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id))
+    setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
   return (
     <ToastContext.Provider value={{ showToast, showSuccess, showError, showInfo, showWarning }}>
       {children}
-      
+
       {/* Toast 容器 */}
       <div className="fixed top-4 right-4 z-50 space-y-2">
-        {toasts.map(toast => (
+        {toasts.map((toast) => (
           <div
             key={toast.id}
             className={`

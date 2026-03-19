@@ -39,7 +39,6 @@ export function useServiceWorker() {
           console.log('[PWA] Controller changed, reloading...')
           // 可以选择自动刷新或提示用户
         })
-
       } catch (error) {
         console.error('[PWA] Service Worker registration failed:', error)
       }
