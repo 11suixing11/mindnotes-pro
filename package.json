@@ -1,13 +1,17 @@
 {
   "name": "mindnotes-pro",
-  "version": "1.0.0",
+  "version": "1.1.2",
   "type": "module",
+  "main": "electron/main.cjs",
   "description": "A modern browser-based note-taking app with handwriting support and AI enhancement",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "electron:dev": "vite && electron .",
+    "electron:build": "npm run build && electron-builder",
+    "electron:preview": "npm run build && electron ."
   },
   "keywords": [
     "notes",
@@ -18,6 +22,29 @@
   ],
   "author": "11suixing11",
   "license": "MIT",
+  "build": {
+    "appId": "com.mindnotes.pro",
+    "productName": "MindNotes Pro",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": ["portable"],
+      "icon": "public/icon-512.png"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "public/icon-512.png"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "icon": "public/icon-512.png"
+    }
+  },
   "dependencies": {
     "@capacitor/cli": "^8.2.0",
     "@capacitor/core": "^8.2.0",
@@ -46,6 +73,8 @@
     "@typescript-eslint/parser": "^7.1.1",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.18",
+    "electron": "^41.0.3",
+    "electron-builder": "^26.8.1",
     "eslint": "^8.57.0",
     "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-react-hooks": "^4.6.0",

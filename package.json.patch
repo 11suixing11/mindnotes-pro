@@ -1,0 +1,67 @@
+// 需要添加到 package.json 的内容
+
+{
+  "main": "electron/main.js",
+  
+  "scripts": {
+    "electron:dev": "NODE_ENV=development electron .",
+    "electron:build": "npm run build && electron-builder",
+    "electron:preview": "npm run build && electron ."
+  },
+  
+  "build": {
+    "appId": "com.mindnotes.pro",
+    "productName": "MindNotes Pro",
+    "version": "1.1.2",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "extraResources": [
+      "public/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "public/icon-512.png"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "public/icon-512.png",
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "public/icon-512.png",
+      "category": "Utility"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MindNotes Pro"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "11suixing11",
+      "repo": "mindnotes-pro"
+    }
+  },
+  
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.9.1"
+  }
+}
