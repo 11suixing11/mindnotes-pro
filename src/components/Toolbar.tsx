@@ -193,6 +193,19 @@ const Toolbar: React.FC = () => {
       >
         ⌨️ 帮助
       </button>
+      
+      <div className="w-px h-8 bg-[var(--border-color)]" />
+      
+      {/* 图层面板 */}
+      <button
+        onClick={() => {
+          useAppStore.getState().toggleLayersPanel()
+        }}
+        className="toolbar-btn bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] text-[var(--text-primary)]"
+        title="图层管理"
+      >
+        📑 图层
+      </button>
     </div>
   )
 }
