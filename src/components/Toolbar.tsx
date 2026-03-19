@@ -43,6 +43,33 @@ const Toolbar: React.FC = () => {
       
       <div className="w-px h-8 bg-[var(--border-color)]" />
       
+      {/* 形状工具 */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setTool('rectangle')}
+          className={`toolbar-btn ${tool === 'rectangle' ? 'active' : 'bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)]'}`}
+          title="矩形工具"
+        >
+          ⬜ 矩形
+        </button>
+        <button
+          onClick={() => setTool('circle')}
+          className={`toolbar-btn ${tool === 'circle' ? 'active' : 'bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)]'}`}
+          title="圆形工具"
+        >
+          ⭕ 圆形
+        </button>
+        <button
+          onClick={() => setTool('triangle')}
+          className={`toolbar-btn ${tool === 'triangle' ? 'active' : 'bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)]'}`}
+          title="三角形工具"
+        >
+          🔺 三角
+        </button>
+      </div>
+      
+      <div className="w-px h-8 bg-[var(--border-color)]" />
+      
       {/* 颜色选择 */}
       <div className="flex items-center gap-2">
         {colors.map((c) => (

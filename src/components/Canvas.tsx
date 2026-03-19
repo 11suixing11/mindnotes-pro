@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useCallback, forwardRef, useImperativeHandle, useState } from 'react'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore, Shape } from '../store/useAppStore'
 import { getStroke } from 'perfect-freehand'
 
 export interface CanvasRef {
@@ -18,12 +18,18 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
     clearStrokes,
     viewBox,
     setViewBox,
-    tool
+    tool,
+    shapes,
+    currentShape,
+    updateCurrentShape,
+    addShape,
+    startShape,
   } = useAppStore()
   
   const [isPanning, setIsPanning] = useState(false)
   const lastPanPosition = useRef<{ x: number; y: number } | null>(null)
   const [currentPressure, setCurrentPressure] = useState(0)
+  const shapeStartPoint = useRef<{ x: number; y: number } | null>(null)
   
   // 导出 canvas 引用
   useImperativeHandle(ref, () => ({
@@ -55,10 +61,20 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
       return
     }
     
+    // 如果是形状工具，开始绘制形状
+    if (tool === 'rectangle' || tool === 'circle' || tool === 'triangle') {
+      const [x, y] = getCoordinates(e)
+      shapeStartPoint.current = { x, y }
+      startShape(tool as Shape['type'])
+      updateCurrentShape({ x, y, width: 0, height: 0 })
+      return
+    }
+    
+    // 否则开始绘制笔迹
     const [x, y] = getCoordinates(e)
     useAppStore.getState().startStroke()
     updateCurrentStroke([[x, y, e.pressure || 0.5]])
-  }, [getCoordinates, updateCurrentStroke, tool])
+  }, [getCoordinates, updateCurrentStroke, tool, startShape, updateCurrentShape])
   
   // 绘制中
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
@@ -77,6 +93,24 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
       return
     }
     
+    // 处理形状绘制
+    if (currentShape && shapeStartPoint.current) {
+      const [x, y] = getCoordinates(e)
+      const startX = shapeStartPoint.current.x
+      const startY = shapeStartPoint.current.y
+      const width = x - startX
+      const height = y - startY
+      
+      updateCurrentShape({
+        x: width < 0 ? x : startX,
+        y: height < 0 ? y : startY,
+        width: Math.abs(width),
+        height: Math.abs(height),
+      })
+      return
+    }
+    
+    // 处理笔迹绘制
     const state = useAppStore.getState()
     if (!state.isDrawing || !state.currentStroke) return
     
@@ -85,7 +119,7 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
     setCurrentPressure(pressure)
     const newPoints = [...state.currentStroke.points, [x, y, pressure]]
     updateCurrentStroke(newPoints)
-  }, [getCoordinates, updateCurrentStroke, isPanning, viewBox, setViewBox])
+  }, [getCoordinates, updateCurrentStroke, isPanning, viewBox, setViewBox, currentShape, updateCurrentShape])
   
   // 结束绘制
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
@@ -97,6 +131,18 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
       lastPanPosition.current = null
     }
     
+    // 结束形状绘制
+    if (currentShape && shapeStartPoint.current) {
+      addShape(currentShape)
+      shapeStartPoint.current = null
+      const canvas = canvasRef.current
+      if (canvas) {
+        canvas.releasePointerCapture(e.pointerId)
+      }
+      return
+    }
+    
+    // 结束笔迹绘制
     const state = useAppStore.getState()
     if (!state.currentStroke) {
       const canvas = canvasRef.current
@@ -112,7 +158,7 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
     }
     
     addStroke(state.currentStroke)
-  }, [addStroke, isPanning])
+  }, [addStroke, addShape, isPanning, currentShape])
   
   // 渲染函数
   useEffect(() => {
@@ -137,14 +183,24 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
       renderStroke(ctx, stroke)
     })
     
+    // 渲染所有完成的形状
+    shapes.forEach((shape) => {
+      renderShape(ctx, shape)
+    })
+    
     // 渲染当前笔迹
     if (currentStroke) {
       renderStroke(ctx, currentStroke)
     }
     
+    // 渲染当前形状
+    if (currentShape) {
+      renderShape(ctx, currentShape)
+    }
+    
     // 恢复变换状态
     ctx.restore()
-  }, [strokes, currentStroke, viewBox])
+  }, [strokes, currentStroke, shapes, currentShape, viewBox])
   
   // 渲染单个笔迹
   const renderStroke = (ctx: CanvasRenderingContext2D, stroke: any) => {
@@ -159,13 +215,13 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
       const pressureFactor = Math.max(0.2, Math.min(1.8, avgPressure * 2))
       
       const pathData = getStroke(stroke.points, {
-        size: stroke.size * pressureFactor, // 压力越大，线条越粗
-        thinning: 0.6 - (avgPressure * 0.4), // 压力越大，thinning 越小（线条变化更明显）
+        size: stroke.size * pressureFactor,
+        thinning: 0.6 - (avgPressure * 0.4),
         smoothing: 0.5,
         streamline: 0.6,
         easing: (t) => t,
         start: {
-          taper: avgPressure < 0.3 ? 8 : 0, // 轻压力时自动变细
+          taper: avgPressure < 0.3 ? 8 : 0,
           cap: true,
         },
         end: {
@@ -192,6 +248,35 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
       ctx.fill()
     } catch (error) {
       console.error('渲染笔迹失败:', error)
+    }
+  }
+  
+  // 渲染单个形状
+  const renderShape = (ctx: CanvasRenderingContext2D, shape: Shape) => {
+    try {
+      ctx.beginPath()
+      ctx.strokeStyle = shape.color
+      ctx.lineWidth = shape.size
+      
+      if (shape.type === 'rectangle') {
+        ctx.rect(shape.x, shape.y, shape.width, shape.height)
+      } else if (shape.type === 'circle') {
+        const radiusX = shape.width / 2
+        const radiusY = shape.height / 2
+        const centerX = shape.x + radiusX
+        const centerY = shape.y + radiusY
+        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI)
+      } else if (shape.type === 'triangle') {
+        const centerX = shape.x + shape.width / 2
+        ctx.moveTo(centerX, shape.y)
+        ctx.lineTo(shape.x + shape.width, shape.y + shape.height)
+        ctx.lineTo(shape.x, shape.y + shape.height)
+        ctx.closePath()
+      }
+      
+      ctx.stroke()
+    } catch (error) {
+      console.error('渲染形状失败:', error)
     }
   }
   
