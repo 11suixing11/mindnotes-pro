@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import MindNotesTldraw from './components/MindNotesTldraw'
 import Canvas, { CanvasRef } from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import SaveDialog from './components/SaveDialog'
@@ -9,7 +10,7 @@ import { useShortcuts } from './hooks/useShortcuts'
 
 function App() {
   const [showSaveDialog, setShowSaveDialog] = useState(false)
-  // const [showShortcuts, setShowShortcuts] = useState(false)  // 预留，未来使用
+  const [useTldraw, setUseTldraw] = useState(false)  // 切换模式
   const canvasRef = useRef<CanvasRef>(null)
   const { initTheme } = useThemeStore()
   const { updateAvailable, isOnline, skipWaiting } = useServiceWorker()
@@ -49,13 +50,26 @@ function App() {
     return () => window.removeEventListener('toggle-layers', handleToggleLayers)
   }, [])
   
+  // 模式切换（开发用）
+  useEffect(() => {
+    const handleModeSwitch = () => {
+      setUseTldraw(prev => !prev)
+    }
+    window.addEventListener('switch-mode', handleModeSwitch)
+    return () => window.removeEventListener('switch-mode', handleModeSwitch)
+  }, [])
+  
   return (
     <div className="w-full h-screen relative bg-[var(--bg-secondary)] overflow-hidden">
       {/* 顶部工具栏 */}
       <Toolbar />
       
-      {/* 画布区域 */}
-      <Canvas ref={canvasRef} />
+      {/* 画布区域 - 可切换模式 */}
+      {useTldraw ? (
+        <MindNotesTldraw />
+      ) : (
+        <Canvas ref={canvasRef} />
+      )}
       
       {/* 底部操作栏 */}
       <div className="fixed bottom-4 right-4 flex gap-3 z-10">
