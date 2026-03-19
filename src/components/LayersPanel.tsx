@@ -1,5 +1,6 @@
 import { useAppStore, Stroke, Shape } from '../store/useAppStore'
 import { useEffect } from 'react'
+import { FadeIn, StaggerContainer } from './ui/Motion'
 
 export default function LayersPanel() {
   const {
@@ -67,20 +68,23 @@ export default function LayersPanel() {
         </button>
       </div>
 
-      <div className="divide-y divide-[var(--border-color)]">
-        {allLayers.length === 0 ? (
-          <div className="p-4 text-center text-sm text-[var(--text-secondary)]">
-            暂无图层
-          </div>
-        ) : (
-          allLayers.map((layer) => (
-            <div
-              key={layer.id}
-              className={`p-2 flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer ${
-                selectedLayerId === layer.id ? 'bg-[var(--bg-tertiary)]' : ''
-              }`}
-              onClick={() => setSelectedLayer(layer.id)}
-            >
+      <StaggerContainer staggerDelay={0.05}>
+        <div className="divide-y divide-[var(--border-color)]">
+          {allLayers.length === 0 ? (
+            <FadeIn>
+              <div className="p-4 text-center text-sm text-[var(--text-secondary)]">
+                暂无图层
+              </div>
+            </FadeIn>
+          ) : (
+            allLayers.map((layer) => (
+              <FadeIn key={layer.id}>
+                <div
+                  className={`p-2 flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer ${
+                    selectedLayerId === layer.id ? 'bg-[var(--bg-tertiary)]' : ''
+                  }`}
+                  onClick={() => setSelectedLayer(layer.id)}
+                >
               {/* 锁定/隐藏按钮 */}
               <div className="flex items-center gap-1">
                 <button
@@ -130,11 +134,13 @@ export default function LayersPanel() {
                 title="删除"
               >
                 🗑️
-              </button>
-            </div>
-          ))
-        )}
-      </div>
+                  </button>
+                </div>
+              </FadeIn>
+            ))
+          )}
+        </div>
+      </StaggerContainer>
 
       <div className="p-3 border-t border-[var(--border-color)]">
         <div className="text-xs text-[var(--text-secondary)] mb-2">

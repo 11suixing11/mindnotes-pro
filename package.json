@@ -21,9 +21,11 @@
   "dependencies": {
     "@capacitor/cli": "^8.2.0",
     "@capacitor/core": "^8.2.0",
+    "@tanstack/react-virtual": "^3.13.23",
     "@tldraw/tldraw": "^4.5.3",
     "@uiw/react-color": "^2.9.6",
     "file-saver": "^2.0.5",
+    "framer-motion": "^12.38.0",
     "jspdf": "^2.5.1",
     "localforage": "^1.10.0",
     "nanoid": "^5.1.7",
