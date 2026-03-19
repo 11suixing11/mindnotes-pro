@@ -60,49 +60,21 @@ jobs:
           name: macos-dmg
           path: release/*.dmg
 
-  build-android:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-      - run: npm ci
-      - run: npm run build
-      - run: npx cap sync android
-      - name: Build Android APK
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleRelease
-        continue-on-error: true
-      - name: Find APK files
-        run: find android/app/build/outputs -name "*.apk" || true
-        continue-on-error: true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: android-apk
-          path: android/app/build/outputs/apk/**/*.apk
-          if-no-files-found: ignore
-
   upload-release:
-    needs: [build-linux, build-windows, build-macos, build-android]
+    needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: List artifacts
+      
+      - name: List all files
         run: find artifacts -type f
+      
       - name: Create Release
         uses: softprops/action-gh-release@v2
-        if: ${{ success() || failure() }}
         with:
           files: |
             artifacts/linux-appimage/*.AppImage
