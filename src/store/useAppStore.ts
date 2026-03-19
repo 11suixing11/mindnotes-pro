@@ -8,13 +8,29 @@ export interface Stroke {
   tool: 'pen' | 'eraser'
 }
 
+export interface Shape {
+  id: string
+  type: 'rectangle' | 'circle' | 'triangle'
+  x: number
+  y: number
+  width: number
+  height: number
+  color: string
+  size: number
+  rotation?: number
+}
+
 interface AppState {
   // 笔迹数据
   strokes: Stroke[]
   currentStroke: Stroke | null
   
+  // 形状数据
+  shapes: Shape[]
+  currentShape: Shape | null
+  
   // 工具状态
-  tool: 'pen' | 'eraser' | 'pan'
+  tool: 'pen' | 'eraser' | 'pan' | 'rectangle' | 'circle' | 'triangle'
   color: string
   size: number
   
@@ -36,7 +52,12 @@ interface AppState {
   startStroke: () => void
   clearStrokes: () => void
   
-  setTool: (tool: 'pen' | 'eraser' | 'pan') => void
+  // 形状方法
+  addShape: (shape: Shape) => void
+  updateCurrentShape: (shape: Partial<Shape>) => void
+  startShape: (type: Shape['type']) => void
+  
+  setTool: (tool: 'pen' | 'eraser' | 'pan' | 'rectangle' | 'circle' | 'triangle') => void
   setColor: (color: string) => void
   setSize: (size: number) => void
   
@@ -54,6 +75,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   // 初始状态
   strokes: [],
   currentStroke: null,
+  
+  shapes: [],
+  currentShape: null,
   
   tool: 'pen',
   color: '#000000',
@@ -90,7 +114,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // 开始新笔迹
   startStroke: () => {
     const { tool, color, size } = get()
-    const strokeTool: 'pen' | 'eraser' = tool === 'pan' ? 'pen' : tool
+    const strokeTool: 'pen' | 'eraser' = (tool === 'pan' || tool === 'rectangle' || tool === 'circle' || tool === 'triangle') ? 'pen' : tool
     set({
       currentStroke: {
         id: Date.now().toString(),
@@ -140,6 +164,40 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   resetView: () => {
     set({ viewBox: { x: 0, y: 0, zoom: 1 } })
+  },
+  
+  // 形状方法
+  addShape: (shape) => {
+    set((state) => ({
+      shapes: [...state.shapes, shape],
+      currentShape: null,
+      canUndo: true,
+    }))
+  },
+  
+  updateCurrentShape: (shape) => {
+    set((state) => ({
+      currentShape: state.currentShape
+        ? { ...state.currentShape, ...shape }
+        : null,
+    }))
+  },
+  
+  startShape: (type) => {
+    const { color, size } = get()
+    set({
+      currentShape: {
+        id: Date.now().toString(),
+        type,
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        color,
+        size,
+      },
+      isDrawing: true,
+    })
   },
   
   // 撤销
