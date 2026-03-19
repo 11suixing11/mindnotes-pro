@@ -1,0 +1,83 @@
+name: Release Android APK (Fixed)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Install npm dependencies
+        run: npm ci
+      
+      - name: Build web assets
+        run: npm run build
+      
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+      
+      - name: Build Android APK with debug info
+        run: |
+          cd android
+          echo "=== Java version ==="
+          java -version
+          echo "=== Gradle version ==="
+          ./gradlew --version
+          echo "=== Building APK ==="
+          ./gradlew assembleRelease --stacktrace
+        continue-on-error: false
+      
+      - name: Find APK files
+        run: |
+          echo "=== Looking for APK files ==="
+          find android/app/build/outputs -name "*.apk" -type f
+          echo "=== APK directory contents ==="
+          ls -lah android/app/build/outputs/apk/release/ 2>/dev/null || echo "Directory not found"
+      
+      - name: Get APK info
+        id: apk_info
+        run: |
+          APK_PATH=$(find android/app/build/outputs -name "*.apk" -type f | head -1)
+          if [ -n "$APK_PATH" ]; then
+            echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+            echo "APK found: $APK_PATH"
+            ls -lh "$APK_PATH"
+          else
+            echo "No APK found!"
+            exit 1
+          fi
+      
+      - name: Upload APK to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.apk_info.outputs.apk_path }}
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
