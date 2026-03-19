@@ -12,14 +12,22 @@ export default function LayersPanel() {
     toggleLayerLock,
     toggleLayerHidden,
     deleteLayer,
+    clearAllLayers,
   } = useAppStore()
 
   // 监听关闭事件
   useEffect(() => {
     const handleToggle = () => toggleLayersPanel()
+    const handleClear = () => clearAllLayers()
+    
     window.addEventListener('toggle-layers-panel', handleToggle)
-    return () => window.removeEventListener('toggle-layers-panel', handleToggle)
-  }, [toggleLayersPanel])
+    window.addEventListener('clear-all-layers', handleClear)
+    
+    return () => {
+      window.removeEventListener('toggle-layers-panel', handleToggle)
+      window.removeEventListener('clear-all-layers', handleClear)
+    }
+  }, [toggleLayersPanel, clearAllLayers])
 
   if (!showLayersPanel) return null
 
@@ -128,8 +136,22 @@ export default function LayersPanel() {
         )}
       </div>
 
-      <div className="p-3 border-t border-[var(--border-color)] text-xs text-[var(--text-secondary)]">
-        共 {allLayers.length} 个图层
+      <div className="p-3 border-t border-[var(--border-color)]">
+        <div className="text-xs text-[var(--text-secondary)] mb-2">
+          共 {allLayers.length} 个图层
+        </div>
+        <button
+          onClick={() => {
+            if (confirm('确定要清空所有图层吗？此操作不可恢复！')) {
+              // 清空所有图层
+              const event = new CustomEvent('clear-all-layers')
+              window.dispatchEvent(event)
+            }
+          }}
+          className="w-full py-2 px-3 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium transition-colors"
+        >
+          🗑️ 清空所有图层
+        </button>
       </div>
     </div>
   )
