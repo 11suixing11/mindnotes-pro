@@ -1,7 +1,8 @@
 plugins {
     id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
-    id 'kotlin-parcelize'
+    // 暂时不使用 Kotlin 插件，保持 Java 兼容性
+    // id 'org.jetbrains.kotlin.android'
+    // id 'kotlin-parcelize'
 }
 
 android {
@@ -43,20 +44,16 @@ android {
         }
     }
     
-    // Kotlin 配置
+    // Java 配置
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
     
-    kotlinOptions {
-        jvmTarget = '17'
-    }
-    
     // 现代构建特性
     buildFeatures {
-        viewBinding = true
-        compose = false // 暂时不使用 Compose，保持轻量
+        viewBinding = false // 暂时关闭，简化构建
+        compose = false
     }
     
     // 打包优化
@@ -94,7 +91,6 @@ dependencies {
     implementation project(':capacitor-cordova-android-plugins')
     
     // AndroidX Core (现代 Android 基础)
-    implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
@@ -103,13 +99,9 @@ dependencies {
     implementation 'androidx.core:core-splashscreen:1.0.1'
     
     // 生命周期组件 (现代 Android 架构)
-    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
-    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
-    implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.7.0'
-    
-    // Coroutines (Kotlin 协程)
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3'
+    implementation 'androidx.lifecycle:lifecycle-runtime:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-livedata:2.7.0'
     
     // 测试
     testImplementation 'junit:junit:4.13.2'
