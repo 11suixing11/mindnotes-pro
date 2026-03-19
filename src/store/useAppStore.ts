@@ -104,6 +104,7 @@ interface AppState {
   toggleLayerLock: (id: string) => void
   toggleLayerHidden: (id: string) => void
   deleteLayer: (id: string) => void
+  clearAllLayers: () => void
   moveLayerUp: (id: string) => void
   moveLayerDown: (id: string) => void
   
@@ -242,8 +243,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       strokes: state.strokes.filter(s => s.id !== id),
       shapes: state.shapes.filter(s => s.id !== id),
-      selectedLayerId: null,
+      selectedLayerId: state.selectedLayerId === id ? null : state.selectedLayerId,
     }))
+  },
+  
+  clearAllLayers: () => {
+    set({
+      strokes: [],
+      shapes: [],
+      selectedLayerId: null,
+    })
   },
   
   moveLayerUp: (id) => {

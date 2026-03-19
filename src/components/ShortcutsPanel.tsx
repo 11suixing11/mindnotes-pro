@@ -28,6 +28,8 @@ export default function ShortcutsPanel({ isOpen, onClose }: ShortcutsPanelProps)
       '-': '-',
       '0': '0',
       ' ': '空格',
+      '?': '?',
+      '/': '/',
     }
     
     const parts = [...(modifiers || []), key].map(k => symbols[k] || k.toUpperCase())

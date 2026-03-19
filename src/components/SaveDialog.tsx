@@ -81,6 +81,10 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
 `
       })
       
+      // 添加笔迹（使用 perfect-freehand 生成的路径会更准确，这里简化处理）
+      // 注意：完整实现需要重新计算笔迹路径
+      // 当前版本优先保证形状导出
+      
       svgContent += `</svg>`
       
       const blob = new Blob([svgContent], { type: 'image/svg+xml' })
