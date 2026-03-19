@@ -4,12 +4,17 @@ import Toolbar from './components/Toolbar'
 import SaveDialog from './components/SaveDialog'
 import { useThemeStore } from './store/useThemeStore'
 import { useServiceWorker } from './hooks/useServiceWorker'
+import { useShortcuts } from './hooks/useShortcuts'
 
 function App() {
   const [showSaveDialog, setShowSaveDialog] = useState(false)
+  // const [showShortcuts, setShowShortcuts] = useState(false)  // 预留，未来使用
   const canvasRef = useRef<CanvasRef>(null)
   const { initTheme } = useThemeStore()
   const { updateAvailable, isOnline, skipWaiting } = useServiceWorker()
+  
+  // 初始化快捷键
+  useShortcuts()
   
   // 初始化主题
   useEffect(() => {
@@ -32,6 +37,16 @@ function App() {
       skipWaiting()
     }
   }
+  
+  // 监听快捷键面板切换事件（预留）
+  // useEffect(() => {
+  //   const handleToggleShortcuts = () => {
+  //     setShowShortcuts(prev => !prev)
+  //   }
+  //   
+  //   window.addEventListener('toggle-shortcuts', handleToggleShortcuts)
+  //   return () => window.removeEventListener('toggle-shortcuts', handleToggleShortcuts)
+  // }, [])
   
   return (
     <div className="w-full h-screen relative bg-[var(--bg-secondary)] overflow-hidden">
@@ -104,6 +119,16 @@ function App() {
         <div className="flex items-center gap-2">
           <span>📱</span>
           <span>添加到主屏幕获得更好体验</span>
+        </div>
+      </div>
+      
+      {/* 快捷键提示（右下角） */}
+      <div className="fixed bottom-4 right-4 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-xl px-3 py-2 text-xs text-[var(--text-secondary)] shadow-lg border border-[var(--border-color)] hidden md:block">
+        <div className="flex items-center gap-2">
+          <span>⌨️</span>
+          <span>按</span>
+          <kbd className="px-2 py-0.5 bg-[var(--bg-tertiary)] rounded text-xs border border-[var(--border-color)]">?</kbd>
+          <span>查看快捷键</span>
         </div>
       </div>
     </div>
