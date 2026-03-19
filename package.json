@@ -21,12 +21,18 @@
   "dependencies": {
     "@capacitor/cli": "^8.2.0",
     "@capacitor/core": "^8.2.0",
+    "@tldraw/tldraw": "^4.5.3",
+    "@uiw/react-color": "^2.9.6",
     "file-saver": "^2.0.5",
     "jspdf": "^2.5.1",
+    "localforage": "^1.10.0",
+    "nanoid": "^5.1.7",
     "openai": "^4.28.0",
     "perfect-freehand": "^1.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-hotkeys-hook": "^5.2.4",
+    "undo-manager": "^1.1.1",
     "zustand": "^4.5.0"
   },
   "devDependencies": {
