@@ -62,11 +62,11 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
     }
     
     // 如果是形状工具，开始绘制形状
-    if (tool === 'rectangle' || tool === 'circle' || tool === 'triangle') {
+    if (tool === 'rectangle' || tool === 'circle' || tool === 'triangle' || tool === 'arrow' || tool === 'line') {
       const [x, y] = getCoordinates(e)
       shapeStartPoint.current = { x, y }
       startShape(tool as Shape['type'])
-      updateCurrentShape({ x, y, width: 0, height: 0 })
+      updateCurrentShape({ x, y, width: 0, height: 0, startX: x, startY: y, endX: x, endY: y })
       return
     }
     
@@ -101,12 +101,23 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
       const width = x - startX
       const height = y - startY
       
-      updateCurrentShape({
-        x: width < 0 ? x : startX,
-        y: height < 0 ? y : startY,
-        width: Math.abs(width),
-        height: Math.abs(height),
-      })
+      // 箭头和直线使用起点终点坐标
+      if (currentShape.type === 'arrow' || currentShape.type === 'line') {
+        updateCurrentShape({
+          startX,
+          startY,
+          endX: x,
+          endY: y,
+        })
+      } else {
+        // 矩形、圆形、三角形使用位置 + 尺寸
+        updateCurrentShape({
+          x: width < 0 ? x : startX,
+          y: height < 0 ? y : startY,
+          width: Math.abs(width),
+          height: Math.abs(height),
+        })
+      }
       return
     }
     
@@ -257,6 +268,8 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
       ctx.beginPath()
       ctx.strokeStyle = shape.color
       ctx.lineWidth = shape.size
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
       
       if (shape.type === 'rectangle') {
         ctx.rect(shape.x, shape.y, shape.width, shape.height)
@@ -272,6 +285,32 @@ const Canvas = forwardRef<CanvasRef>((_, ref) => {
         ctx.lineTo(shape.x + shape.width, shape.y + shape.height)
         ctx.lineTo(shape.x, shape.y + shape.height)
         ctx.closePath()
+      } else if (shape.type === 'line' && shape.startX != null && shape.endX != null) {
+        ctx.moveTo(shape.startX, shape.startY!)
+        ctx.lineTo(shape.endX, shape.endY!)
+      } else if (shape.type === 'arrow' && shape.startX != null && shape.endX != null) {
+        // 绘制箭头线
+        const startX = shape.startX
+        const startY = shape.startY!
+        const endX = shape.endX
+        const endY = shape.endY!
+        
+        ctx.moveTo(startX, startY)
+        ctx.lineTo(endX, endY)
+        
+        // 绘制箭头头部
+        const headLength = 15 * (shape.size / 4)
+        const angle = Math.atan2(endY - startY, endX - startX)
+        
+        ctx.lineTo(
+          endX - headLength * Math.cos(angle - Math.PI / 6),
+          endY - headLength * Math.sin(angle - Math.PI / 6)
+        )
+        ctx.moveTo(endX, endY)
+        ctx.lineTo(
+          endX - headLength * Math.cos(angle + Math.PI / 6),
+          endY - headLength * Math.sin(angle + Math.PI / 6)
+        )
       }
       
       ctx.stroke()

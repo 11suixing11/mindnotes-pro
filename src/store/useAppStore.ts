@@ -10,7 +10,7 @@ export interface Stroke {
 
 export interface Shape {
   id: string
-  type: 'rectangle' | 'circle' | 'triangle'
+  type: 'rectangle' | 'circle' | 'triangle' | 'arrow' | 'line'
   x: number
   y: number
   width: number
@@ -18,6 +18,11 @@ export interface Shape {
   color: string
   size: number
   rotation?: number
+  // 箭头专用
+  startX?: number
+  startY?: number
+  endX?: number
+  endY?: number
 }
 
 interface AppState {
@@ -30,7 +35,7 @@ interface AppState {
   currentShape: Shape | null
   
   // 工具状态
-  tool: 'pen' | 'eraser' | 'pan' | 'rectangle' | 'circle' | 'triangle'
+  tool: 'pen' | 'eraser' | 'pan' | 'rectangle' | 'circle' | 'triangle' | 'arrow' | 'line'
   color: string
   size: number
   
@@ -114,7 +119,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // 开始新笔迹
   startStroke: () => {
     const { tool, color, size } = get()
-    const strokeTool: 'pen' | 'eraser' = (tool === 'pan' || tool === 'rectangle' || tool === 'circle' || tool === 'triangle') ? 'pen' : tool
+    const strokeTool: 'pen' | 'eraser' = (tool === 'pan' || tool === 'rectangle' || tool === 'circle' || tool === 'triangle' || tool === 'arrow' || tool === 'line') ? 'pen' : tool
     set({
       currentStroke: {
         id: Date.now().toString(),
@@ -195,6 +200,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         height: 0,
         color,
         size,
+        startX: 0,
+        startY: 0,
+        endX: 0,
+        endY: 0,
       },
       isDrawing: true,
     })
