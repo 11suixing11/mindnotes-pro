@@ -46,6 +46,12 @@ interface AppState {
     zoom: number
   }
   
+  // 智能吸附
+  showGuides: boolean
+  snapToGrid: boolean
+  gridSize: number
+  guideLines: Array<{ type: 'horizontal' | 'vertical'; position: number }> | null
+  
   // 操作状态
   isDrawing: boolean
   canUndo: boolean
@@ -72,6 +78,12 @@ interface AppState {
   zoomOut: () => void
   resetView: () => void
   
+  // 智能吸附方法
+  setGuideLines: (guides: Array<{ type: 'horizontal' | 'vertical'; position: number }>) => void
+  clearGuideLines: () => void
+  toggleShowGuides: () => void
+  toggleSnapToGrid: () => void
+  
   undo: () => void
   redo: () => void
 }
@@ -93,6 +105,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     y: 0,
     zoom: 1,
   },
+  
+  showGuides: true,
+  snapToGrid: false,
+  gridSize: 20,
+  guideLines: null,
   
   isDrawing: false,
   canUndo: false,
@@ -170,6 +187,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   resetView: () => {
     set({ viewBox: { x: 0, y: 0, zoom: 1 } })
   },
+  
+  // 智能吸附方法
+  setGuideLines: (guides: Array<{ type: 'horizontal' | 'vertical'; position: number }>) => set({ guideLines: guides }),
+  clearGuideLines: () => set({ guideLines: null }),
+  toggleShowGuides: () => set((state) => ({ showGuides: !state.showGuides })),
+  toggleSnapToGrid: () => set((state) => ({ snapToGrid: !state.snapToGrid })),
   
   // 形状方法
   addShape: (shape) => {
