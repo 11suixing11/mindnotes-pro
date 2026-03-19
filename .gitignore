@@ -18,6 +18,15 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+
+# Electron builds
+release/
+*.AppImage
+*.dmg
+*.exe
+*.msi
+*.deb
+*.rpm
 *.suo
 *.ntvs*
 *.njsproj
