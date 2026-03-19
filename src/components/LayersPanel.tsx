@@ -20,10 +20,10 @@ export default function LayersPanel() {
   useEffect(() => {
     const handleToggle = () => toggleLayersPanel()
     const handleClear = () => clearAllLayers()
-    
+
     window.addEventListener('toggle-layers-panel', handleToggle)
     window.addEventListener('clear-all-layers', handleClear)
-    
+
     return () => {
       window.removeEventListener('toggle-layers-panel', handleToggle)
       window.removeEventListener('clear-all-layers', handleClear)
@@ -72,9 +72,7 @@ export default function LayersPanel() {
         <div className="divide-y divide-[var(--border-color)]">
           {allLayers.length === 0 ? (
             <FadeIn>
-              <div className="p-4 text-center text-sm text-[var(--text-secondary)]">
-                暂无图层
-              </div>
+              <div className="p-4 text-center text-sm text-[var(--text-secondary)]">暂无图层</div>
             </FadeIn>
           ) : (
             allLayers.map((layer) => (
@@ -85,55 +83,55 @@ export default function LayersPanel() {
                   }`}
                   onClick={() => setSelectedLayer(layer.id)}
                 >
-              {/* 锁定/隐藏按钮 */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleLayerHidden(layer.id)
-                  }}
-                  className={`w-5 h-5 flex items-center justify-center rounded text-xs ${
-                    layer.hidden
-                      ? 'bg-gray-200 text-gray-500'
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
-                  }`}
-                  title={layer.hidden ? '显示' : '隐藏'}
-                >
-                  {layer.hidden ? '👁️‍🗨️' : '👁️'}
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleLayerLock(layer.id)
-                  }}
-                  className={`w-5 h-5 flex items-center justify-center rounded text-xs ${
-                    layer.locked
-                      ? 'bg-gray-200 text-gray-500'
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
-                  }`}
-                  title={layer.locked ? '解锁' : '锁定'}
-                >
-                  🔒
-                </button>
-              </div>
+                  {/* 锁定/隐藏按钮 */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleLayerHidden(layer.id)
+                      }}
+                      className={`w-5 h-5 flex items-center justify-center rounded text-xs ${
+                        layer.hidden
+                          ? 'bg-gray-200 text-gray-500'
+                          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
+                      }`}
+                      title={layer.hidden ? '显示' : '隐藏'}
+                    >
+                      {layer.hidden ? '👁️‍🗨️' : '👁️'}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleLayerLock(layer.id)
+                      }}
+                      className={`w-5 h-5 flex items-center justify-center rounded text-xs ${
+                        layer.locked
+                          ? 'bg-gray-200 text-gray-500'
+                          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
+                      }`}
+                      title={layer.locked ? '解锁' : '锁定'}
+                    >
+                      🔒
+                    </button>
+                  </div>
 
-              {/* 图层名称 */}
-              <div className="flex-1 truncate text-sm text-[var(--text-primary)]">
-                {getLayerName(layer)}
-              </div>
+                  {/* 图层名称 */}
+                  <div className="flex-1 truncate text-sm text-[var(--text-primary)]">
+                    {getLayerName(layer)}
+                  </div>
 
-              {/* 删除按钮 */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (confirm('确定要删除这个图层吗？')) {
-                    deleteLayer(layer.id)
-                  }
-                }}
-                className="w-6 h-6 flex items-center justify-center rounded text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30"
-                title="删除"
-              >
-                🗑️
+                  {/* 删除按钮 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (confirm('确定要删除这个图层吗？')) {
+                        deleteLayer(layer.id)
+                      }
+                    }}
+                    className="w-6 h-6 flex items-center justify-center rounded text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30"
+                    title="删除"
+                  >
+                    🗑️
                   </button>
                 </div>
               </FadeIn>

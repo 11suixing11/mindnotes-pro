@@ -52,18 +52,30 @@ export function calculateSnap(
     }
 
     // 检测水平对齐（X 轴）
-    const xSnap = detectSnapEdge(currentEdges.left, currentEdges.center, currentEdges.right,
-                                 shapeEdges.left, shapeEdges.center, shapeEdges.right)
-    
+    const xSnap = detectSnapEdge(
+      currentEdges.left,
+      currentEdges.center,
+      currentEdges.right,
+      shapeEdges.left,
+      shapeEdges.center,
+      shapeEdges.right
+    )
+
     if (xSnap) {
       snapX = xSnap.snapPosition
       guides.push({ type: 'vertical', position: xSnap.referencePosition })
     }
 
     // 检测垂直对齐（Y 轴）
-    const ySnap = detectSnapEdge(currentEdges.top, currentEdges.middle, currentEdges.bottom,
-                                 shapeEdges.top, shapeEdges.middle, shapeEdges.bottom)
-    
+    const ySnap = detectSnapEdge(
+      currentEdges.top,
+      currentEdges.middle,
+      currentEdges.bottom,
+      shapeEdges.top,
+      shapeEdges.middle,
+      shapeEdges.bottom
+    )
+
     if (ySnap) {
       snapY = ySnap.snapPosition
       guides.push({ type: 'horizontal', position: ySnap.referencePosition })

@@ -3,9 +3,21 @@ import { useAppStore } from '../store/useAppStore'
 import { useThemeStore } from '../store/useThemeStore'
 
 const Toolbar: React.FC = () => {
-  const { tool, color, size, setTool, setColor, setSize, clearStrokes, undo, zoomIn, zoomOut, resetView } = useAppStore()
+  const {
+    tool,
+    color,
+    size,
+    setTool,
+    setColor,
+    setSize,
+    clearStrokes,
+    undo,
+    zoomIn,
+    zoomOut,
+    resetView,
+  } = useAppStore()
   const { isDarkMode, toggleTheme } = useThemeStore()
-  
+
   const colors = [
     '#000000', // 黑
     '#ef4444', // 红
@@ -14,9 +26,9 @@ const Toolbar: React.FC = () => {
     '#f59e0b', // 黄
     '#8b5cf6', // 紫
   ]
-  
+
   const sizes = [2, 4, 6, 8, 10]
-  
+
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-2xl shadow-xl border border-[var(--border-color)] px-6 py-3 flex items-center gap-4 z-10">
       {/* 工具选择 */}
@@ -40,9 +52,9 @@ const Toolbar: React.FC = () => {
           ✋ 平移
         </button>
       </div>
-      
+
       <div className="w-px h-8 bg-[var(--border-color)]" />
-      
+
       {/* 形状工具 */}
       <div className="flex items-center gap-2">
         <button
@@ -67,9 +79,9 @@ const Toolbar: React.FC = () => {
           🔺 三角
         </button>
       </div>
-      
+
       <div className="w-px h-8 bg-[var(--border-color)]" />
-      
+
       {/* 箭头和连线工具 */}
       <div className="flex items-center gap-2">
         <button
@@ -87,9 +99,9 @@ const Toolbar: React.FC = () => {
           ➡️ 箭头
         </button>
       </div>
-      
+
       <div className="w-px h-8 bg-[var(--border-color)]" />
-      
+
       {/* 颜色选择 */}
       <div className="flex items-center gap-2">
         {colors.map((c) => (
@@ -104,9 +116,9 @@ const Toolbar: React.FC = () => {
           />
         ))}
       </div>
-      
+
       <div className="w-px h-8 bg-[var(--border-color)]" />
-      
+
       {/* 粗细选择 */}
       <div className="flex items-center gap-2">
         {sizes.map((s) => (
@@ -114,21 +126,18 @@ const Toolbar: React.FC = () => {
             key={s}
             onClick={() => setSize(s)}
             className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-              size === s 
-                ? 'bg-primary text-white' 
+              size === s
+                ? 'bg-primary text-white'
                 : 'bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)]'
             }`}
           >
-            <div 
-              className="rounded-full bg-current"
-              style={{ width: s * 2, height: s * 2 }}
-            />
+            <div className="rounded-full bg-current" style={{ width: s * 2, height: s * 2 }} />
           </button>
         ))}
       </div>
-      
+
       <div className="w-px h-8 bg-[var(--border-color)]" />
-      
+
       {/* 缩放控制 */}
       <div className="flex items-center gap-2">
         <button
@@ -153,9 +162,9 @@ const Toolbar: React.FC = () => {
           🔍+
         </button>
       </div>
-      
+
       <div className="w-px h-8 bg-[var(--border-color)]" />
-      
+
       {/* 操作按钮 */}
       <div className="flex items-center gap-2">
         <button
@@ -171,9 +180,9 @@ const Toolbar: React.FC = () => {
           🗑️ 清空
         </button>
       </div>
-      
+
       <div className="w-px h-8 bg-[var(--border-color)]" />
-      
+
       {/* 主题切换 */}
       <button
         onClick={toggleTheme}
@@ -182,9 +191,9 @@ const Toolbar: React.FC = () => {
       >
         {isDarkMode ? '☀️ 浅色' : '🌙 深色'}
       </button>
-      
+
       <div className="w-px h-8 bg-[var(--border-color)]" />
-      
+
       {/* 快捷键帮助 */}
       <button
         onClick={() => window.dispatchEvent(new CustomEvent('toggle-shortcuts'))}
@@ -193,9 +202,9 @@ const Toolbar: React.FC = () => {
       >
         ⌨️ 帮助
       </button>
-      
+
       <div className="w-px h-8 bg-[var(--border-color)]" />
-      
+
       {/* 图层面板 */}
       <button
         onClick={() => {

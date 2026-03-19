@@ -10,67 +10,63 @@ import { useShortcuts } from './hooks/useShortcuts'
 
 function App() {
   const [showSaveDialog, setShowSaveDialog] = useState(false)
-  const [useTldraw, setUseTldraw] = useState(false)  // 切换模式
+  const [useTldraw, setUseTldraw] = useState(false) // 切换模式
   const canvasRef = useRef<CanvasRef>(null)
   const { initTheme } = useThemeStore()
   const { updateAvailable, isOnline, skipWaiting } = useServiceWorker()
-  
+
   // 初始化快捷键
   useShortcuts()
-  
+
   // 初始化主题
   useEffect(() => {
     initTheme()
   }, [initTheme])
-  
+
   // 监听保存快捷键
   useEffect(() => {
     const handleSaveEvent = () => {
       setShowSaveDialog(true)
     }
-    
+
     window.addEventListener('mindnotes-save', handleSaveEvent)
     return () => window.removeEventListener('mindnotes-save', handleSaveEvent)
   }, [])
-  
+
   // 提示用户更新
   const handleUpdate = () => {
     if (confirm('有新版本可用，是否立即更新并刷新页面？')) {
       skipWaiting()
     }
   }
-  
+
   // 监听图层面板切换事件
   useEffect(() => {
     const handleToggleLayers = () => {
       // 通过 store 管理，这里不需要额外状态
     }
-    
+
     window.addEventListener('toggle-layers', handleToggleLayers)
     return () => window.removeEventListener('toggle-layers', handleToggleLayers)
   }, [])
-  
+
   // 模式切换（开发用）
   useEffect(() => {
     const handleModeSwitch = () => {
-      setUseTldraw(prev => !prev)
+      setUseTldraw((prev) => !prev)
     }
     window.addEventListener('switch-mode', handleModeSwitch)
     return () => window.removeEventListener('switch-mode', handleModeSwitch)
   }, [])
-  
+
   return (
     <div className="w-full h-screen relative bg-[var(--bg-secondary)] overflow-hidden">
       {/* 顶部工具栏 */}
       <Toolbar />
-      
+
       {/* 画布区域 - 可切换模式 */}
-      {useTldraw ? (
-        <MindNotesTldraw />
-      ) : (
-        <Canvas ref={canvasRef} />
-      )}
-      
+      {useTldraw ? <MindNotesTldraw /> : <Canvas ref={canvasRef} />}
+
       {/* 底部操作栏 */}
       <div className="fixed bottom-4 right-4 flex gap-3 z-10">
         <button
@@ -81,14 +77,14 @@ function App() {
           💾 保存
         </button>
       </div>
-      
+
       {/* 保存对话框 */}
       <SaveDialog
         isOpen={showSaveDialog}
         onClose={() => setShowSaveDialog(false)}
         canvas={canvasRef.current?.getCanvas() || null}
       />
-      
+
       {/* 使用说明 */}
       <div className="fixed bottom-4 left-4 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-xl px-4 py-3 text-sm text-[var(--text-secondary)] shadow-lg border border-[var(--border-color)]">
         <div className="font-medium mb-2">💡 使用提示</div>
@@ -99,15 +95,17 @@ function App() {
           <div>🗑️ Delete 清空</div>
         </div>
       </div>
-      
+
       {/* 右上角状态指示器 */}
       <div className="fixed top-4 right-4 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] shadow-lg border border-[var(--border-color)]">
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+          <div
+            className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
+          />
           <span>{isOnline ? '就绪' : '离线'}</span>
         </div>
       </div>
-      
+
       {/* PWA 更新提示 */}
       {updateAvailable && (
         <div className="fixed bottom-20 right-4 bg-primary text-white rounded-lg px-4 py-3 text-sm shadow-xl z-50 animate-bounce">
@@ -119,16 +117,13 @@ function App() {
             >
               更新
             </button>
-            <button
-              onClick={() => {}}
-              className="ml-1 px-2 py-1 hover:bg-white/20 rounded"
-            >
+            <button onClick={() => {}} className="ml-1 px-2 py-1 hover:bg-white/20 rounded">
               ✕
             </button>
           </div>
         </div>
       )}
-      
+
       {/* PWA 安装提示（仅移动端） */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-xl px-4 py-2 text-xs text-[var(--text-secondary)] shadow-lg border border-[var(--border-color)] md:hidden">
         <div className="flex items-center gap-2">
@@ -136,17 +131,19 @@ function App() {
           <span>添加到主屏幕获得更好体验</span>
         </div>
       </div>
-      
+
       {/* 快捷键提示（右下角） */}
       <div className="fixed bottom-4 right-4 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-xl px-3 py-2 text-xs text-[var(--text-secondary)] shadow-lg border border-[var(--border-color)] hidden md:block">
         <div className="flex items-center gap-2">
           <span>⌨️</span>
           <span>按</span>
-          <kbd className="px-2 py-0.5 bg-[var(--bg-tertiary)] rounded text-xs border border-[var(--border-color)]">?</kbd>
+          <kbd className="px-2 py-0.5 bg-[var(--bg-tertiary)] rounded text-xs border border-[var(--border-color)]">
+            ?
+          </kbd>
           <span>查看快捷键</span>
         </div>
       </div>
-      
+
       {/* 图层面板 */}
       <LayersPanel />
     </div>

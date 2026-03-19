@@ -7,16 +7,19 @@ interface ShortcutsPanelProps {
 
 export default function ShortcutsPanel({ isOpen, onClose }: ShortcutsPanelProps) {
   const { shortcuts } = useShortcuts()
-  
+
   if (!isOpen) return null
-  
+
   // 按类别分组
-  const grouped = shortcuts.reduce((acc, s) => {
-    if (!acc[s.category]) acc[s.category] = []
-    acc[s.category].push(s)
-    return acc
-  }, {} as Record<string, ShortcutConfig[]>)
-  
+  const grouped = shortcuts.reduce(
+    (acc, s) => {
+      if (!acc[s.category]) acc[s.category] = []
+      acc[s.category].push(s)
+      return acc
+    },
+    {} as Record<string, ShortcutConfig[]>
+  )
+
   const formatKey = (key: string, modifiers?: string[]) => {
     const symbols: Record<string, string> = {
       ctrl: 'Ctrl',
@@ -31,16 +34,19 @@ export default function ShortcutsPanel({ isOpen, onClose }: ShortcutsPanelProps)
       '?': '?',
       '/': '/',
     }
-    
-    const parts = [...(modifiers || []), key].map(k => symbols[k] || k.toUpperCase())
+
+    const parts = [...(modifiers || []), key].map((k) => symbols[k] || k.toUpperCase())
     return parts.join(' + ')
   }
-  
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div 
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
         className="bg-[var(--bg-primary)] rounded-2xl p-6 max-w-2xl w-full mx-4 shadow-2xl border border-[var(--border-color)] max-h-[80vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-[var(--text-primary)]">⌨️ 快捷键</h2>
@@ -51,7 +57,7 @@ export default function ShortcutsPanel({ isOpen, onClose }: ShortcutsPanelProps)
             ✕
           </button>
         </div>
-        
+
         <div className="space-y-6">
           {Object.entries(grouped).map(([category, items]) => (
             <div key={category}>
@@ -78,7 +84,7 @@ export default function ShortcutsPanel({ isOpen, onClose }: ShortcutsPanelProps)
             </div>
           ))}
         </div>
-        
+
         <div className="mt-6 pt-4 border-t border-[var(--border-color)]">
           <p className="text-sm text-[var(--text-secondary)]">
             💡 提示：快捷键可以在设置中自定义（即将推出）

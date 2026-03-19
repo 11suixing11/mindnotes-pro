@@ -2,11 +2,16 @@ import { useHotkeys } from 'react-hotkeys-hook'
 import { useAppStore } from '../store/useAppStore'
 
 export function useMindNotesHotkeys() {
-  const { 
-    setTool, undo, clearStrokes, 
-    zoomIn, zoomOut, resetView,
-    toggleShowGuides, toggleSnapToGrid,
-    toggleLayersPanel
+  const {
+    setTool,
+    undo,
+    clearStrokes,
+    zoomIn,
+    zoomOut,
+    resetView,
+    toggleShowGuides,
+    toggleSnapToGrid,
+    toggleLayersPanel,
   } = useAppStore()
 
   // 工具切换
@@ -19,11 +24,15 @@ export function useMindNotesHotkeys() {
 
   // 编辑操作
   useHotkeys('ctrl+z,meta+z', () => undo(), { preventDefault: true })
-  useHotkeys('delete,backspace', () => {
-    if (confirm('确定要清空所有笔迹吗？')) {
-      clearStrokes()
-    }
-  }, { preventDefault: true })
+  useHotkeys(
+    'delete,backspace',
+    () => {
+      if (confirm('确定要清空所有笔迹吗？')) {
+        clearStrokes()
+      }
+    },
+    { preventDefault: true }
+  )
 
   // 视图控制
   useHotkeys('+,=', () => zoomIn(), { preventDefault: true })
@@ -36,9 +45,13 @@ export function useMindNotesHotkeys() {
   useHotkeys('l', () => toggleLayersPanel(), { preventDefault: true })
 
   // 帮助
-  useHotkeys('?', () => {
-    window.dispatchEvent(new CustomEvent('toggle-shortcuts'))
-  }, { preventDefault: true })
+  useHotkeys(
+    '?',
+    () => {
+      window.dispatchEvent(new CustomEvent('toggle-shortcuts'))
+    },
+    { preventDefault: true }
+  )
 }
 
 export default useMindNotesHotkeys

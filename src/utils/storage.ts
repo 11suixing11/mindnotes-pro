@@ -5,7 +5,7 @@ localforage.config({
   name: 'MindNotes Pro',
   version: 1.0,
   storeName: 'mindnotes',
-  description: 'MindNotes Pro 本地存储'
+  description: 'MindNotes Pro 本地存储',
 })
 
 // 自动保存状态

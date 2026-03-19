@@ -8,11 +8,11 @@ interface VirtualListProps<T> {
   overscan?: number
 }
 
-export function VirtualList<T>({ 
-  items, 
-  renderItem, 
+export function VirtualList<T>({
+  items,
+  renderItem,
   itemHeight = 50,
-  overscan = 5 
+  overscan = 5,
 }: VirtualListProps<T>) {
   const parentRef = useRef<HTMLDivElement>(null)
 
@@ -24,11 +24,7 @@ export function VirtualList<T>({
   })
 
   return (
-    <div
-      ref={parentRef}
-      className="w-full h-full overflow-auto"
-      style={{ height: '100%' }}
-    >
+    <div ref={parentRef} className="w-full h-full overflow-auto" style={{ height: '100%' }}>
       <div
         style={{
           height: `${virtualizer.getTotalSize()}px`,
