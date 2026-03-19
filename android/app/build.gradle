@@ -44,10 +44,10 @@ android {
         }
     }
     
-    // Java 配置
+    // Java 配置 (Capacitor 要求 Java 21)
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
     }
     
     // 现代构建特性
