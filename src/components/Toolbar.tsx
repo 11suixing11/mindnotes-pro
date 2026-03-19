@@ -70,6 +70,26 @@ const Toolbar: React.FC = () => {
       
       <div className="w-px h-8 bg-[var(--border-color)]" />
       
+      {/* 箭头和连线工具 */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setTool('line' as any)}
+          className={`toolbar-btn ${tool === 'line' ? 'active' : 'bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)]'}`}
+          title="直线工具"
+        >
+          📏 直线
+        </button>
+        <button
+          onClick={() => setTool('arrow' as any)}
+          className={`toolbar-btn ${tool === 'arrow' ? 'active' : 'bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)]'}`}
+          title="箭头工具"
+        >
+          ➡️ 箭头
+        </button>
+      </div>
+      
+      <div className="w-px h-8 bg-[var(--border-color)]" />
+      
       {/* 颜色选择 */}
       <div className="flex items-center gap-2">
         {colors.map((c) => (
