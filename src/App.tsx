@@ -12,7 +12,6 @@ import { useShortcuts } from './hooks/useShortcuts'
 function App() {
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [useTldraw, setUseTldraw] = useState(false) // 切换模式
-  const [showWelcome, setShowWelcome] = useState(false) // 暂时禁用引导
   const canvasRef = useRef<CanvasRef>(null)
   const { initTheme } = useThemeStore()
   const { updateAvailable, isOnline, skipWaiting } = useServiceWorker()
