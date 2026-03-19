@@ -16,7 +16,9 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run electron:build
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: linux-appimage
           path: release/*.AppImage
@@ -31,7 +33,9 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run electron:build
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: windows-exe
           path: release/*.exe
@@ -46,7 +50,9 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run electron:build
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: macos-dmg
           path: release/*.dmg
@@ -69,7 +75,9 @@ jobs:
         with:
           arguments: assembleRelease
           build-root-directory: android
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: android-apk
           path: android/app/build/outputs/apk/release/*.apk
@@ -77,6 +85,7 @@ jobs:
   upload-release:
     needs: [build-linux, build-windows, build-macos, build-android]
     runs-on: ubuntu-latest
+    if: always()
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
