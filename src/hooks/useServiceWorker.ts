@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 export function useServiceWorker() {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null)
   const [updateAvailable, setUpdateAvailable] = useState(false)
-  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
+  const [swReady, setSwReady] = useState(false)
 
   useEffect(() => {
     // 检查 Service Worker 支持
@@ -18,8 +19,14 @@ export function useServiceWorker() {
         const reg = await navigator.serviceWorker.register('/sw.js', {
           scope: '/',
         })
-        console.log('[PWA] Service Worker registered:', reg.scope)
+        console.log('✅ [PWA] Service Worker registered:', reg.scope)
         setRegistration(reg)
+        
+        // 检查是否就绪
+        if (reg.active) {
+          setSwReady(true)
+          console.log('✅ [PWA] Service Worker ready')
+        }
 
         // 监听更新
         reg.addEventListener('updatefound', () => {
@@ -86,6 +93,7 @@ export function useServiceWorker() {
     registration,
     updateAvailable,
     isOnline,
+    swReady,
     updateServiceWorker,
     skipWaiting,
   }
