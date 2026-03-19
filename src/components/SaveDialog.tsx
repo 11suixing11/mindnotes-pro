@@ -11,7 +11,7 @@ interface SaveDialogProps {
 
 const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
   const { strokes } = useAppStore()
-  const [format, setFormat] = useState<'png' | 'json' | 'pdf'>('png')
+  const [format, setFormat] = useState<'png' | 'json' | 'pdf' | 'svg'>('png')
   const [isSaving, setIsSaving] = useState(false)
   
   if (!isOpen) return null
@@ -38,6 +38,55 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
       saveAs(blob, `mindnotes-${Date.now()}.json`)
     } catch (error) {
       console.error('导出 JSON 失败:', error)
+      alert('导出失败，请重试')
+    }
+    setIsSaving(false)
+    onClose()
+  }
+  
+  // 导出为 SVG
+  const exportAsSVG = () => {
+    setIsSaving(true)
+    try {
+      const { shapes } = useAppStore.getState()
+      
+      // 生成 SVG 内容
+      let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
+  <rect width="100%" height="100%" fill="white"/>
+`
+      
+      // 添加形状
+      shapes.forEach(shape => {
+        if (shape.hidden) return
+        
+        svgContent += `  <${shape.type === 'rectangle' ? 'rect' : shape.type === 'circle' ? 'ellipse' : 'path'}
+    stroke="${shape.color}"
+    stroke-width="${shape.size}"
+    fill="none"
+`
+        
+        if (shape.type === 'rectangle') {
+          svgContent += `    x="${shape.x}" y="${shape.y}" width="${shape.width}" height="${shape.height}"
+`
+        } else if (shape.type === 'circle') {
+          const rx = shape.width / 2
+          const ry = shape.height / 2
+          const cx = shape.x + rx
+          const cy = shape.y + ry
+          svgContent += `    cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"
+`
+        }
+        
+        svgContent += `  />
+`
+      })
+      
+      svgContent += `</svg>`
+      
+      const blob = new Blob([svgContent], { type: 'image/svg+xml' })
+      saveAs(blob, `mindnotes-${Date.now()}.svg`)
+    } catch (error) {
+      console.error('导出 SVG 失败:', error)
       alert('导出失败，请重试')
     }
     setIsSaving(false)
@@ -72,6 +121,9 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
     switch (format) {
       case 'png':
         exportAsPNG()
+        break
+      case 'svg':
+        exportAsSVG()
         break
       case 'json':
         exportAsJSON()
