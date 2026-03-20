@@ -40,8 +40,8 @@ export default function LayersPanel() {
   }
 
   return (
-    <div className="fixed top-20 right-4 w-64 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-xl shadow-xl border border-[var(--border-color)] z-40 max-h-[60vh] overflow-y-auto">
-      <div className="p-3 border-b border-[var(--border-color)] flex items-center justify-between sticky top-0 bg-[var(--toolbar-bg)]">
+    <div className="fixed top-20 right-4 w-64 glass-panel rounded-2xl z-40 max-h-[60vh] overflow-y-auto">
+      <div className="p-3 border-b border-[var(--border-color)] flex items-center justify-between sticky top-0 bg-[var(--toolbar-bg)] rounded-t-2xl">
         <h3 className="font-semibold text-[var(--text-primary)] text-sm">📑 图层 ({allLayers.length})</h3>
         <button
           onClick={toggleLayersPanel}

@@ -2,37 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CSS 变量主题系统 */
+/* ===== CSS 变量主题系统 ===== */
 :root {
-  /* 浅色主题 */
   --bg-primary: #ffffff;
-  --bg-secondary: #f9fafb;
-  --bg-tertiary: #f3f4f6;
-  --text-primary: #1f2937;
-  --text-secondary: #6b7280;
-  --border-color: #e5e7eb;
-  --shadow-color: rgba(0, 0, 0, 0.1);
-  --primary-color: #4f46e5;
-  --primary-hover: #4338ca;
-  --toolbar-bg: rgba(255, 255, 255, 0.95);
+  --bg-secondary: #f0f2f5;
+  --bg-tertiary: #e4e6eb;
+  --text-primary: #1a1a2e;
+  --text-secondary: #65676b;
+  --border-color: rgba(0, 0, 0, 0.08);
+  --shadow-color: rgba(0, 0, 0, 0.06);
+  --primary-color: #6366f1;
+  --primary-hover: #4f46e5;
+  --toolbar-bg: rgba(255, 255, 255, 0.72);
   --canvas-bg: #ffffff;
+  --canvas-dot: rgba(0, 0, 0, 0.06);
+  --glass-blur: 16px;
 }
 
 .dark {
-  /* 深色主题 */
-  --bg-primary: #1f2937;
-  --bg-secondary: #111827;
-  --bg-tertiary: #030712;
-  --text-primary: #f9fafb;
-  --text-secondary: #9ca3af;
-  --border-color: #374151;
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+  --bg-tertiary: #0f0f23;
+  --text-primary: #e4e6eb;
+  --text-secondary: #b0b3b8;
+  --border-color: rgba(255, 255, 255, 0.08);
   --shadow-color: rgba(0, 0, 0, 0.3);
-  --primary-color: #6366f1;
-  --primary-hover: #818cf8;
-  --toolbar-bg: rgba(31, 41, 55, 0.95);
-  --canvas-bg: #1f2937;
+  --primary-color: #818cf8;
+  --primary-hover: #6366f1;
+  --toolbar-bg: rgba(26, 26, 46, 0.72);
+  --canvas-bg: #1a1a2e;
+  --canvas-dot: rgba(255, 255, 255, 0.05);
 }
 
+/* ===== 基础重置 ===== */
 * {
   margin: 0;
   padding: 0;
@@ -46,49 +48,184 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
-  background-color: var(--bg-primary);
+  background-color: var(--bg-secondary);
   color: var(--text-primary);
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-              color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 深色模式平滑过渡 — 只对需要过渡的元素，不对 * */
-.dark body,
-.dark .toolbar-btn,
-.dark .dialog-content,
-.dark [class*="bg-[var(--"] {
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-              color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-              border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* body 背景带微妙渐变 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(168, 85, 247, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dark body::before {
+  background: 
+    radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(168, 85, 247, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.04) 0%, transparent 50%);
 }
 
 #root {
   width: 100vw;
   height: 100vh;
+  position: relative;
+  z-index: 1;
 }
 
-/* 画布容器 */
-.canvas-container {
-  touch-action: none;
-  cursor: crosshair;
+/* ===== 画布背景 ===== */
+.canvas-bg {
+  background-color: var(--canvas-bg);
+  /* 微妙的圆点网格 — Telegram 风格 */
+  background-image: radial-gradient(circle, var(--canvas-dot) 1px, transparent 1px);
+  background-size: 24px 24px;
+  transition: background-color 0.3s ease;
 }
 
-/* 工具栏按钮 */
+/* ===== 毛玻璃工具栏 ===== */
+.glass-toolbar {
+  background: var(--toolbar-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--border-color);
+  box-shadow: 
+    0 4px 24px var(--shadow-color),
+    0 1px 3px var(--shadow-color);
+}
+
+/* ===== 工具栏按钮 ===== */
 .toolbar-btn {
-  @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
-  @apply hover:scale-105 active:scale-95;
+  @apply w-9 h-9 rounded-xl flex items-center justify-center text-base
+    transition-all duration-200 cursor-pointer select-none;
+}
+
+.toolbar-btn:hover {
+  background: var(--bg-tertiary);
+  transform: scale(1.05);
+}
+
+.toolbar-btn:active {
+  transform: scale(0.95);
 }
 
 .toolbar-btn.active {
-  @apply bg-primary text-white shadow-lg;
+  background: var(--primary-color);
+  color: white;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
-/* 保存对话框 */
+/* ===== 分隔线 ===== */
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* ===== 颜色圆点 ===== */
+.color-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.color-dot:hover {
+  transform: scale(1.25);
+}
+
+.color-dot.active {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color);
+  transform: scale(1.15);
+}
+
+/* ===== 粗细指示器 ===== */
+.size-indicator {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.size-indicator:hover {
+  background: var(--bg-tertiary);
+}
+
+.size-indicator.active {
+  background: var(--primary-color);
+  color: white;
+}
+
+/* ===== 毛玻璃面板 ===== */
+.glass-panel {
+  background: var(--toolbar-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 32px var(--shadow-color);
+}
+
+/* ===== 对话框 ===== */
 .dialog-overlay {
-  @apply fixed inset-0 bg-black/50 flex items-center justify-center z-50;
+  @apply fixed inset-0 flex items-center justify-center z-50;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
 }
 
 .dialog-content {
-  @apply bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  @apply rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl;
+}
+
+/* ===== 滚动条美化 ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* ===== 选中态高亮 ===== */
+::selection {
+  background: rgba(99, 102, 241, 0.2);
+}
+
+/* ===== 平滑过渡（只对 UI 组件） ===== */
+.dark body,
+.dark .glass-toolbar,
+.dark .glass-panel,
+.dark .dialog-content,
+.dark .toolbar-btn,
+.dark .color-dot,
+.dark .size-indicator {
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
