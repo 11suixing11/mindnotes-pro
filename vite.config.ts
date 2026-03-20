@@ -6,7 +6,7 @@ export default defineConfig({
   base: '/mindnotes-pro/',
   server: {
     port: 3000,
-    open: true
+    open: true,
   },
   build: {
     target: 'esnext',
@@ -19,7 +19,7 @@ export default defineConfig({
         },
       },
     },
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 500,
   },
   optimizeDeps: {
     include: ['react', 'react-dom'],
