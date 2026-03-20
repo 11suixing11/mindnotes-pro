@@ -1,139 +1,155 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 interface WelcomeGuideProps {
   onComplete: () => void
 }
 
+const steps = [
+  {
+    icon: '🧠',
+    title: '欢迎使用 MindNotes Pro',
+    desc: '无限画布 · 自由书写 · 你的想法，不设边界',
+    color: 'from-indigo-500 to-purple-600',
+  },
+  {
+    icon: '✏️',
+    title: '手写绘制',
+    desc: '按住鼠标或手指即可书写，支持多种颜色和粗细',
+    tips: ['按 1 切换画笔', '按 2 切换橡皮'],
+  },
+  {
+    icon: '📐',
+    title: '形状工具',
+    desc: '矩形、圆形、三角形、直线、箭头，随心绘制',
+    tips: ['按 4-8 快速切换', '拖拽调整大小'],
+  },
+  {
+    icon: '⚡',
+    title: '快捷操作',
+    desc: '高效键盘流，告别鼠标菜单',
+    tips: ['Ctrl+Z 撤销', 'Ctrl+S 保存', '+/- 缩放', '? 查看全部'],
+  },
+]
+
 export default function WelcomeGuide({ onComplete }: WelcomeGuideProps) {
   const [step, setStep] = useState(0)
-  const [showGuide, setShowGuide] = useState(true)
 
-  const steps = [
-    {
-      title: '欢迎使用 MindNotes Pro 🎉',
-      description: '让灵感自由流淌的智能手写笔记工具',
-      icon: '🧠',
-    },
-    {
-      title: '手写笔记 ✍️',
-      description: '在画布上随意书写，支持多种笔刷和颜色',
-      icon: '✏️',
-    },
-    {
-      title: '形状工具 ⬜',
-      description: '绘制矩形、圆形、三角形、直线和箭头',
-      icon: '📐',
-    },
-    {
-      title: '快捷键 🎹',
-      description: 'Ctrl+Z 撤销，Ctrl+S 保存，1-8 切换工具',
-      icon: '⌨️',
-    },
-    {
-      title: '开始创作吧！🚀',
-      description: '点击"开始使用"，开启你的创作之旅',
-      icon: '✨',
-    },
-  ]
-
-  useEffect(() => {
-    // 检查是否已显示过引导
-    const hasSeenGuide = localStorage.getItem('welcome-guide-seen')
-    if (hasSeenGuide) {
-      setShowGuide(false)
-      onComplete()
-    }
-  }, [onComplete])
+  const handleComplete = () => {
+    localStorage.setItem('welcome-guide-seen', 'true')
+    onComplete()
+  }
 
   const handleNext = () => {
     if (step < steps.length - 1) {
       setStep(step + 1)
     } else {
-      localStorage.setItem('welcome-guide-seen', 'true')
-      setShowGuide(false)
-      onComplete()
+      handleComplete()
     }
   }
 
-  const handleSkip = () => {
-    localStorage.setItem('welcome-guide-seen', 'true')
-    setShowGuide(false)
-    onComplete()
-  }
-
-  if (!showGuide) return null
-
-  const currentStep = steps[step]
+  const current = steps[step]
+  const isLast = step === steps.length - 1
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full p-8 transform transition-all">
-        {/* 进度指示器 */}
-        <div className="flex justify-center gap-2 mb-6">
-          {steps.map((_, index) => (
-            <div
-              key={index}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                index <= step
-                  ? 'w-8 bg-gradient-to-r from-indigo-500 to-purple-500'
-                  : 'w-2 bg-gray-300 dark:bg-gray-700'
-              }`}
-            />
-          ))}
-        </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* 背景遮罩 */}
+      <motion.div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        onClick={handleComplete}
+      />
 
-        {/* 内容区域 */}
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-4">{currentStep.icon}</div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-            {currentStep.title}
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 text-lg">
-            {currentStep.description}
-          </p>
-        </div>
+      {/* 卡片 */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={step}
+          className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-200 dark:border-gray-700"
+          initial={{ opacity: 0, y: 30, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -20, scale: 0.95 }}
+          transition={{ type: 'spring', duration: 0.4 }}
+        >
+          {/* 渐变头部 */}
+          <div className={`bg-gradient-to-r ${current.color} p-8 text-center text-white`}>
+            <motion.div
+              className="text-6xl mb-4"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', delay: 0.1 }}
+            >
+              {current.icon}
+            </motion.div>
+            <h2 className="text-2xl font-bold">{current.title}</h2>
+          </div>
 
-        {/* 按钮区域 */}
-        <div className="flex gap-3">
-          {step < steps.length - 1 ? (
-            <>
+          {/* 内容 */}
+          <div className="p-6">
+            <p className="text-gray-600 dark:text-gray-300 text-center text-lg mb-4">
+              {current.desc}
+            </p>
+
+            {current.tips && (
+              <div className="space-y-2 mb-4">
+                {current.tips.map((tip, i) => (
+                  <motion.div
+                    key={i}
+                    className="flex items-center gap-3 px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 + i * 0.1 }}
+                  >
+                    <span className="text-indigo-500">→</span>
+                    <kbd className="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-sm font-mono text-gray-700 dark:text-gray-300">
+                      {tip.split(' ')[0]}
+                    </kbd>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {tip.split(' ').slice(1).join(' ')}
+                    </span>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {/* 进度点 */}
+            <div className="flex justify-center gap-2 my-6">
+              {steps.map((_, i) => (
+                <div
+                  key={i}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    i === step
+                      ? 'w-8 bg-gradient-to-r from-indigo-500 to-purple-500'
+                      : i < step
+                        ? 'w-2 bg-indigo-300'
+                        : 'w-2 bg-gray-300 dark:bg-gray-600'
+                  }`}
+                />
+              ))}
+            </div>
+
+            {/* 按钮 */}
+            <div className="flex gap-3">
               <button
-                onClick={handleSkip}
-                className="flex-1 px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg font-medium transition-all"
+                onClick={handleComplete}
+                className="flex-1 px-4 py-3 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl font-medium transition-colors"
               >
                 跳过
               </button>
               <button
                 onClick={handleNext}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg font-medium hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg hover:shadow-xl"
+                className={`flex-1 px-4 py-3 rounded-xl font-medium text-white shadow-lg hover:shadow-xl transition-all ${
+                  isLast
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600'
+                    : 'bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600'
+                }`}
               >
-                下一步
+                {isLast ? '🎨 开始创作' : '下一步 →'}
               </button>
-            </>
-          ) : (
-            <button
-              onClick={handleNext}
-              className="w-full px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg font-medium hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg hover:shadow-xl"
-            >
-              开始使用 →
-            </button>
-          )}
-        </div>
-
-        {/* 快捷键提示 */}
-        {step === steps.length - 1 && (
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-              <p className="mb-2">💡 常用快捷键：</p>
-              <div className="flex justify-center gap-4 flex-wrap">
-                <span><kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-xs">Ctrl+S</kbd> 保存</span>
-                <span><kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-xs">Ctrl+Z</kbd> 撤销</span>
-                <span><kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-xs">Delete</kbd> 删除</span>
-              </div>
             </div>
           </div>
-        )}
-      </div>
+        </motion.div>
+      </AnimatePresence>
     </div>
   )
 }
