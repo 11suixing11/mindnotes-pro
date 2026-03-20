@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MindNotes Pro - 测试</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: sans-serif;
+      background: #f9fafb;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .toolbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 50px;
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      padding: 0 15px;
+      z-index: 100;
+    }
+    .toolbar h1 {
+      font-size: 18px;
+      color: #1f2937;
+    }
+    .canvas-container {
+      position: fixed;
+      top: 50px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: white;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+    .save-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 24px;
+      background: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+      z-index: 100;
+    }
+    .tips {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: white/90;
+      backdrop-filter: blur(8px);
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #6b7280;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      z-index: 100;
+    }
+    .status {
+      position: fixed;
+      top: 60px;
+      right: 10px;
+      background: white;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #6b7280;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      z-index: 100;
+    }
+    .log {
+      position: fixed;
+      bottom: 100px;
+      left: 10px;
+      right: 10px;
+      max-height: 150px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.8);
+      color: #00ff00;
+      padding: 10px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 11px;
+      z-index: 1000;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- 工具栏 -->
+  <div class="toolbar">
+    <h1>🧠 MindNotes Pro</h1>
+  </div>
+
+  <!-- 画布 -->
+  <div class="canvas-container">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <!-- 保存按钮 -->
+  <button class="save-btn" onclick="saveCanvas()">💾 保存</button>
+
+  <!-- 提示 -->
+  <div class="tips">
+    <div>💡 使用提示</div>
+    <div>🖱️ 鼠标/手指绘写</div>
+    <div>↩️ 双击清空</div>
+  </div>
+
+  <!-- 状态 -->
+  <div class="status">
+    <span id="status-text">就绪</span>
+  </div>
+
+  <!-- 调试日志 -->
+  <div class="log" id="log"></div>
+
+  <script>
+    const canvas = document.getElementById('canvas')
+    const ctx = canvas.getContext('2d')
+    const logEl = document.getElementById('log')
+    const statusText = document.getElementById('status-text')
+
+    let isDrawing = false
+    let lastX = 0
+    let lastY = 0
+
+    // 日志函数
+    function log(message) {
+      const time = new Date().toLocaleTimeString()
+      logEl.innerHTML += `[${time}] ${message}<br>`
+      logEl.scrollTop = logEl.scrollHeight
+      console.log(message)
+    }
+
+    // 显示日志
+    function showLog() {
+      logEl.style.display = 'block'
+    }
+
+    // 设置 Canvas 大小
+    function resizeCanvas() {
+      const container = document.querySelector('.canvas-container')
+      canvas.width = container.clientWidth
+      canvas.height = container.clientHeight
+      log(`Canvas resized: ${canvas.width}x${canvas.height}`)
+      
+      // 设置默认样式
+      ctx.strokeStyle = '#1f2937'
+      ctx.lineWidth = 3
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+    }
+
+    // 获取坐标
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect()
+      let clientX, clientY
+      
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX
+        clientY = e.touches[0].clientY
+      } else {
+        clientX = e.clientX
+        clientY = e.clientY
+      }
+      
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      }
+    }
+
+    // 开始绘制
+    function startDrawing(e) {
+      e.preventDefault()
+      isDrawing = true
+      const pos = getPos(e)
+      lastX = pos.x
+      lastY = pos.y
+      log('Start drawing')
+    }
+
+    // 绘制中
+    function draw(e) {
+      if (!isDrawing) return
+      e.preventDefault()
+      
+      const pos = getPos(e)
+      ctx.beginPath()
+      ctx.moveTo(lastX, lastY)
+      ctx.lineTo(pos.x, pos.y)
+      ctx.stroke()
+      
+      lastX = pos.x
+      lastY = pos.y
+    }
+
+    // 停止绘制
+    function stopDrawing() {
+      isDrawing = false
+      log('Stop drawing')
+    }
+
+    // 保存 Canvas
+    function saveCanvas() {
+      try {
+        const dataURL = canvas.toDataURL('image/png')
+        const link = document.createElement('a')
+        link.download = `mindnotes-${Date.now()}.png`
+        link.href = dataURL
+        link.click()
+        statusText.textContent = '✅ 已保存'
+        log('Canvas saved')
+        setTimeout(() => {
+          statusText.textContent = '就绪'
+        }, 2000)
+      } catch (error) {
+        statusText.textContent = '❌ 保存失败'
+        log(`Save error: ${error.message}`)
+      }
+    }
+
+    // 清空 Canvas
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      log('Canvas cleared')
+    }
+
+    // 事件监听
+    canvas.addEventListener('mousedown', startDrawing)
+    canvas.addEventListener('mousemove', draw)
+    canvas.addEventListener('mouseup', stopDrawing)
+    canvas.addEventListener('mouseout', stopDrawing)
+    
+    canvas.addEventListener('touchstart', startDrawing, { passive: false })
+    canvas.addEventListener('touchmove', draw, { passive: false })
+    canvas.addEventListener('touchend', stopDrawing)
+    
+    canvas.addEventListener('dblclick', clearCanvas)
+
+    // 窗口大小变化
+    window.addEventListener('resize', resizeCanvas)
+
+    // 初始化
+    window.addEventListener('load', () => {
+      log('Page loaded')
+      resizeCanvas()
+      log('Canvas initialized')
+      statusText.textContent = '就绪'
+      
+      // 3 秒后隐藏日志
+      setTimeout(() => {
+        logEl.style.display = 'none'
+      }, 5000)
+    })
+
+    // 错误处理
+    window.addEventListener('error', (e) => {
+      log(`Error: ${e.message}`)
+      statusText.textContent = '❌ 错误'
+      showLog()
+    })
+
+    // 检测浏览器
+    log(`User Agent: ${navigator.userAgent}`)
+    log(`Platform: ${navigator.platform}`)
+  </script>
+</body>
+</html>

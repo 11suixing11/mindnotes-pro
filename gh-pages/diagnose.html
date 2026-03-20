@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MindNotes Pro - 诊断页面</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #667eea;
+      margin-bottom: 10px;
+      font-size: 24px;
+    }
+    .status {
+      padding: 15px;
+      border-radius: 10px;
+      margin: 15px 0;
+      font-weight: 500;
+    }
+    .success {
+      background: #10b981;
+      color: white;
+    }
+    .error {
+      background: #ef4444;
+      color: white;
+    }
+    .info {
+      background: #3b82f6;
+      color: white;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #374151;
+    }
+    .log {
+      background: #f9fafb;
+      padding: 15px;
+      border-radius: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      margin: 15px 0;
+    }
+    .log-item {
+      margin: 5px 0;
+      padding: 5px;
+      border-left: 3px solid #667eea;
+      padding-left: 10px;
+    }
+    .device-info {
+      background: #f9fafb;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 15px 0;
+      font-size: 14px;
+    }
+    .device-info div {
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 MindNotes Pro 诊断</h1>
+    
+    <div id="status" class="status info">
+      正在检测...
+    </div>
+
+    <div class="device-info">
+      <div><strong>设备:</strong> <span id="device">检测中...</span></div>
+      <div><strong>系统:</strong> <span id="os">检测中...</span></div>
+      <div><strong>浏览器:</strong> <span id="browser">检测中...</span></div>
+      <div><strong>屏幕:</strong> <span id="screen">检测中...</span></div>
+      <div><strong>网络:</strong> <span id="network">检测中...</span></div>
+    </div>
+
+    <div class="log" id="log">
+      <div class="log-item">初始化诊断...</div>
+    </div>
+
+    <button class="btn btn-primary" onclick="testCanvas()">
+      🎨 测试 Canvas 功能
+    </button>
+
+    <button class="btn btn-secondary" onclick="location.href='/'">
+      🏠 返回主页
+    </button>
+
+    <button class="btn btn-secondary" onclick="window.location.reload()">
+      🔄 刷新页面
+    </button>
+  </div>
+
+  <script>
+    const log = document.getElementById('log')
+    const status = document.getElementById('status')
+
+    function addLog(message, type = 'info') {
+      const item = document.createElement('div')
+      item.className = 'log-item'
+      item.style.borderColor = type === 'error' ? '#ef4444' : '#667eea'
+      item.textContent = `[${new Date().toLocaleTimeString()}] ${message}`
+      log.appendChild(item)
+      log.scrollTop = log.scrollHeight
+    }
+
+    function updateStatus(message, type = 'info') {
+      status.textContent = message
+      status.className = `status ${type}`
+    }
+
+    // 设备检测
+    function detectDevice() {
+      const ua = navigator.userAgent
+      let device = '未知'
+      
+      if (/Android/i.test(ua)) {
+        device = 'Android'
+      } else if (/iPhone|iPad|iPod/i.test(ua)) {
+        device = 'iOS'
+      } else if (/Windows/i.test(ua)) {
+        device = 'Windows'
+      } else if (/Mac/i.test(ua)) {
+        device = 'macOS'
+      }
+
+      document.getElementById('device').textContent = device
+      addLog(`设备类型：${device}`)
+      return device
+    }
+
+    // 系统检测
+    function detectOS() {
+      const ua = navigator.userAgent
+      let os = '未知'
+      
+      if (/Android/i.test(ua)) {
+        const match = ua.match(/Android\s([0-9.]+)/)
+        os = `Android ${match ? match[1] : ''}`
+      } else if (/iPhone OS\s([0-9_]+)/i.test(ua)) {
+        os = 'iOS ' + RegExp.$1.replace(/_/g, '.')
+      } else {
+        os = navigator.platform
+      }
+
+      document.getElementById('os').textContent = os
+      addLog(`操作系统：${os}`)
+      return os
+    }
+
+    // 浏览器检测
+    function detectBrowser() {
+      const ua = navigator.userAgent
+      let browser = '未知'
+      
+      if (/Chrome/i.test(ua)) {
+        const match = ua.match(/Chrome\/([0-9.]+)/)
+        browser = `Chrome ${match ? match[1] : ''}`
+      } else if (/Safari/i.test(ua)) {
+        browser = 'Safari'
+      } else if (/Firefox/i.test(ua)) {
+        browser = 'Firefox'
+      }
+
+      document.getElementById('browser').textContent = browser
+      addLog(`浏览器：${browser}`)
+      return browser
+    }
+
+    // 屏幕检测
+    function detectScreen() {
+      const w = window.screen.width
+      const h = window.screen.height
+      const dpr = window.devicePixelRatio
+      const orientation = screen.orientation ? screen.orientation.type : '未知'
+      
+      document.getElementById('screen').textContent = `${w}x${h} @${dpr}x (${orientation})`
+      addLog(`屏幕：${w}x${h} @${dpr}x`)
+    }
+
+    // 网络检测
+    function detectNetwork() {
+      if ('connection' in navigator) {
+        const conn = navigator.connection
+        document.getElementById('network').textContent = 
+          `${conn.effectiveType || '未知'} (${conn.downlink || '?'}Mbps)`
+        addLog(`网络：${conn.effectiveType || '未知'}`)
+      } else {
+        document.getElementById('network').textContent = '在线'
+        addLog('网络：在线')
+      }
+    }
+
+    // Canvas 测试
+    function testCanvas() {
+      addLog('开始 Canvas 测试...')
+      
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = 200
+        canvas.height = 100
+        const ctx = canvas.getContext('2d')
+        
+        if (!ctx) {
+          throw new Error('无法获取 Canvas 上下文')
+        }
+
+        // 绘制测试
+        ctx.fillStyle = '#667eea'
+        ctx.fillRect(0, 0, 200, 100)
+        ctx.fillStyle = 'white'
+        ctx.font = '20px Arial'
+        ctx.fillText('Canvas OK!', 20, 55)
+
+        // 显示结果
+        const result = document.createElement('div')
+        result.style.cssText = 'margin: 15px 0; border-radius: 10px; overflow: hidden;'
+        result.appendChild(canvas)
+        document.querySelector('.container').insertBefore(result, document.querySelector('.btn'))
+
+        addLog('✅ Canvas 测试通过')
+        updateStatus('✅ Canvas 功能正常！', 'success')
+        
+      } catch (error) {
+        addLog(`❌ Canvas 测试失败：${error.message}`, 'error')
+        updateStatus('❌ Canvas 功能异常', 'error')
+      }
+    }
+
+    // 运行诊断
+    function runDiagnostics() {
+      addLog('开始诊断...')
+      
+      try {
+        detectDevice()
+        detectOS()
+        detectBrowser()
+        detectScreen()
+        detectNetwork()
+        
+        addLog('诊断完成')
+        updateStatus('✅ 诊断完成，请测试 Canvas 功能', 'success')
+        
+      } catch (error) {
+        addLog(`诊断出错：${error.message}`, 'error')
+        updateStatus('❌ 诊断失败', 'error')
+      }
+    }
+
+    // 启动
+    window.addEventListener('load', runDiagnostics)
+  </script>
+</body>
+</html>
