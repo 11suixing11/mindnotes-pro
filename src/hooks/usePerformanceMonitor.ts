@@ -46,7 +46,7 @@ export function usePerformanceMonitor() {
       const entries = entryList.getEntries()
       let clsValue = 0
       entries.forEach((entry) => {
-        const layoutShift = entry as any
+        const layoutShift = entry as PerformanceEntry & { hadRecentInput?: boolean; value?: number }
         if (!layoutShift.hadRecentInput) {
           clsValue += layoutShift.value || 0
         }

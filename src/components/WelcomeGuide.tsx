@@ -16,17 +16,17 @@ export default function WelcomeGuide({ onComplete }: WelcomeGuideProps) {
     },
     {
       title: '手写笔记 ✍️',
-      description: '在画布上随意书写，支持压感和多种笔刷',
+      description: '在画布上随意书写，支持多种笔刷和颜色',
       icon: '✏️',
     },
     {
-      title: '文字输入 ⌨️',
-      description: '点击文本工具，快速记录想法',
-      icon: '📝',
+      title: '形状工具 ⬜',
+      description: '绘制矩形、圆形、三角形、直线和箭头',
+      icon: '📐',
     },
     {
       title: '快捷键 🎹',
-      description: 'Ctrl+S 保存，Ctrl+Z 撤销，Delete 删除',
+      description: 'Ctrl+Z 撤销，Ctrl+S 保存，1-8 切换工具',
       icon: '⌨️',
     },
     {
