@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindNotes Pro - 高级版</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: sans-serif;
+      background: #f9fafb;
+      overflow: hidden;
+    }
+    .banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 15px 20px;
+      text-align: center;
+      z-index: 1000;
+    }
+    .banner a {
+      color: white;
+      text-decoration: underline;
+      margin-left: 10px;
+    }
+    iframe {
+      position: fixed;
+      top: 60px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: none;
+      width: 100%;
+      height: calc(100% - 60px);
+    }
+  </style>
+</head>
+<body>
+  <div class="banner">
+    🚀 这是 React 高级版（测试中）
+    <a href="/">← 返回标准版</a>
+  </div>
+  <iframe src="/react-app.html"></iframe>
+</body>
+</html>
