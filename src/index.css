@@ -90,5 +90,5 @@ body {
 }
 
 .dialog-content {
-  @apply bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl;
+  @apply bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl;
 }

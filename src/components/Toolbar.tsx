@@ -84,6 +84,17 @@ export default function Toolbar() {
           </React.Fragment>
         ))}
 
+        {/* 模板 */}
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('toggle-templates'))}
+          className="w-9 h-9 rounded-lg flex items-center justify-center text-base hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors"
+          title="模板"
+        >
+          📋
+        </button>
+
+        <div className="w-px h-6 bg-[var(--border-color)] mx-1" />
+
         {/* 颜色选择 */}
         <div className="flex items-center gap-1">
           {COLORS.map((c) => (
