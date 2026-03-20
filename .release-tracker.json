@@ -1,6 +1,6 @@
 {
     "currentVersion":  "1.2.1",
-    "pushCount":  0,
+    "pushCount":  1,
     "rules":  {
                   "patchRelease":  "�?5 次推送创�?patch release (1.2.0 �?1.2.1)",
                   "minorRelease":  "重大更新直接 bump minor (1.2.0 �?1.3.0)",
