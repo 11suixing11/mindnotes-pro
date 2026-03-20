@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, lazy, Suspense } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Canvas, { CanvasRef } from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import SaveDialog from './components/SaveDialog'
@@ -10,46 +10,10 @@ import { useServiceWorker } from './hooks/useServiceWorker'
 import { useShortcuts } from './hooks/useShortcuts'
 import { useCommandPaletteShortcut } from './hooks/useKeyboardShortcuts'
 
-// 懒加载 tldraw 组件
-const MindNotesTldraw = lazy(() => import('./components/MindNotesTldraw'))
-
-// Loading 组件
-function AppLoading() {
-  return (
-    <div className="w-full h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-lg font-medium text-gray-700 dark:text-gray-300">加载中...</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">MindNotes Pro</p>
-      </div>
-    </div>
-  )
-}
-
-// Error Boundary
-function AppError({ error, onRetry }: { error: Error, onRetry: () => void }) {
-  return (
-    <div className="w-full h-screen flex items-center justify-center bg-red-50 dark:bg-red-900/20">
-      <div className="text-center max-w-md p-6">
-        <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">加载失败</h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-4">{error.message}</p>
-        <button
-          onClick={onRetry}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          重试
-        </button>
-      </div>
-    </div>
-  )
-}
-
 function App() {
   const [showSaveDialog, setShowSaveDialog] = useState(false)
-  const [useTldraw, setUseTldraw] = useState(false) // 切换模式
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showTemplateSelector, setShowTemplateSelector] = useState(false)
-  const [loadError, setLoadError] = useState<Error | null>(null)
   const canvasRef = useRef<CanvasRef>(null)
   const { initTheme } = useThemeStore()
   const { updateAvailable, isOnline, skipWaiting } = useServiceWorker()
@@ -82,54 +46,15 @@ function App() {
     }
   }
 
-  // 监听图层面板切换事件
-  useEffect(() => {
-    const handleToggleLayers = () => {
-      // 通过 store 管理，这里不需要额外状态
-    }
 
-    window.addEventListener('toggle-layers', handleToggleLayers)
-    return () => window.removeEventListener('toggle-layers', handleToggleLayers)
-  }, [])
-
-  // 模式切换（开发用）
-  useEffect(() => {
-    const handleModeSwitch = () => {
-      setUseTldraw((prev) => !prev)
-    }
-    window.addEventListener('switch-mode', handleModeSwitch)
-    return () => window.removeEventListener('switch-mode', handleModeSwitch)
-  }, [])
-
-  // 错误处理
-  const handleRetry = () => {
-    setLoadError(null)
-    window.location.reload()
-  }
-
-  if (loadError) {
-    return <AppError error={loadError} onRetry={handleRetry} />
-  }
 
   return (
     <div className="w-full h-screen relative bg-[var(--bg-secondary)] overflow-hidden">
-      {/* 新手引导 - 暂时禁用 */}
-      {/* {showWelcome && <WelcomeGuide onComplete={() => setShowWelcome(false)} />} */}
-
       {/* 顶部工具栏 */}
       <Toolbar />
 
-      {/* 画布区域 - 可切换模式 */}
-      <Suspense fallback={<AppLoading />}>
-        {useTldraw ? (
-          <MindNotesTldraw 
-            onReady={() => console.log('Tldraw ready')}
-            onError={(error: Error) => setLoadError(error)}
-          />
-        ) : (
-          <Canvas ref={canvasRef} />
-        )}
-      </Suspense>
+      {/* 画布区域 - 暂时只显示 Canvas */}
+      <Canvas ref={canvasRef} />
 
       {/* 底部操作栏 */}
       <div className="fixed bottom-4 right-4 flex gap-3 z-10">
