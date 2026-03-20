@@ -52,9 +52,11 @@ body {
               color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 深色模式平滑过渡 */
-.dark,
-.dark * {
+/* 深色模式平滑过渡 — 只对需要过渡的元素，不对 * */
+.dark body,
+.dark .toolbar-btn,
+.dark .dialog-content,
+.dark [class*="bg-[var(--"] {
   transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
               color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
               border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),

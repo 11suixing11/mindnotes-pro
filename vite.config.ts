@@ -15,6 +15,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react/jsx-runtime'],
+          'framer-motion': ['framer-motion'],
         },
       },
     },

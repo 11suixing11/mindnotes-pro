@@ -2,6 +2,10 @@ import { useRef, useEffect, useCallback } from 'react'
 import { getStroke } from 'perfect-freehand'
 import { useAppStore } from '../store/useAppStore'
 
+interface CanvasProps {
+  onCanvasRef?: (ref: HTMLCanvasElement | null) => void
+}
+
 // 从 perfect-freehand 的点数组生成 SVG 路径
 function getSvgPathFromStroke(stroke: number[][]) {
   if (!stroke.length) return ''
@@ -50,11 +54,17 @@ function drawStroke(
   }
 }
 
-export default function Canvas() {
+export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pointsRef = useRef<number[][]>([])
   const isDrawingRef = useRef(false)
   const animFrameRef = useRef<number>(0)
+
+  // 传递 canvas 引用给父组件
+  useEffect(() => {
+    onCanvasRef?.(canvasRef.current)
+    return () => onCanvasRef?.(null)
+  }, [onCanvasRef])
 
   const {
     strokes,
