@@ -4,20 +4,28 @@ import Canvas, { CanvasRef } from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import SaveDialog from './components/SaveDialog'
 import LayersPanel from './components/LayersPanel'
+import CommandPalette from './components/CommandPalette/CommandPalette'
+import TemplateSelector from './components/TemplateSelector/TemplateSelector'
 
 import { useThemeStore } from './store/useThemeStore'
 import { useServiceWorker } from './hooks/useServiceWorker'
 import { useShortcuts } from './hooks/useShortcuts'
+import { useCommandPaletteShortcut } from './hooks/useKeyboardShortcuts'
 
 function App() {
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [useTldraw, setUseTldraw] = useState(false) // 切换模式
+  const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false)
   const canvasRef = useRef<CanvasRef>(null)
   const { initTheme } = useThemeStore()
   const { updateAvailable, isOnline, skipWaiting } = useServiceWorker()
 
   // 初始化快捷键
   useShortcuts()
+  
+  // 命令面板快捷键 (Ctrl/Cmd+P)
+  useCommandPaletteShortcut(() => setShowCommandPalette(true))
 
   // 初始化主题
   useEffect(() => {
@@ -96,7 +104,7 @@ function App() {
           <div>🖱️ 鼠标按住绘写</div>
           <div>⌨️ Ctrl+Z 撤销</div>
           <div>💾 Ctrl+S 保存</div>
-          <div>🗑️ Delete 清空</div>
+          <div>⚡ Ctrl+P 命令面板</div>
         </div>
       </div>
 
@@ -109,6 +117,23 @@ function App() {
           <span>{isOnline ? '就绪' : '离线'}</span>
         </div>
       </div>
+
+      {/* 命令面板 */}
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        onExecute={(cmd) => {
+          if (cmd.id === 'insert-template') {
+            setShowTemplateSelector(true)
+          }
+        }}
+      />
+
+      {/* 模板选择器 */}
+      <TemplateSelector
+        isOpen={showTemplateSelector}
+        onClose={() => setShowTemplateSelector(false)}
+      />
 
       {/* PWA 更新提示 */}
       {updateAvailable && (
