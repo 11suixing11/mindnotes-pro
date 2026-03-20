@@ -1,27 +1,26 @@
 {
   "name": "MindNotes Pro",
   "short_name": "MindNotes",
-  "description": "让灵感自由流淌 - 无限画布手写笔记工具",
-  "start_url": "/",
+  "description": "无限画布手写笔记工具",
+  "start_url": "/mindnotes-pro/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
   "orientation": "any",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "/mindnotes-pro/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/mindnotes-pro/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
   ],
   "categories": ["productivity", "utilities"],
-  "screenshots": [],
   "prefer_related_applications": false
 }

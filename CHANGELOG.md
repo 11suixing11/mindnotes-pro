@@ -4,7 +4,45 @@
 
 ---
 
-## [v1.1.5] - 2026-03-20
+## [v1.2.0] - 2026-03-20
+
+### 🏗️ 全面重构
+
+**架构改进:**
+- Canvas 组件完全接入 Zustand Store，统一状态管理
+- 实现完整的双栈 undo/redo（50 步历史）
+- 懒加载重量级组件（SaveDialog, CommandPalette, WelcomeGuide, ShortcutsPanel）
+- 初始加载从 ~192KB 降至 ~71KB gzip
+
+**核心功能:**
+- ✍️ 自动保存：2 秒防抖，IndexedDB 持久化，刷新不丢数据
+- ⬜ 形状工具：矩形、圆形、三角形、直线、箭头（全部可用）
+- ↩️ 重做功能：Ctrl+Shift+Z 快捷键
+- 📑 图层面板：显示/隐藏/锁定/排序/删除，直接调用 store 方法
+- 💾 保存按钮：工具栏新增一键保存
+
+**UI/UX 优化:**
+- 工具栏完全重写：紧凑 icon 布局，触摸友好（36×36px）
+- WelcomeGuide 全新设计：渐变卡片 + 动画 + 快捷键提示
+- 首页 SEO 优化：标题、描述、关键词
+- 深色模式性能修复：移除 `.dark *` 全局 transition
+
+**代码质量:**
+- 消除所有 `any` 类型和 `as any` 断言
+- 修复 Canvas 事件泄漏（8 个事件全清理）
+- 修复 useThemeStore matchMedia 监听器泄漏
+- 添加 ESLint 配置
+- 编写内部编码规范 `docs/CODING_GUIDE.md`
+
+**清理:**
+- 删除 14 个死代码文件（组件、hooks、utils、入口）
+- 整理 40+ .md 文件到 docs/
+- 清理 public/ 目录（删除过期页面）
+- Service Worker 更新适配 /mindnotes-pro/ 路径
+
+**构建优化:**
+- Vite manualChunks 分离 framer-motion
+- CSS 从 30.7KB 降至 25.7KB（移除无用样式）
 
 ### 🎉 新增功能
 
