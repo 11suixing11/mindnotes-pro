@@ -85,14 +85,14 @@ const Toolbar: React.FC = () => {
       {/* 箭头和连线工具 */}
       <div className="flex items-center gap-2">
         <button
-          onClick={() => setTool('line' as any)}
+          onClick={() => setTool('line')}
           className={`toolbar-btn ${tool === 'line' ? 'active' : 'bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)]'}`}
           title="直线工具"
         >
           📏 直线
         </button>
         <button
-          onClick={() => setTool('arrow' as any)}
+          onClick={() => setTool('arrow')}
           className={`toolbar-btn ${tool === 'arrow' ? 'active' : 'bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)]'}`}
           title="箭头工具"
         >

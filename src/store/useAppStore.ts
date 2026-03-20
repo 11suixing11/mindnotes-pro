@@ -6,7 +6,6 @@ export interface Stroke {
   color: string
   size: number
   tool: 'pen' | 'eraser'
-  // 图层属性
   name?: string
   locked?: boolean
   hidden?: boolean
@@ -23,17 +22,17 @@ export interface Shape {
   color: string
   size: number
   rotation?: number
-  // 箭头专用
   startX?: number
   startY?: number
   endX?: number
   endY?: number
-  // 图层属性
   name?: string
   locked?: boolean
   hidden?: boolean
   opacity?: number
 }
+
+type AppStateSnapshot = Pick<AppState, 'strokes' | 'shapes'>
 
 interface AppState {
   // 笔迹数据
@@ -50,11 +49,7 @@ interface AppState {
   size: number
 
   // 画布变换
-  viewBox: {
-    x: number
-    y: number
-    zoom: number
-  }
+  viewBox: { x: number; y: number; zoom: number }
 
   // 智能吸附
   showGuides: boolean
@@ -71,18 +66,25 @@ interface AppState {
   canUndo: boolean
   canRedo: boolean
 
-  // 方法
-  addStroke: (stroke: Stroke) => void
-  updateCurrentStroke: (points: number[][]) => void
+  // 撤销/重做历史栈
+  _undoStack: AppStateSnapshot[]
+  _redoStack: AppStateSnapshot[]
+
+  // 笔迹方法
   startStroke: () => void
+  updateCurrentStroke: (points: number[][]) => void
+  finishStroke: () => void
+  addStroke: (stroke: Stroke) => void
   clearStrokes: () => void
 
   // 形状方法
-  addShape: (shape: Shape) => void
+  startShape: (type: Shape['type'], x: number, y: number) => void
   updateCurrentShape: (shape: Partial<Shape>) => void
-  startShape: (type: Shape['type']) => void
+  finishShape: () => void
+  addShape: (shape: Shape) => void
 
-  setTool: (tool: 'pen' | 'eraser' | 'pan' | 'rectangle' | 'circle' | 'triangle') => void
+  // 工具方法
+  setTool: (tool: AppState['tool']) => void
   setColor: (color: string) => void
   setSize: (size: number) => void
 
@@ -108,15 +110,18 @@ interface AppState {
   moveLayerUp: (id: string) => void
   moveLayerDown: (id: string) => void
 
+  // 撤销/重做
   undo: () => void
   redo: () => void
+  _pushHistory: () => void
 }
+
+const MAX_HISTORY = 50
 
 export const useAppStore = create<AppState>((set, get) => ({
   // 初始状态
   strokes: [],
   currentStroke: null,
-
   shapes: [],
   currentShape: null,
 
@@ -124,11 +129,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   color: '#000000',
   size: 4,
 
-  viewBox: {
-    x: 0,
-    y: 0,
-    zoom: 1,
-  },
+  viewBox: { x: 0, y: 0, zoom: 1 },
 
   showGuides: true,
   snapToGrid: false,
@@ -142,37 +143,33 @@ export const useAppStore = create<AppState>((set, get) => ({
   canUndo: false,
   canRedo: false,
 
-  // 添加完成的笔迹
-  addStroke: (stroke) => {
-    set((state) => ({
-      strokes: [...state.strokes, stroke],
-      currentStroke: null,
+  _undoStack: [],
+  _redoStack: [],
+
+  // 保存当前状态到历史栈
+  _pushHistory: () => {
+    const { strokes, shapes, _undoStack } = get()
+    const snapshot: AppStateSnapshot = {
+      strokes: [...strokes],
+      shapes: [...shapes],
+    }
+    set({
+      _undoStack: [..._undoStack.slice(-(MAX_HISTORY - 1)), snapshot],
+      _redoStack: [],
       canUndo: true,
-    }))
+      canRedo: false,
+    })
   },
 
-  // 更新当前笔迹
-  updateCurrentStroke: (points) => {
-    set((state) => ({
-      currentStroke: state.currentStroke ? { ...state.currentStroke, points } : null,
-    }))
-  },
-
-  // 开始新笔迹
+  // 笔迹方法
   startStroke: () => {
     const { tool, color, size } = get()
+    get()._pushHistory()
     const strokeTool: 'pen' | 'eraser' =
-      tool === 'pan' ||
-      tool === 'rectangle' ||
-      tool === 'circle' ||
-      tool === 'triangle' ||
-      tool === 'arrow' ||
-      tool === 'line'
-        ? 'pen'
-        : tool
+      tool === 'eraser' ? 'eraser' : 'pen'
     set({
       currentStroke: {
-        id: Date.now().toString(),
+        id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
         points: [],
         color: tool === 'eraser' ? '#ffffff' : color,
         size: tool === 'eraser' ? size * 2 : size,
@@ -182,55 +179,128 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
   },
 
-  // 清空所有笔迹
-  clearStrokes: () => {
-    set({ strokes: [], canUndo: true })
+  updateCurrentStroke: (points) => {
+    set((state) => ({
+      currentStroke: state.currentStroke ? { ...state.currentStroke, points } : null,
+    }))
   },
 
-  // 设置工具
+  finishStroke: () => {
+    const { currentStroke } = get()
+    if (!currentStroke || currentStroke.points.length < 2) {
+      set({ currentStroke: null, isDrawing: false })
+      return
+    }
+    set((state) => ({
+      strokes: [...state.strokes, currentStroke],
+      currentStroke: null,
+      isDrawing: false,
+    }))
+  },
+
+  addStroke: (stroke) => {
+    get()._pushHistory()
+    set((state) => ({
+      strokes: [...state.strokes, stroke],
+      currentStroke: null,
+    }))
+  },
+
+  clearStrokes: () => {
+    const { strokes, shapes } = get()
+    if (strokes.length === 0 && shapes.length === 0) return
+    get()._pushHistory()
+    set({ strokes: [], shapes: [], selectedLayerId: null })
+  },
+
+  // 形状方法
+  startShape: (type, x, y) => {
+    const { color, size } = get()
+    get()._pushHistory()
+    set({
+      currentShape: {
+        id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+        type,
+        x,
+        y,
+        width: 0,
+        height: 0,
+        color,
+        size,
+        startX: x,
+        startY: y,
+        endX: x,
+        endY: y,
+      },
+      isDrawing: true,
+    })
+  },
+
+  updateCurrentShape: (partial) => {
+    set((state) => ({
+      currentShape: state.currentShape ? { ...state.currentShape, ...partial } : null,
+    }))
+  },
+
+  finishShape: () => {
+    const { currentShape } = get()
+    if (!currentShape) {
+      set({ isDrawing: false })
+      return
+    }
+    // 最小尺寸检查
+    const w = Math.abs(currentShape.width)
+    const h = Math.abs(currentShape.height)
+    if (w < 5 && h < 5) {
+      set({ currentShape: null, isDrawing: false })
+      return
+    }
+    set((state) => ({
+      shapes: [...state.shapes, currentShape],
+      currentShape: null,
+      isDrawing: false,
+    }))
+  },
+
+  addShape: (shape) => {
+    get()._pushHistory()
+    set((state) => ({
+      shapes: [...state.shapes, shape],
+      currentShape: null,
+    }))
+  },
+
+  // 工具方法
   setTool: (tool) => set({ tool }),
-
-  // 设置颜色
   setColor: (color) => set({ color }),
-
-  // 设置大小
   setSize: (size) => set({ size }),
 
-  // 画布变换方法
+  // 画布变换
   setViewBox: (viewBox) => set({ viewBox }),
 
   zoomIn: () => {
     set((state) => ({
-      viewBox: {
-        ...state.viewBox,
-        zoom: Math.min(state.viewBox.zoom * 1.2, 5),
-      },
+      viewBox: { ...state.viewBox, zoom: Math.min(state.viewBox.zoom * 1.2, 5) },
     }))
   },
 
   zoomOut: () => {
     set((state) => ({
-      viewBox: {
-        ...state.viewBox,
-        zoom: Math.max(state.viewBox.zoom / 1.2, 0.1),
-      },
+      viewBox: { ...state.viewBox, zoom: Math.max(state.viewBox.zoom / 1.2, 0.1) },
     }))
   },
 
-  resetView: () => {
-    set({ viewBox: { x: 0, y: 0, zoom: 1 } })
-  },
+  resetView: () => set({ viewBox: { x: 0, y: 0, zoom: 1 } }),
 
-  // 智能吸附方法
-  setGuideLines: (guides: Array<{ type: 'horizontal' | 'vertical'; position: number }>) =>
-    set({ guideLines: guides }),
+  // 智能吸附
+  setGuideLines: (guides) => set({ guideLines: guides }),
   clearGuideLines: () => set({ guideLines: null }),
-  toggleShowGuides: () => set((state) => ({ showGuides: !state.showGuides })),
-  toggleSnapToGrid: () => set((state) => ({ snapToGrid: !state.snapToGrid })),
+  toggleShowGuides: () => set((s) => ({ showGuides: !s.showGuides })),
+  toggleSnapToGrid: () => set((s) => ({ snapToGrid: !s.snapToGrid })),
 
-  // 图层管理方法
+  // 图层管理
   setSelectedLayer: (id) => set({ selectedLayerId: id }),
-  toggleLayersPanel: () => set((state) => ({ showLayersPanel: !state.showLayersPanel })),
+  toggleLayersPanel: () => set((s) => ({ showLayersPanel: !s.showLayersPanel })),
 
   toggleLayerLock: (id) => {
     set((state) => ({
@@ -247,6 +317,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteLayer: (id) => {
+    get()._pushHistory()
     set((state) => ({
       strokes: state.strokes.filter((s) => s.id !== id),
       shapes: state.shapes.filter((s) => s.id !== id),
@@ -255,70 +326,58 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   clearAllLayers: () => {
-    set({
-      strokes: [],
-      shapes: [],
-      selectedLayerId: null,
-    })
+    const { strokes, shapes } = get()
+    if (strokes.length === 0 && shapes.length === 0) return
+    get()._pushHistory()
+    set({ strokes: [], shapes: [], selectedLayerId: null })
   },
 
   moveLayerUp: (id) => {
-    // TODO: 实现图层上移
-    console.log('Move layer up:', id)
-  },
-
-  moveLayerDown: (id) => {
-    // TODO: 实现图层下移
-    console.log('Move layer down:', id)
-  },
-
-  // 形状方法
-  addShape: (shape) => {
-    set((state) => ({
-      shapes: [...state.shapes, shape],
-      currentShape: null,
-      canUndo: true,
-    }))
-  },
-
-  updateCurrentShape: (shape) => {
-    set((state) => ({
-      currentShape: state.currentShape ? { ...state.currentShape, ...shape } : null,
-    }))
-  },
-
-  startShape: (type) => {
-    const { color, size } = get()
-    set({
-      currentShape: {
-        id: Date.now().toString(),
-        type,
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0,
-        color,
-        size,
-        startX: 0,
-        startY: 0,
-        endX: 0,
-        endY: 0,
-      },
-      isDrawing: true,
+    set((state) => {
+      const idx = state.strokes.findIndex((s) => s.id === id)
+      if (idx < 0 || idx >= state.strokes.length - 1) return state
+      const newStrokes = [...state.strokes]
+      ;[newStrokes[idx], newStrokes[idx + 1]] = [newStrokes[idx + 1], newStrokes[idx]]
+      return { strokes: newStrokes }
     })
   },
 
-  // 撤销
+  moveLayerDown: (id) => {
+    set((state) => {
+      const idx = state.strokes.findIndex((s) => s.id === id)
+      if (idx <= 0) return state
+      const newStrokes = [...state.strokes]
+      ;[newStrokes[idx], newStrokes[idx - 1]] = [newStrokes[idx - 1], newStrokes[idx]]
+      return { strokes: newStrokes }
+    })
+  },
+
+  // 撤销/重做
   undo: () => {
+    const { _undoStack, strokes, shapes } = get()
+    if (_undoStack.length === 0) return
+    const prev = _undoStack[_undoStack.length - 1]
     set((state) => ({
-      strokes: state.strokes.slice(0, -1),
-      canUndo: state.strokes.length > 1,
+      strokes: prev.strokes,
+      shapes: prev.shapes,
+      _undoStack: state._undoStack.slice(0, -1),
+      _redoStack: [...state._redoStack, { strokes, shapes }],
+      canUndo: state._undoStack.length > 1,
       canRedo: true,
     }))
   },
 
-  // 重做（简化版，实际应该用两个栈）
   redo: () => {
-    set({ canRedo: false })
+    const { _redoStack, strokes, shapes } = get()
+    if (_redoStack.length === 0) return
+    const next = _redoStack[_redoStack.length - 1]
+    set((state) => ({
+      strokes: next.strokes,
+      shapes: next.shapes,
+      _redoStack: state._redoStack.slice(0, -1),
+      _undoStack: [...state._undoStack, { strokes, shapes }],
+      canRedo: state._redoStack.length > 1,
+      canUndo: true,
+    }))
   },
 }))
