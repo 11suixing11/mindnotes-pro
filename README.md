@@ -2,12 +2,12 @@
 
 **无限画布 · 自由书写 · 你的想法，不设边界**
 
-[![Version](https://img.shields.io/badge/version-v1.2.0-blue?style=flat-square)](https://github.com/11suixing11/mindnotes-pro/releases/tag/v1.2.0)
+[![Version](https://img.shields.io/badge/version-v1.2.1-blue?style=flat-square)](https://github.com/11suixing11/mindnotes-pro/releases/tag/v1.2.1)
 [![Deploy](https://img.shields.io/github/actions/workflow/status/11suixing11/mindnotes-pro/deploy.yml?branch=main&label=Deploy&style=flat-square)](https://github.com/11suixing11/mindnotes-pro/actions)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?style=social)](https://github.com/11suixing11/mindnotes-pro/stargazers)
 
-### 🌐 [立即使用 →](https://11suixing11.github.io/mindnotes-pro) · [Release Notes →](https://github.com/11suixing11/mindnotes-pro/releases/tag/v1.2.0)
+### 🌐 [立即使用 →](https://11suixing11.github.io/mindnotes-pro) · [Release Notes →](https://github.com/11suixing11/mindnotes-pro/releases/tag/v1.2.1)
 
 ---
 
