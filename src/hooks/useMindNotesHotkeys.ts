@@ -5,6 +5,7 @@ export function useMindNotesHotkeys() {
   const {
     setTool,
     undo,
+    redo,
     clearStrokes,
     zoomIn,
     zoomOut,
@@ -24,6 +25,7 @@ export function useMindNotesHotkeys() {
 
   // 编辑操作
   useHotkeys('ctrl+z,meta+z', () => undo(), { preventDefault: true })
+  useHotkeys('ctrl+shift+z,meta+shift+z', () => redo(), { preventDefault: true })
   useHotkeys(
     'delete,backspace',
     () => {

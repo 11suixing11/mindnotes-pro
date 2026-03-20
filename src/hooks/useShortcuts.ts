@@ -22,8 +22,7 @@ export const DEFAULT_SHORTCUTS: ShortcutConfig[] = [
 
   // 编辑
   { key: 'z', modifiers: ['ctrl'], action: 'edit:undo', description: '撤销', category: '编辑' },
-  {
-    key: 'z',
+  { key: 'z',
     modifiers: ['ctrl', 'shift'],
     action: 'edit:redo',
     description: '重做',
@@ -56,6 +55,7 @@ export function useShortcuts() {
   const {
     setTool,
     undo,
+    redo,
     clearStrokes,
     zoomIn,
     zoomOut,
@@ -77,7 +77,10 @@ export function useShortcuts() {
         case 'triangle':
         case 'line':
         case 'arrow':
-          setTool(command as any)
+          setTool(command)
+          break
+        case 'redo':
+          redo()
           break
         case 'undo':
           undo()
@@ -110,7 +113,7 @@ export function useShortcuts() {
           break
       }
     },
-    [setTool, undo, clearStrokes, zoomIn, zoomOut, resetView, toggleShowGuides, toggleSnapToGrid]
+    [setTool, undo, redo, clearStrokes, zoomIn, zoomOut, resetView, toggleShowGuides, toggleSnapToGrid]
   )
 
   useEffect(() => {
