@@ -20,10 +20,12 @@
 - ↩️ 重做功能：Ctrl+Shift+Z 快捷键
 - 📑 图层面板：显示/隐藏/锁定/排序/删除，直接调用 store 方法
 - 💾 保存按钮：工具栏新增一键保存
+- 📋 模板系统：7 种预设画布模板（空白/横线/方格/会议纪要/待办看板/日记/思维导图）
 
 **UI/UX 优化:**
 - 工具栏完全重写：紧凑 icon 布局，触摸友好（36×36px）
 - WelcomeGuide 全新设计：渐变卡片 + 动画 + 快捷键提示
+- SaveDialog 深色模式适配
 - 首页 SEO 优化：标题、描述、关键词
 - 深色模式性能修复：移除 `.dark *` 全局 transition
 
@@ -35,14 +37,15 @@
 - 编写内部编码规范 `docs/CODING_GUIDE.md`
 
 **清理:**
-- 删除 14 个死代码文件（组件、hooks、utils、入口）
+- 删除 14+ 个死代码文件（组件、hooks、utils、入口）
 - 整理 40+ .md 文件到 docs/
 - 清理 public/ 目录（删除过期页面）
 - Service Worker 更新适配 /mindnotes-pro/ 路径
+- 重写 README，移除过时的"双版本架构"内容
 
 **构建优化:**
 - Vite manualChunks 分离 framer-motion
-- CSS 从 30.7KB 降至 25.7KB（移除无用样式）
+- CSS 从 30.7KB 降至 27.2KB（移除无用样式）
 
 ### 🎉 新增功能
 
