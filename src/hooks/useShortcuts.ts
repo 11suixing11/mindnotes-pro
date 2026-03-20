@@ -1,5 +1,7 @@
-import { useEffect, useCallback } from 'react'
-import { useAppStore } from '../store/useAppStore'
+/**
+ * 快捷键配置数据（供 ShortcutsPanel 显示）
+ * 实际注册在 useMindNotesHotkeys.ts
+ */
 
 export interface ShortcutConfig {
   key: string
@@ -22,12 +24,7 @@ export const DEFAULT_SHORTCUTS: ShortcutConfig[] = [
 
   // 编辑
   { key: 'z', modifiers: ['ctrl'], action: 'edit:undo', description: '撤销', category: '编辑' },
-  { key: 'z',
-    modifiers: ['ctrl', 'shift'],
-    action: 'edit:redo',
-    description: '重做',
-    category: '编辑',
-  },
+  { key: 'z', modifiers: ['ctrl', 'shift'], action: 'edit:redo', description: '重做', category: '编辑' },
   { key: 'delete', action: 'edit:clear', description: '清空画布', category: '编辑' },
 
   // 视图
@@ -35,13 +32,6 @@ export const DEFAULT_SHORTCUTS: ShortcutConfig[] = [
   { key: '=', action: 'view:zoomIn', description: '放大', category: '视图' },
   { key: '-', action: 'view:zoomOut', description: '缩小', category: '视图' },
   { key: '0', action: 'view:reset', description: '重置视图', category: '视图' },
-  {
-    key: ' ',
-    modifiers: ['shift'],
-    action: 'view:toggleGuides',
-    description: '切换辅助线',
-    category: '视图',
-  },
   { key: 'g', action: 'view:toggleGrid', description: '切换网格吸附', category: '视图' },
 
   // 文件
@@ -52,115 +42,5 @@ export const DEFAULT_SHORTCUTS: ShortcutConfig[] = [
 ]
 
 export function useShortcuts() {
-  const {
-    setTool,
-    undo,
-    redo,
-    clearStrokes,
-    zoomIn,
-    zoomOut,
-    resetView,
-    toggleShowGuides,
-    toggleSnapToGrid,
-  } = useAppStore()
-
-  const executeAction = useCallback(
-    (action: string) => {
-      const command = action.split(':')[1]
-
-      switch (command) {
-        case 'pen':
-        case 'eraser':
-        case 'pan':
-        case 'rectangle':
-        case 'circle':
-        case 'triangle':
-        case 'line':
-        case 'arrow':
-          setTool(command)
-          break
-        case 'redo':
-          redo()
-          break
-        case 'undo':
-          undo()
-          break
-        case 'clear':
-          if (confirm('确定要清空所有笔迹吗？')) {
-            clearStrokes()
-          }
-          break
-        case 'zoomIn':
-          zoomIn()
-          break
-        case 'zoomOut':
-          zoomOut()
-          break
-        case 'reset':
-          resetView()
-          break
-        case 'toggleGuides':
-          toggleShowGuides()
-          break
-        case 'toggleGrid':
-          toggleSnapToGrid()
-          break
-        case 'save':
-          window.dispatchEvent(new CustomEvent('mindnotes-save'))
-          break
-        case 'shortcuts':
-          window.dispatchEvent(new CustomEvent('toggle-shortcuts'))
-          break
-      }
-    },
-    [setTool, undo, redo, clearStrokes, zoomIn, zoomOut, resetView, toggleShowGuides, toggleSnapToGrid]
-  )
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // 忽略输入框中的快捷键
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return
-      }
-
-      // 特殊处理：? 键（需要 Shift+/）
-      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
-        e.preventDefault()
-        executeAction('help:shortcuts')
-        return
-      }
-
-      // 查找匹配的快捷键
-      const shortcut = DEFAULT_SHORTCUTS.find((s) => {
-        if (s.key.toLowerCase() !== e.key.toLowerCase()) return false
-
-        const hasCtrl = e.ctrlKey || e.metaKey
-        const hasShift = e.shiftKey
-        const hasAlt = e.altKey
-
-        const needCtrl = s.modifiers?.includes('ctrl') || s.modifiers?.includes('meta')
-        const needShift = s.modifiers?.includes('shift')
-        const needAlt = s.modifiers?.includes('alt')
-
-        if (needCtrl && !hasCtrl) return false
-        if (needShift && !hasShift) return false
-        if (needAlt && !hasAlt) return false
-
-        return true
-      })
-
-      if (shortcut) {
-        e.preventDefault()
-        executeAction(shortcut.action)
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [executeAction])
-
-  return {
-    shortcuts: DEFAULT_SHORTCUTS,
-    executeAction,
-  }
+  return { shortcuts: DEFAULT_SHORTCUTS }
 }

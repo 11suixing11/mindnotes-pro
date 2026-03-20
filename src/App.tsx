@@ -5,6 +5,7 @@ import LayersPanel from './components/LayersPanel'
 import { useThemeStore } from './store/useThemeStore'
 import { useMindNotesHotkeys } from './hooks/useMindNotesHotkeys'
 import { useNetworkStatus } from './hooks/useNetworkStatus'
+import { useAutoSave } from './hooks/useAutoSave'
 
 // 懒加载重量级组件（按需加载 framer-motion / jsPDF 等）
 const WelcomeGuide = lazy(() => import('./components/WelcomeGuide'))
@@ -22,13 +23,16 @@ export default function App() {
 
   useMindNotesHotkeys()
   useNetworkStatus()
+  const { restore } = useAutoSave()
 
   useEffect(() => {
     initTheme()
+    // 恢复自动保存的画布
+    restore()
     if (!localStorage.getItem('welcome-guide-seen')) {
       setShowGuide(true)
     }
-  }, [initTheme])
+  }, [initTheme, restore])
 
   useEffect(() => {
     const handleToggleShortcuts = () => setShowShortcuts((v) => !v)
