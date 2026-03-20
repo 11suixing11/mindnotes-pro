@@ -112,7 +112,8 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
     ctx.clearRect(0, 0, w, h)
 
     // 背景
-    ctx.fillStyle = '#ffffff'
+    const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#ffffff'
+    ctx.fillStyle = bgColor
     ctx.fillRect(0, 0, w, h)
 
     ctx.save()
@@ -373,7 +374,7 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
   }, [getCanvasPos, startStroke, updateCurrentStroke, finishStroke, startShape, updateCurrentShape, finishShape, setViewBox, viewBox])
 
   return (
-    <div className="w-full h-screen">
+    <div className="w-full h-screen canvas-bg">
       <canvas
         ref={canvasRef}
         className="w-full h-full touch-none cursor-crosshair"
