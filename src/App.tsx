@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, lazy, Suspense } from 'react'
 import Canvas from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import LayersPanel from './components/LayersPanel'
+import TemplateSelector from './components/TemplateSelector'
 import { useThemeStore } from './store/useThemeStore'
 import { useMindNotesHotkeys } from './hooks/useMindNotesHotkeys'
 import { useNetworkStatus } from './hooks/useNetworkStatus'
@@ -19,6 +20,7 @@ export default function App() {
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [showTemplates, setShowTemplates] = useState(false)
   const [canvasRef, setCanvasRef] = useState<HTMLCanvasElement | null>(null)
 
   useMindNotesHotkeys()
@@ -27,7 +29,6 @@ export default function App() {
 
   useEffect(() => {
     initTheme()
-    // 恢复自动保存的画布
     restore()
     if (!localStorage.getItem('welcome-guide-seen')) {
       setShowGuide(true)
@@ -38,15 +39,18 @@ export default function App() {
     const handleToggleShortcuts = () => setShowShortcuts((v) => !v)
     const handleSave = () => setShowSaveDialog(true)
     const handleCommandPalette = () => setShowCommandPalette((v) => !v)
+    const handleToggleTemplates = () => setShowTemplates((v) => !v)
 
     window.addEventListener('toggle-shortcuts', handleToggleShortcuts)
     window.addEventListener('mindnotes-save', handleSave)
     window.addEventListener('toggle-command-palette', handleCommandPalette)
+    window.addEventListener('toggle-templates', handleToggleTemplates)
 
     return () => {
       window.removeEventListener('toggle-shortcuts', handleToggleShortcuts)
       window.removeEventListener('mindnotes-save', handleSave)
       window.removeEventListener('toggle-command-palette', handleCommandPalette)
+      window.removeEventListener('toggle-templates', handleToggleTemplates)
     }
   }, [])
 
@@ -59,6 +63,7 @@ export default function App() {
       <Toolbar />
       <Canvas onCanvasRef={handleCanvasReady} />
       <LayersPanel />
+      <TemplateSelector isOpen={showTemplates} onClose={() => setShowTemplates(false)} />
 
       <Suspense fallback={null}>
         {showGuide && <WelcomeGuide onComplete={() => setShowGuide(false)} />}
