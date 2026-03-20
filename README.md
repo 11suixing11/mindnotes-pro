@@ -2,12 +2,26 @@
 
 **无限画布 · 自由书写 · 你的想法，不设边界**
 
+[![Version](https://img.shields.io/badge/version-v1.2.0-blue?style=flat-square)](https://github.com/11suixing11/mindnotes-pro/releases/tag/v1.2.0)
 [![Deploy](https://img.shields.io/github/actions/workflow/status/11suixing11/mindnotes-pro/deploy.yml?branch=main&label=Deploy&style=flat-square)](https://github.com/11suixing11/mindnotes-pro/actions)
-[![Release](https://img.shields.io/github/v/release/11suixing11/mindnotes-pro?style=flat-square)](https://github.com/11suixing11/mindnotes-pro/releases)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?style=social)](https://github.com/11suixing11/mindnotes-pro/stargazers)
 
-### 🌐 [立即使用 →](https://11suixing11.github.io/mindnotes-pro)
+### 🌐 [立即使用 →](https://11suixing11.github.io/mindnotes-pro) · [Release Notes →](https://github.com/11suixing11/mindnotes-pro/releases/tag/v1.2.0)
+
+---
+
+## 🆕 Latest: v1.2.0
+
+全面重构，核心升级：
+
+- 🏗️ Canvas 接入 Zustand Store，undo/redo 50 步历史
+- 💾 自动保存（2s 防抖，刷新不丢数据）
+- ⬜ 形状工具全套（矩形/圆形/三角/直线/箭头）
+- 📦 初始加载 ~71KB gzip（组件懒加载）
+- 🧹 删除 14 个死代码文件，消除所有 `any`
+
+[完整更新日志 →](CHANGELOG.md)
 
 ---
 
