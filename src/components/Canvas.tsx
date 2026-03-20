@@ -111,42 +111,63 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
     const h = canvas.height
     ctx.clearRect(0, 0, w, h)
 
-    // 画布背景 — 多层渐变光晕
     const isDark = document.documentElement.classList.contains('dark')
-    ctx.fillStyle = isDark ? '#1a1a2e' : '#ffffff'
+
+    // ── 第 1 层：底色渐变（顶部微蓝 → 底部微暖）─────────
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, h)
+    if (isDark) {
+      baseGrad.addColorStop(0, '#1e1e3a')
+      baseGrad.addColorStop(0.5, '#1a1a2e')
+      baseGrad.addColorStop(1, '#16162a')
+    } else {
+      baseGrad.addColorStop(0, '#f8f9ff')
+      baseGrad.addColorStop(0.5, '#ffffff')
+      baseGrad.addColorStop(1, '#fff8f0')
+    }
+    ctx.fillStyle = baseGrad
     ctx.fillRect(0, 0, w, h)
 
-    // 渐变光晕层
-    const gradients = isDark
+    // ── 第 2 层：彩色光晕（更明显的存在感）─────────
+    const orbs = isDark
       ? [
-          { x: w * 0.15, y: h * 0.2, rx: 800, ry: 600, color: 'rgba(129,140,248,0.08)' },
-          { x: w * 0.85, y: h * 0.75, rx: 600, ry: 800, color: 'rgba(244,114,182,0.05)' },
-          { x: w * 0.6, y: h * 0.1, rx: 700, ry: 500, color: 'rgba(74,222,128,0.04)' },
-          { x: w * 0.5, y: h * 0.95, rx: 900, ry: 400, color: 'rgba(250,204,21,0.03)' },
+          { x: w * 0.12, y: h * 0.15, r: 500, c1: 'rgba(99,102,241,0.12)', c2: 'rgba(99,102,241,0)' },
+          { x: w * 0.88, y: h * 0.8, r: 450, c1: 'rgba(236,72,153,0.08)', c2: 'rgba(236,72,153,0)' },
+          { x: w * 0.55, y: h * 0.05, r: 400, c1: 'rgba(56,189,248,0.07)', c2: 'rgba(56,189,248,0)' },
         ]
       : [
-          { x: w * 0.15, y: h * 0.2, rx: 800, ry: 600, color: 'rgba(99,102,241,0.06)' },
-          { x: w * 0.85, y: h * 0.75, rx: 600, ry: 800, color: 'rgba(236,72,153,0.04)' },
-          { x: w * 0.6, y: h * 0.1, rx: 700, ry: 500, color: 'rgba(34,197,94,0.03)' },
-          { x: w * 0.5, y: h * 0.95, rx: 900, ry: 400, color: 'rgba(251,191,36,0.03)' },
+          { x: w * 0.12, y: h * 0.15, r: 500, c1: 'rgba(99,102,241,0.08)', c2: 'rgba(99,102,241,0)' },
+          { x: w * 0.88, y: h * 0.8, r: 450, c1: 'rgba(244,114,182,0.06)', c2: 'rgba(244,114,182,0)' },
+          { x: w * 0.55, y: h * 0.05, r: 400, c1: 'rgba(14,165,233,0.05)', c2: 'rgba(14,165,233,0)' },
         ]
 
-    for (const g of gradients) {
-      const grad = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, Math.max(g.rx, g.ry))
-      grad.addColorStop(0, g.color)
-      grad.addColorStop(1, 'transparent')
-      ctx.fillStyle = grad
+    for (const orb of orbs) {
+      const g = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r)
+      g.addColorStop(0, orb.c1)
+      g.addColorStop(1, orb.c2)
+      ctx.fillStyle = g
       ctx.fillRect(0, 0, w, h)
     }
 
-    // 圆点网格
-    const dotColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'
-    ctx.fillStyle = dotColor
-    const spacing = 24
-    for (let x = spacing; x < w; x += spacing) {
-      for (let y = spacing; y < h; y += spacing) {
+    // ── 第 3 层：暗角（vignette）聚焦中心 ─────────
+    const vignetteGrad = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.8)
+    if (isDark) {
+      vignetteGrad.addColorStop(0, 'rgba(0,0,0,0)')
+      vignetteGrad.addColorStop(1, 'rgba(0,0,0,0.15)')
+    } else {
+      vignetteGrad.addColorStop(0, 'rgba(0,0,0,0)')
+      vignetteGrad.addColorStop(1, 'rgba(0,0,0,0.03)')
+    }
+    ctx.fillStyle = vignetteGrad
+    ctx.fillRect(0, 0, w, h)
+
+    // ── 第 4 层：圆点网格（更大、更好看）─────────
+    const dotSpacing = 28
+    const dotRadius = 1.2
+    ctx.fillStyle = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.07)'
+    for (let x = dotSpacing; x < w; x += dotSpacing) {
+      for (let y = dotSpacing; y < h; y += dotSpacing) {
         ctx.beginPath()
-        ctx.arc(x, y, 1, 0, Math.PI * 2)
+        ctx.arc(x, y, dotRadius, 0, Math.PI * 2)
         ctx.fill()
       }
     }
