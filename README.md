@@ -7,7 +7,7 @@
 [![Stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?style=social)](https://github.com/11suixing11/mindnotes-pro/stargazers)
 [![Issues](https://img.shields.io/github/issues/11suixing11/mindnotes-pro?style=flat-square)](https://github.com/11suixing11/mindnotes-pro/issues)
 
-**最新版本**: v1.1.5 (2026-03-20)  
+**最新版本**: v1.1.6 (2026-03-20) | **下一版本**: v1.2.0 (性能优化中)  
 **对标产品**: Notion, GoodNotes, Obsidian, 苹果应用  
 **许可证**: MIT (免费开源)
 
@@ -31,10 +31,11 @@
 
 ### ⚡ 极致性能
 
-- 🚀 快速启动 <2s
+- 🚀 快速启动 <1s (v1.2.0 优化)
 - 🎯 60fps 流畅书写
 - 💾 自动保存，永不丢失
 - 📶 离线可用，无需网络
+- ⚡ 首屏加载优化 60%+ (v1.2.0)
 
 ### 🛡️ 隐私保护
 
@@ -68,29 +69,29 @@
 
 #### Windows
 ```bash
-# 下载安装包
-https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.5/MindNotes.Pro.Setup.1.1.5.exe
+# 下载安装包 (v1.1.6)
+https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.6/MindNotes.Pro.Setup.1.1.6.exe
 
 # 或使用便携版
-https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.5/MindNotes.Pro.Portable.1.1.5.exe
+https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.6/MindNotes.Pro.Portable.1.1.6.exe
 ```
 
 #### macOS
 ```bash
-# 下载 DMG
-https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.5/MindNotes.Pro-1.1.5.dmg
+# 下载 DMG (v1.1.6)
+https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.6/MindNotes.Pro-1.1.6.dmg
 ```
 
 #### Linux
 ```bash
-# 下载 AppImage
-https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.5/MindNotes.Pro-1.1.5.AppImage
+# 下载 AppImage (v1.1.6)
+https://github.com/11suixing11/mindnotes-pro/releases/download/v1.1.6/MindNotes.Pro-1.1.6.AppImage
 
 # 赋予执行权限
-chmod +x MindNotes.Pro-1.1.5.AppImage
+chmod +x MindNotes.Pro-1.1.6.AppImage
 
 # 运行
-./MindNotes.Pro-1.1.5.AppImage
+./MindNotes.Pro-1.1.6.AppImage
 ```
 
 ---
@@ -119,13 +120,36 @@ npm run electron:build
 
 ## 📋 功能清单
 
-### v1.1.5 新增 (最新) ⭐
+### v1.1.6 新增 (最新) ⭐
+
+- ✅ 桌面端应用发布 (Windows/macOS/Linux)
+- ✅ GitHub Actions 自动构建
+- ✅ 性能分析工具集成
+- ✅ Lighthouse CI 配置
+- ✅ Bundle 优化脚本
+
+### v1.2.0 开发中 (性能优化) 🚀
+
+- 🔄 tldraw 懒加载 (首屏优化 60%+)
+- 🔄 代码分割优化
+- 🔄 性能监控体系
+- ⏳ 图片懒加载
+- ⏳ 快捷键增强
+
+### v1.1.6 已完成
+
+- ✅ 桌面端应用发布
+- ✅ GitHub Actions 自动构建
+- ✅ 性能分析工具
+- ✅ tldraw 懒加载 (v1.2.0-beta)
+
+### v1.1.5 已完成
 
 - ✅ 新手引导 (5 步交互式)
 - ✅ 性能监控 (Lighthouse 测试)
-- ✅ 用户反馈系统 (GitHub Issues 集成)
-- ✅ 欢迎引导组件 (首次使用)
-- ✅ 快捷键提示 (新手友好)
+- ✅ 用户反馈系统
+- ✅ PWA 离线支持
+- ✅ 深色模式
 
 ### v1.1.4 新增
 
@@ -210,7 +234,8 @@ npm run electron:build
 
 | 版本 | 日期 | 优化数 | 主要内容 |
 |------|------|--------|---------|
-| v1.1.5 | 2026-03-20 | 5/5 | 用户体验完善 ⭐ |
+| v1.1.6 | 2026-03-20 | 5/5 | 桌面端发布 ⭐ |
+| v1.1.5 | 2026-03-20 | 5/5 | 用户体验完善 |
 | v1.1.4 | 2026-03-19 | 5/5 | 对标世界级优化 |
 | v1.1.3 | 2026-03-19 | 7/7 | PWA 离线功能 |
 | v1.1.2 | 2026-03-19 | 6/6 | 悬浮笔记组件 |
@@ -221,7 +246,7 @@ npm run electron:build
 
 ### 当前进度
 
-**版本**: v1.1.5 ✅ (最新)  
+**版本**: v1.1.6 ✅ (最新) | **下一版本**: v1.2.0 🚀 (性能优化)  
 **下一版本**: v1.1.6 (0/5 计划中)  
 **优化频率**: 每 5 个优化自动发布  
 **汇报频率**: 每 2 小时  
