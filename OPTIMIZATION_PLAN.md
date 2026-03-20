@@ -1,257 +1,231 @@
-# 🎯 v1.0.1 优化建议
+# 🚀 MindNotes Pro 性能优化计划
 
-> 性能优化和代码质量改进
-
-**创建时间**: 2026-03-19 10:20  
-**版本**: v1.0.1
+**分析时间**: 2026-03-20  
+**当前状态**: 总大小 2.7MB (Gzip: 815KB)
 
 ---
 
-## ✅ 已完成优化
+## 📊 问题分析
 
-### 1. SVG 导出优化
-- 简化笔迹导出逻辑
-- 优先保证形状导出质量
-- 避免复杂路径计算
+### 主要问题
 
-### 2. 图层管理增强
-- 添加清空所有图层功能
-- 优化图层删除逻辑
-- 改进事件监听清理
+| 问题 | 大小 | 占比 | 优先级 |
+|------|------|------|--------|
+| **tldraw 核心库** | 1.7MB | 63.7% | 🔴 P0 |
+| export 模块 | 351KB | 12.9% | 🟡 P1 |
+| canvas 模块 | 197KB | 7.3% | 🟡 P1 |
+| 主应用 | 158KB | 5.8% | 🟢 P2 |
 
-### 3. 快捷键提示
-- 完善特殊字符显示
-- 支持 ? 和 / 符号
-- 格式化显示优化
+### 性能瓶颈
+
+1. **tldraw 一次性加载** - 1.7MB 阻塞首屏
+2. **无懒加载** - 所有功能一起加载
+3. **无按需分割** - 不用的代码也加载了
 
 ---
 
-## 🔧 待优化项目
+## 🎯 优化目标
 
-### 性能优化
+### 短期（v1.2.0）
 
-#### 1. 代码分割
-**问题**: 主包体积 543KB (gzip: 178KB)
+- [ ] 首屏加载时间 < 2s
+- [ ] Lighthouse Performance ≥ 85 分
+- [ ] Bundle 大小减少 30%
 
-**建议**:
+### 中期（v1.3.0）
+
+- [ ] 首屏加载时间 < 1.5s
+- [ ] Lighthouse Performance ≥ 90 分
+- [ ] Bundle 大小减少 50%
+
+---
+
+## 💡 优化方案
+
+### 方案 1: tldraw 懒加载 ⭐⭐⭐⭐⭐
+
+**问题**: tldraw 1.7MB 在首屏加载
+
+**解决**: 使用 React.lazy + Suspense
+
 ```javascript
-// vite.config.js
-build: {
-  rollupOptions: {
-    output: {
-      manualChunks: {
-        vendor: ['react', 'react-dom'],
-        utils: ['perfect-freehand', 'zustand'],
-        export: ['file-saver', 'jspdf'],
+// 优化前
+import { Tldraw } from '@tldraw/tldraw'
+
+// 优化后
+const Tldraw = lazy(() => import('@tldraw/tldraw'))
+
+function App() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <Tldraw />
+    </Suspense>
+  )
+}
+```
+
+**预期收益**: 
+- 首屏减少 1.7MB
+- FCP 提升 40-60%
+
+---
+
+### 方案 2: 路由级代码分割 ⭐⭐⭐⭐
+
+**问题**: 所有页面一起加载
+
+**解决**: 按路由分割
+
+```javascript
+// vite.config.ts
+export default {
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'tldraw': ['@tldraw/tldraw'],
+          'export': ['./src/components/export'],
+          'vendor': ['react', 'react-dom']
+        }
       }
     }
   }
 }
 ```
 
-**预期收益**: 首屏加载减少 30-40%
+**预期收益**:
+- 初始加载减少 30-40%
+- 按需加载其他模块
 
 ---
 
-#### 2. 懒加载组件
-**建议**:
-```typescript
-// 懒加载 ShortcutsPanel 和 LayersPanel
-const ShortcutsPanel = lazy(() => import('./components/ShortcutsPanel'))
-const LayersPanel = lazy(() => import('./components/LayersPanel'))
+### 方案 3: 图片/资源懒加载 ⭐⭐⭐
+
+**问题**: 所有图片立即加载
+
+**解决**: 使用 Intersection Observer
+
+```javascript
+// 图片懒加载
+<img loading="lazy" src={note.image} />
+
+// 组件懒加载
+const HeavyComponent = lazy(() => import('./HeavyComponent'))
 ```
 
-**预期收益**: 初始包体积减少 15-20%
+**预期收益**:
+- 初始请求减少
+- 内存使用降低
 
 ---
 
-#### 3. 虚拟滚动（图层面板）
-**问题**: 图层数量多时性能下降
+### 方案 4: Tree Shaking 优化 ⭐⭐⭐
 
-**建议**: 使用虚拟滚动
-```typescript
-// 仅渲染可见区域的图层
-import { useVirtualizer } from '@tanstack/react-virtual'
+**问题**: 引入了未使用的代码
+
+**解决**: 
+
+```javascript
+// ❌ 引入整个库
+import _ from 'lodash'
+
+// ✅ 按需引入
+import debounce from 'lodash/debounce'
+
+// ❌ 引入所有图标
+import * as icons from './icons'
+
+// ✅ 按需引入
+import { HomeIcon } from './icons/home'
 ```
 
-**预期收益**: 支持 1000+ 图层不卡顿
+**预期收益**:
+- Bundle 减少 10-20%
 
 ---
 
-### 代码质量
+### 方案 5: 压缩优化 ⭐⭐
 
-#### 1. TypeScript 严格模式
-**建议**: 启用更严格的类型检查
-```json
-{
-  "compilerOptions": {
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true
+**问题**: 压缩配置不最优
+
+**解决**:
+
+```javascript
+// vite.config.ts
+export default {
+  build: {
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
+      }
+    }
   }
 }
 ```
 
----
-
-#### 2. 单元测试
-**建议**: 添加关键功能测试
-```typescript
-// __tests__/snap.test.ts
-import { calculateSnap } from '../utils/snap'
-
-test('检测边缘对齐', () => {
-  const result = calculateSnap(0, 0, 100, 100, [
-    { x: 0, y: 0, width: 100, height: 100, type: 'rectangle' }
-  ])
-  expect(result.guides.length).toBeGreaterThan(0)
-})
-```
+**预期收益**:
+- Gzip 大小减少 5-10%
 
 ---
 
-#### 3. E2E 测试
-**建议**: 使用 Playwright
-```typescript
-// e2e/drawing.test.ts
-test('绘制矩形', async ({ page }) => {
-  await page.goto('/')
-  await page.click('[title="矩形工具"]')
-  await page.mouse.move(100, 100)
-  await page.mouse.down()
-  await page.mouse.move(200, 200)
-  await page.mouse.up()
-  // 验证矩形存在
-})
-```
+## 📅 实施计划
+
+### Week 1 (03-20 - 03-22)
+
+- [x] 性能分析（已完成）
+- [ ] tldraw 懒加载实现
+- [ ] 路由级代码分割
+- [ ] 测试和验证
+
+### Week 2 (03-23 - 03-25)
+
+- [ ] 图片懒加载
+- [ ] Tree shaking 优化
+- [ ] 压缩优化
+- [ ] Lighthouse 测试
+
+### Week 3 (03-26 - 03-28)
+
+- [ ] 性能回归测试
+- [ ] 文档更新
+- [ ] v1.2.0 发布
 
 ---
 
-### 用户体验
+## 📊 监控指标
 
-#### 1. 引导教程
-**建议**: 首次使用显示引导
-```typescript
-// 使用 intro.js 或 react-joyride
-const steps = [
-  { target: '.toolbar', content: '这是工具栏' },
-  { target: '.canvas', content: '这是画布区域' },
-]
-```
+### Core Web Vitals
 
----
+| 指标 | 当前 | 目标 | 状态 |
+|------|------|------|------|
+| FCP | 待测试 | <1.8s | ⏳ |
+| LCP | 待测试 | <2.5s | ⏳ |
+| TBT | 待测试 | <200ms | ⏳ |
+| CLS | 待测试 | <0.1 | ⏳ |
 
-#### 2. 撤销/重做增强
-**问题**: 当前撤销功能简化实现
+### Bundle 大小
 
-**建议**: 使用完整的历史栈
-```typescript
-interface HistoryState {
-  past: AppState[]
-  present: AppState
-  future: AppState[]
-}
-```
+| 指标 | 当前 | 目标 | 状态 |
+|------|------|------|------|
+| 总大小 | 2.7MB | <1.9MB | ⏳ |
+| Gzip | 815KB | <600KB | ⏳ |
+| tldraw | 1.7MB | 懒加载 | ⏳ |
 
 ---
 
-#### 3. 自动保存
-**建议**: 定期自动保存到 localStorage
-```typescript
-useEffect(() => {
-  const interval = setInterval(() => {
-    const state = useAppStore.getState()
-    localStorage.setItem('autosave', JSON.stringify(state))
-  }, 30000) // 每 30 秒
-  
-  return () => clearInterval(interval)
-}, [])
-```
+## ✅ 立即行动
+
+**优先级最高**: tldraw 懒加载
+
+**步骤**:
+1. 修改 MindNotesTldraw.tsx
+2. 使用 React.lazy + Suspense
+3. 添加 Loading 状态
+4. 测试功能正常
+5. 性能测试对比
 
 ---
 
-### 功能增强
-
-#### 1. 形状编辑
-**建议**: 支持选中后调整大小
-```typescript
-interface SelectedShape {
-  id: string
-  handles: Array<{ x: number, y: number }>
-}
-```
-
----
-
-#### 2. 颜色选择器增强
-**建议**: 添加吸管工具和渐变色
-```typescript
-// 使用 react-color 或 @uiw/react-color
-import { ColorPicker } from '@uiw/react-color'
-```
-
----
-
-#### 3. 导入功能
-**建议**: 支持导入 JSON 备份
-```typescript
-const handleImport = (file: File) => {
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    const data = JSON.parse(e.target?.result as string)
-    // 恢复状态
-  }
-  reader.readAsText(file)
-}
-```
-
----
-
-## 📊 性能基准
-
-### 当前性能
-
-| 指标 | 数值 | 评级 |
-|------|------|------|
-| 构建大小 | 543KB | ⚠️ 中等 |
-| Gzip 后 | 178KB | ✅ 良好 |
-| 构建时间 | 6.5s | ✅ 快速 |
-| 首屏加载 | ~1s | ✅ 优秀 |
-
-### 目标性能
-
-| 指标 | 目标值 |
-|------|--------|
-| 构建大小 | < 400KB |
-| 首屏加载 | < 0.8s |
-| 60fps | 稳定 |
-| 内存使用 | < 100MB |
-
----
-
-## 🚀 优先级排序
-
-### P0 - 立即实施
-1. 代码分割（减少包体积）
-2. 自动保存（防止数据丢失）
-3. 撤销/重做增强（核心体验）
-
-### P1 - 近期实施
-1. 懒加载组件
-2. 导入功能
-3. 颜色选择器增强
-
-### P2 - 中期实施
-1. 虚拟滚动
-2. 形状编辑
-3. 引导教程
-
-### P3 - 长期规划
-1. 单元测试
-2. E2E 测试
-3. 性能监控系统
-
----
-
-**最后更新**: 2026-03-19 10:20  
-**下次审查**: v1.0.2 发布前
+**开始优化！** 🚀
