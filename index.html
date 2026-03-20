@@ -1,26 +1,243 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#4f46e5" />
-    <meta name="description" content="基于浏览器的实时手写笔记工具，支持多种输入方式和 AI 增强功能" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="MindNotes" />
-    <link rel="apple-touch-icon" href="/icon-192.png" />
-    <title>MindNotes Pro - 智能手写笔记</title>
-    <script type="module" crossorigin src="/assets/index-DtZlSvDf.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/utils-Dcl4DmuB.js">
-    <link rel="modulepreload" crossorigin href="/assets/react-vendor-Ysf06tcu.js">
-    <link rel="modulepreload" crossorigin href="/assets/tldraw-core-CWhorZUB.js">
-    <link rel="modulepreload" crossorigin href="/assets/export-NNnHfXzt.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-C28irax8.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="description" content="MindNotes Pro - 让灵感自由流淌">
+  <title>MindNotes Pro</title>
+  <link rel="manifest" href="/manifest.json">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f9fafb;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .toolbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 50px;
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      padding: 0 15px;
+      z-index: 100;
+    }
+    .toolbar h1 {
+      font-size: 18px;
+      color: #1f2937;
+    }
+    .canvas-container {
+      position: fixed;
+      top: 50px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: white;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+    .save-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 24px;
+      background: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+      z-index: 100;
+    }
+    .tips {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: white/90;
+      backdrop-filter: blur(8px);
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #6b7280;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      z-index: 100;
+    }
+    .status {
+      position: fixed;
+      top: 60px;
+      right: 10px;
+      background: white;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #6b7280;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      z-index: 100;
+    }
+    .loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .loading.hidden {
+      display: none;
+    }
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #e5e7eb;
+      border-top-color: #4f46e5;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- 工具栏 -->
+  <div class="toolbar">
+    <h1>🧠 MindNotes Pro</h1>
+  </div>
+
+  <!-- 画布 -->
+  <div class="canvas-container">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <!-- 保存按钮 -->
+  <button class="save-btn" onclick="saveCanvas()">💾 保存</button>
+
+  <!-- 提示 -->
+  <div class="tips">
+    <div>💡 使用提示</div>
+    <div>🖱️ 鼠标/手指绘写</div>
+    <div>↩️ 双击清空</div>
+  </div>
+
+  <!-- 状态 -->
+  <div class="status">
+    <span id="status-text">就绪</span>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas')
+    const ctx = canvas.getContext('2d')
+    const loading = document.getElementById('loading')
+    const statusText = document.getElementById('status-text')
+
+    let isDrawing = false
+    let lastX = 0
+    let lastY = 0
+
+    // 设置 Canvas 大小
+    function resizeCanvas() {
+      const container = document.querySelector('.canvas-container')
+      canvas.width = container.clientWidth
+      canvas.height = container.clientHeight
+      ctx.strokeStyle = '#1f2937'
+      ctx.lineWidth = 3
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      loading.classList.add('hidden')
+      statusText.textContent = '就绪'
+    }
+
+    // 获取坐标
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect()
+      let clientX, clientY
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX
+        clientY = e.touches[0].clientY
+      } else {
+        clientX = e.clientX
+        clientY = e.clientY
+      }
+      return { x: clientX - rect.left, y: clientY - rect.top }
+    }
+
+    // 开始绘制
+    function startDrawing(e) {
+      e.preventDefault()
+      isDrawing = true
+      const pos = getPos(e)
+      lastX = pos.x
+      lastY = pos.y
+    }
+
+    // 绘制中
+    function draw(e) {
+      if (!isDrawing) return
+      e.preventDefault()
+      const pos = getPos(e)
+      ctx.beginPath()
+      ctx.moveTo(lastX, lastY)
+      ctx.lineTo(pos.x, pos.y)
+      ctx.stroke()
+      lastX = pos.x
+      lastY = pos.y
+    }
+
+    // 停止绘制
+    function stopDrawing() {
+      isDrawing = false
+    }
+
+    // 保存
+    function saveCanvas() {
+      const dataURL = canvas.toDataURL('image/png')
+      const link = document.createElement('a')
+      link.download = `mindnotes-${Date.now()}.png`
+      link.href = dataURL
+      link.click()
+      statusText.textContent = '✅ 已保存'
+      setTimeout(() => statusText.textContent = '就绪', 2000)
+    }
+
+    // 清空
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    }
+
+    // 事件监听
+    canvas.addEventListener('mousedown', startDrawing)
+    canvas.addEventListener('mousemove', draw)
+    canvas.addEventListener('mouseup', stopDrawing)
+    canvas.addEventListener('mouseout', stopDrawing)
+    canvas.addEventListener('touchstart', startDrawing, { passive: false })
+    canvas.addEventListener('touchmove', draw, { passive: false })
+    canvas.addEventListener('touchend', stopDrawing)
+    canvas.addEventListener('dblclick', clearCanvas)
+
+    // 初始化
+    window.addEventListener('load', () => {
+      resizeCanvas()
+      window.addEventListener('resize', resizeCanvas)
+    })
+  </script>
+</body>
 </html>
