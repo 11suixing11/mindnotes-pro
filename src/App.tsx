@@ -1,23 +1,55 @@
-import { useState, useRef, useEffect } from 'react'
-import MindNotesTldraw from './components/MindNotesTldraw'
+import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import Canvas, { CanvasRef } from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import SaveDialog from './components/SaveDialog'
-import LayersPanel from './components/LayersPanel'
 import CommandPalette from './components/CommandPalette/CommandPalette'
 import TemplateSelector from './components/TemplateSelector/TemplateSelector'
-// import { ExportButton } from './components/Export/MarkdownExport'
 
 import { useThemeStore } from './store/useThemeStore'
 import { useServiceWorker } from './hooks/useServiceWorker'
 import { useShortcuts } from './hooks/useShortcuts'
 import { useCommandPaletteShortcut } from './hooks/useKeyboardShortcuts'
 
+// 懒加载 tldraw 组件
+const MindNotesTldraw = lazy(() => import('./components/MindNotesTldraw'))
+
+// Loading 组件
+function AppLoading() {
+  return (
+    <div className="w-full h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-lg font-medium text-gray-700 dark:text-gray-300">加载中...</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">MindNotes Pro</p>
+      </div>
+    </div>
+  )
+}
+
+// Error Boundary
+function AppError({ error, onRetry }: { error: Error, onRetry: () => void }) {
+  return (
+    <div className="w-full h-screen flex items-center justify-center bg-red-50 dark:bg-red-900/20">
+      <div className="text-center max-w-md p-6">
+        <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">加载失败</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">{error.message}</p>
+        <button
+          onClick={onRetry}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          重试
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [useTldraw, setUseTldraw] = useState(false) // 切换模式
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showTemplateSelector, setShowTemplateSelector] = useState(false)
+  const [loadError, setLoadError] = useState<Error | null>(null)
   const canvasRef = useRef<CanvasRef>(null)
   const { initTheme } = useThemeStore()
   const { updateAvailable, isOnline, skipWaiting } = useServiceWorker()
@@ -69,6 +101,16 @@ function App() {
     return () => window.removeEventListener('switch-mode', handleModeSwitch)
   }, [])
 
+  // 错误处理
+  const handleRetry = () => {
+    setLoadError(null)
+    window.location.reload()
+  }
+
+  if (loadError) {
+    return <AppError error={loadError} onRetry={handleRetry} />
+  }
+
   return (
     <div className="w-full h-screen relative bg-[var(--bg-secondary)] overflow-hidden">
       {/* 新手引导 - 暂时禁用 */}
@@ -78,7 +120,16 @@ function App() {
       <Toolbar />
 
       {/* 画布区域 - 可切换模式 */}
-      {useTldraw ? <MindNotesTldraw /> : <Canvas ref={canvasRef} />}
+      <Suspense fallback={<AppLoading />}>
+        {useTldraw ? (
+          <MindNotesTldraw 
+            onReady={() => console.log('Tldraw ready')}
+            onError={(error: Error) => setLoadError(error)}
+          />
+        ) : (
+          <Canvas ref={canvasRef} />
+        )}
+      </Suspense>
 
       {/* 底部操作栏 */}
       <div className="fixed bottom-4 right-4 flex gap-3 z-10">
@@ -96,6 +147,23 @@ function App() {
         isOpen={showSaveDialog}
         onClose={() => setShowSaveDialog(false)}
         canvas={canvasRef.current?.getCanvas() || null}
+      />
+
+      {/* 命令面板 */}
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        onExecute={(cmd) => {
+          if (cmd.id === 'insert-template') {
+            setShowTemplateSelector(true)
+          }
+        }}
+      />
+
+      {/* 模板选择器 */}
+      <TemplateSelector
+        isOpen={showTemplateSelector}
+        onClose={() => setShowTemplateSelector(false)}
       />
 
       {/* 使用说明 */}
@@ -119,23 +187,6 @@ function App() {
         </div>
       </div>
 
-      {/* 命令面板 */}
-      <CommandPalette
-        isOpen={showCommandPalette}
-        onClose={() => setShowCommandPalette(false)}
-        onExecute={(cmd) => {
-          if (cmd.id === 'insert-template') {
-            setShowTemplateSelector(true)
-          }
-        }}
-      />
-
-      {/* 模板选择器 */}
-      <TemplateSelector
-        isOpen={showTemplateSelector}
-        onClose={() => setShowTemplateSelector(false)}
-      />
-
       {/* PWA 更新提示 */}
       {updateAvailable && (
         <div className="fixed bottom-20 right-4 bg-primary text-white rounded-lg px-4 py-3 text-sm shadow-xl z-50 animate-bounce">
@@ -147,35 +198,9 @@ function App() {
             >
               更新
             </button>
-            <button onClick={() => {}} className="ml-1 px-2 py-1 hover:bg-white/20 rounded">
-              ✕
-            </button>
           </div>
         </div>
       )}
-
-      {/* PWA 安装提示（仅移动端） */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-xl px-4 py-2 text-xs text-[var(--text-secondary)] shadow-lg border border-[var(--border-color)] md:hidden">
-        <div className="flex items-center gap-2">
-          <span>📱</span>
-          <span>添加到主屏幕获得更好体验</span>
-        </div>
-      </div>
-
-      {/* 快捷键提示（右下角） */}
-      <div className="fixed bottom-4 right-4 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-xl px-3 py-2 text-xs text-[var(--text-secondary)] shadow-lg border border-[var(--border-color)] hidden md:block">
-        <div className="flex items-center gap-2">
-          <span>⌨️</span>
-          <span>按</span>
-          <kbd className="px-2 py-0.5 bg-[var(--bg-tertiary)] rounded text-xs border border-[var(--border-color)]">
-            ?
-          </kbd>
-          <span>查看快捷键</span>
-        </div>
-      </div>
-
-      {/* 图层面板 */}
-      <LayersPanel />
     </div>
   )
 }
