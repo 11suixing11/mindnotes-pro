@@ -13,9 +13,15 @@ export default defineConfig({
     minify: 'esbuild',
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react/jsx-runtime'],
-          'framer-motion': ['framer-motion'],
+        manualChunks(id) {
+          // React 核心
+          if (id.includes('react/') || id.includes('react-dom/')) {
+            return 'react-vendor'
+          }
+          // framer-motion 单独拆（只在懒加载组件中使用）
+          if (id.includes('framer-motion')) {
+            return 'framer-motion'
+          }
         },
       },
     },
