@@ -1,100 +1,100 @@
 {
-  "name": "mindnotes-pro",
-  "version": "1.2.0",
-  "type": "module",
-  "main": "electron/main.cjs",
-  "description": "A modern browser-based note-taking app with handwriting support and AI enhancement",
-  "homepage": "https://11suixing11.github.io/mindnotes-pro",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "deploy": "gh-pages -d dist",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "electron:dev": "vite && electron .",
-    "electron:build": "npm run build && electron-builder",
-    "electron:preview": "npm run build && electron ."
-  },
-  "keywords": [
-    "notes",
-    "handwriting",
-    "canvas",
-    "ai",
-    "productivity"
-  ],
-  "author": "11suixing11",
-  "license": "MIT",
-  "build": {
-    "appId": "com.mindnotes.pro",
-    "productName": "MindNotes Pro",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "electron/**/*"
-    ],
-    "win": {
-      "target": [
-        "portable"
-      ],
-      "icon": "public/icon-512.png"
-    },
-    "mac": {
-      "target": [
-        "dmg"
-      ],
-      "icon": "public/icon-512.png"
-    },
-    "linux": {
-      "target": [
-        "AppImage"
-      ],
-      "icon": "public/icon-512.png"
-    }
-  },
-  "dependencies": {
-    "@capacitor/android": "^8.2.0",
-    "@capacitor/cli": "^8.2.0",
-    "@capacitor/core": "^8.2.0",
-    "@tanstack/react-virtual": "^3.13.23",
-    "@tldraw/tldraw": "^4.5.3",
-    "@uiw/react-color": "^2.9.6",
-    "file-saver": "^2.0.5",
-    "framer-motion": "^12.38.0",
-    "jspdf": "^2.5.1",
-    "localforage": "^1.10.0",
-    "nanoid": "^5.1.7",
-    "openai": "^4.28.0",
-    "perfect-freehand": "^1.2.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-hotkeys-hook": "^5.2.4",
-    "undo-manager": "^1.1.1",
-    "zustand": "^4.5.0"
-  },
-  "devDependencies": {
-    "@lhci/cli": "^0.15.1",
-    "@tauri-apps/cli": "^2.10.1",
-    "@types/file-saver": "^2.0.7",
-    "@types/react": "^18.2.64",
-    "@types/react-dom": "^18.2.21",
-    "@typescript-eslint/eslint-plugin": "^7.1.1",
-    "@typescript-eslint/parser": "^7.1.1",
-    "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.4.18",
-    "electron": "^41.0.3",
-    "electron-builder": "^26.8.1",
-    "eslint": "^8.57.0",
-    "eslint-plugin-prettier": "^5.5.5",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.5",
-    "gh-pages": "^6.3.0",
-    "lighthouse": "^13.0.3",
-    "postcss": "^8.4.35",
-    "prettier": "^3.8.1",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5.2.2",
-    "vite": "^5.1.6"
-  }
+    "name":  "mindnotes-pro",
+    "version":  "1.2.1",
+    "type":  "module",
+    "main":  "electron/main.cjs",
+    "description":  "A modern browser-based note-taking app with handwriting support and AI enhancement",
+    "homepage":  "https://11suixing11.github.io/mindnotes-pro",
+    "scripts":  {
+                    "dev":  "vite",
+                    "build":  "tsc \u0026\u0026 vite build",
+                    "preview":  "vite preview",
+                    "deploy":  "gh-pages -d dist",
+                    "lint":  "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+                    "electron:dev":  "vite \u0026\u0026 electron .",
+                    "electron:build":  "npm run build \u0026\u0026 electron-builder",
+                    "electron:preview":  "npm run build \u0026\u0026 electron ."
+                },
+    "keywords":  [
+                     "notes",
+                     "handwriting",
+                     "canvas",
+                     "ai",
+                     "productivity"
+                 ],
+    "author":  "11suixing11",
+    "license":  "MIT",
+    "build":  {
+                  "appId":  "com.mindnotes.pro",
+                  "productName":  "MindNotes Pro",
+                  "directories":  {
+                                      "output":  "release"
+                                  },
+                  "files":  [
+                                "dist/**/*",
+                                "electron/**/*"
+                            ],
+                  "win":  {
+                              "target":  [
+                                             "portable"
+                                         ],
+                              "icon":  "public/icon-512.png"
+                          },
+                  "mac":  {
+                              "target":  [
+                                             "dmg"
+                                         ],
+                              "icon":  "public/icon-512.png"
+                          },
+                  "linux":  {
+                                "target":  [
+                                               "AppImage"
+                                           ],
+                                "icon":  "public/icon-512.png"
+                            }
+              },
+    "dependencies":  {
+                         "@capacitor/android":  "^8.2.0",
+                         "@capacitor/cli":  "^8.2.0",
+                         "@capacitor/core":  "^8.2.0",
+                         "@tanstack/react-virtual":  "^3.13.23",
+                         "@tldraw/tldraw":  "^4.5.3",
+                         "@uiw/react-color":  "^2.9.6",
+                         "file-saver":  "^2.0.5",
+                         "framer-motion":  "^12.38.0",
+                         "jspdf":  "^2.5.1",
+                         "localforage":  "^1.10.0",
+                         "nanoid":  "^5.1.7",
+                         "openai":  "^4.28.0",
+                         "perfect-freehand":  "^1.2.0",
+                         "react":  "^18.2.0",
+                         "react-dom":  "^18.2.0",
+                         "react-hotkeys-hook":  "^5.2.4",
+                         "undo-manager":  "^1.1.1",
+                         "zustand":  "^4.5.0"
+                     },
+    "devDependencies":  {
+                            "@lhci/cli":  "^0.15.1",
+                            "@tauri-apps/cli":  "^2.10.1",
+                            "@types/file-saver":  "^2.0.7",
+                            "@types/react":  "^18.2.64",
+                            "@types/react-dom":  "^18.2.21",
+                            "@typescript-eslint/eslint-plugin":  "^7.1.1",
+                            "@typescript-eslint/parser":  "^7.1.1",
+                            "@vitejs/plugin-react":  "^4.2.1",
+                            "autoprefixer":  "^10.4.18",
+                            "electron":  "^41.0.3",
+                            "electron-builder":  "^26.8.1",
+                            "eslint":  "^8.57.0",
+                            "eslint-plugin-prettier":  "^5.5.5",
+                            "eslint-plugin-react-hooks":  "^4.6.0",
+                            "eslint-plugin-react-refresh":  "^0.4.5",
+                            "gh-pages":  "^6.3.0",
+                            "lighthouse":  "^13.0.3",
+                            "postcss":  "^8.4.35",
+                            "prettier":  "^3.8.1",
+                            "tailwindcss":  "^3.4.1",
+                            "typescript":  "^5.2.2",
+                            "vite":  "^5.1.6"
+                        }
 }
