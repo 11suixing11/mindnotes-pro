@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback } from 'react'
 import { getStroke } from 'perfect-freehand'
 import { useAppStore } from '../store/useAppStore'
 import type { Stroke, Shape, TextElement } from '../store/useAppStore'
+import { useThemeStore } from '../store/useThemeStore'
 import { hitTestAll } from '../utils/hitTest'
 
 interface CanvasProps {
@@ -36,7 +37,7 @@ function drawStroke(
 
   const stroke = getStroke(points, {
     size: size / zoom,
-    thinning: 0.3,       // 降低粗细变化，更适合中文书写（均匀笔画）
+    thinning: 0.15,      // 低粗细变化，笔画均匀清晰
     smoothing: 0.5,
     streamline: 0.6,     // 提高平滑度，让曲线更流畅
     simulatePressure: false,
@@ -143,6 +144,8 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
     moveElementBy,
   } = useAppStore()
 
+  const { isDarkMode } = useThemeStore()
+
   // 获取画布坐标（考虑缩放和偏移）
   const getCanvasPos = useCallback(
     (e: PointerEvent | MouseEvent | TouchEvent, rect: DOMRect) => {
@@ -161,6 +164,91 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
     },
     [viewBox]
   )
+
+  // 功能1：键盘输入文字 - 选择文字工具后直接按键创建文字
+  // 功能2：粘贴输入文字 - Ctrl+V 粘贴剪贴板纯文本
+  useEffect(() => {
+    // 判断是否为可打印字符（单个字符，不是功能键）
+    const isPrintableKey = (e: KeyboardEvent): boolean => {
+      if (e.key.length !== 1) return false
+      if (e.ctrlKey || e.metaKey || e.altKey) return false
+      return true
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const state = useAppStore.getState()
+
+      // Ctrl+V / Cmd+V: 内部粘贴（复制粘贴元素），系统剪贴板粘贴由 paste 事件处理
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        if (state.editingTextId !== null) return // 编辑文字时让浏览器处理
+        // 延迟检查：如果 paste 事件捕获到系统文本则不执行内部粘贴
+        setTimeout(() => {
+          if ((window as any).__mindnotes_system_paste_handled) return
+          useAppStore.getState().paste()
+        }, 50)
+        return
+      }
+
+      if (state.tool !== 'text') return
+      if (state.editingTextId !== null) return
+      if (!isPrintableKey(e)) return
+
+      // 在画布当前视图中心创建文字
+      const { viewBox } = state
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const centerX = viewBox.x + (canvas.clientWidth / 2) / viewBox.zoom
+      const centerY = viewBox.y + (canvas.clientHeight / 2) / viewBox.zoom
+
+      e.preventDefault()
+      addTextElement(centerX, centerY)
+    }
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const state = useAppStore.getState()
+      // 非编辑文字状态时才处理系统剪贴板粘贴
+      if (state.editingTextId !== null) return
+
+      const text = e.clipboardData?.getData('text/plain')
+      if (!text) return
+
+      e.preventDefault()
+      // 标记系统粘贴已处理，阻止 keydown 中的内部粘贴
+      ;(window as any).__mindnotes_system_paste_handled = true
+      setTimeout(() => { (window as any).__mindnotes_system_paste_handled = false }, 100)
+
+      // 有系统剪贴板文本 → 创建文字元素
+      const { viewBox } = state
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const centerX = viewBox.x + (canvas.clientWidth / 2) / viewBox.zoom
+      const centerY = viewBox.y + (canvas.clientHeight / 2) / viewBox.zoom
+
+      const { color, size } = state
+      const id = Date.now().toString() + Math.random().toString(36).slice(2, 6)
+      const newText = {
+        id,
+        x: centerX,
+        y: centerY,
+        text,
+        color,
+        fontSize: size * 4,
+      }
+      const store = useAppStore.getState()
+      store._pushHistory()
+      useAppStore.setState((s) => ({
+        textElements: [...s.textElements, newText],
+        editingTextId: id,
+      }))
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('paste', handlePaste)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('paste', handlePaste)
+    }
+  }, [addTextElement])
 
   // 重绘画布
   const redraw = useCallback(() => {
@@ -374,7 +462,7 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
     for (const textEl of textElements) {
       if (textEl.hidden || !textEl.text) continue
       ctx.save()
-      ctx.font = `${textEl.fontSize / viewBox.zoom}px "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif`
+      ctx.font = `${textEl.bold ? 'bold ' : ''}${textEl.fontSize / viewBox.zoom}px "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif`
       ctx.fillStyle = textEl.color
       ctx.textBaseline = 'top'
       if (textEl.opacity !== undefined) ctx.globalAlpha = textEl.opacity
@@ -400,7 +488,7 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
     }
 
     ctx.restore()
-  }, [strokes, currentStroke, shapes, currentShape, textElements, viewBox, selectedLayerId])
+  }, [strokes, currentStroke, shapes, currentShape, textElements, viewBox, selectedLayerId, isDarkMode])
 
   // 设置画布尺寸 + 高 DPI
   useEffect(() => {
@@ -427,6 +515,11 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
     animFrameRef.current = requestAnimationFrame(redraw)
     return () => cancelAnimationFrame(animFrameRef.current)
   }, [redraw])
+
+  // 主题切换时主动触发重绘，确保画布背景立即更新
+  useEffect(() => {
+    requestAnimationFrame(redraw)
+  }, [isDarkMode, redraw])
 
   // 指针事件处理（支持压感笔）
   useEffect(() => {
@@ -639,6 +732,7 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
               color: el.color,
               fontSize: el.fontSize * viewBox.zoom,
               fontFamily: '"PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif',
+              fontWeight: el.bold ? 'bold' : 'normal',
               lineHeight: '1.4',
               minWidth: '100px',
               minHeight: '1.5em',
@@ -663,6 +757,7 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
               color: el.color,
               fontSize: el.fontSize * viewBox.zoom,
               fontFamily: '"PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif',
+              fontWeight: el.bold ? 'bold' : 'normal',
               lineHeight: '1.4',
               whiteSpace: 'pre-wrap',
               opacity: el.opacity ?? 1,

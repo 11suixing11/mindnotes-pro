@@ -46,11 +46,17 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
     }, 'image/png')
   }
 
-  // 导出为 JSON（原始笔迹数据）
+  // 导出为 JSON（完整画布数据）
   const exportAsJSON = () => {
     setIsSaving(true)
     try {
-      const data = JSON.stringify(strokes, null, 2)
+      const data = JSON.stringify({
+        version: '1.2.2',
+        exportedAt: new Date().toISOString(),
+        strokes,
+        shapes,
+        textElements,
+      }, null, 2)
       const blob = new Blob([data], { type: 'application/json' })
       saveAs(blob, `mindnotes-${Date.now()}.json`)
     } catch (error) {

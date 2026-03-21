@@ -2,7 +2,7 @@
 
 **无限画布 · 自由书写 · 你的想法，不设边界**
 
-[![Version](https://img.shields.io/badge/version-v1.2.2-blue?style=flat-square)](https://github.com/11suixing11/mindnotes-pro/releases/tag/v1.2.2)
+[![Version](https://img.shields.io/badge/version-v1.3.0-blue?style=flat-square)](https://github.com/11suixing11/mindnotes-pro/releases/tag/v1.3.0)
 [![Deploy](https://img.shields.io/github/actions/workflow/status/11suixing11/mindnotes-pro/deploy.yml?branch=main&label=Deploy&style=flat-square)](https://github.com/11suixing11/mindnotes-pro/actions)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?style=social)](https://github.com/11suixing11/mindnotes-pro/stargazers)
@@ -11,17 +11,15 @@
 
 ---
 
-## 🆕 Latest: v1.2.2
+## 🆕 Latest: v1.3.0
 
 核心升级：
 
-- ✍️ **文字工具** — T 键切换，点击画布输入
-- 👆 **选中移动** — V 键选择，拖动移动任意元素
-- 🎨 **形状填充** — 半透明填充色
-- 📋 **剪贴板复制** — 一键复制画布到剪贴板
-- 📝 **Markdown 导出** — 文字内容导出为文档
-
-[v1.2.0 完整功能 →](https://github.com/11suixing11/mindnotes-pro/releases/tag/v1.2.0)
+- 🧹 **橡皮擦改进** — 部分擦除，笔迹经过处消失
+- ⌨️ **键盘输入文字** — T 键后直接打字创建文字
+- 📋 **粘贴输入文字** — Ctrl+V 直接粘贴为文字
+- 🎨 **文字样式面板** — 字体大小、颜色、粗体调节
+- 🌙 **主题切换修复** — 画布背景即时跟随主题变化
 
 [完整更新日志 →](CHANGELOG.md)
 

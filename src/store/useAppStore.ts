@@ -41,6 +41,7 @@ export interface TextElement {
   text: string
   color: string
   fontSize: number
+  bold?: boolean
   name?: string
   locked?: boolean
   hidden?: boolean
@@ -136,11 +137,20 @@ interface AppState {
   // 文字方法
   addTextElement: (x: number, y: number) => void
   updateTextElement: (id: string, text: string) => void
+  updateTextStyle: (id: string, updates: { fontSize?: number; color?: string; bold?: boolean }) => void
   deleteTextElement: (id: string) => void
   setEditingText: (id: string | null) => void
 
   // 选中移动
   moveElementBy: (id: string, dx: number, dy: number) => void
+
+  // 导入数据
+  importData: (data: { strokes: Stroke[], shapes: Shape[], textElements?: TextElement[] }) => void
+
+  // 剪贴板
+  clipboard: Stroke | Shape | TextElement | null
+  copySelected: () => void
+  paste: () => void
 
   // 撤销/重做
   undo: () => void
@@ -159,9 +169,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   textElements: [],
   editingTextId: null,
 
-  tool: 'pen',
-  color: '#000000',
-  size: 4,
+  tool: 'select',
+  color: '#1a1a2e',
+  size: 5,
   fillColor: null,
   fillOpacity: 0.2,
 
@@ -178,6 +188,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   isDrawing: false,
   canUndo: false,
   canRedo: false,
+
+  clipboard: null,
 
   _undoStack: [],
   _redoStack: [],
@@ -204,11 +216,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     get()._pushHistory()
     const strokeTool: 'pen' | 'eraser' =
       tool === 'eraser' ? 'eraser' : 'pen'
+    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
     set({
       currentStroke: {
         id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
         points: [],
-        color: tool === 'eraser' ? '#ffffff' : color,
+        color: tool === 'eraser' ? (isDark ? '#1a1a2e' : '#ffffff') : color,
         size: tool === 'eraser' ? size * 2 : size,
         tool: strokeTool,
       },
@@ -424,6 +437,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     }))
   },
 
+  updateTextStyle: (id, updates) => {
+    set((state) => ({
+      textElements: state.textElements.map((t) =>
+        t.id === id ? { ...t, ...updates } : t
+      ),
+    }))
+  },
+
   deleteTextElement: (id) => {
     get()._pushHistory()
     set((state) => ({
@@ -455,6 +476,87 @@ export const useAppStore = create<AppState>((set, get) => ({
         return { ...t, x: t.x + dx, y: t.y + dy }
       }),
     }))
+  },
+
+  // 剪贴板
+  copySelected: () => {
+    const { selectedLayerId, strokes, shapes, textElements } = get()
+    if (!selectedLayerId) return
+    const stroke = strokes.find((s) => s.id === selectedLayerId)
+    if (stroke) { set({ clipboard: { ...stroke, points: stroke.points.map((p) => [...p]) } }); return }
+    const shape = shapes.find((s) => s.id === selectedLayerId)
+    if (shape) { set({ clipboard: { ...shape } }); return }
+    const text = textElements.find((t) => t.id === selectedLayerId)
+    if (text) { set({ clipboard: { ...text } }); return }
+  },
+
+  paste: () => {
+    const { clipboard, _pushHistory } = get()
+    if (!clipboard) return
+    const OFFSET = 20
+    const newId = Date.now().toString() + Math.random().toString(36).slice(2, 6)
+
+    if ('points' in clipboard) {
+      // Stroke
+      const newStroke: Stroke = {
+        ...clipboard,
+        id: newId,
+        points: clipboard.points.map((p) => [p[0] + OFFSET, p[1] + OFFSET, ...p.slice(2)]),
+      }
+      _pushHistory()
+      set((state) => ({
+        strokes: [...state.strokes, newStroke],
+        clipboard: { ...clipboard, id: newId },
+        selectedLayerId: newId,
+      }))
+    } else if ('type' in clipboard) {
+      // Shape
+      const newShape: Shape = {
+        ...clipboard,
+        id: newId,
+        x: clipboard.x + OFFSET,
+        y: clipboard.y + OFFSET,
+        ...(clipboard.startX !== undefined ? {
+          startX: clipboard.startX + OFFSET,
+          startY: clipboard.startY! + OFFSET,
+          endX: clipboard.endX! + OFFSET,
+          endY: clipboard.endY! + OFFSET,
+        } : {}),
+      }
+      _pushHistory()
+      set((state) => ({
+        shapes: [...state.shapes, newShape],
+        clipboard: { ...clipboard, id: newId },
+        selectedLayerId: newId,
+      }))
+    } else {
+      // TextElement
+      const newText: TextElement = {
+        ...clipboard,
+        id: newId,
+        x: clipboard.x + OFFSET,
+        y: clipboard.y + OFFSET,
+      }
+      _pushHistory()
+      set((state) => ({
+        textElements: [...state.textElements, newText],
+        clipboard: { ...clipboard, id: newId },
+        selectedLayerId: newId,
+      }))
+    }
+  },
+
+  // 导入数据
+  importData: (data) => {
+    get()._pushHistory()
+    set({
+      strokes: data.strokes,
+      shapes: data.shapes,
+      textElements: data.textElements ?? [],
+      selectedLayerId: null,
+      currentStroke: null,
+      currentShape: null,
+    })
   },
 
   // 撤销/重做

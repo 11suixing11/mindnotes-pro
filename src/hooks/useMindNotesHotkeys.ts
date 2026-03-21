@@ -13,6 +13,7 @@ export function useMindNotesHotkeys() {
     toggleShowGuides,
     toggleSnapToGrid,
     toggleLayersPanel,
+    copySelected,
   } = useAppStore()
 
   // 工具切换
@@ -30,6 +31,9 @@ export function useMindNotesHotkeys() {
   // 编辑操作
   useHotkeys('ctrl+z,meta+z', () => undo(), { preventDefault: true })
   useHotkeys('ctrl+shift+z,meta+shift+z', () => redo(), { preventDefault: true })
+
+  // 复制粘贴（Ctrl+V 已在 Canvas.tsx 中处理系统剪贴板粘贴，此处不再绑定）
+  useHotkeys('ctrl+c,meta+c', () => copySelected(), { preventDefault: true })
   useHotkeys(
     'delete,backspace',
     () => {

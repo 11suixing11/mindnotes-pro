@@ -1,13 +1,16 @@
+import { useRef } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { useThemeStore } from '../store/useThemeStore'
+import { useToast } from './ui/Toast'
 
 const COLORS = [
   { hex: '#1a1a2e', label: '黑' },
-  { hex: '#ef4444', label: '红' },
-  { hex: '#22c55e', label: '绿' },
+  { hex: '#ffffff', label: '白' },
+  { hex: '#dc2626', label: '红' },
+  { hex: '#16a34a', label: '绿' },
   { hex: '#6366f1', label: '蓝' },
-  { hex: '#f59e0b', label: '黄' },
-  { hex: '#a855f7', label: '紫' },
+  { hex: '#d97706', label: '橙' },
+  { hex: '#7c3aed', label: '紫' },
 ]
 
 const SIZES = [2, 4, 6, 8, 10]
@@ -43,8 +46,37 @@ export default function Toolbar() {
     zoomIn,
     zoomOut,
     resetView,
+    importData,
   } = useAppStore()
   const { isDarkMode, toggleTheme } = useThemeStore()
+  const toast = useToast()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const json = JSON.parse(ev.target?.result as string)
+        if (!Array.isArray(json.strokes)) {
+          alert('无效的 MindNotes JSON 文件：缺少 strokes 数组')
+          return
+        }
+        importData({
+          strokes: json.strokes,
+          shapes: json.shapes ?? [],
+          textElements: json.textElements ?? [],
+        })
+        toast.showSuccess(`导入成功！${json.strokes.length} 笔笔迹`)
+      } catch {
+        alert('JSON 文件解析失败，请检查文件格式')
+      }
+    }
+    reader.readAsText(file)
+    // 重置 input 以允许重复导入同一文件
+    e.target.value = ''
+  }
 
   const isShapeTool = ['rectangle', 'circle', 'triangle', 'line', 'arrow'].includes(tool)
 
@@ -198,7 +230,21 @@ export default function Toolbar() {
 
         <div className="toolbar-divider" />
 
-        {/* 保存 & 主题 */}
+        {/* 保存 & 导入 & 主题 */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleImport}
+          className="hidden"
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="toolbar-btn"
+          title="导入 JSON"
+        >
+          📂
+        </button>
         <button
           onClick={() => window.dispatchEvent(new CustomEvent('mindnotes-save'))}
           className="toolbar-btn"

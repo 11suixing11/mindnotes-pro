@@ -3,6 +3,7 @@ import Canvas from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import LayersPanel from './components/LayersPanel'
 import TemplateSelector from './components/TemplateSelector'
+import TextStylePanel from './components/TextStylePanel'
 import { useThemeStore } from './store/useThemeStore'
 import { useMindNotesHotkeys } from './hooks/useMindNotesHotkeys'
 import { useNetworkStatus } from './hooks/useNetworkStatus'
@@ -62,6 +63,7 @@ export default function App() {
     <div className="w-full h-screen relative overflow-hidden bg-[var(--bg-secondary)]">
       <Toolbar />
       <Canvas onCanvasRef={handleCanvasReady} />
+      <TextStylePanel />
       <LayersPanel />
       <TemplateSelector isOpen={showTemplates} onClose={() => setShowTemplates(false)} />
 
