@@ -2,23 +2,24 @@
 
 **无限画布 · 自由书写 · 你的想法，不设边界**
 
-[![Version](https://img.shields.io/badge/version-v1.2.1-blue?style=flat-square)](https://github.com/11suixing11/mindnotes-pro/releases/tag/v1.2.1)
+[![Version](https://img.shields.io/badge/version-v1.2.2-blue?style=flat-square)](https://github.com/11suixing11/mindnotes-pro/releases/tag/v1.2.2)
 [![Deploy](https://img.shields.io/github/actions/workflow/status/11suixing11/mindnotes-pro/deploy.yml?branch=main&label=Deploy&style=flat-square)](https://github.com/11suixing11/mindnotes-pro/actions)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?style=social)](https://github.com/11suixing11/mindnotes-pro/stargazers)
 
-### 🌐 [立即使用 →](https://11suixing11.github.io/mindnotes-pro) · [Release Notes →](https://github.com/11suixing11/mindnotes-pro/releases/tag/v1.2.1)
+### 🌐 [立即使用 →](https://11suixing11.github.io/mindnotes-pro) · [Release Notes →](https://github.com/11suixing11/mindnotes-pro/releases/tag/v1.2.2)
 
 ---
 
-## 🆕 Latest: v1.2.1
+## 🆕 Latest: v1.2.2
 
-画布背景视觉优化：
+核心升级：
 
-- 🎨 4 层画布背景：底色渐变 + 彩色光晕 + 暗角 + 圆点网格
-- 🌈 3 个彩色光晕（靛蓝/粉红/天蓝），深浅模式独立配色
-- 🔲 暗角效果：中心亮边缘暗，聚焦书写
-- 🔵 增强圆点网格：1.2px / 28px 间距
+- ✍️ **文字工具** — T 键切换，点击画布输入
+- 👆 **选中移动** — V 键选择，拖动移动任意元素
+- 🎨 **形状填充** — 半透明填充色
+- 📋 **剪贴板复制** — 一键复制画布到剪贴板
+- 📝 **Markdown 导出** — 文字内容导出为文档
 
 [v1.2.0 完整功能 →](https://github.com/11suixing11/mindnotes-pro/releases/tag/v1.2.0)
 
@@ -30,8 +31,10 @@
 
 | 功能 | 说明 |
 |------|------|
-| ✍️ **手写绘制** | 流畅笔迹，支持鼠标/触控笔/触摸屏 |
-| ⬜ **形状工具** | 矩形、圆形、三角形、直线、箭头 |
+| ✍️ **手写绘制** | 流畅笔迹，支持压感笔/鼠标/触摸屏 |
+| 🔤 **文字工具** | 点击画布输入文字，T 键切换 |
+| 👆 **选中移动** | V 键选择，拖动移动任意元素 |
+| ⬜ **形状工具** | 矩形、圆形、三角形、直线、箭头，支持填充 |
 | ↩️ **撤销/重做** | 50 步历史，`Ctrl+Z` / `Ctrl+Shift+Z` |
 | 🎨 **颜色 & 粗细** | 6 种预设颜色 + 自定义，5 档粗细 |
 | 🪟 **毛玻璃 UI** | 工具栏 & 面板模糊玻璃效果，多层阴影 |
@@ -40,7 +43,7 @@
 | 🔍 **缩放 & 平移** | 无限画布，`+`/`-`/`0` 快捷操作 |
 | 📑 **图层管理** | 显示/隐藏/锁定/排序/删除 |
 | 🌙 **深色模式** | 一键切换，自动跟随系统 |
-| 📤 **导出** | PNG / PDF / JSON 多格式导出 |
+| 📤 **导出** | PNG / SVG / PDF / JSON / Markdown / 剪贴板 |
 | ⌨️ **快捷键** | `?` 查看全部，键盘流高效操作 |
 | 📱 **PWA** | 安装到主屏幕，离线可用 |
 | 🎯 **智能模板** | 7 种预设布局：横线纸/方格纸/会议纪要/待办看板/日记/思维导图 |

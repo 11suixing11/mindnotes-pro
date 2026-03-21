@@ -26,13 +26,28 @@ export interface Shape {
   startY?: number
   endX?: number
   endY?: number
+  fillColor?: string
+  fillOpacity?: number
   name?: string
   locked?: boolean
   hidden?: boolean
   opacity?: number
 }
 
-type AppStateSnapshot = Pick<AppState, 'strokes' | 'shapes'>
+export interface TextElement {
+  id: string
+  x: number
+  y: number
+  text: string
+  color: string
+  fontSize: number
+  name?: string
+  locked?: boolean
+  hidden?: boolean
+  opacity?: number
+}
+
+type AppStateSnapshot = Pick<AppState, 'strokes' | 'shapes' | 'textElements'>
 
 interface AppState {
   // 笔迹数据
@@ -43,10 +58,16 @@ interface AppState {
   shapes: Shape[]
   currentShape: Shape | null
 
+  // 文字数据
+  textElements: TextElement[]
+  editingTextId: string | null
+
   // 工具状态
-  tool: 'pen' | 'eraser' | 'pan' | 'rectangle' | 'circle' | 'triangle' | 'arrow' | 'line'
+  tool: 'select' | 'pen' | 'eraser' | 'pan' | 'rectangle' | 'circle' | 'triangle' | 'arrow' | 'line' | 'text'
   color: string
   size: number
+  fillColor: string | null
+  fillOpacity: number
 
   // 画布变换
   viewBox: { x: number; y: number; zoom: number }
@@ -87,6 +108,8 @@ interface AppState {
   setTool: (tool: AppState['tool']) => void
   setColor: (color: string) => void
   setSize: (size: number) => void
+  setFillColor: (color: string | null) => void
+  setFillOpacity: (opacity: number) => void
 
   // 画布变换方法
   setViewBox: (viewBox: { x: number; y: number; zoom: number }) => void
@@ -110,6 +133,15 @@ interface AppState {
   moveLayerUp: (id: string) => void
   moveLayerDown: (id: string) => void
 
+  // 文字方法
+  addTextElement: (x: number, y: number) => void
+  updateTextElement: (id: string, text: string) => void
+  deleteTextElement: (id: string) => void
+  setEditingText: (id: string | null) => void
+
+  // 选中移动
+  moveElementBy: (id: string, dx: number, dy: number) => void
+
   // 撤销/重做
   undo: () => void
   redo: () => void
@@ -124,10 +156,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentStroke: null,
   shapes: [],
   currentShape: null,
+  textElements: [],
+  editingTextId: null,
 
   tool: 'pen',
   color: '#000000',
   size: 4,
+  fillColor: null,
+  fillOpacity: 0.2,
 
   viewBox: { x: 0, y: 0, zoom: 1 },
 
@@ -148,10 +184,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // 保存当前状态到历史栈
   _pushHistory: () => {
-    const { strokes, shapes, _undoStack } = get()
+    const { strokes, shapes, textElements, _undoStack } = get()
     const snapshot: AppStateSnapshot = {
       strokes: [...strokes],
       shapes: [...shapes],
+      textElements: [...textElements],
     }
     set({
       _undoStack: [..._undoStack.slice(-(MAX_HISTORY - 1)), snapshot],
@@ -207,15 +244,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   clearStrokes: () => {
-    const { strokes, shapes } = get()
-    if (strokes.length === 0 && shapes.length === 0) return
+    const { strokes, shapes, textElements } = get()
+    if (strokes.length === 0 && shapes.length === 0 && textElements.length === 0) return
     get()._pushHistory()
-    set({ strokes: [], shapes: [], selectedLayerId: null })
+    set({ strokes: [], shapes: [], textElements: [], selectedLayerId: null })
   },
 
   // 形状方法
   startShape: (type, x, y) => {
-    const { color, size } = get()
+    const { color, size, fillColor, fillOpacity } = get()
     get()._pushHistory()
     set({
       currentShape: {
@@ -227,6 +264,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         height: 0,
         color,
         size,
+        fillColor: fillColor ?? undefined,
+        fillOpacity,
         startX: x,
         startY: y,
         endX: x,
@@ -274,6 +313,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTool: (tool) => set({ tool }),
   setColor: (color) => set({ color }),
   setSize: (size) => set({ size }),
+  setFillColor: (fillColor) => set({ fillColor }),
+  setFillOpacity: (fillOpacity) => set({ fillOpacity }),
 
   // 画布变换
   setViewBox: (viewBox) => set({ viewBox }),
@@ -306,6 +347,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       strokes: state.strokes.map((s) => (s.id === id ? { ...s, locked: !s.locked } : s)),
       shapes: state.shapes.map((s) => (s.id === id ? { ...s, locked: !s.locked } : s)),
+      textElements: state.textElements.map((t) => (t.id === id ? { ...t, locked: !t.locked } : t)),
     }))
   },
 
@@ -313,6 +355,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       strokes: state.strokes.map((s) => (s.id === id ? { ...s, hidden: !s.hidden } : s)),
       shapes: state.shapes.map((s) => (s.id === id ? { ...s, hidden: !s.hidden } : s)),
+      textElements: state.textElements.map((t) => (t.id === id ? { ...t, hidden: !t.hidden } : t)),
     }))
   },
 
@@ -321,15 +364,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       strokes: state.strokes.filter((s) => s.id !== id),
       shapes: state.shapes.filter((s) => s.id !== id),
+      textElements: state.textElements.filter((t) => t.id !== id),
       selectedLayerId: state.selectedLayerId === id ? null : state.selectedLayerId,
     }))
   },
 
   clearAllLayers: () => {
-    const { strokes, shapes } = get()
-    if (strokes.length === 0 && shapes.length === 0) return
+    const { strokes, shapes, textElements } = get()
+    if (strokes.length === 0 && shapes.length === 0 && textElements.length === 0) return
     get()._pushHistory()
-    set({ strokes: [], shapes: [], selectedLayerId: null })
+    set({ strokes: [], shapes: [], textElements: [], selectedLayerId: null })
   },
 
   moveLayerUp: (id) => {
@@ -352,30 +396,93 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
   },
 
+  // 文字方法
+  addTextElement: (x, y) => {
+    const { color } = get()
+    get()._pushHistory()
+    const id = Date.now().toString() + Math.random().toString(36).slice(2, 6)
+    const { size } = get()
+    const newText: TextElement = {
+      id,
+      x,
+      y,
+      text: '',
+      color,
+      fontSize: size * 4,
+    }
+    set((state) => ({
+      textElements: [...state.textElements, newText],
+      editingTextId: id,
+    }))
+  },
+
+  updateTextElement: (id, text) => {
+    set((state) => ({
+      textElements: state.textElements.map((t) =>
+        t.id === id ? { ...t, text } : t
+      ),
+    }))
+  },
+
+  deleteTextElement: (id) => {
+    get()._pushHistory()
+    set((state) => ({
+      textElements: state.textElements.filter((t) => t.id !== id),
+      editingTextId: state.editingTextId === id ? null : state.editingTextId,
+    }))
+  },
+
+  setEditingText: (id) => set({ editingTextId: id }),
+
+  // 移动元素
+  moveElementBy: (id, dx, dy) => {
+    set((state) => ({
+      strokes: state.strokes.map((s) => {
+        if (s.id !== id) return s
+        return { ...s, points: s.points.map((p) => [p[0] + dx, p[1] + dy, ...p.slice(2)]) }
+      }),
+      shapes: state.shapes.map((s) => {
+        if (s.id !== id) return s
+        const moved: typeof s = { ...s, x: s.x + dx, y: s.y + dy }
+        if (s.startX !== undefined) {
+          moved.startX = s.startX + dx; moved.startY = s.startY! + dy
+          moved.endX = s.endX! + dx; moved.endY = s.endY! + dy
+        }
+        return moved
+      }),
+      textElements: state.textElements.map((t) => {
+        if (t.id !== id) return t
+        return { ...t, x: t.x + dx, y: t.y + dy }
+      }),
+    }))
+  },
+
   // 撤销/重做
   undo: () => {
-    const { _undoStack, strokes, shapes } = get()
+    const { _undoStack, strokes, shapes, textElements } = get()
     if (_undoStack.length === 0) return
     const prev = _undoStack[_undoStack.length - 1]
     set((state) => ({
       strokes: prev.strokes,
       shapes: prev.shapes,
+      textElements: prev.textElements,
       _undoStack: state._undoStack.slice(0, -1),
-      _redoStack: [...state._redoStack, { strokes, shapes }],
+      _redoStack: [...state._redoStack, { strokes, shapes, textElements }],
       canUndo: state._undoStack.length > 1,
       canRedo: true,
     }))
   },
 
   redo: () => {
-    const { _redoStack, strokes, shapes } = get()
+    const { _redoStack, strokes, shapes, textElements } = get()
     if (_redoStack.length === 0) return
     const next = _redoStack[_redoStack.length - 1]
     set((state) => ({
       strokes: next.strokes,
       shapes: next.shapes,
+      textElements: next.textElements,
       _redoStack: state._redoStack.slice(0, -1),
-      _undoStack: [...state._undoStack, { strokes, shapes }],
+      _undoStack: [...state._undoStack, { strokes, shapes, textElements }],
       canRedo: state._redoStack.length > 1,
       canUndo: true,
     }))

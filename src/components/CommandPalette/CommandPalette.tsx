@@ -46,6 +46,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   const { toggleTheme } = useThemeStore()
 
   const COMMANDS: Command[] = [
+    { id: 'select', name: '选择工具', shortcut: 'V', icon: '👆', category: 'action', keywords: ['选择', '移动', 'select', 'move'], action: () => setTool('select') },
     { id: 'pen', name: '笔工具', shortcut: '1', icon: '✏️', category: 'action', keywords: ['笔', '画', 'pen'], action: () => setTool('pen') },
     { id: 'eraser', name: '橡皮擦', shortcut: '2', icon: '🧹', category: 'action', keywords: ['橡皮', '擦', 'eraser'], action: () => setTool('eraser') },
     { id: 'pan', name: '平移工具', shortcut: '3', icon: '✋', category: 'action', keywords: ['平移', '移动', 'pan'], action: () => setTool('pan') },
@@ -54,6 +55,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     { id: 'triangle', name: '三角形', shortcut: '6', icon: '🔺', category: 'insert', keywords: ['三角', 'triangle'], action: () => setTool('triangle') },
     { id: 'line', name: '直线', shortcut: '7', icon: '📏', category: 'insert', keywords: ['直线', '线', 'line'], action: () => setTool('line') },
     { id: 'arrow', name: '箭头', shortcut: '8', icon: '➡️', category: 'insert', keywords: ['箭头', 'arrow'], action: () => setTool('arrow') },
+    { id: 'text', name: '文字', shortcut: 'T', icon: '🔤', category: 'insert', keywords: ['文字', '文本', '输入', 'text'], action: () => setTool('text') },
     { id: 'undo', name: '撤销', shortcut: 'Ctrl+Z', icon: '↩️', category: 'action', keywords: ['撤销', 'undo'], action: () => undo() },
     { id: 'redo', name: '重做', shortcut: 'Ctrl+Shift+Z', icon: '↪️', category: 'action', keywords: ['重做', 'redo'], action: () => redo() },
     { id: 'clear', name: '清空画布', icon: '🗑️', category: 'action', keywords: ['清空', '清除', 'clear'], action: () => { if (confirm('确定清空画布？')) clearStrokes() } },

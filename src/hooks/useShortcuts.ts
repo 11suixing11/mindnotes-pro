@@ -13,9 +13,11 @@ export interface ShortcutConfig {
 
 export const DEFAULT_SHORTCUTS: ShortcutConfig[] = [
   // 工具
+  { key: 'v', action: 'tool:select', description: '选择工具', category: '工具' },
   { key: '1', action: 'tool:pen', description: '选择笔工具', category: '工具' },
   { key: '2', action: 'tool:eraser', description: '选择橡皮', category: '工具' },
   { key: '3', action: 'tool:pan', description: '选择平移工具', category: '工具' },
+  { key: 't', action: 'tool:text', description: '选择文字工具', category: '工具' },
   { key: '4', action: 'tool:rectangle', description: '选择矩形工具', category: '工具' },
   { key: '5', action: 'tool:circle', description: '选择圆形工具', category: '工具' },
   { key: '6', action: 'tool:triangle', description: '选择三角形工具', category: '工具' },
