@@ -1,11 +1,11 @@
 {
-  "currentVersion": "1.3.0",
-  "pushCount": 1,
-  "rules": {
-    "patchRelease": "每 2-3 个功能更新发 patch",
-    "minorRelease": "核心功能突破 bump minor",
-    "majorRelease": "架构级重构 bump major"
-  },
-  "lastRelease": "v1.3.0",
-  "lastReleaseAt": "2026-03-21T09:09:00Z"
+    "currentVersion":  "1.3.0",
+    "pushCount":  1,
+    "rules":  {
+                  "patchRelease":  "�?2-3 个功能更新发 patch",
+                  "minorRelease":  "核心功能突破 bump minor",
+                  "majorRelease":  "架构级重�?bump major"
+              },
+    "lastRelease":  "v1.3.0",
+    "lastReleaseAt":  "2026-03-21T09:13:59Z"
 }
