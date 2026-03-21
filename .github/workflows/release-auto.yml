@@ -67,25 +67,24 @@ jobs:
           name: macos-dmg
           path: release/*.dmg
 
-  upload-release:
+  create-release:
     needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
-    if: always()
+    if: always() && startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: List artifacts
-        run: find artifacts -type f
-      - uses: softprops/action-gh-release@v2
-        if: always()
-        with:
-          files: |
-            artifacts/linux-appimage/*.AppImage
-            artifacts/windows-exe/*.exe
-            artifacts/macos-dmg/*.dmg
-          generate_release_notes: true
-          fail_on_unmatched_files: false
+
+      - name: Create GitHub Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --generate-notes \
+            --title "${{ github.ref_name }}" \
+            artifacts/linux-appimage/*.AppImage \
+            artifacts/windows-exe/*.exe \
+            artifacts/macos-dmg/*.dmg \
+            || true
