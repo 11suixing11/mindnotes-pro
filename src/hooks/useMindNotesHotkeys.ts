@@ -16,12 +16,16 @@ export function useMindNotesHotkeys() {
   } = useAppStore()
 
   // 工具切换
+  useHotkeys('v', () => setTool('select'), { preventDefault: true })
   useHotkeys('1', () => setTool('pen'), { preventDefault: true })
   useHotkeys('2', () => setTool('eraser'), { preventDefault: true })
   useHotkeys('3', () => setTool('pan'), { preventDefault: true })
+  useHotkeys('t', () => setTool('text'), { preventDefault: true })
   useHotkeys('4', () => setTool('rectangle'), { preventDefault: true })
   useHotkeys('5', () => setTool('circle'), { preventDefault: true })
   useHotkeys('6', () => setTool('triangle'), { preventDefault: true })
+  useHotkeys('7', () => setTool('line'), { preventDefault: true })
+  useHotkeys('8', () => setTool('arrow'), { preventDefault: true })
 
   // 编辑操作
   useHotkeys('ctrl+z,meta+z', () => undo(), { preventDefault: true })

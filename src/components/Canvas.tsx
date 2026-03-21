@@ -1,6 +1,8 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { getStroke } from 'perfect-freehand'
 import { useAppStore } from '../store/useAppStore'
+import type { Stroke, Shape, TextElement } from '../store/useAppStore'
+import { hitTestAll } from '../utils/hitTest'
 
 interface CanvasProps {
   onCanvasRef?: (ref: HTMLCanvasElement | null) => void
@@ -28,14 +30,17 @@ function drawStroke(
   color: string,
   size: number,
   isEraser: boolean,
+  zoom: number = 1,
 ) {
   if (points.length < 2) return
 
   const stroke = getStroke(points, {
-    size,
-    thinning: 0.5,
+    size: size / zoom,
+    thinning: 0.3,       // 降低粗细变化，更适合中文书写（均匀笔画）
     smoothing: 0.5,
-    streamline: 0.5,
+    streamline: 0.6,     // 提高平滑度，让曲线更流畅
+    simulatePressure: false,
+    easing: (t) => t,    // 线性压力映射
   })
 
   const pathData = getSvgPathFromStroke(stroke)
@@ -54,11 +59,58 @@ function drawStroke(
   }
 }
 
+// 获取元素的边界框
+function getElementBounds(
+  id: string,
+  strokes: Stroke[],
+  shapes: Shape[],
+  textElements: TextElement[],
+): { x: number; y: number; width: number; height: number } | null {
+  // 查找 stroke
+  const stroke = strokes.find((s) => s.id === id)
+  if (stroke && stroke.points.length > 0) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const p of stroke.points) {
+      if (p[0] < minX) minX = p[0]
+      if (p[1] < minY) minY = p[1]
+      if (p[0] > maxX) maxX = p[0]
+      if (p[1] > maxY) maxY = p[1]
+    }
+    const pad = stroke.size / 2 + 4
+    return { x: minX - pad, y: minY - pad, width: maxX - minX + pad * 2, height: maxY - minY + pad * 2 }
+  }
+
+  // 查找 shape
+  const shape = shapes.find((s) => s.id === id)
+  if (shape) {
+    if (shape.type === 'line' || shape.type === 'arrow') {
+      const x1 = Math.min(shape.startX!, shape.endX!)
+      const y1 = Math.min(shape.startY!, shape.endY!)
+      return { x: x1, y: y1, width: Math.abs(shape.endX! - shape.startX!), height: Math.abs(shape.endY! - shape.startY!) }
+    }
+    return { x: shape.x, y: shape.y, width: shape.width, height: shape.height }
+  }
+
+  // 查找 textElement
+  const textEl = textElements.find((t) => t.id === id)
+  if (textEl && textEl.text) {
+    const lines = textEl.text.split('\n')
+    const maxLineLen = Math.max(...lines.map((l) => l.length))
+    const w = maxLineLen * textEl.fontSize * 0.6
+    const h = lines.length * textEl.fontSize * 1.4
+    return { x: textEl.x, y: textEl.y, width: w, height: h }
+  }
+
+  return null
+}
+
 export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pointsRef = useRef<number[][]>([])
   const isDrawingRef = useRef(false)
   const animFrameRef = useRef<number>(0)
+  const lastPressureRef = useRef(0.5)
+  const dragStartRef = useRef<{ id: string; x: number; y: number } | null>(null)
 
   // 传递 canvas 引用给父组件
   useEffect(() => {
@@ -71,19 +123,29 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
     currentStroke,
     shapes,
     currentShape,
+    textElements,
+    editingTextId,
+    tool,
     startStroke,
     updateCurrentStroke,
     finishStroke,
     startShape,
     updateCurrentShape,
     finishShape,
+    addTextElement,
+    updateTextElement,
+    deleteTextElement,
+    setEditingText,
     viewBox,
     setViewBox,
+    selectedLayerId,
+    setSelectedLayer,
+    moveElementBy,
   } = useAppStore()
 
   // 获取画布坐标（考虑缩放和偏移）
   const getCanvasPos = useCallback(
-    (e: MouseEvent | TouchEvent, rect: DOMRect) => {
+    (e: PointerEvent | MouseEvent | TouchEvent, rect: DOMRect) => {
       let clientX: number, clientY: number
       if ('touches' in e) {
         if (e.touches.length === 0) return null
@@ -181,7 +243,7 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
       if (stroke.hidden) continue
       ctx.save()
       if (stroke.opacity !== undefined) ctx.globalAlpha = stroke.opacity
-      drawStroke(ctx, stroke.points, stroke.color, stroke.size, stroke.tool === 'eraser')
+      drawStroke(ctx, stroke.points, stroke.color, stroke.size, stroke.tool === 'eraser', viewBox.zoom)
       ctx.restore()
     }
 
@@ -193,6 +255,7 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
         currentStroke.color,
         currentStroke.size,
         currentStroke.tool === 'eraser',
+        viewBox.zoom,
       )
     }
 
@@ -201,7 +264,7 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
       if (shape.hidden) continue
       ctx.save()
       ctx.strokeStyle = shape.color
-      ctx.lineWidth = shape.size
+      ctx.lineWidth = shape.size / viewBox.zoom
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
       if (shape.opacity !== undefined) ctx.globalAlpha = shape.opacity
@@ -209,12 +272,28 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
       const { x, y, width, height, type } = shape
 
       if (type === 'rectangle') {
+        if (shape.fillColor) {
+          ctx.save()
+          ctx.globalAlpha = shape.fillOpacity ?? 0.2
+          ctx.fillStyle = shape.fillColor
+          ctx.fillRect(x, y, width, height)
+          ctx.restore()
+        }
         ctx.strokeRect(x, y, width, height)
       } else if (type === 'circle') {
         ctx.beginPath()
         const rx = Math.abs(width) / 2
         const ry = Math.abs(height) / 2
         ctx.ellipse(x + width / 2, y + height / 2, rx, ry, 0, 0, Math.PI * 2)
+        if (shape.fillColor) {
+          ctx.save()
+          ctx.globalAlpha = shape.fillOpacity ?? 0.2
+          ctx.fillStyle = shape.fillColor
+          ctx.fill()
+          ctx.restore()
+          ctx.beginPath()
+          ctx.ellipse(x + width / 2, y + height / 2, rx, ry, 0, 0, Math.PI * 2)
+        }
         ctx.stroke()
       } else if (type === 'triangle') {
         ctx.beginPath()
@@ -222,6 +301,18 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
         ctx.lineTo(x + width, y + height)
         ctx.lineTo(x, y + height)
         ctx.closePath()
+        if (shape.fillColor) {
+          ctx.save()
+          ctx.globalAlpha = shape.fillOpacity ?? 0.2
+          ctx.fillStyle = shape.fillColor
+          ctx.fill()
+          ctx.restore()
+          ctx.beginPath()
+          ctx.moveTo(x + width / 2, y)
+          ctx.lineTo(x + width, y + height)
+          ctx.lineTo(x, y + height)
+          ctx.closePath()
+        }
         ctx.stroke()
       } else if (type === 'line' && shape.startX !== undefined) {
         ctx.beginPath()
@@ -237,7 +328,7 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
         ctx.stroke()
         // 箭头头部
         const angle = Math.atan2(ey - sy, ex - sx)
-        const headLen = 15
+        const headLen = 15 / viewBox.zoom
         ctx.beginPath()
         ctx.moveTo(ex, ey)
         ctx.lineTo(ex - headLen * Math.cos(angle - Math.PI / 6), ey - headLen * Math.sin(angle - Math.PI / 6))
@@ -252,7 +343,7 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
     if (currentShape) {
       ctx.save()
       ctx.strokeStyle = currentShape.color
-      ctx.lineWidth = currentShape.size
+      ctx.lineWidth = currentShape.size / viewBox.zoom
       ctx.lineCap = 'round'
       ctx.setLineDash([5, 5])
 
@@ -279,8 +370,37 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
       ctx.restore()
     }
 
+    // 绘制文字
+    for (const textEl of textElements) {
+      if (textEl.hidden || !textEl.text) continue
+      ctx.save()
+      ctx.font = `${textEl.fontSize / viewBox.zoom}px "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif`
+      ctx.fillStyle = textEl.color
+      ctx.textBaseline = 'top'
+      if (textEl.opacity !== undefined) ctx.globalAlpha = textEl.opacity
+      // 绘制多行文字
+      const lines = textEl.text.split('\n')
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], textEl.x, textEl.y + i * (textEl.fontSize / viewBox.zoom * 1.4))
+      }
+      ctx.restore()
+    }
+
+    // 绘制选中框
+    if (selectedLayerId) {
+      const bounds = getElementBounds(selectedLayerId, strokes, shapes, textElements)
+      if (bounds) {
+        ctx.save()
+        ctx.strokeStyle = '#6366f1'
+        ctx.lineWidth = 1.5 / viewBox.zoom
+        ctx.setLineDash([6 / viewBox.zoom, 4 / viewBox.zoom])
+        ctx.strokeRect(bounds.x - 4 / viewBox.zoom, bounds.y - 4 / viewBox.zoom, bounds.width + 8 / viewBox.zoom, bounds.height + 8 / viewBox.zoom)
+        ctx.restore()
+      }
+    }
+
     ctx.restore()
-  }, [strokes, currentStroke, shapes, currentShape, viewBox])
+  }, [strokes, currentStroke, shapes, currentShape, textElements, viewBox, selectedLayerId])
 
   // 设置画布尺寸 + 高 DPI
   useEffect(() => {
@@ -308,22 +428,47 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
     return () => cancelAnimationFrame(animFrameRef.current)
   }, [redraw])
 
-  // 鼠标/触摸事件处理
+  // 指针事件处理（支持压感笔）
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
+    const handlePointerDown = (e: PointerEvent) => {
       e.preventDefault()
+      canvas.setPointerCapture(e.pointerId)
       const rect = canvas.getBoundingClientRect()
       const pos = getCanvasPos(e, rect)
       if (!pos) return
 
+      // 获取压力值（鼠标默认 0.5，触控笔使用实际值）
+      const pressure = e.pressure > 0 && e.pressure < 1 ? e.pressure : 0.5
+      lastPressureRef.current = pressure
+
       const currentTool = useAppStore.getState().tool
+
+      // 选择工具：命中测试并准备拖动
+      if (currentTool === 'select') {
+        const hitId = hitTestAll(pos[0], pos[1], useAppStore.getState().strokes, useAppStore.getState().shapes, useAppStore.getState().textElements)
+        if (hitId) {
+          setSelectedLayer(hitId)
+          dragStartRef.current = { id: hitId, x: pos[0], y: pos[1] }
+          isDrawingRef.current = true
+        } else {
+          setSelectedLayer(null)
+          dragStartRef.current = null
+        }
+        return
+      }
+
+      // 文字工具：点击放置文字输入框
+      if (currentTool === 'text') {
+        addTextElement(pos[0], pos[1])
+        return
+      }
 
       if (currentTool === 'pan') {
         isDrawingRef.current = true
-        pointsRef.current = [pos] // 存储起始点用于平移计算
+        pointsRef.current = [pos]
         return
       }
 
@@ -340,12 +485,13 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
       }
 
       startStroke()
-      pointsRef.current = [pos]
+      // 点格式: [x, y, pressure]
+      pointsRef.current = [[...pos, pressure]]
       isDrawingRef.current = true
-      updateCurrentStroke([pos])
+      updateCurrentStroke([[...pos, pressure]])
     }
 
-    const handlePointerMove = (e: MouseEvent | TouchEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
       if (!isDrawingRef.current) return
       e.preventDefault()
       const rect = canvas.getBoundingClientRect()
@@ -364,6 +510,15 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
           x: viewBox.x - dx,
           y: viewBox.y - dy,
         })
+        return
+      }
+
+      // 选择工具：拖动选中元素
+      if (currentTool === 'select' && dragStartRef.current) {
+        const dx = pos[0] - dragStartRef.current.x
+        const dy = pos[1] - dragStartRef.current.y
+        moveElementBy(dragStartRef.current.id, dx, dy)
+        dragStartRef.current = { id: dragStartRef.current.id, x: pos[0], y: pos[1] }
         return
       }
 
@@ -388,13 +543,25 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
         return
       }
 
-      pointsRef.current = [...pointsRef.current, pos]
+      // 平滑压力值，避免突变
+      const rawPressure = e.pressure > 0 && e.pressure < 1 ? e.pressure : lastPressureRef.current
+      const smoothedPressure = lastPressureRef.current * 0.6 + rawPressure * 0.4
+      lastPressureRef.current = smoothedPressure
+
+      pointsRef.current = [...pointsRef.current, [...pos, smoothedPressure]]
       updateCurrentStroke(pointsRef.current)
     }
 
-    const handlePointerUp = () => {
+    const handlePointerUp = (e: PointerEvent) => {
       if (!isDrawingRef.current) return
       isDrawingRef.current = false
+      canvas.releasePointerCapture(e.pointerId)
+
+      // 选择工具：结束拖动
+      if (dragStartRef.current) {
+        dragStartRef.current = null
+        return
+      }
 
       const state = useAppStore.getState()
       if (state.currentShape) {
@@ -405,37 +572,107 @@ export default function Canvas({ onCanvasRef }: CanvasProps = {}) {
       pointsRef.current = []
     }
 
-    // 鼠标事件
-    canvas.addEventListener('mousedown', handlePointerDown)
-    canvas.addEventListener('mousemove', handlePointerMove)
-    canvas.addEventListener('mouseup', handlePointerUp)
-    canvas.addEventListener('mouseleave', handlePointerUp)
-
-    // 触摸事件
-    canvas.addEventListener('touchstart', handlePointerDown, { passive: false })
-    canvas.addEventListener('touchmove', handlePointerMove, { passive: false })
-    canvas.addEventListener('touchend', handlePointerUp)
-    canvas.addEventListener('touchcancel', handlePointerUp)
+    // 使用 Pointer Events（统一鼠标/触摸/笔）
+    canvas.addEventListener('pointerdown', handlePointerDown)
+    canvas.addEventListener('pointermove', handlePointerMove)
+    canvas.addEventListener('pointerup', handlePointerUp)
+    canvas.addEventListener('pointercancel', handlePointerUp)
+    canvas.addEventListener('pointerleave', handlePointerUp)
 
     return () => {
-      canvas.removeEventListener('mousedown', handlePointerDown)
-      canvas.removeEventListener('mousemove', handlePointerMove)
-      canvas.removeEventListener('mouseup', handlePointerUp)
-      canvas.removeEventListener('mouseleave', handlePointerUp)
-      canvas.removeEventListener('touchstart', handlePointerDown)
-      canvas.removeEventListener('touchmove', handlePointerMove)
-      canvas.removeEventListener('touchend', handlePointerUp)
-      canvas.removeEventListener('touchcancel', handlePointerUp)
+      canvas.removeEventListener('pointerdown', handlePointerDown)
+      canvas.removeEventListener('pointermove', handlePointerMove)
+      canvas.removeEventListener('pointerup', handlePointerUp)
+      canvas.removeEventListener('pointercancel', handlePointerUp)
+      canvas.removeEventListener('pointerleave', handlePointerUp)
     }
   }, [getCanvasPos, startStroke, updateCurrentStroke, finishStroke, startShape, updateCurrentShape, finishShape, setViewBox, viewBox])
 
+  // 计算文字元素在屏幕上的位置
+  const getScreenPos = useCallback(
+    (canvasX: number, canvasY: number) => {
+      return {
+        x: (canvasX - viewBox.x) * viewBox.zoom,
+        y: (canvasY - viewBox.y) * viewBox.zoom,
+      }
+    },
+    [viewBox]
+  )
+
   return (
-    <div className="w-full h-screen canvas-bg">
+    <div className="w-full h-screen canvas-bg relative">
       <canvas
         ref={canvasRef}
-        className="w-full h-full touch-none cursor-crosshair"
-        style={{ touchAction: 'none' }}
+        className="w-full h-full touch-none"
+        style={{ touchAction: 'none', cursor: tool === 'text' ? 'text' : tool === 'pan' ? 'grab' : tool === 'select' ? 'default' : 'crosshair' }}
       />
+      {/* 文字编辑输入框 */}
+      {textElements.map((el) => {
+        if (editingTextId !== el.id) return null
+        const screenPos = getScreenPos(el.x, el.y)
+        return (
+          <textarea
+            key={el.id}
+            autoFocus
+            value={el.text}
+            onChange={(e) => updateTextElement(el.id, e.target.value)}
+            onBlur={() => {
+              if (!el.text.trim()) {
+                deleteTextElement(el.id)
+              } else {
+                setEditingText(null)
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                if (!el.text.trim()) {
+                  deleteTextElement(el.id)
+                } else {
+                  setEditingText(null)
+                }
+              }
+            }}
+            className="fixed bg-transparent border-none outline-none resize-none p-0 m-0"
+            style={{
+              left: screenPos.x,
+              top: screenPos.y,
+              color: el.color,
+              fontSize: el.fontSize * viewBox.zoom,
+              fontFamily: '"PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif',
+              lineHeight: '1.4',
+              minWidth: '100px',
+              minHeight: '1.5em',
+              zIndex: 20,
+            }}
+            placeholder="输入文字..."
+          />
+        )
+      })}
+      {/* 非编辑状态的文字 - 双击编辑 */}
+      {textElements.map((el) => {
+        if (editingTextId === el.id || !el.text || el.hidden) return null
+        const screenPos = getScreenPos(el.x, el.y)
+        return (
+          <div
+            key={`display-${el.id}`}
+            onDoubleClick={() => setEditingText(el.id)}
+            className="fixed cursor-text select-none"
+            style={{
+              left: screenPos.x,
+              top: screenPos.y,
+              color: el.color,
+              fontSize: el.fontSize * viewBox.zoom,
+              fontFamily: '"PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif',
+              lineHeight: '1.4',
+              whiteSpace: 'pre-wrap',
+              opacity: el.opacity ?? 1,
+              zIndex: 15,
+            }}
+          >
+            {el.text}
+          </div>
+        )
+      })}
     </div>
   )
 }

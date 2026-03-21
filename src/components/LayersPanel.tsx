@@ -1,10 +1,11 @@
-import { useAppStore, Stroke, Shape } from '../store/useAppStore'
+import { useAppStore, Stroke, Shape, TextElement } from '../store/useAppStore'
 import { FadeIn, StaggerContainer } from './ui/Motion'
 
 export default function LayersPanel() {
   const {
     strokes,
     shapes,
+    textElements,
     selectedLayerId,
     showLayersPanel,
     setSelectedLayer,
@@ -12,6 +13,7 @@ export default function LayersPanel() {
     toggleLayerLock,
     toggleLayerHidden,
     deleteLayer,
+    deleteTextElement,
     clearAllLayers,
     moveLayerUp,
     moveLayerDown,
@@ -22,10 +24,12 @@ export default function LayersPanel() {
   const allLayers = [
     ...strokes.map((s, idx) => ({ ...s, layerType: 'stroke' as const, index: idx })),
     ...shapes.map((s, idx) => ({ ...s, layerType: 'shape' as const, index: idx })),
+    ...textElements.map((t, idx) => ({ ...t, layerType: 'text' as const, index: idx })),
   ]
 
-  const getLayerName = (layer: Stroke | Shape) => {
+  const getLayerName = (layer: Stroke | Shape | TextElement) => {
     if (layer.name) return layer.name
+    if ('text' in layer) return layer.text ? `"${layer.text.slice(0, 10)}${layer.text.length > 10 ? '...' : ''}"` : '文字'
     if ('type' in layer) {
       const typeMap: Record<string, string> = {
         rectangle: '矩形',
@@ -37,6 +41,15 @@ export default function LayersPanel() {
       return typeMap[layer.type] || '形状'
     }
     return '笔迹'
+  }
+
+  const getLayerIcon = (layer: { layerType: string; type?: string }) => {
+    if (layer.layerType === 'text') return '🔤'
+    if (layer.layerType === 'shape') {
+      const iconMap: Record<string, string> = { rectangle: '⬜', circle: '⭕', triangle: '🔺', line: '📏', arrow: '➡️' }
+      return iconMap[layer.type!] || '⬡'
+    }
+    return '✏️'
   }
 
   return (
@@ -96,7 +109,8 @@ export default function LayersPanel() {
                   </button>
 
                   {/* 名称 */}
-                  <div className="flex-1 truncate text-sm text-[var(--text-primary)]">
+                  <div className="flex-1 truncate text-sm text-[var(--text-primary)] flex items-center gap-1">
+                    <span className="text-xs">{getLayerIcon(layer)}</span>
                     {getLayerName(layer)}
                   </div>
 
@@ -128,7 +142,11 @@ export default function LayersPanel() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      deleteLayer(layer.id)
+                      if (layer.layerType === 'text') {
+                        deleteTextElement(layer.id)
+                      } else {
+                        deleteLayer(layer.id)
+                      }
                     }}
                     className="w-6 h-6 flex items-center justify-center rounded text-xs text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                     title="删除"

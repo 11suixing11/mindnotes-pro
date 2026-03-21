@@ -13,9 +13,11 @@ const COLORS = [
 const SIZES = [2, 4, 6, 8, 10]
 
 const TOOLS = [
+  { id: 'select' as const, icon: '👆', label: '选择', key: 'v' },
   { id: 'pen' as const, icon: '✏️', label: '笔', key: '1' },
   { id: 'eraser' as const, icon: '🧹', label: '橡皮', key: '2' },
   { id: 'pan' as const, icon: '✋', label: '平移', key: '3' },
+  { id: 'text' as const, icon: '🔤', label: '文字', key: 't' },
   { id: 'rectangle' as const, icon: '⬜', label: '矩形', key: '4' },
   { id: 'circle' as const, icon: '⭕', label: '圆形', key: '5' },
   { id: 'triangle' as const, icon: '🔺', label: '三角', key: '6' },
@@ -28,9 +30,11 @@ export default function Toolbar() {
     tool,
     color,
     size,
+    fillColor,
     setTool,
     setColor,
     setSize,
+    setFillColor,
     clearStrokes,
     undo,
     redo,
@@ -42,11 +46,13 @@ export default function Toolbar() {
   } = useAppStore()
   const { isDarkMode, toggleTheme } = useThemeStore()
 
+  const isShapeTool = ['rectangle', 'circle', 'triangle', 'line', 'arrow'].includes(tool)
+
   return (
     <div className="fixed top-3 left-1/2 -translate-x-1/2 z-10">
       <div className="glass-toolbar rounded-2xl px-3 py-2 flex items-center gap-1">
         {/* 绘图工具 */}
-        {TOOLS.slice(0, 3).map((t) => (
+        {TOOLS.slice(0, 5).map((t) => (
           <button
             key={t.id}
             onClick={() => setTool(t.id)}
@@ -60,7 +66,7 @@ export default function Toolbar() {
         <div className="toolbar-divider" />
 
         {/* 形状工具 */}
-        {TOOLS.slice(3).map((t) => (
+        {TOOLS.slice(5).map((t) => (
           <button
             key={t.id}
             onClick={() => setTool(t.id)}
@@ -84,20 +90,50 @@ export default function Toolbar() {
 
         <div className="toolbar-divider" />
 
-        {/* 颜色 */}
-        <div className="flex items-center gap-1.5">
-          {COLORS.map((c) => (
-            <button
-              key={c.hex}
-              onClick={() => setColor(c.hex)}
-              className={`color-dot ${color === c.hex ? 'active' : ''}`}
-              style={{ backgroundColor: c.hex }}
-              title={c.label}
-            />
-          ))}
-        </div>
+        {/* 颜色 - 选择工具时隐藏 */}
+        {tool !== 'select' && (
+          <div className="flex items-center gap-1.5">
+            {COLORS.map((c) => (
+              <button
+                key={c.hex}
+                onClick={() => setColor(c.hex)}
+                className={`color-dot ${color === c.hex ? 'active' : ''}`}
+                style={{ backgroundColor: c.hex }}
+                title={c.label}
+              />
+            ))}
+          </div>
+        )}
 
-        <div className="toolbar-divider" />
+        {tool !== 'select' && <div className="toolbar-divider" />}
+
+        {/* 填充色 - 只在形状工具时显示 */}
+        {isShapeTool && (
+          <>
+            <button
+              onClick={() => setFillColor(fillColor ? null : color)}
+              className={`toolbar-btn ${fillColor ? 'active' : ''}`}
+              title={fillColor ? '关闭填充' : '开启填充'}
+              style={fillColor ? { backgroundColor: fillColor + '33', borderColor: fillColor } : {}}
+            >
+              🪣
+            </button>
+            {fillColor && (
+              <div className="flex items-center gap-1.5">
+                {COLORS.map((c) => (
+                  <button
+                    key={c.hex}
+                    onClick={() => setFillColor(c.hex)}
+                    className={`color-dot ${fillColor === c.hex ? 'active' : ''}`}
+                    style={{ backgroundColor: c.hex + '33', border: `2px solid ${c.hex}` }}
+                    title={`填充: ${c.label}`}
+                  />
+                ))}
+              </div>
+            )}
+            <div className="toolbar-divider" />
+          </>
+        )}
 
         {/* 粗细 */}
         <div className="flex items-center gap-0.5">
@@ -106,7 +142,7 @@ export default function Toolbar() {
               key={s}
               onClick={() => setSize(s)}
               className={`size-indicator ${size === s ? 'active' : ''}`}
-              title={`${s}px`}
+              title={tool === 'select' ? `文字大小 ${s * 4}px` : `${s}px`}
             >
               <div
                 className="rounded-full bg-current"
