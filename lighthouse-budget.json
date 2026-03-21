@@ -1,0 +1,40 @@
+[
+  {
+    "resourceType": "document",
+    "url": "https://11suixing11.github.io/mindnotes-pro/",
+    "assertions": [
+      {
+        "name": "performance-budget",
+        "budgets": [
+          {
+            "path": "/*",
+            "resourceSizes": [
+              {
+                "resourceType": "script",
+                "budget": 2500
+              },
+              {
+                "resourceType": "stylesheet",
+                "budget": 200
+              },
+              {
+                "resourceType": "image",
+                "budget": 500
+              },
+              {
+                "resourceType": "total",
+                "budget": 3500
+              }
+            ],
+            "resourceCounts": [
+              {
+                "resourceType": "third-party",
+                "budget": 10
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
