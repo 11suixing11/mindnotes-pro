@@ -18,25 +18,13 @@
 
 ## ✨ 核心特性
 
-### 🎨 手写 + 文字混合笔记
-- 流畅的手写体验，支持压感
-- 文字输入与手写无缝切换
-- 智能模板系统（6 个专业模板）
+<div align="center">
 
-### ⚡ 轻量快速
-- 首屏加载 <1 秒
-- Bundle 优化至 1MB
-- PWA 支持，离线可用
+| 🎨 手写 + 文字 | ⚡ 轻量快速 | 🌐 全平台 | 🎯 智能高效 |
+|:---:|:---:|:---:|:---:|
+| 流畅书写<br/>压感支持 | 首屏<1 秒<br/>优化至 1MB | Web/Win/Mac/Linux/Android | 命令面板<br/>快捷键系统 |
 
-### 🌐 全平台支持
-- Web、Windows、macOS、Linux、Android
-- 数据同步，随处访问
-- 响应式设计，适配所有设备
-
-### 🎯 智能高效
-- 命令面板（Ctrl+P）快速访问
-- 快捷键系统
-- 多格式导出（PNG/SVG/PDF/Markdown）
+</div>
 
 ---
 
@@ -44,7 +32,11 @@
 
 ### 在线使用（推荐）
 
-访问：https://11suixing11.github.io/mindnotes-pro
+<div align="center">
+
+**[👉 立即体验](https://11suixing11.github.io/mindnotes-pro)**
+
+</div>
 
 ### 本地开发
 
@@ -61,19 +53,6 @@ npm run dev
 
 # 构建生产版本
 npm run build
-```
-
-### 桌面应用
-
-```bash
-# Windows
-npm run electron:build
-
-# macOS
-npm run electron:build
-
-# Linux
-npm run electron:build
 ```
 
 ---
@@ -97,6 +76,16 @@ npm run electron:build
 
 ## 🛠️ 技术栈
 
+<div align="center">
+
+![React](https://img.shields.io/badge/React-18-61dafb?logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript)
+![Vite](https://img.shields.io/badge/Vite-5-646cff?logo=vite)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss)
+![tldraw](https://img.shields.io/badge/tldraw-最新-ff6b6b?logo=github)
+
+</div>
+
 - **前端**: React 18 + TypeScript
 - **构建工具**: Vite
 - **UI 框架**: Tailwind CSS
@@ -109,7 +98,11 @@ npm run electron:build
 
 ## 📊 项目统计
 
+<div align="center">
+
 [![Star History Chart](https://api.star-history.com/svg?repos=11suixing11/mindnotes-pro&type=Date)](https://star-history.com/#11suixing11/mindnotes-pro&Date)
+
+</div>
 
 ---
 
@@ -125,12 +118,6 @@ npm run electron:build
 - 🎨 优化 UI/UX
 - 🧪 编写测试
 - 🌍 翻译本地化
-
-### 主要贡献者
-
-<a href="https://github.com/11suixing11/mindnotes-pro/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=11suixing11/mindnotes-pro" />
-</a>
 
 ---
 
@@ -151,19 +138,12 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 ---
 
-## 📞 联系方式
-
-- 📧 Email: [你的邮箱]
-- 💬 Discord: [加入链接]
-- 🐦 Twitter: [@你的账号]
-- 📱 微信公众号：[你的公众号]
-
----
-
 <div align="center">
 
 **⭐ 如果这个项目对你有帮助，请给一个 Star！**
 
 Made with ❤️ by [11suixing11](https://github.com/11suixing11)
+
+📧 联系：1977717178@qq.com
 
 </div>
