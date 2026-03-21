@@ -1,191 +1,142 @@
-# 🧠 MindNotes Pro
+# 🎯 MindNotes Pro
 
-> **让灵感自由流淌**
+<div align="center">
 
-[![Release](https://img.shields.io/github/v/release/11suixing11/mindnotes-pro?label=Release&style=flat-square)](https://github.com/11suixing11/mindnotes-pro/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?style=social)](https://github.com/11suixing11/mindnotes-pro/stargazers)
+**一款现代化手写笔记应用 - 免费、开源、全平台**
 
-**🌐 立即使用**: https://11suixing11.github.io/mindnotes-pro
+[![GitHub stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro)](https://github.com/11suixing11/mindnotes-pro/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/11suixing11/mindnotes-pro)](https://github.com/11suixing11/mindnotes-pro/network)
+[![GitHub issues](https://img.shields.io/github/issues/11suixing11/mindnotes-pro)](https://github.com/11suixing11/mindnotes-pro/issues)
+[![GitHub license](https://img.shields.io/github/license/11suixing11/mindnotes-pro)](https://github.com/11suixing11/mindnotes-pro/blob/main/LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/11suixing11/mindnotes-pro)](https://github.com/11suixing11/mindnotes-pro/releases)
 
----
+[🌐 在线演示](https://11suixing11.github.io/mindnotes-pro) · [📖 使用指南](docs/guides) · [💬 社区讨论](https://github.com/11suixing11/mindnotes-pro/discussions) · [🐛 问题反馈](https://github.com/11suixing11/mindnotes-pro/issues)
 
-## 🚀 快速开始
-
-### 在线使用 (推荐)
-
-访问：**https://11suixing11.github.io/mindnotes-pro**
-
-**添加到主屏幕**:
-1. Chrome 打开网站
-2. 菜单 (⋮) → 添加到主屏幕
-3. 像原生应用一样使用
+</div>
 
 ---
 
 ## ✨ 核心特性
 
-### 📝 双版本架构
+### 🎨 手写 + 文字混合笔记
+- 流畅的手写体验，支持压感
+- 文字输入与手写无缝切换
+- 智能模板系统（6 个专业模板）
 
-| 版本 | 特点 | 适合场景 |
-|------|------|---------|
-| **标准版** | 30KB, 0.5s 加载，100% 兼容 | 所有用户，移动端 |
-| **高级版** | React 版，完整功能 | 桌面端，高级用户 |
+### ⚡ 轻量快速
+- 首屏加载 <1 秒
+- Bundle 优化至 1MB
+- PWA 支持，离线可用
 
-**访问**:
-- 标准版：https://11suixing11.github.io/mindnotes-pro
-- 高级版：https://11suixing11.github.io/mindnotes-pro/app
+### 🌐 全平台支持
+- Web、Windows、macOS、Linux、Android
+- 数据同步，随处访问
+- 响应式设计，适配所有设备
 
----
-
-### 🎨 手写笔记
-
-- ✍️ 流畅手写，支持压感
-- 🖱️ 鼠标/触摸/触控笔
-- 🎨 多种颜色选择
-- 💾 自动保存
-
----
-
-### ⚡ 性能优异
-
-| 指标 | 标准版 | 高级版 |
-|------|--------|--------|
-| **Bundle 大小** | 30 KB | 370 KB |
-| **首屏加载** | 0.5s | 2.0s |
-| **兼容性** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
+### 🎯 智能高效
+- 命令面板（Ctrl+P）快速访问
+- 快捷键系统
+- 多格式导出（PNG/SVG/PDF/Markdown）
 
 ---
 
-### 📱 全平台支持
+## 🚀 快速开始
 
-- 🌐 **Web**: PWA 离线可用
-- 💻 **桌面**: Windows/macOS/Linux
-- 📱 **移动**: Android/iOS (PWA)
+### 在线使用（推荐）
 
----
+访问：https://11suixing11.github.io/mindnotes-pro
 
-## 📋 版本历史
-
-| 版本 | 日期 | 亮点 |
-|------|------|------|
-| **v1.2.0** | 🔄 开发中 | 命令面板 + 智能模板 |
-| **v1.1.6** | ✅ 已发布 | 桌面端 + GitHub Pages |
-| **v1.1.0** | ✅ 已发布 | tldraw 集成 |
-
----
-
-## 🛠️ 技术栈
-
-**标准版**:
-- 纯 HTML5 Canvas
-- 原生 JavaScript
-- Tailwind CSS
-
-**高级版**:
-- React 18
-- TypeScript
-- Vite
-- tldraw
-
----
-
-## 📦 安装
-
-### Web 版 (推荐)
-
-无需安装，直接访问：https://11suixing11.github.io/mindnotes-pro
-
-### 桌面版
-
-**Windows/macOS/Linux**:
-```bash
-# 从 Release 下载
-https://github.com/11suixing11/mindnotes-pro/releases
-```
-
-### 开发环境
+### 本地开发
 
 ```bash
 # 克隆项目
 git clone https://github.com/11suixing11/mindnotes-pro.git
+cd mindnotes-pro
 
 # 安装依赖
-cd mindnotes-pro && npm install
+npm install
 
 # 启动开发服务器
 npm run dev
 
 # 构建生产版本
 npm run build
-
-# 部署到 GitHub Pages
-npm run deploy
 ```
 
----
-
-## 🔧 开发
-
-### 可用命令
+### 桌面应用
 
 ```bash
-npm run dev          # 开发服务器
-npm run build        # 生产构建
-npm run preview      # 预览构建
-npm run deploy       # 部署到 GitHub Pages
-npm run electron:build  # 构建桌面应用
-```
+# Windows
+npm run electron:build
 
-### 项目结构
+# macOS
+npm run electron:build
 
-```
-mindnotes-pro/
-├── src/                    # 源代码
-│   ├── components/         # React 组件
-│   ├── hooks/             # 自定义 Hooks
-│   ├── store/             # 状态管理
-│   └── utils/             # 工具函数
-├── public/                 # 静态资源
-├── dist/                   # 构建产物
-└── package.json           # 项目配置
+# Linux
+npm run electron:build
 ```
 
 ---
 
-## 📄 许可证
+## 📦 功能概览
 
-**MIT License** - 免费开源
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| ✍️ 手写笔记 | ✅ | 流畅书写，支持压感 |
+| ⌨️ 文字输入 | ✅ | 富文本编辑 |
+| 📋 智能模板 | ✅ | 6 个专业模板 |
+| 🎨 命令面板 | ✅ | Ctrl+P 快速访问 |
+| 📤 多格式导出 | ✅ | PNG/SVG/PDF/Markdown |
+| 🌐 PWA 支持 | ✅ | 离线可用 |
+| 📱 移动端优化 | ✅ | 响应式设计 |
+| 🌙 深色模式 | ✅ | 自动/手动切换 |
+| ⌨️ 快捷键 | ✅ | 完整快捷键系统 |
+| 🔄 云端同步 | 🔄 计划中 | GitHub 集成 |
 
-详见：[LICENSE](LICENSE)
+---
 
-**核心权限**:
-- ✅ 商业使用
-- ✅ 修改代码
-- ✅ 分发副本
-- ✅ 私有使用
+## 🛠️ 技术栈
 
-**唯一要求**: 保留版权声明
+- **前端**: React 18 + TypeScript
+- **构建工具**: Vite
+- **UI 框架**: Tailwind CSS
+- **画布引擎**: tldraw
+- **动画**: Framer Motion
+- **状态管理**: Zustand
+- **PWA**: Workbox
+
+---
+
+## 📊 项目统计
+
+[![Star History Chart](https://api.star-history.com/svg?repos=11suixing11/mindnotes-pro&type=Date)](https://star-history.com/#11suixing11/mindnotes-pro&Date)
 
 ---
 
 ## 🤝 贡献
 
-欢迎贡献代码！
+欢迎贡献！请查看 [贡献指南](CONTRIBUTING.md)
 
-1. Fork 项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
+### 贡献方式
+
+- 🐛 报告 Bug
+- ✨ 建议新功能
+- 📖 改进文档
+- 🎨 优化 UI/UX
+- 🧪 编写测试
+- 🌍 翻译本地化
+
+### 主要贡献者
+
+<a href="https://github.com/11suixing11/mindnotes-pro/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=11suixing11/mindnotes-pro" />
+</a>
 
 ---
 
-## 📞 联系方式
+## 📄 许可证
 
-- **项目主页**: https://github.com/11suixing11/mindnotes-pro
-- **Issues**: https://github.com/11suixing11/mindnotes-pro/issues
-- **讨论**: https://github.com/11suixing11/mindnotes-pro/discussions
+MIT License - 详见 [LICENSE](LICENSE)
 
 ---
 
@@ -193,13 +144,26 @@ mindnotes-pro/
 
 感谢以下开源项目：
 
-- [tldraw](https://github.com/tldraw/tldraw) - 手写引擎
+- [tldraw](https://github.com/tldraw/tldraw) - 画布引擎
 - [React](https://react.dev/) - UI 框架
 - [Vite](https://vitejs.dev/) - 构建工具
-- [Tailwind CSS](https://tailwindcss.com/) - CSS 框架
+- [Tailwind CSS](https://tailwindcss.com/) - 样式框架
 
 ---
 
-**MindNotes Pro** - 让记录更简单 ✨
+## 📞 联系方式
 
-Made with ❤️ by 11suixing11
+- 📧 Email: [你的邮箱]
+- 💬 Discord: [加入链接]
+- 🐦 Twitter: [@你的账号]
+- 📱 微信公众号：[你的公众号]
+
+---
+
+<div align="center">
+
+**⭐ 如果这个项目对你有帮助，请给一个 Star！**
+
+Made with ❤️ by [11suixing11](https://github.com/11suixing11)
+
+</div>
