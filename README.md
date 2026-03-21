@@ -10,7 +10,7 @@
 [![GitHub license](https://img.shields.io/github/license/11suixing11/mindnotes-pro)](https://github.com/11suixing11/mindnotes-pro/blob/main/LICENSE)
 [![GitHub release](https://img.shields.io/github/v/release/11suixing11/mindnotes-pro)](https://github.com/11suixing11/mindnotes-pro/releases)
 
-[🌐 在线演示](https://11suixing11.github.io/mindnotes-pro) · [📖 使用指南](docs/guides) · [💬 社区讨论](https://github.com/11suixing11/mindnotes-pro/discussions) · [🐛 问题反馈](https://github.com/11suixing11/mindnotes-pro/issues)
+[📖 使用指南](docs/guides) · [💬 社区讨论](https://github.com/11suixing11/mindnotes-pro/discussions) · [🐛 问题反馈](https://github.com/11suixing11/mindnotes-pro/issues)
 
 </div>
 
@@ -30,11 +30,11 @@
 
 ## 🚀 快速开始
 
-### 在线使用（推荐）
+### 在线使用
 
 <div align="center">
 
-**[👉 立即体验](https://11suixing11.github.io/mindnotes-pro)**
+**🚀 即将上线**
 
 </div>
 
