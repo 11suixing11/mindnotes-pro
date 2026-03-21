@@ -4,7 +4,7 @@
   "type": "module",
   "main": "electron/main.cjs",
   "description": "A modern browser-based note-taking app with handwriting support and AI enhancement",
-  "homepage": "https://11suixing11.github.io/mindnotes-pro",
+  "homepage": "",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
