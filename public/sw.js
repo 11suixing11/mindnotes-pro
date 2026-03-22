@@ -1,17 +1,19 @@
 // MindNotes Pro Service Worker
 // 离线优先策略，确保离线可用
 
-const CACHE_NAME = 'mindnotes-pro-v1.1.3'
-const OFFLINE_URL = '/offline.html'
+const CACHE_NAME = 'mindnotes-pro-v1.3.1'
+const BASE_PATH = new URL(self.registration.scope).pathname
+const withBase = (path) => `${BASE_PATH}${path}`
+const OFFLINE_URL = withBase('offline.html')
 
 // 核心资源（必须缓存）
 const CORE_ASSETS = [
-  '/',
-  '/index.html',
-  '/offline.html',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png',
+  BASE_PATH,
+  withBase('index.html'),
+  OFFLINE_URL,
+  withBase('manifest.json'),
+  withBase('icon-192.png'),
+  withBase('icon-512.png'),
 ]
 
 // 安装事件 - 预缓存核心资源

@@ -1,31 +1,39 @@
 import { useEffect, useState } from 'react'
+import { debugError, debugLog } from '../utils/logger'
 
 export function useServiceWorker() {
+  const UPDATE_CHECK_INTERVAL = 30 * 60 * 1000
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null)
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
   const [swReady, setSwReady] = useState(false)
 
   useEffect(() => {
+    if (!import.meta.env.PROD) {
+      return
+    }
+
     // 检查 Service Worker 支持
     if (!('serviceWorker' in navigator)) {
-      console.log('[PWA] Service Worker not supported')
+      debugLog('[PWA] Service Worker not supported')
       return
     }
 
     // 注册 Service Worker
     const registerSW = async () => {
       try {
-        const reg = await navigator.serviceWorker.register('/sw.js', {
-          scope: '/',
+        const swUrl = `${import.meta.env.BASE_URL}sw.js`
+
+        const reg = await navigator.serviceWorker.register(swUrl, {
+          scope: import.meta.env.BASE_URL,
         })
-        console.log('✅ [PWA] Service Worker registered:', reg.scope)
+        debugLog('✅ [PWA] Service Worker registered:', reg.scope)
         setRegistration(reg)
         
         // 检查是否就绪
         if (reg.active) {
           setSwReady(true)
-          console.log('✅ [PWA] Service Worker ready')
+          debugLog('✅ [PWA] Service Worker ready')
         }
 
         // 监听更新
@@ -35,7 +43,7 @@ export function useServiceWorker() {
 
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('[PWA] New content available')
+              debugLog('[PWA] New content available')
               setUpdateAvailable(true)
             }
           })
@@ -43,11 +51,11 @@ export function useServiceWorker() {
 
         // 监听控制器变化
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          console.log('[PWA] Controller changed, reloading...')
-          // 可以选择自动刷新或提示用户
+          debugLog('[PWA] Controller changed, reloading...')
+          window.location.reload()
         })
       } catch (error) {
-        console.error('[PWA] Service Worker registration failed:', error)
+        debugError('[PWA] Service Worker registration failed:', error)
       }
     }
 
@@ -66,27 +74,49 @@ export function useServiceWorker() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!registration) {
+      return
+    }
+
+    const checkForUpdate = () => {
+      registration.update().catch((error) => {
+        debugError('[PWA] Scheduled update check failed:', error)
+      })
+    }
+
+    const intervalId = window.setInterval(checkForUpdate, UPDATE_CHECK_INTERVAL)
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkForUpdate()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [registration])
+
   // 更新 Service Worker
   const updateServiceWorker = async () => {
     if (!registration) return
 
     try {
       await registration.update()
-      console.log('[PWA] Service Worker update checked')
+      debugLog('[PWA] Service Worker update checked')
     } catch (error) {
-      console.error('[PWA] Service Worker update failed:', error)
+      debugError('[PWA] Service Worker update failed:', error)
     }
   }
 
   // 跳过等待，立即激活新版本
-  const skipWaiting = async () => {
+  const skipWaiting = () => {
     if (!registration?.waiting) return
-
-    registration.addEventListener('updatefound', () => {
-      registration.waiting?.postMessage({ type: 'SKIP_WAITING' })
-    })
-
-    window.location.reload()
+    registration.waiting.postMessage({ type: 'SKIP_WAITING' })
   }
 
   return {

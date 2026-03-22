@@ -1,18 +1,25 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 
+interface ToastAction {
+  label: string
+  onClick: () => void
+  variant?: 'primary' | 'secondary'
+}
+
 interface Toast {
   id: string
   message: string
   type: 'success' | 'error' | 'info' | 'warning'
   duration?: number
+  action?: ToastAction
 }
 
 interface ToastContextType {
-  showToast: (message: string, type?: Toast['type'], duration?: number) => void
-  showSuccess: (message: string) => void
-  showError: (message: string) => void
-  showInfo: (message: string) => void
-  showWarning: (message: string) => void
+  showToast: (message: string, type?: Toast['type'], duration?: number, action?: ToastAction) => void
+  showSuccess: (message: string, action?: ToastAction) => void
+  showError: (message: string, action?: ToastAction) => void
+  showInfo: (message: string, action?: ToastAction) => void
+  showWarning: (message: string, action?: ToastAction) => void
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined)
@@ -21,11 +28,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
   const showToast = useCallback(
-    (message: string, type: Toast['type'] = 'info', duration: number = 3000) => {
+    (message: string, type: Toast['type'] = 'info', duration: number = 3000, action?: ToastAction) => {
       const id = Math.random().toString(36).substr(2, 9)
-      const toast: Toast = { id, message, type, duration }
+      const toast: Toast = { id, message, type, duration, action }
 
       setToasts((prev) => [...prev, toast])
+
+      // 如果有 action 或 duration 为 0，不自动移除
+      if (action || duration === 0) {
+        return
+      }
 
       // 自动移除
       setTimeout(() => {
@@ -36,29 +48,29 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   )
 
   const showSuccess = useCallback(
-    (message: string) => {
-      showToast(message, 'success')
+    (message: string, action?: ToastAction) => {
+      showToast(message, 'success', 3000, action)
     },
     [showToast]
   )
 
   const showError = useCallback(
-    (message: string) => {
-      showToast(message, 'error')
+    (message: string, action?: ToastAction) => {
+      showToast(message, 'error', 3000, action)
     },
     [showToast]
   )
 
   const showInfo = useCallback(
-    (message: string) => {
-      showToast(message, 'info')
+    (message: string, action?: ToastAction) => {
+      showToast(message, 'info', 3000, action)
     },
     [showToast]
   )
 
   const showWarning = useCallback(
-    (message: string) => {
-      showToast(message, 'warning')
+    (message: string, action?: ToastAction) => {
+      showToast(message, 'warning', 3000, action)
     },
     [showToast]
   )
@@ -86,7 +98,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               ${toast.type === 'info' ? 'bg-blue-500/90 text-white' : ''}
               ${toast.type === 'warning' ? 'bg-yellow-500/90 text-white' : ''}
             `}
-            onClick={() => removeToast(toast.id)}
           >
             <div className="flex items-start gap-2">
               <span className="text-lg">
@@ -95,7 +106,42 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 {toast.type === 'info' && 'ℹ️'}
                 {toast.type === 'warning' && '⚠️'}
               </span>
-              <p className="text-sm font-medium">{toast.message}</p>
+              <div className="flex-1">
+                <p className="text-sm font-medium">{toast.message}</p>
+                {toast.action && (
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => {
+                        toast.action?.onClick()
+                        removeToast(toast.id)
+                      }}
+                      className={`
+                        px-3 py-1 text-xs font-medium rounded transition-colors
+                        ${toast.action.variant === 'primary' 
+                          ? 'bg-white text-blue-600 hover:bg-blue-50' 
+                          : 'bg-white/20 text-white hover:bg-white/30'
+                        }
+                      `}
+                    >
+                      {toast.action.label}
+                    </button>
+                    <button
+                      onClick={() => removeToast(toast.id)}
+                      className="px-3 py-1 text-xs font-medium rounded bg-white/20 text-white hover:bg-white/30 transition-colors"
+                    >
+                      关闭
+                    </button>
+                  </div>
+                )}
+              </div>
+              {!toast.action && (
+                <button
+                  onClick={() => removeToast(toast.id)}
+                  className="text-lg opacity-70 hover:opacity-100"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           </div>
         ))}

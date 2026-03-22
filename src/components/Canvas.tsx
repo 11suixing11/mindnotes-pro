@@ -85,8 +85,6 @@ export default function Canvas() {
     canvas.addEventListener('touchstart', startDrawing, { passive: false })
     canvas.addEventListener('touchmove', draw, { passive: false })
     canvas.addEventListener('touchend', stopDrawing)
-
-    console.log('✅ Canvas initialized')
     return () => {
       window.removeEventListener('resize', resize)
     }

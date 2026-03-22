@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { saveAs } from 'file-saver'
 import jsPDF from 'jspdf'
+import { debugError } from '../utils/logger'
 
 interface SaveDialogProps {
   isOpen: boolean
@@ -37,7 +38,7 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
       const blob = new Blob([data], { type: 'application/json' })
       saveAs(blob, `mindnotes-${Date.now()}.json`)
     } catch (error) {
-      console.error('导出 JSON 失败:', error)
+      debugError('导出 JSON 失败:', error)
       alert('导出失败，请重试')
     }
     setIsSaving(false)
@@ -90,7 +91,7 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
       const blob = new Blob([svgContent], { type: 'image/svg+xml' })
       saveAs(blob, `mindnotes-${Date.now()}.svg`)
     } catch (error) {
-      console.error('导出 SVG 失败:', error)
+      debugError('导出 SVG 失败:', error)
       alert('导出失败，请重试')
     }
     setIsSaving(false)
@@ -114,7 +115,7 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
       pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height)
       pdf.save(`mindnotes-${Date.now()}.pdf`)
     } catch (error) {
-      console.error('导出 PDF 失败:', error)
+      debugError('导出 PDF 失败:', error)
       alert('导出失败，请重试')
     }
     setIsSaving(false)

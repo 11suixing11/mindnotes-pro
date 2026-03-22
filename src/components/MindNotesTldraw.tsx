@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useThemeStore } from '../store/useThemeStore'
+import { debugError } from '../utils/logger'
 import '@tldraw/tldraw/tldraw.css'
 
 interface MindNotesTldrawProps {
@@ -18,7 +19,7 @@ export default function MindNotesTldraw({ onReady, onError }: MindNotesTldrawPro
         setTldrawComponent(() => module.Tldraw)
       })
       .catch(error => {
-        console.error('Failed to load tldraw:', error)
+        debugError('Failed to load tldraw:', error)
         onError?.(error instanceof Error ? error : new Error(String(error)))
       })
   }, [onError])
@@ -43,7 +44,7 @@ export default function MindNotesTldraw({ onReady, onError }: MindNotesTldrawPro
       })
       onReady?.()
     } catch (error) {
-      console.error('Failed to mount tldraw:', error)
+      debugError('Failed to mount tldraw:', error)
       onError?.(error instanceof Error ? error : new Error(String(error)))
     }
   }

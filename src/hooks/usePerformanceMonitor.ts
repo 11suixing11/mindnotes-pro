@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { debugLog } from '../utils/logger'
 
 interface PerformanceMonitor {
   fcp: number | null
@@ -75,7 +76,7 @@ export function reportWebVitals() {
   const resources = performance.getEntriesByType('resource')
 
   // 发送到分析服务
-  console.log('Web Vitals:', {
+  debugLog('Web Vitals:', {
     fcp: fcp?.startTime,
     loadTime: navigation?.loadEventEnd,
     domContentLoaded: navigation?.domContentLoadedEventEnd,

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react'
+import { debugError } from '../../utils/logger'
 
 interface ErrorBoundaryContextType {
   hasError: boolean
@@ -14,7 +15,7 @@ export function ErrorBoundaryProvider({ children }: { children: React.ReactNode 
   const [error, setError] = useState<Error | null>(null)
 
   const logError = useCallback((error: Error, componentStack?: string) => {
-    console.error('ErrorBoundary caught an error:', {
+    debugError('ErrorBoundary caught an error:', {
       error,
       componentStack,
       timestamp: new Date().toISOString(),

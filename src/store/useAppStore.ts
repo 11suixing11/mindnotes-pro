@@ -262,14 +262,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
   },
 
-  moveLayerUp: (id) => {
+  moveLayerUp: (_id) => {
     // TODO: 实现图层上移
-    console.log('Move layer up:', id)
   },
 
-  moveLayerDown: (id) => {
+  moveLayerDown: (_id) => {
     // TODO: 实现图层下移
-    console.log('Move layer down:', id)
   },
 
   // 形状方法
