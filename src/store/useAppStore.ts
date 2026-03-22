@@ -263,13 +263,39 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   moveLayerUp: (id) => {
-    // TODO: 实现图层上移
-    console.log('Move layer up:', id)
+    set((state) => {
+      const strokeIdx = state.strokes.findIndex((s) => s.id === id)
+      if (strokeIdx > 0) {
+        const strokes = [...state.strokes]
+        ;[strokes[strokeIdx - 1], strokes[strokeIdx]] = [strokes[strokeIdx], strokes[strokeIdx - 1]]
+        return { strokes }
+      }
+      const shapeIdx = state.shapes.findIndex((s) => s.id === id)
+      if (shapeIdx > 0) {
+        const shapes = [...state.shapes]
+        ;[shapes[shapeIdx - 1], shapes[shapeIdx]] = [shapes[shapeIdx], shapes[shapeIdx - 1]]
+        return { shapes }
+      }
+      return {}
+    })
   },
 
   moveLayerDown: (id) => {
-    // TODO: 实现图层下移
-    console.log('Move layer down:', id)
+    set((state) => {
+      const strokeIdx = state.strokes.findIndex((s) => s.id === id)
+      if (strokeIdx >= 0 && strokeIdx < state.strokes.length - 1) {
+        const strokes = [...state.strokes]
+        ;[strokes[strokeIdx], strokes[strokeIdx + 1]] = [strokes[strokeIdx + 1], strokes[strokeIdx]]
+        return { strokes }
+      }
+      const shapeIdx = state.shapes.findIndex((s) => s.id === id)
+      if (shapeIdx >= 0 && shapeIdx < state.shapes.length - 1) {
+        const shapes = [...state.shapes]
+        ;[shapes[shapeIdx], shapes[shapeIdx + 1]] = [shapes[shapeIdx + 1], shapes[shapeIdx]]
+        return { shapes }
+      }
+      return {}
+    })
   },
 
   // 形状方法

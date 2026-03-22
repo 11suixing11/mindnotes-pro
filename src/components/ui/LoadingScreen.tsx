@@ -10,19 +10,6 @@ export default function LoadingScreen({ onLoad }: LoadingScreenProps) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // 模拟加载进度
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval)
-          onLoad?.()
-          return 100
-        }
-        return prev + Math.random() * 20
-      })
-    }, 200)
-
-    // 更新加载信息
     const messages = [
       '正在加载 MindNotes Pro...',
       '初始化画布引擎...',
@@ -30,15 +17,23 @@ export default function LoadingScreen({ onLoad }: LoadingScreenProps) {
       '准备就绪...',
     ]
 
-    const messageInterval = setInterval(() => {
-      setMessage(messages[Math.floor(progress / 25)] || messages[messages.length - 1])
-    }, 500)
+    // 模拟加载进度，并在回调中同步更新消息（避免 stale closure）
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        const next = Math.min(prev + Math.random() * 20, 100)
+        setMessage(messages[Math.min(Math.floor(next / 25), messages.length - 1)])
+        if (next >= 100) {
+          clearInterval(interval)
+          onLoad?.()
+        }
+        return next
+      })
+    }, 200)
 
     return () => {
       clearInterval(interval)
-      clearInterval(messageInterval)
     }
-  }, [onLoad, progress])
+  }, [onLoad])
 
   // 错误状态
   if (error) {
