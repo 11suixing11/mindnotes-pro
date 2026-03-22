@@ -8,7 +8,6 @@ export default function App() {
 
   useEffect(() => {
     initTheme()
-    console.log('✅ App mounted successfully')
   }, [initTheme])
 
   return (

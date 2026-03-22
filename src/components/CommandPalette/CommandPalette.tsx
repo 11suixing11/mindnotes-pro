@@ -27,7 +27,7 @@ const COMMANDS: Command[] = [
     icon: '📝',
     category: 'action',
     keywords: ['新建', '创建', 'note'],
-    action: () => console.log('新建笔记')
+    action: () => {}
   },
   {
     id: 'save-note',
@@ -36,7 +36,7 @@ const COMMANDS: Command[] = [
     icon: '💾',
     category: 'action',
     keywords: ['保存', 'save'],
-    action: () => console.log('保存笔记')
+    action: () => {}
   },
   {
     id: 'clear-canvas',
@@ -45,7 +45,7 @@ const COMMANDS: Command[] = [
     icon: '🗑️',
     category: 'action',
     keywords: ['清空', '清除', 'clear'],
-    action: () => console.log('清空画布')
+    action: () => {}
   },
   
   // 插入类
@@ -56,7 +56,7 @@ const COMMANDS: Command[] = [
     icon: '📝',
     category: 'insert',
     keywords: ['文本', '文字', 'text'],
-    action: () => console.log('插入文本框')
+    action: () => {}
   },
   {
     id: 'insert-shape',
@@ -65,7 +65,7 @@ const COMMANDS: Command[] = [
     icon: '⬜',
     category: 'insert',
     keywords: ['形状', '图形', 'shape'],
-    action: () => console.log('插入形状')
+    action: () => {}
   },
   {
     id: 'insert-image',
@@ -74,7 +74,7 @@ const COMMANDS: Command[] = [
     icon: '🖼️',
     category: 'insert',
     keywords: ['图片', '图像', 'image'],
-    action: () => console.log('插入图片')
+    action: () => {}
   },
   {
     id: 'insert-template',
@@ -83,7 +83,7 @@ const COMMANDS: Command[] = [
     icon: '📋',
     category: 'insert',
     keywords: ['模板', 'template'],
-    action: () => console.log('使用模板')
+    action: () => {}
   },
   
   // 视图类
@@ -94,7 +94,7 @@ const COMMANDS: Command[] = [
     icon: '🎨',
     category: 'view',
     keywords: ['主题', '深色', '浅色', 'theme'],
-    action: () => console.log('切换主题')
+    action: () => {}
   },
   {
     id: 'toggle-grid',
@@ -103,7 +103,7 @@ const COMMANDS: Command[] = [
     icon: '📐',
     category: 'view',
     keywords: ['网格', 'grid'],
-    action: () => console.log('切换网格')
+    action: () => {}
   },
   {
     id: 'zoom-in',
@@ -112,7 +112,7 @@ const COMMANDS: Command[] = [
     icon: '🔍',
     category: 'view',
     keywords: ['放大', 'zoom'],
-    action: () => console.log('放大')
+    action: () => {}
   },
   {
     id: 'zoom-out',
@@ -121,7 +121,7 @@ const COMMANDS: Command[] = [
     icon: '🔍',
     category: 'view',
     keywords: ['缩小', 'zoom'],
-    action: () => console.log('缩小')
+    action: () => {}
   },
   
   // 导出类
@@ -132,7 +132,7 @@ const COMMANDS: Command[] = [
     icon: '📤',
     category: 'export',
     keywords: ['导出', '图片', 'export', 'png'],
-    action: () => console.log('导出为图片')
+    action: () => {}
   },
   {
     id: 'export-pdf',
@@ -141,7 +141,7 @@ const COMMANDS: Command[] = [
     icon: '📄',
     category: 'export',
     keywords: ['导出', 'PDF', 'export'],
-    action: () => console.log('导出为 PDF')
+    action: () => {}
   },
   {
     id: 'export-markdown',
@@ -150,7 +150,7 @@ const COMMANDS: Command[] = [
     icon: '📝',
     category: 'export',
     keywords: ['导出', 'Markdown', 'export', 'md'],
-    action: () => console.log('导出为 Markdown')
+    action: () => {}
   }
 ]
 
