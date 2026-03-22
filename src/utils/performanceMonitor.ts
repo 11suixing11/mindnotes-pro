@@ -29,27 +29,53 @@ interface PerformanceReport {
 
 class PerformanceMonitor {
   private reports: PerformanceReport[] = []
+  private currentMetrics: PerformanceMetrics = {}
+  private reportTimer: number | null = null
+  private memoryTimer: number | null = null
+  private observers: PerformanceObserver[] = []
+  private started = false
   private thresholds = {
-    fcp: 1000, // 1 秒  
+    fcp: 1000, // 1 秒
     lcp: 2500, // 2.5 秒
     cls: 0.1,
     fid: 100, // 毫秒
-    ttfb: 600 // 毫秒
+    ttfb: 600, // 毫秒
+  }
+
+  private onLoad = () => {
+    const metrics = this.getLatestMetrics()
+    const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+
+    if (navEntry) {
+      metrics.ttfb = navEntry.responseStart
+      this.checkThreshold('ttfb', metrics.ttfb)
+      return
+    }
+
+    if (performance.timing) {
+      metrics.ttfb = performance.timing.responseStart - performance.timing.navigationStart
+      this.checkThreshold('ttfb', metrics.ttfb)
+    }
   }
 
   /**
    * 初始化性能监控
    */
   init() {
+    if (this.started) return
+
     // 监听 Web Vitals
     this.observeWebVitals()
-    
+
     // 监听内存使用（如可用）
     this.observeMemory()
-    
+
     // 定期报告
     this.scheduleReports()
-    
+
+    window.addEventListener('load', this.onLoad)
+    this.started = true
+
     console.log('✅ 性能监控系统已初始化')
   }
 
@@ -57,43 +83,63 @@ class PerformanceMonitor {
    * 观察 Web Vitals（核心性能指标）
    */
   private observeWebVitals() {
-    // First Contentful Paint & Largest Contentful Paint
-    if ('PerformanceObserver' in window) {
-      const perfObserver = new PerformanceObserver((list) => {
+    if (!('PerformanceObserver' in window)) return
+
+    const supported = PerformanceObserver.supportedEntryTypes || []
+
+    if (supported.includes('paint')) {
+      const paintObserver = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
-          if (entry.entryType === 'paint') {
+          if (entry.name === 'first-contentful-paint') {
             const metrics = this.getLatestMetrics()
-            if (entry.name === 'first-contentful-paint') {
-              metrics.fcp = entry.startTime
-              this.checkThreshold('fcp', metrics.fcp)
-            }
-          }
-          if (entry.entryType === 'largest-contentful-paint') {
-            const metrics = this.getLatestMetrics()
-            metrics.lcp = entry.startTime
-            this.checkThreshold('lcp', metrics.lcp)
-          }
-          if (entry.entryType === 'layout-shift') {
-            const metrics = this.getLatestMetrics()
-            metrics.cls = (metrics.cls || 0) + entry.value
-            this.checkThreshold('cls', metrics.cls)
+            metrics.fcp = entry.startTime
+            this.checkThreshold('fcp', metrics.fcp)
           }
         }
       })
-
-      perfObserver.observe({
-        entryTypes: ['paint', 'largest-contentful-paint', 'layout-shift', 'first-input']
-      })
+      paintObserver.observe({ entryTypes: ['paint'], buffered: true })
+      this.observers.push(paintObserver)
     }
 
-    // 来自 Navigation Timing API
-    window.addEventListener('load', () => {
-      if (performance.timing) {
-        const metrics = this.getLatestMetrics()
-        metrics.ttfb = performance.timing.responseStart - performance.timing.navigationStart
-        this.checkThreshold('ttfb', metrics.ttfb)
-      }
-    })
+    if (supported.includes('largest-contentful-paint')) {
+      const lcpObserver = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          const metrics = this.getLatestMetrics()
+          metrics.lcp = entry.startTime
+          this.checkThreshold('lcp', metrics.lcp)
+        }
+      })
+      lcpObserver.observe({ entryTypes: ['largest-contentful-paint'], buffered: true })
+      this.observers.push(lcpObserver)
+    }
+
+    if (supported.includes('layout-shift')) {
+      const clsObserver = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries() as Array<PerformanceEntry & { value?: number; hadRecentInput?: boolean }>) {
+          if (entry.hadRecentInput) continue
+
+          const metrics = this.getLatestMetrics()
+          metrics.cls = (metrics.cls || 0) + (entry.value || 0)
+          this.checkThreshold('cls', metrics.cls)
+        }
+      })
+      clsObserver.observe({ entryTypes: ['layout-shift'], buffered: true })
+      this.observers.push(clsObserver)
+    }
+
+    if (supported.includes('first-input')) {
+      const fidObserver = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries() as Array<PerformanceEntry & { processingStart?: number }>) {
+          if (typeof entry.processingStart !== 'number') continue
+
+          const metrics = this.getLatestMetrics()
+          metrics.fid = entry.processingStart - entry.startTime
+          this.checkThreshold('fid', metrics.fid)
+        }
+      })
+      fidObserver.observe({ entryTypes: ['first-input'], buffered: true })
+      this.observers.push(fidObserver)
+    }
   }
 
   /**
@@ -101,11 +147,11 @@ class PerformanceMonitor {
    */
   private observeMemory() {
     if ((performance as any).memory) {
-      setInterval(() => {
+      this.memoryTimer = window.setInterval(() => {
         const metrics = this.getLatestMetrics()
         metrics.customMetrics = metrics.customMetrics || {}
         metrics.customMetrics['heapSize'] = (performance as any).memory.usedJSHeapSize
-        
+
         // 检测内存泄漏（持续增长）
         if (this.detectMemoryLeak()) {
           console.warn('⚠️ 检测到潜在的内存泄漏')
@@ -119,18 +165,20 @@ class PerformanceMonitor {
    * 定期生成性能报告
    */
   private scheduleReports() {
-    setInterval(() => {
+    this.reportTimer = window.setInterval(() => {
       const report = this.generateReport()
       this.reports.push(report)
-      
+
       // 日志输出
       console.log('📊 性能报告:', {
         fcp: report.metrics.fcp?.toFixed(2),
         lcp: report.metrics.lcp?.toFixed(2),
         cls: report.metrics.cls?.toFixed(3),
-        timestamp: new Date(report.timestamp).toLocaleTimeString()
+        fid: report.metrics.fid?.toFixed(2),
+        ttfb: report.metrics.ttfb?.toFixed(2),
+        timestamp: new Date(report.timestamp).toLocaleTimeString(),
       })
-      
+
       // 发送到分析服务（可选）
       this.sendToAnalytics(report)
     }, 30000) // 30 秒
@@ -142,7 +190,8 @@ class PerformanceMonitor {
   private checkThreshold(metric: keyof typeof this.thresholds, value: number) {
     const threshold = this.thresholds[metric]
     if (value > threshold) {
-      console.warn(`⚠️ ${metric.toUpperCase()} 超过阈值: ${value.toFixed(2)}ms > ${threshold}ms`)
+      const unit = metric === 'cls' ? '' : 'ms'
+      console.warn(`⚠️ ${metric.toUpperCase()} 超过阈值: ${value.toFixed(2)}${unit} > ${threshold}${unit}`)
       this.sendAlarm(metric)
     }
   }
@@ -165,20 +214,23 @@ class PerformanceMonitor {
    */
   private generateReport(): PerformanceReport {
     const metrics = this.getLatestMetrics()
-    
+
     return {
       timestamp: Date.now(),
-      metrics,
+      metrics: {
+        ...metrics,
+        customMetrics: metrics.customMetrics ? { ...metrics.customMetrics } : undefined,
+      },
       memoryUsage: (performance as any).memory ? {
         usedJSHeapSize: (performance as any).memory.usedJSHeapSize,
         totalJSHeapSize: (performance as any).memory.totalJSHeapSize,
-        jsHeapSizeLimit: (performance as any).memory.jsHeapSizeLimit
+        jsHeapSizeLimit: (performance as any).memory.jsHeapSizeLimit,
       } : undefined,
       navigationTiming: performance.timing ? {
         loadTime: performance.timing.loadEventEnd - performance.timing.navigationStart,
         domInteractive: performance.timing.domInteractive - performance.timing.navigationStart,
-        domComplete: performance.timing.domComplete - performance.timing.navigationStart
-      } : undefined
+        domComplete: performance.timing.domComplete - performance.timing.navigationStart,
+      } : undefined,
     }
   }
 
@@ -186,7 +238,7 @@ class PerformanceMonitor {
    * 获取最新指标
    */
   private getLatestMetrics(): PerformanceMetrics {
-    return this.reports[this.reports.length - 1]?.metrics || {}
+    return this.currentMetrics
   }
 
   /**
@@ -201,8 +253,9 @@ class PerformanceMonitor {
    * 发送分析数据
    */
   private sendToAnalytics(report: PerformanceReport) {
+    void report
     // TODO: 集成与分析服务（如 Google Analytics, Sentry 等）
-    if (process.env.NODE_ENV === 'production') {
+    if (import.meta.env.PROD) {
       // 可选：上报到分析平台
       // fetch('/api/analytics/performance', { method: 'POST', body: JSON.stringify(report) })
     }
@@ -224,18 +277,21 @@ class PerformanceMonitor {
     const fcpValues = this.reports.map(r => r.metrics.fcp).filter(Boolean) as number[]
     const lcpValues = this.reports.map(r => r.metrics.lcp).filter(Boolean) as number[]
 
+    const getSafeMin = (arr: number[]) => (arr.length > 0 ? Math.min(...arr) : 0)
+    const getSafeMax = (arr: number[]) => (arr.length > 0 ? Math.max(...arr) : 0)
+
     return {
       totalReports: this.reports.length,
       fcp: {
         avg: fcpValues.length > 0 ? fcpValues.reduce((a, b) => a + b) / fcpValues.length : 0,
-        min: Math.min(...fcpValues),
-        max: Math.max(...fcpValues)
+        min: getSafeMin(fcpValues),
+        max: getSafeMax(fcpValues),
       },
       lcp: {
         avg: lcpValues.length > 0 ? lcpValues.reduce((a, b) => a + b) / lcpValues.length : 0,
-        min: Math.min(...lcpValues),
-        max: Math.max(...lcpValues)
-      }
+        min: getSafeMin(lcpValues),
+        max: getSafeMax(lcpValues),
+      },
     }
   }
 
@@ -244,6 +300,28 @@ class PerformanceMonitor {
    */
   reset() {
     this.reports = []
+    this.currentMetrics = {}
+  }
+
+  /**
+   * 释放监控资源
+   */
+  destroy() {
+    if (this.reportTimer !== null) {
+      clearInterval(this.reportTimer)
+      this.reportTimer = null
+    }
+    if (this.memoryTimer !== null) {
+      clearInterval(this.memoryTimer)
+      this.memoryTimer = null
+    }
+    for (const observer of this.observers) {
+      observer.disconnect()
+    }
+    this.observers = []
+
+    window.removeEventListener('load', this.onLoad)
+    this.started = false
   }
 }
 
@@ -260,4 +338,5 @@ if (typeof window !== 'undefined') {
   window.__PERF_MONITOR__.init()
 }
 
-export { PerformanceMonitor, PerformanceMetrics, PerformanceReport }
+export { PerformanceMonitor }
+export type { PerformanceMetrics, PerformanceReport }
