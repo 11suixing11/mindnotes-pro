@@ -235,13 +235,12 @@ export class OfflineStorageManager {
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['changes'], 'readonly')
       const store = transaction.objectStore('changes')
-      const index = store.index('synced')
-      const request = index.getAll(false)
+      const request = store.getAll()
 
       request.onerror = () => reject(request.error)
       request.onsuccess = () => {
         const changes = request.result
-          .filter(c => c.documentId === docId)
+          .filter(c => c.documentId === docId && !c.synced)
           .sort((a, b) => a.timestamp - b.timestamp)
         resolve(changes)
       }

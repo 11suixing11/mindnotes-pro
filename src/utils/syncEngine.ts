@@ -3,7 +3,7 @@
  * Phase 3.2 - 网络感知同步和冲突检测
  */
 
-import { offlineStorage, DocumentChange, SyncQueueItem, Document } from './offlineStorageManager'
+import { offlineStorage, DocumentChange, Document } from './offlineStorageManager'
 
 export interface SyncResult {
   success: boolean
@@ -227,7 +227,7 @@ export class SyncEngine {
         // 检测冲突
         const remoteVersion = await this.fetchRemoteVersion(doc.id)
         
-        if (remoteVersion && remoteVersion > doc.version) {
+        if (remoteVersion && remoteVersion.version > doc.version) {
           conflicts.push({
             documentId: doc.id,
             localVersion: doc.version,
