@@ -15,6 +15,9 @@ export default defineConfig({
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react/jsx-runtime'],
+          'motion-vendor': ['framer-motion'],
+          'state-vendor': ['zustand'],
+          'tldraw-vendor': ['@tldraw/tldraw'],
         },
       },
     },
