@@ -66,6 +66,14 @@
 
 ## 📖 按主题分类
 
+### 🤖 自治运维
+
+```
+📌 多端健康与巡检
+   └─ AUTONOMOUS_HEALTH_SNAPSHOT.md
+      └─ 一键巡检输出（health:cycle）
+```
+
 ### 📐 API 和编程
 
 ```

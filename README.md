@@ -49,6 +49,13 @@ npm run build
 npm run test -- --run
 npm run test:coverage -- --run
 npm run lint
+npm run health:multi
+npm run health:cycle
+npm run doctor:android
+npm run doctor:tauri
+npm run electron:smoke
+npm run bundle:analyze
+npm run bundle:budget
 ```
 
 ## 平台与发布
@@ -69,7 +76,7 @@ npm run lint
 
 当前基线（本地验证）：
 - 构建：通过
-- 测试：45/45 通过
+- 测试：61/61 通过
 - 覆盖率：已达到阈值（行/分支/函数/语句全部通过）
 - 生产依赖审计：0 漏洞
 

@@ -34,8 +34,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
       setToasts((prev) => [...prev, toast])
 
-      // 如果有 action 或 duration 为 0，不自动移除
-      if (action || duration === 0) {
+      // duration 为 0 时不自动移除，其余情况按时关闭，避免提示长期堆积
+      if (duration === 0) {
         return
       }
 
@@ -49,28 +49,28 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const showSuccess = useCallback(
     (message: string, action?: ToastAction) => {
-      showToast(message, 'success', 3000, action)
+      showToast(message, 'success', action ? 5000 : 3000, action)
     },
     [showToast]
   )
 
   const showError = useCallback(
     (message: string, action?: ToastAction) => {
-      showToast(message, 'error', 3000, action)
+      showToast(message, 'error', action ? 5000 : 3000, action)
     },
     [showToast]
   )
 
   const showInfo = useCallback(
     (message: string, action?: ToastAction) => {
-      showToast(message, 'info', 3000, action)
+      showToast(message, 'info', action ? 5000 : 3000, action)
     },
     [showToast]
   )
 
   const showWarning = useCallback(
     (message: string, action?: ToastAction) => {
-      showToast(message, 'warning', 3000, action)
+      showToast(message, 'warning', action ? 8000 : 3000, action)
     },
     [showToast]
   )

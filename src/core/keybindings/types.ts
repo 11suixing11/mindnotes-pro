@@ -10,6 +10,7 @@ export interface Keybinding {
   key: string
   modifiers?: ModifierKey[]
   platform?: KeybindingPlatform
+  allowRepeat?: boolean
   preventDefault?: boolean
   stopPropagation?: boolean
   description?: string

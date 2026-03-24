@@ -5,31 +5,58 @@
  * 分析构建产物，找出可以优化的地方
  */
 
-import { readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
-import { execSync } from 'child_process'
+import { readdirSync, statSync, writeFileSync, existsSync, mkdirSync } from 'fs'
+import { join, relative } from 'path'
 
 const DIST_DIR = './dist'
 const REPORT_FILE = './performance-reports/bundle-analysis.md'
 
 console.log('📊 开始分析构建产物...\n')
 
+function collectFiles(dir) {
+  const entries = readdirSync(dir, { withFileTypes: true })
+  let result = []
+
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      result = result.concat(collectFiles(fullPath))
+      continue
+    }
+
+    if (entry.isFile() && (entry.name.endsWith('.js') || entry.name.endsWith('.css'))) {
+      result.push(fullPath)
+    }
+  }
+
+  return result
+}
+
+function formatSize(size) {
+  return `${(size / 1024).toFixed(2)} KB`
+}
+
 try {
+  if (!existsSync(DIST_DIR)) {
+    throw new Error('dist 目录不存在，请先运行 npm run build')
+  }
+
   // 1. 获取文件大小
   console.log('📦 分析文件...')
-  const files = execSync('find dist -type f -name "*.js" -o -name "*.css"', { encoding: 'utf-8' })
-    .split('\n')
-    .filter(Boolean)
-  
+  const files = collectFiles(DIST_DIR)
+
   const fileSizes = files.map(file => {
-    const stats = execSync(`stat -f%z "${file}" 2>/dev/null || stat -c%s "${file}"`, { encoding: 'utf-8' })
-    const size = parseInt(stats.trim())
+    const size = statSync(file).size
     return {
-      path: file,
+      path: relative('.', file).replace(/\\/g, '/'),
       size,
       gzipSize: Math.round(size * 0.3) // 估算 gzip 后大小
     }
   }).sort((a, b) => b.size - a.size)
+
+  if (fileSizes.length === 0) {
+    throw new Error('未找到可分析的 JS/CSS 文件')
+  }
 
   // 2. 生成报告
   let report = `# 📦 Bundle 分析报告\n\n`
@@ -43,10 +70,10 @@ try {
   
   fileSizes.forEach(file => {
     const percentage = ((file.size / totalSize) * 100).toFixed(1)
-    report += `| ${file.path} | ${(file.size / 1024).toFixed(2)} KB | ${(file.gzipSize / 1024).toFixed(2)} KB | ${percentage}% |\n`
+    report += `| ${file.path} | ${formatSize(file.size)} | ${formatSize(file.gzipSize)} | ${percentage}% |\n`
   })
   
-  report += `\n**总计**: ${(totalSize / 1024).toFixed(2)} KB (Gzip: ${(fileSizes.reduce((sum, f) => sum + f.gzipSize, 0) / 1024).toFixed(2)} KB)\n\n`
+  report += `\n**总计**: ${formatSize(totalSize)} (Gzip: ${formatSize(fileSizes.reduce((sum, f) => sum + f.gzipSize, 0))})\n\n`
   
   // 3. 优化建议
   report += `## 优化建议\n\n`
@@ -73,7 +100,6 @@ try {
   }
   
   // 4. 总体评价
-  const avgSize = totalSize / fileSizes.length
   report += `## 总体评价\n\n`
   
   if (totalSize < 500 * 1024) {
@@ -84,6 +110,11 @@ try {
     report += `❌ **需优化**: 总大小超过 1MB，需要立即优化\n`
   }
   
+  const reportDir = REPORT_FILE.split('/').slice(0, -1).join('/')
+  if (reportDir && !existsSync(reportDir)) {
+    mkdirSync(reportDir, { recursive: true })
+  }
+
   // 保存报告
   writeFileSync(REPORT_FILE, report)
   console.log(`✅ 报告已保存到：${REPORT_FILE}\n`)

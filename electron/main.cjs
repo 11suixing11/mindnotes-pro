@@ -66,7 +66,7 @@ function createWindow() {
             dialog.showMessageBox(mainWindow, {
               type: 'info',
               title: '关于 MindNotes Pro',
-              message: 'MindNotes Pro v1.1.2',
+              message: `MindNotes Pro v${app.getVersion()}`,
               detail: '让灵感自由流淌\n\n© 2026 MindNotes Pro'
             })
           }
