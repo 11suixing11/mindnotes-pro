@@ -25,16 +25,16 @@
 
 ## ✨ 核心特性
 
-### 📝 双版本架构
+### 📝 交付形态
 
-| 版本 | 特点 | 适合场景 |
+| 形态 | 特点 | 适合场景 |
 |------|------|---------|
-| **标准版** | 30KB, 0.5s 加载，100% 兼容 | 所有用户，移动端 |
-| **高级版** | React 版，完整功能 | 桌面端，高级用户 |
+| **Web 应用** | 零安装，PWA 离线可用，持续部署 | 所有用户与快速访问 |
+| **桌面封装** | Electron/Tauri 桌面壳，支持原生窗口体验 | 桌面重度用户 |
+| **移动封装** | Android 通过 Capacitor 对接原生壳 | 移动端使用场景 |
 
 **访问**:
-- 标准版：https://11suixing11.github.io/mindnotes-pro
-- 高级版：https://11suixing11.github.io/mindnotes-pro/app
+- 在线入口：https://11suixing11.github.io/mindnotes-pro
 
 ---
 
@@ -69,9 +69,9 @@
 
 | 版本 | 日期 | 亮点 |
 |------|------|------|
-| **v1.2.0** | 🔄 开发中 | 命令面板 + 智能模板 |
-| **v1.1.6** | ✅ 已发布 | 桌面端 + GitHub Pages |
-| **v1.1.0** | ✅ 已发布 | tldraw 集成 |
+| **v1.3.2** | ✅ 已发布 | 发布链路优化、测试扩展到 45 项、依赖安全修复 |
+| **v1.3.1** | ✅ 已发布 | 首页重构、PWA 更新体验、测试体系增强 |
+| **v1.3.0** | ✅ 已发布 | Service Worker 与基础离线能力增强 |
 
 ---
 
@@ -135,6 +135,7 @@ npm run build        # 生产构建
 npm run preview      # 预览构建
 npm run deploy       # 部署到 GitHub Pages
 npm run electron:build  # 构建桌面应用
+npm run health:multi    # 多端环境健康检查
 ```
 
 ### 项目结构

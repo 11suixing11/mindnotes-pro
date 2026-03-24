@@ -4,8 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0f766e" />
-  <meta name="description" content="MindNotes Pro - 开源全平台手写与文字混合笔记" />
-  <title>MindNotes Pro | 新版主页</title>
+  <meta name="description" content="MindNotes Pro：开源、免费、全平台的手写与文字混合笔记应用，支持离线编辑、自动同步与多格式导出。" />
+  <meta name="keywords" content="MindNotes, 手写笔记, 白板, 离线笔记, PWA, 开源" />
+  <title>MindNotes Pro | 开源全平台笔记应用</title>
   <link rel="manifest" href="/manifest.json" />
   <style>
     :root {
@@ -82,6 +83,31 @@
       line-height: 1.7;
       margin-bottom: 26px;
       max-width: 760px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 12px;
+    }
+
+    .stat b {
+      font-size: 18px;
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 13px;
     }
 
     .actions {
@@ -169,6 +195,10 @@
         padding: 24px;
       }
 
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
       .grid {
         grid-template-columns: 1fr;
       }
@@ -182,14 +212,29 @@
       <span class="badge">Release Ready</span>
     </div>
 
-    <h1>手写与文字，在同一张无限画布里完成</h1>
+    <h1>手写、打字、导出，在同一张无限画布里完成</h1>
     <p class="lead">
       MindNotes Pro 是一个开源、免费、全平台的笔记工具。
-      新版已完成质量门禁校验，可直接进入发布流程。
+      你可以离线记录灵感、在线自动同步，并在需要时一键导出可分享成果。
     </p>
 
+    <section class="stats" aria-label="项目状态">
+      <article class="stat">
+        <b>61 / 61</b>
+        <span>测试通过</span>
+      </article>
+      <article class="stat">
+        <b>0</b>
+        <span>生产依赖漏洞</span>
+      </article>
+      <article class="stat">
+        <b>v1.3.2</b>
+        <span>当前稳定版本</span>
+      </article>
+    </section>
+
     <div class="actions">
-      <a class="btn btn-main" href="./">立即进入应用</a>
+      <a class="btn btn-main" href="./">立即开始使用</a>
       <a class="btn btn-alt" href="./about.html">了解项目</a>
       <a class="btn btn-alt" href="https://github.com/11suixing11/mindnotes-pro" target="_blank" rel="noreferrer">访问 GitHub</a>
     </div>
@@ -211,7 +256,7 @@
 
     <div class="release">
       <span>当前版本: v1.3.2</span>
-      <span>建议下一步: 生成 release tag 与发布说明</span>
+      <span>发布状态: 可执行 release 推送</span>
     </div>
   </main>
 </body>

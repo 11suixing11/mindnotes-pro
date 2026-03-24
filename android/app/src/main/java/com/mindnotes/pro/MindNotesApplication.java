@@ -52,9 +52,9 @@ public class MindNotesApplication extends Application {
     public String getAppVersion() {
         try {
             var packageInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-            return packageInfo.versionName != null ? packageInfo.versionName : "1.1.3";
+            return packageInfo.versionName != null ? packageInfo.versionName : "1.3.2";
         } catch (Exception e) {
-            return "1.1.3";
+            return "1.3.2";
         }
     }
 }

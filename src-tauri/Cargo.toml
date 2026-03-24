@@ -1,10 +1,10 @@
 [package]
 name = "app"
-version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+version = "1.3.2"
+description = "MindNotes Pro Tauri desktop shell"
+authors = ["11suixing11"]
+license = "MIT"
+repository = "https://github.com/11suixing11/mindnotes-pro"
 edition = "2021"
 rust-version = "1.77.2"
 

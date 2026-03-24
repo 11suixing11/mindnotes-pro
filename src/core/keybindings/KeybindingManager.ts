@@ -106,6 +106,10 @@ class KeybindingManager {
         continue
       }
 
+      if (event.repeat && !(binding.allowRepeat ?? false)) {
+        continue
+      }
+
       if (binding.preventDefault ?? true) {
         event.preventDefault()
       }
@@ -125,6 +129,7 @@ class KeybindingManager {
       key: this.normalizeKey(binding.key),
       modifiers: [...new Set(binding.modifiers ?? [])].sort() as ModifierKey[],
       platform: binding.platform ?? 'all',
+      allowRepeat: binding.allowRepeat ?? false,
       preventDefault: binding.preventDefault ?? true,
       stopPropagation: binding.stopPropagation ?? true,
     }
