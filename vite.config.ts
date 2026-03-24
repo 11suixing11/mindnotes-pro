@@ -37,6 +37,9 @@ export default defineConfig({
     
     // 优化输出
     rollupOptions: {
+      // 默认仅构建主入口，避免把实验/备用 HTML 入口一起打包。
+      // 如需全量多入口构建，可设置 VITE_BUILD_ALL_HTML=true。
+      input: process.env.VITE_BUILD_ALL_HTML === 'true' ? undefined : 'index.html',
       output: {
         // 智能代码分割
         manualChunks: (id) => {
@@ -98,7 +101,8 @@ export default defineConfig({
     },
     
     // 块大小警告阈值
-    chunkSizeWarningLimit: 1000,
+    // tldraw 为按需加载依赖，主包未阻塞首屏；提升阈值避免无效噪音告警。
+    chunkSizeWarningLimit: 1200,
     
     // 报告压缩大小
     reportCompressedSize: true
