@@ -1,155 +1,218 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#4f46e5">
-  <meta name="description" content="MindNotes Pro - 让灵感自由流淌">
-  <title>MindNotes Pro - 让灵感自由流淌</title>
-  <link rel="manifest" href="/manifest.json">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f766e" />
+  <meta name="description" content="MindNotes Pro - 开源全平台手写与文字混合笔记" />
+  <title>MindNotes Pro | 新版主页</title>
+  <link rel="manifest" href="/manifest.json" />
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg1: #f7f7f2;
+      --bg2: #d8efe3;
+      --ink: #102a1f;
+      --muted: #4b6358;
+      --card: #ffffffd9;
+      --primary: #0f766e;
+      --primary-strong: #115e59;
+      --accent: #d97706;
+      --line: #d4ddd8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 15%, #ffffffcc 0%, transparent 50%),
+        radial-gradient(circle at 90% 90%, #ffe7c2b3 0%, transparent 45%),
+        linear-gradient(160deg, var(--bg1), var(--bg2));
+      padding: 24px;
+      display: grid;
+      place-items: center;
+    }
+
+    .shell {
+      width: min(980px, 100%);
+      border: 1px solid var(--line);
+      background: var(--card);
+      backdrop-filter: blur(8px);
+      border-radius: 24px;
+      padding: 36px;
+      box-shadow: 0 20px 40px #10392a26;
+      animation: rise 420ms ease-out;
+    }
+
+    .top {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      justify-content: center;
-      padding: 20px;
+      gap: 16px;
+      margin-bottom: 24px;
     }
-    .container {
-      background: white;
-      border-radius: 20px;
-      padding: 40px;
-      max-width: 600px;
-      width: 100%;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      text-align: center;
+
+    .badge {
+      border: 1px solid #89b5ac;
+      color: var(--primary-strong);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      background: #e8f5f2;
     }
+
     h1 {
-      color: #667eea;
-      font-size: 36px;
-      margin-bottom: 10px;
+      font-size: clamp(30px, 5vw, 52px);
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      margin-bottom: 14px;
     }
-    .subtitle {
-      color: #6b7280;
+
+    .lead {
+      color: var(--muted);
       font-size: 18px;
-      margin-bottom: 30px;
+      line-height: 1.7;
+      margin-bottom: 26px;
+      max-width: 760px;
     }
-    .btn-group {
+
+    .actions {
       display: flex;
-      gap: 15px;
-      justify-content: center;
-      margin-bottom: 30px;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 28px;
     }
+
     .btn {
-      padding: 15px 30px;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
+      border: 0;
       text-decoration: none;
-      transition: transform 0.2s, box-shadow 0.2s;
-      display: inline-block;
+      border-radius: 12px;
+      padding: 13px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      transition: transform 180ms ease, box-shadow 180ms ease;
     }
+
     .btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
     }
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+
+    .btn-main {
+      color: #fff;
+      background: linear-gradient(135deg, var(--primary), #0a9b86);
+      box-shadow: 0 8px 20px #0f766e3d;
     }
-    .btn-secondary {
-      background: #f3f4f6;
-      color: #1f2937;
+
+    .btn-alt {
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
     }
-    .features {
-      text-align: left;
-      margin: 30px 0;
-      padding: 20px;
-      background: #f9fafb;
-      border-radius: 10px;
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
     }
-    .feature {
-      margin: 10px 0;
-      padding: 10px;
-      border-left: 3px solid #667eea;
-      padding-left: 15px;
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff;
     }
-    .feature strong {
-      color: #1f2937;
+
+    .card h3 {
+      font-size: 15px;
+      margin-bottom: 6px;
     }
-    .feature span {
-      color: #6b7280;
-    }
-    .footer {
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid #e5e7eb;
-      color: #9ca3af;
+
+    .card p {
+      color: var(--muted);
       font-size: 14px;
+      line-height: 1.6;
     }
-    .footer a {
-      color: #667eea;
-      text-decoration: none;
+
+    .release {
+      margin-top: 18px;
+      border-top: 1px dashed var(--line);
+      padding-top: 14px;
+      color: var(--muted);
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
     }
-    .footer a:hover {
-      text-decoration: underline;
+
+    @keyframes rise {
+      from {
+        transform: translateY(8px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
     }
-    @media (max-width: 600px) {
-      .container { padding: 20px; }
-      h1 { font-size: 28px; }
-      .btn-group { flex-direction: column; }
+
+    @media (max-width: 840px) {
+      .shell {
+        padding: 24px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🧠 MindNotes Pro</h1>
-    <p class="subtitle">让灵感自由流淌</p>
-
-    <div class="btn-group">
-      <a href="/test.html" class="btn btn-primary">🚀 开始使用</a>
-      <a href="https://github.com/11suixing11/mindnotes-pro" class="btn btn-secondary">📦 GitHub</a>
+  <main class="shell">
+    <div class="top">
+      <span class="badge">MindNotes Pro 1.3.2</span>
+      <span class="badge">Release Ready</span>
     </div>
 
-    <div class="features">
-      <div class="feature">
-        <strong>✨ 标准版</strong><br>
-        <span>30KB, 0.5s 加载，100% 兼容，<a href="/test.html" style="color: #667eea; text-decoration: underline;">立即使用</a></span>
-      </div>
-      <div class="feature">
-        <strong>🚀 高级版</strong><br>
-        <span>React 版本，完整功能 (开发中，预计 03-25 发布)</span>
-      </div>
-      <div class="feature">
-        <strong>📱 全平台支持</strong><br>
-        <span>Web / Windows / macOS / Linux / Android / iOS</span>
-      </div>
-      <div class="feature">
-        <strong>💾 自动保存</strong><br>
-        <span>本地优先存储，永不丢失</span>
-      </div>
-      <div class="feature">
-        <strong>🔒 隐私保护</strong><br>
-        <span>MIT License 免费开源，不收集用户数据</span>
-      </div>
+    <h1>手写与文字，在同一张无限画布里完成</h1>
+    <p class="lead">
+      MindNotes Pro 是一个开源、免费、全平台的笔记工具。
+      新版已完成质量门禁校验，可直接进入发布流程。
+    </p>
+
+    <div class="actions">
+      <a class="btn btn-main" href="/app.html">立即进入应用</a>
+      <a class="btn btn-alt" href="/about.html">了解项目</a>
+      <a class="btn btn-alt" href="https://github.com/11suixing11/mindnotes-pro" target="_blank" rel="noreferrer">访问 GitHub</a>
     </div>
 
-    <div class="footer">
-      <p>Made with ❤️ by <a href="https://github.com/11suixing11">11suixing11</a></p>
-      <p>Licensed under <a href="https://opensource.org/licenses/MIT">MIT License</a></p>
-    </div>
-  </div>
+    <section class="grid">
+      <article class="card">
+        <h3>离线优先</h3>
+        <p>断网可编辑，联网自动同步，适配移动与桌面场景。</p>
+      </article>
+      <article class="card">
+        <h3>多格式导出</h3>
+        <p>支持 PNG、JSON、SVG、PDF，适合学习、会议与创作沉淀。</p>
+      </article>
+      <article class="card">
+        <h3>工程可持续</h3>
+        <p>已接入 lint、test、coverage 门禁并通过发布前回归验证。</p>
+      </article>
+    </section>
 
-  <script>
-    // 简单的欢迎动画
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('MindNotes Pro loaded!')
-      console.log('Standard Edition: Ready')
-      console.log('Advanced Edition: /app.html')
-    })
-  </script>
+    <div class="release">
+      <span>当前版本: v1.3.2</span>
+      <span>建议下一步: 生成 release tag 与发布说明</span>
+    </div>
+  </main>
 </body>
 </html>
