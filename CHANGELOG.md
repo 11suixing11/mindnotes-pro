@@ -5,6 +5,35 @@ All notable changes to MindNotes Pro will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-03-24
+
+### ✨ Added
+
+#### Homepage & Release Readiness
+- Rewrote project homepage documentation in README with cleaner structure and release status
+- Rebuilt public landing page for version 1.3.2 with unified messaging and direct app entry
+- Added release note document for v1.3.2
+
+### ✅ Improved
+
+#### Quality Gate & Tests
+- Expanded store and service worker tests from 31 to 45 passing tests
+- Raised overall coverage above threshold gate:
+  - Statements: 86.7%
+  - Branches: 75%
+  - Functions: 88.88%
+  - Lines: 87.42%
+- Eliminated React act warning in service worker hook tests
+
+#### Security
+- Upgraded jspdf to 4.2.1 to address critical production vulnerability
+- Verified production dependency audit result: 0 vulnerabilities
+
+### 📦 Release Prep
+
+- Bumped package version from 1.3.1 to 1.3.2
+- Build/test/coverage/lint verification completed locally before release push
+
 ## [1.3.1] - 2026-03-22
 
 ### 🎨 Added
