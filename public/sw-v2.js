@@ -10,6 +10,38 @@
  */
 
 // @ts-check
+export {};
+/**
+ * @typedef {{
+ *   waitUntil: (promise: Promise<any>) => void
+ * }} SWExtendableEvent
+ */
+
+/**
+ * @typedef {SWExtendableEvent & {
+ *   request: Request,
+ *   respondWith: (response: Promise<Response> | Response) => void
+ * }} SWFetchEvent
+ */
+
+/**
+ * @typedef {SWExtendableEvent & { tag: string }} SWSyncEvent
+ */
+
+/**
+ * @typedef {{
+ *   data: { type?: string, payload?: any },
+ *   ports: Array<{ postMessage: (message: any) => void }>
+ * }} SWMessageEvent
+ */
+
+/** @type {{
+ *   registration: { scope: string },
+ *   skipWaiting: () => Promise<void>,
+ *   clients: { claim: () => Promise<void> },
+ *   addEventListener: (type: string, listener: (event: any) => void) => void
+ * }} */
+const sw = /** @type {any} */ (self)
 
 const CACHE_VERSIONS = {
   CORE: 'mindnotes-core-v1.4.0',      // React/核心库
@@ -18,7 +50,8 @@ const CACHE_VERSIONS = {
   EXTERNAL: 'mindnotes-external-v1'   // 第三方资源
 }
 
-const BASE_PATH = new URL(/** @type {any} */ (self).registration.scope).pathname
+const BASE_PATH = new URL(sw.registration.scope).pathname
+/** @param {string} path */
 const withBase = (path) => `${BASE_PATH}${path}`
 
 const CORE_ASSETS = [
@@ -27,21 +60,10 @@ const CORE_ASSETS = [
   withBase('manifest.json'),
 ]
 
-const EXTERNAL_DOMAINS = ['cdn.jsdelivr.net', 'unpkg.com']
-
-const CACHE_STRATEGY = {
-  // 网络优先，回退到缓存
-  networkFirst: ['json', 'api'],
-  // 缓存优先，回退到网络
-  cacheFirst: ['woff2', 'png', 'svg', 'jpeg', 'jpg'],
-  // 仅缓存重要资源
-  cacheOnly: [],
-  // 默认: 网络优先
-  default: 'networkFirst'
-}
-
 /**
  * 获取缓存策略
+ * @param {string} url
+ * @returns {'networkFirst' | 'cacheFirst' | 'cacheOnly'}
  */
 function getCacheStrategy(url) {
   const urlObj = new URL(url)
@@ -66,18 +88,9 @@ function getCacheStrategy(url) {
 }
 
 /**
- * 获取相应的缓存名称
- */
-function getCacheName(strategy, contentType = '') {
-  if (contentType.includes('font')) return CACHE_VERSIONS.CORE
-  if (contentType.includes('image')) return CACHE_VERSIONS.APP
-  return CACHE_VERSIONS.APP
-}
-
-/**
  * 安装事件 - 预缓存核心资源
  */
-self.addEventListener('install', (event) => {
+sw.addEventListener('install', /** @param {SWExtendableEvent} event */ (event) => {
   console.log('[SW] Installing Service Worker v2...')
   
   event.waitUntil(
@@ -101,7 +114,7 @@ self.addEventListener('install', (event) => {
     ])
     .then(() => {
       console.log('[SW] Installation complete')
-      return self.skipWaiting()
+      return sw.skipWaiting()
     })
     .catch(err => {
       console.error('[SW] Installation failed:', err)
@@ -112,7 +125,7 @@ self.addEventListener('install', (event) => {
 /**
  * 激活事件 - 清理过期缓存
  */
-self.addEventListener('activate', (event) => {
+sw.addEventListener('activate', /** @param {SWExtendableEvent} event */ (event) => {
   console.log('[SW] Activating...')
   
   event.waitUntil(
@@ -128,7 +141,7 @@ self.addEventListener('activate', (event) => {
           })
         )
       })
-      .then(() => self.clients.claim())
+      .then(() => sw.clients.claim())
       .then(() => {
         console.log('[SW] Activation complete')
       })
@@ -138,7 +151,7 @@ self.addEventListener('activate', (event) => {
 /**
  * Fetch 事件 - 智能缓存策略
  */
-self.addEventListener('fetch', (event) => {
+sw.addEventListener('fetch', /** @param {SWFetchEvent} event */ (event) => {
   const { request } = event
   const url = new URL(request.url)
   
@@ -165,6 +178,8 @@ self.addEventListener('fetch', (event) => {
 
 /**
  * 网络优先策略
+ * @param {Request} request
+ * @returns {Promise<Response>}
  */
 async function networkFirst(request) {
   try {
@@ -179,7 +194,15 @@ async function networkFirst(request) {
     }
     
     // 3. 如果响应失败，回退到缓存
-    return await caches.match(request)
+    const cached = await caches.match(request)
+    if (cached) {
+      return cached
+    }
+
+    return new Response('Offline - Resource not available', {
+      status: 503,
+      statusText: 'Service Unavailable'
+    })
   } catch (error) {
     // 4. 网络失败，使用缓存
     console.log('[SW] Network failed, using cache:', request.url)
@@ -197,6 +220,8 @@ async function networkFirst(request) {
 
 /**
  * 缓存优先策略
+ * @param {Request} request
+ * @returns {Promise<Response>}
  */
 async function cacheFirst(request) {
   // 1. 检查缓存
@@ -224,6 +249,8 @@ async function cacheFirst(request) {
 
 /**
  * 仅缓存策略
+ * @param {Request} request
+ * @returns {Promise<Response>}
  */
 async function cacheOnly(request) {
   const cached = await caches.match(request)
@@ -237,7 +264,7 @@ async function cacheOnly(request) {
 /**
  * 后台同步（当网络恢复时）
  */
-self.addEventListener('sync', (event) => {
+sw.addEventListener('sync', /** @param {SWSyncEvent} event */ (event) => {
   if (event.tag === 'sync-data') {
     event.waitUntil(syncUserData())
   }
@@ -271,11 +298,11 @@ async function syncUserData() {
 /**
  * 消息处理
  */
-self.addEventListener('message', (event) => {
-  const { type, payload } = event.data
+sw.addEventListener('message', /** @param {SWMessageEvent} event */ (event) => {
+  const { type } = event.data
   
   if (type === 'SKIP_WAITING') {
-    self.skipWaiting()
+    sw.skipWaiting()
   }
   
   if (type === 'CLEAR_CACHE') {

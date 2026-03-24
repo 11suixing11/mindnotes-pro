@@ -3,7 +3,6 @@
  * 集成性能监控、调试面板和优化建议
  */
 
-import { useEffect, useState } from 'react'
 import { optimizationEngine, OptimizationSuggestion } from '../utils/optimizationEngine'
 
 interface DevToolsConfig {
@@ -16,6 +15,7 @@ interface DevToolsConfig {
 
 export class AIDevToolsManager {
   private static instance: AIDevToolsManager
+  private isInitialized = false
   private config: DevToolsConfig = {
     enabled: process.env.NODE_ENV === 'development',
     enablePerformanceMonitoring: true,
@@ -27,6 +27,23 @@ export class AIDevToolsManager {
   private suggestions: OptimizationSuggestion[] = []
   private metrics: Record<string, number> = {}
   private listeners: ((data: any) => void)[] = []
+  private metricsTimer: number | null = null
+
+  private readonly handleKeyDown = (e: KeyboardEvent) => {
+    if (e.ctrlKey && e.shiftKey) {
+      switch (e.code) {
+        case 'KeyD':
+          this.toggleDebugPanel()
+          break
+        case 'KeyA':
+          this.runAIAnalysis()
+          break
+        case 'KeyO':
+          this.showOptimizationSuggestions()
+          break
+      }
+    }
+  }
 
   static getInstance(): AIDevToolsManager {
     if (!AIDevToolsManager.instance) {
@@ -40,12 +57,15 @@ export class AIDevToolsManager {
     this.config = { ...this.config, ...config }
     if (this.config.enabled) {
       this.initialize()
+      return
     }
+
+    this.destroy()
   }
 
   // 初始化
   private initialize(): void {
-    if (!this.config.enabled) return
+    if (!this.config.enabled || this.isInitialized) return
 
     // 收集性能指标
     this.collectMetrics()
@@ -55,11 +75,15 @@ export class AIDevToolsManager {
 
     // 启用控制台 helpers
     this.setupConsoleHelpers()
+
+    this.isInitialized = true
   }
 
   // 收集性能指标
   private collectMetrics(): void {
-    setInterval(() => {
+    if (this.metricsTimer !== null) return
+
+    this.metricsTimer = window.setInterval(() => {
       const newMetrics: Record<string, number> = {
         fcp: 0,
         lcp: 0,
@@ -94,27 +118,11 @@ export class AIDevToolsManager {
     // Ctrl+Shift+A: 运行 AI 分析
     // Ctrl+Shift+O: 显示优化建议
 
-    window.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey) {
-        switch (e.code) {
-          case 'KeyD':
-            this.toggleDebugPanel()
-            break
-          case 'KeyA':
-            this.runAIAnalysis()
-            break
-          case 'KeyO':
-            this.showOptimizationSuggestions()
-            break
-        }
-      }
-    })
+    window.addEventListener('keydown', this.handleKeyDown)
   }
 
   // 设置控制台 helpers
   private setupConsoleHelpers(): void {
-    const self = this
-    
     ;(window as any).__devtools = {
       // 查看当前指标
       metrics: () => this.metrics,
@@ -236,6 +244,22 @@ export class AIDevToolsManager {
     this.listeners.forEach(listener => listener(data))
   }
 
+  // 释放资源，避免重复注册与定时器泄漏
+  destroy(): void {
+    if (this.metricsTimer !== null) {
+      window.clearInterval(this.metricsTimer)
+      this.metricsTimer = null
+    }
+
+    window.removeEventListener('keydown', this.handleKeyDown)
+
+    if ((window as any).__devtools) {
+      delete (window as any).__devtools
+    }
+
+    this.isInitialized = false
+  }
+
   // 获取当前配置
   getConfig(): DevToolsConfig {
     return { ...this.config }
@@ -263,5 +287,11 @@ if (process.env.NODE_ENV === 'development') {
     enableDebugPanel: false,
     enableAIAnalysis: true,
     enableAutoOptimization: false
+  })
+}
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    aiDevToolsManager.destroy()
   })
 }

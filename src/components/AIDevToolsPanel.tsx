@@ -38,64 +38,68 @@ export function AIDevToolsPanel() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.code === 'KeyD') {
-        setIsOpen(!isOpen)
+        setIsOpen((prev) => !prev)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen])
-
-  // 初始化性能监控
-  useEffect(() => {
-    const monitor = setInterval(() => {
-      analyzePerformance()
-    }, 5000)
-    
-    return () => clearInterval(monitor)
   }, [])
 
-  const analyzePerformance = () => {
-    const newAlerts: PerformanceAlert[] = []
+  // 初始化性能监控：仅初始化一个 interval 和一个 PerformanceObserver
+  useEffect(() => {
+    const longTaskAlerts: PerformanceAlert[] = []
+    let observer: PerformanceObserver | null = null
 
-    // 检查 Web Vitals
-    if ('getEntriesByName' in performance) {
-      const paintEntries = performance.getEntriesByName('', 'paint')
-      paintEntries.forEach((entry: any) => {
-        if (entry.name === 'first-contentful-paint' && entry.startTime > 1000) {
+    const analyzePerformance = () => {
+      const newAlerts: PerformanceAlert[] = []
+
+      // 合并观察期间采集到的长任务告警
+      if (longTaskAlerts.length > 0) {
+        newAlerts.push(...longTaskAlerts.splice(0, longTaskAlerts.length))
+      }
+
+      // 检查 Web Vitals
+      if ('getEntriesByType' in performance) {
+        const paintEntries = performance.getEntriesByType('paint')
+        paintEntries.forEach((entry) => {
+          if (entry.name === 'first-contentful-paint' && entry.startTime > 1000) {
+            newAlerts.push({
+              type: 'warning',
+              title: 'FCP 超过阈值',
+              description: `First Contentful Paint: ${entry.startTime.toFixed(0)}ms`,
+              suggestion: '考虑将 React 库迁移到 CDN，减少首屏 JavaScript 大小',
+              timestamp: Date.now()
+            })
+          }
+        })
+      }
+
+      // 检查内存使用
+      if ((performance as any).memory) {
+        const mem = (performance as any).memory
+        const usage = mem.usedJSHeapSize / mem.jsHeapSizeLimit
+
+        if (usage > 0.8) {
           newAlerts.push({
-            type: 'warning',
-            title: 'FCP 超过阈值',
-            description: `First Contentful Paint: ${entry.startTime.toFixed(0)}ms`,
-            suggestion: '考虑将 React 库迁移到 CDN，减少首屏 JavaScript 大小',
+            type: 'error',
+            title: '内存使用过高',
+            description: `Heap 使用率: ${(usage * 100).toFixed(1)}%`,
+            suggestion: '检查是否有未释放的闭包或事件监听器。考虑使用虚拟滚动减少 DOM 节点',
             timestamp: Date.now()
           })
         }
-      })
-    }
-
-    // 检查内存使用
-    if ((performance as any).memory) {
-      const mem = (performance as any).memory
-      const usage = mem.usedJSHeapSize / mem.jsHeapSizeLimit
-      
-      if (usage > 0.8) {
-        newAlerts.push({
-          type: 'error',
-          title: '内存使用过高',
-          description: `Heap 使用率: ${(usage * 100).toFixed(1)}%`,
-          suggestion: '检查是否有未释放的闭包或事件监听器。考虑使用虚拟滚动减少 DOM 节点',
-          timestamp: Date.now()
-        })
       }
+
+      setAlerts(newAlerts)
     }
 
-    // 检查长任务
+    // 长任务观察器只初始化一次
     if ('PerformanceObserver' in window) {
       try {
-        const observer = new PerformanceObserver((list) => {
-          list.getEntries().forEach((entry: any) => {
+        observer = new PerformanceObserver((list) => {
+          list.getEntries().forEach((entry) => {
             if (entry.duration > 50) {
-              newAlerts.push({
+              longTaskAlerts.push({
                 type: 'warning',
                 title: '检测到长任务',
                 description: `Task duration: ${entry.duration.toFixed(0)}ms`,
@@ -111,8 +115,14 @@ export function AIDevToolsPanel() {
       }
     }
 
-    setAlerts(newAlerts)
-  }
+    analyzePerformance()
+    const monitor = window.setInterval(analyzePerformance, 5000)
+
+    return () => {
+      window.clearInterval(monitor)
+      observer?.disconnect()
+    }
+  }, [])
 
   const runAIAnalysis = async () => {
     setIsAnalyzing(true)
@@ -190,6 +200,8 @@ export function AIDevToolsPanel() {
         if (jsonMatch) {
           return JSON.parse(jsonMatch[0])
         }
+
+        return parseTextAnalysis(data.response)
       } catch (e) {
         // 如果解析 JSON 失败，返回默认建议
         return parseTextAnalysis(data.response)
@@ -204,7 +216,7 @@ export function AIDevToolsPanel() {
     }
   }
 
-  const parseTextAnalysis = (text: string): AIAnalysis => {
+  const parseTextAnalysis = (_text: string): AIAnalysis => {
     // 简单的文本解析，如果无法连接到 Ollama
     return {
       summary: '性能分析（Ollama 离线）',

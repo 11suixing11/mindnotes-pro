@@ -1,12 +1,29 @@
-import { useEffect } from 'react'
-import Canvas from './components/Canvas'
-import Toolbar from './components/Toolbar'
-import ConflictResolutionPanel from './components/ConflictResolutionPanel'
+import { Suspense, lazy, useEffect, useState } from 'react'
+import LoadingFallback from './components/ui/LoadingFallback'
 import { useThemeStore } from './store/useThemeStore'
 import { syncEngine } from './utils/syncEngine'
 
+const WelcomeGuide = lazy(() => import('./components/WelcomeGuide'))
+const Canvas = lazy(() => import('./components/Canvas'))
+const Toolbar = lazy(() => import('./components/Toolbar'))
+const ConflictResolutionPanel = lazy(() => import('./components/ConflictResolutionPanel'))
+const AIDevToolsPanel = lazy(() => import('./components/AIDevToolsPanel'))
+
+const WELCOME_GUIDE_STORAGE_KEY = 'mindnotes-welcome-seen-v1'
+
 export default function App() {
   const { initTheme } = useThemeStore()
+  const [showWelcome, setShowWelcome] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    const hasSeenWelcome = localStorage.getItem(WELCOME_GUIDE_STORAGE_KEY) === '1'
+    setShowWelcome(!hasSeenWelcome)
+  }, [])
+
+  const handleWelcomeStart = () => {
+    localStorage.setItem(WELCOME_GUIDE_STORAGE_KEY, '1')
+    setShowWelcome(false)
+  }
 
   useEffect(() => {
     initTheme()
@@ -18,11 +35,36 @@ export default function App() {
     })
   }, [])
 
+  if (showWelcome === null) {
+    return <LoadingFallback label="正在准备欢迎页..." fullScreen />
+  }
+
+  if (showWelcome) {
+    return (
+      <Suspense fallback={<LoadingFallback label="正在加载产品引导..." fullScreen />}>
+        <WelcomeGuide onStart={handleWelcomeStart} />
+      </Suspense>
+    )
+  }
+
   return (
     <div className="w-full h-screen relative overflow-hidden bg-[var(--bg-secondary)]">
-      <Toolbar />
-      <Canvas />
-      <ConflictResolutionPanel />
+      <Suspense fallback={<LoadingFallback label="正在加载白板引擎..." fullScreen />}>
+        <Canvas />
+      </Suspense>
+
+      <Suspense fallback={<LoadingFallback label="正在加载工具栏..." />}>
+        <Toolbar />
+      </Suspense>
+
+      <Suspense fallback={<LoadingFallback label="正在加载同步模块..." />}>
+        <ConflictResolutionPanel />
+      </Suspense>
+
+      <Suspense fallback={<LoadingFallback label="正在加载 AI 调试模块..." />}>
+        <AIDevToolsPanel />
+      </Suspense>
+
       <div className="fixed bottom-4 left-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-xl px-4 py-3 text-sm text-gray-600 dark:text-gray-300 shadow-lg border border-gray-200 dark:border-gray-700">
         <div className="font-medium mb-2">💡 使用提示</div>
         <div className="space-y-1">

@@ -40,26 +40,42 @@ export default defineConfig({
       output: {
         // 智能代码分割
         manualChunks: (id) => {
-          // 核心框架
-          if (id.includes('node_modules/react') || id.includes('node_modules/zustand')) {
-            return 'vendor-core'
+          const normalizedId = id.replace(/\\/g, '/')
+
+          // React 栈单独分包，稳定首屏缓存
+          if (
+            normalizedId.includes('/node_modules/react/') ||
+            normalizedId.includes('/node_modules/react-dom/') ||
+            normalizedId.includes('/node_modules/scheduler/') ||
+            normalizedId.includes('/node_modules/use-sync-external-store/')
+          ) {
+            return 'vendor-react'
           }
-          // UI 库
-          if (id.includes('node_modules/')) {
-            return 'vendor-other'
+
+          // 协作协议单独分包，减少白板主包压力
+          if (
+            normalizedId.includes('/node_modules/yjs/') ||
+            normalizedId.includes('/node_modules/y-websocket/')
+          ) {
+            return 'vendor-collab'
           }
-          // 功能模块分离
-          if (id.includes('src/store/')) {
-            return 'store'
+
+          // 绘制算法单独分包，便于长期缓存
+          if (normalizedId.includes('/node_modules/perfect-freehand/')) {
+            return 'vendor-drawing'
           }
-          if (id.includes('src/hooks/')) {
-            return 'hooks'
+
+          // 白板核心单独分包，避免阻塞主入口解析
+          if (
+            normalizedId.includes('/node_modules/@tldraw/') ||
+            normalizedId.includes('/node_modules/tldraw/')
+          ) {
+            return 'vendor-tldraw'
           }
-          if (id.includes('src/components/')) {
-            return 'components'
-          }
-          if (id.includes('src/utils/')) {
-            return 'utils'
+
+          // 其余第三方依赖
+          if (normalizedId.includes('/node_modules/')) {
+            return 'vendor'
           }
         },
         

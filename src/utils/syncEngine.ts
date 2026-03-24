@@ -34,6 +34,15 @@ export class SyncEngine {
   private listeners: Map<string, Function[]> = new Map()
   private lastSyncTime = 0
   private syncInProgress = false
+  private retryTimeoutId: number | null = null
+
+  private readonly handleOnline = () => {
+    this.onNetworkOnline()
+  }
+
+  private readonly handleOffline = () => {
+    this.onNetworkOffline()
+  }
 
   /**
    * 初始化同步引擎
@@ -42,8 +51,8 @@ export class SyncEngine {
     if (this.isInitialized) return
 
     // 监听网络状态变化
-    window.addEventListener('online', () => this.onNetworkOnline())
-    window.addEventListener('offline', () => this.onNetworkOffline())
+    window.addEventListener('online', this.handleOnline)
+    window.addEventListener('offline', this.handleOffline)
 
     // 初始化状态
     this.state = navigator.onLine ? 'online' : 'offline'
@@ -281,7 +290,13 @@ export class SyncEngine {
     
     console.log(`⏰ 将在 ${delay}ms 后重试 (${this.retryCount}/${this.maxRetries})...`)
     
-    setTimeout(() => {
+    if (this.retryTimeoutId !== null) {
+      window.clearTimeout(this.retryTimeoutId)
+      this.retryTimeoutId = null
+    }
+
+    this.retryTimeoutId = window.setTimeout(() => {
+      this.retryTimeoutId = null
       if (this.state === 'online') {
         this.startSync()
       }
@@ -380,7 +395,31 @@ export class SyncEngine {
       listeners.forEach(listener => listener(data))
     }
   }
+
+  /**
+   * 销毁引擎并清理全局监听，防止重复注册
+   */
+  destroy(): void {
+    window.removeEventListener('online', this.handleOnline)
+    window.removeEventListener('offline', this.handleOffline)
+
+    if (this.retryTimeoutId !== null) {
+      window.clearTimeout(this.retryTimeoutId)
+      this.retryTimeoutId = null
+    }
+
+    this.listeners.clear()
+    this.syncInProgress = false
+    this.isInitialized = false
+    this.state = navigator.onLine ? 'online' : 'offline'
+  }
 }
 
 // 创建全局实例
 export const syncEngine = new SyncEngine()
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    syncEngine.destroy()
+  })
+}

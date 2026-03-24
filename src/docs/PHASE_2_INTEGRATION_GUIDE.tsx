@@ -4,12 +4,6 @@
  * 在您的应用中集成 Phase 2 工具的快速指南
  */
 
-import React from 'react'
-import { AIDevToolsPanel } from '../components/AIDevToolsPanel'
-import { PerformanceDebugView } from '../components/PerformanceDebugView'
-import { aiDevToolsManager } from '../utils/aiDevToolsManager'
-import { releaseChannelManager } from '../utils/releaseChannelManager'
-
 /**
  * 使用 AI DevTools 的步骤
  */
