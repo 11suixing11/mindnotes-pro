@@ -7,6 +7,10 @@ export default function Canvas() {
     const canvas = canvasRef.current
     if (!canvas) return
 
+    // 获取 2D 上下文
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
     // 设置 Canvas 大小
     const resize = () => {
       canvas.width = window.innerWidth
@@ -14,10 +18,6 @@ export default function Canvas() {
     }
     resize()
     window.addEventListener('resize', resize)
-
-    // 获取 2D 上下文
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
 
     // 设置绘制样式
     ctx.strokeStyle = '#000000'
@@ -85,8 +85,16 @@ export default function Canvas() {
     canvas.addEventListener('touchstart', startDrawing, { passive: false })
     canvas.addEventListener('touchmove', draw, { passive: false })
     canvas.addEventListener('touchend', stopDrawing)
+
     return () => {
       window.removeEventListener('resize', resize)
+      canvas.removeEventListener('mousedown', startDrawing)
+      canvas.removeEventListener('mousemove', draw)
+      canvas.removeEventListener('mouseup', stopDrawing)
+      canvas.removeEventListener('mouseout', stopDrawing)
+      canvas.removeEventListener('touchstart', startDrawing)
+      canvas.removeEventListener('touchmove', draw)
+      canvas.removeEventListener('touchend', stopDrawing)
     }
   }, [])
 
@@ -94,6 +102,7 @@ export default function Canvas() {
     <div className="w-full h-screen">
       <canvas
         ref={canvasRef}
+        data-whiteboard-canvas="true"
         className="w-full h-full touch-none"
         style={{ touchAction: 'none' }}
       />

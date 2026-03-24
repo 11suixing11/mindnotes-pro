@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { debugError, debugLog } from '../utils/logger'
 
 export function useServiceWorker() {
@@ -7,9 +7,12 @@ export function useServiceWorker() {
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
   const [swReady, setSwReady] = useState(false)
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null)
+  const currentWorkerRef = useRef<ServiceWorker | null>(null)
 
   useEffect(() => {
-    if (!import.meta.env.PROD) {
+    // 在测试环境允许执行注册分支，便于覆盖关键行为。
+    if (!import.meta.env.PROD && import.meta.env.MODE !== 'test') {
       return
     }
 
@@ -19,6 +22,39 @@ export function useServiceWorker() {
       return
     }
 
+    let isMounted = true
+
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+
+    const handleControllerChange = () => {
+      debugLog('[PWA] Controller changed, reloading...')
+      window.location.reload()
+    }
+
+    const handleStateChange = () => {
+      const worker = currentWorkerRef.current
+      if (worker?.state === 'installed' && navigator.serviceWorker.controller) {
+        debugLog('[PWA] New content available')
+        setUpdateAvailable(true)
+      }
+    }
+
+    const handleUpdateFound = () => {
+      const reg = registrationRef.current
+      if (!reg) return
+
+      if (currentWorkerRef.current) {
+        currentWorkerRef.current.removeEventListener('statechange', handleStateChange)
+      }
+
+      const newWorker = reg.installing
+      if (!newWorker) return
+
+      currentWorkerRef.current = newWorker
+      newWorker.addEventListener('statechange', handleStateChange)
+    }
+
     // 注册 Service Worker
     const registerSW = async () => {
       try {
@@ -26,7 +62,14 @@ export function useServiceWorker() {
 
         const reg = await navigator.serviceWorker.register(swUrl, {
           scope: import.meta.env.BASE_URL,
+          type: 'module',
         })
+
+        if (!isMounted) {
+          return
+        }
+
+        registrationRef.current = reg
         debugLog('✅ [PWA] Service Worker registered:', reg.scope)
         setRegistration(reg)
         
@@ -37,23 +80,8 @@ export function useServiceWorker() {
         }
 
         // 监听更新
-        reg.addEventListener('updatefound', () => {
-          const newWorker = reg.installing
-          if (!newWorker) return
-
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              debugLog('[PWA] New content available')
-              setUpdateAvailable(true)
-            }
-          })
-        })
-
-        // 监听控制器变化
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          debugLog('[PWA] Controller changed, reloading...')
-          window.location.reload()
-        })
+        reg.addEventListener('updatefound', handleUpdateFound)
+        navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange)
       } catch (error) {
         debugError('[PWA] Service Worker registration failed:', error)
       }
@@ -61,16 +89,25 @@ export function useServiceWorker() {
 
     registerSW()
 
-    // 监听网络状态
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
 
     return () => {
+      isMounted = false
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
+      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange)
+
+      if (registrationRef.current) {
+        registrationRef.current.removeEventListener('updatefound', handleUpdateFound)
+      }
+
+      if (currentWorkerRef.current) {
+        currentWorkerRef.current.removeEventListener('statechange', handleStateChange)
+      }
+
+      currentWorkerRef.current = null
+      registrationRef.current = null
     }
   }, [])
 

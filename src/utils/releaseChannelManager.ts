@@ -244,7 +244,7 @@ export class ReleaseChannelManager {
   /**
    * 执行渐进式发布
    */
-  private async executeGradualRollout(version: string, channel: ReleaseChannel): Promise<void> {
+  private async executeGradualRollout(version: string, _channel: ReleaseChannel): Promise<void> {
     const percentages = this.releaseSchedule.stable.gradualRolloutPercentages
     
     for (let i = 0; i < percentages.length; i++) {
@@ -273,7 +273,6 @@ export class ReleaseChannelManager {
    */
   getNextReleaseDate(channel: ReleaseChannel['name']): Date {
     const now = new Date()
-    const schedule = this.releaseSchedule[channel]
     
     let nextDate = new Date(now)
     

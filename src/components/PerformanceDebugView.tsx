@@ -3,7 +3,7 @@
  * 实时性能调试视图，集成 Web Vitals 和渲染分析
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 interface PerformanceMetric {
   name: string
@@ -13,121 +13,164 @@ interface PerformanceMetric {
   unit: string
 }
 
-interface RenderMetric {
-  timestamp: number
-  componentName: string
-  duration: number
-  reason: string
-}
-
 export function PerformanceDebugView() {
   const [metrics, setMetrics] = useState<PerformanceMetric[]>([])
-  const [renderMetrics, setRenderMetrics] = useState<RenderMetric[]>([])
-  const [cpuUsage, setCpuUsage] = useState(0)
+  const cpuUsage = 0
   const [isLive, setIsLive] = useState(false)
+  const isLiveRef = useRef(false)
+  const metricsCacheRef = useRef<Map<string, PerformanceMetric>>(new Map())
+  const clsValueRef = useRef(0)
+  const lastFlushAtRef = useRef(0)
+  const flushTimerRef = useRef<number | null>(null)
+
+  const upsertMetric = useCallback((metric: PerformanceMetric) => {
+    metricsCacheRef.current.set(metric.name, metric)
+  }, [])
+
+  const flushMetrics = useCallback((force = false) => {
+    if (!force && !isLiveRef.current) {
+      return
+    }
+
+    const now = Date.now()
+    const elapsed = now - lastFlushAtRef.current
+
+    if (force || elapsed >= 1000) {
+      if (flushTimerRef.current !== null) {
+        window.clearTimeout(flushTimerRef.current)
+        flushTimerRef.current = null
+      }
+
+      setMetrics(Array.from(metricsCacheRef.current.values()))
+      lastFlushAtRef.current = now
+      return
+    }
+
+    if (flushTimerRef.current === null) {
+      flushTimerRef.current = window.setTimeout(() => {
+        flushTimerRef.current = null
+        if (!isLiveRef.current) {
+          return
+        }
+        setMetrics(Array.from(metricsCacheRef.current.values()))
+        lastFlushAtRef.current = Date.now()
+      }, 1000 - elapsed)
+    }
+  }, [])
+
+  const collectStaticMetrics = useCallback(() => {
+    // FCP (First Contentful Paint)
+    const fcpEntries = performance.getEntriesByName('first-contentful-paint')
+    if (fcpEntries.length > 0) {
+      const fcp = fcpEntries[0].startTime
+      upsertMetric({
+        name: 'FCP',
+        value: fcp,
+        target: 700,
+        status: fcp < 700 ? 'good' : fcp < 1000 ? 'warning' : 'poor',
+        unit: 'ms'
+      })
+    }
+
+    // 内存使用
+    if ((performance as any).memory) {
+      const mem = (performance as any).memory
+      const usedMB = mem.usedJSHeapSize / 1024 / 1024
+      upsertMetric({
+        name: 'Heap',
+        value: usedMB,
+        target: 50,
+        status: usedMB < 50 ? 'good' : usedMB < 100 ? 'warning' : 'poor',
+        unit: 'MB'
+      })
+    }
+  }, [upsertMetric])
 
   useEffect(() => {
-    if (!isLive) return
+    isLiveRef.current = isLive
+  }, [isLive])
 
-    // 收集 Web Vitals
-    const collectMetrics = () => {
-      const newMetrics: PerformanceMetric[] = []
+  useEffect(() => {
+    if (!('PerformanceObserver' in window)) {
+      return
+    }
 
-      // FCP (First Contentful Paint)
-      const fcpEntries = performance.getEntriesByName('first-contentful-paint')
-      if (fcpEntries.length > 0) {
-        const fcp = fcpEntries[0].startTime
-        newMetrics.push({
-          name: 'FCP',
-          value: fcp,
-          target: 700, // 目标值 700ms
-          status: fcp < 700 ? 'good' : fcp < 1000 ? 'warning' : 'poor',
-          unit: 'ms'
-        })
-      }
-
-      // LCP (Largest Contentful Paint)
-      if ('PerformanceObserver' in window) {
-        const observer = new PerformanceObserver((list) => {
-          const entries = list.getEntries()
-          if (entries.length > 0) {
-            const lastEntry = entries[entries.length - 1]
-            const lcp = (lastEntry as any).renderTime || (lastEntry as any).loadTime
-            
-            const metricIndex = newMetrics.findIndex(m => m.name === 'LCP')
-            if (metricIndex !== -1) {
-              newMetrics[metricIndex] = {
-                name: 'LCP',
-                value: lcp,
-                target: 1000,
-                status: lcp < 1000 ? 'good' : lcp < 2500 ? 'warning' : 'poor',
-                unit: 'ms'
-              }
-            } else {
-              newMetrics.push({
-                name: 'LCP',
-                value: lcp,
-                target: 1000,
-                status: lcp < 1000 ? 'good' : lcp < 2500 ? 'warning' : 'poor',
-                unit: 'ms'
-              })
-            }
-          }
-        })
-
-        try {
-          observer.observe({ entryTypes: ['largest-contentful-paint'] })
-        } catch (e) {
-          // LCP 不被支持
+    const observer = new PerformanceObserver((list) => {
+      const entries = list.getEntries()
+      for (const entry of entries) {
+        if (entry.entryType === 'largest-contentful-paint') {
+          const lcpEntry = entry as any
+          const lcp = lcpEntry.renderTime || lcpEntry.loadTime || entry.startTime
+          upsertMetric({
+            name: 'LCP',
+            value: lcp,
+            target: 1000,
+            status: lcp < 1000 ? 'good' : lcp < 2500 ? 'warning' : 'poor',
+            unit: 'ms'
+          })
         }
-      }
 
-      // CLS (Cumulative Layout Shift)
-      if ('PerformanceObserver' in window) {
-        try {
-          const observer = new PerformanceObserver((list) => {
-            let cls = 0
-            list.getEntries().forEach((entry: any) => {
-              if (!entry.hadRecentInput) {
-                cls += entry.value
-              }
-            })
-
-            newMetrics.push({
+        if (entry.entryType === 'layout-shift') {
+          const layoutShiftEntry = entry as any
+          if (!layoutShiftEntry.hadRecentInput) {
+            clsValueRef.current += layoutShiftEntry.value
+            const cls = parseFloat(clsValueRef.current.toFixed(3))
+            upsertMetric({
               name: 'CLS',
-              value: parseFloat(cls.toFixed(3)),
+              value: cls,
               target: 0.05,
               status: cls < 0.05 ? 'good' : cls < 0.1 ? 'warning' : 'poor',
               unit: ''
             })
-          })
-
-          observer.observe({ entryTypes: ['layout-shift'] })
-        } catch (e) {
-          // CLS 不被支持
+          }
         }
       }
 
-      // 内存使用
-      if ((performance as any).memory) {
-        const mem = (performance as any).memory
-        const usedMB = mem.usedJSHeapSize / 1024 / 1024
-        newMetrics.push({
-          name: 'Heap',
-          value: usedMB,
-          target: 50,
-          status: usedMB < 50 ? 'good' : usedMB < 100 ? 'warning' : 'poor',
-          unit: 'MB'
-        })
-      }
+      flushMetrics()
+    })
 
-      setMetrics(newMetrics)
+    try {
+      observer.observe({ type: 'largest-contentful-paint', buffered: true })
+    } catch (e) {
+      // LCP 不被支持
     }
 
-    collectMetrics()
-    const interval = setInterval(collectMetrics, 1000)
-    return () => clearInterval(interval)
-  }, [isLive])
+    try {
+      observer.observe({ type: 'layout-shift', buffered: true })
+    } catch (e) {
+      // CLS 不被支持
+    }
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [flushMetrics, upsertMetric])
+
+  useEffect(() => {
+    if (!isLive) {
+      return
+    }
+
+    collectStaticMetrics()
+    flushMetrics(true)
+
+    const interval = window.setInterval(() => {
+      collectStaticMetrics()
+      flushMetrics()
+    }, 1000)
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [collectStaticMetrics, flushMetrics, isLive])
+
+  useEffect(() => {
+    return () => {
+      if (flushTimerRef.current !== null) {
+        window.clearTimeout(flushTimerRef.current)
+      }
+    }
+  }, [])
 
   return (
     <div className="fixed top-4 left-4 w-80 bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-4 font-mono text-xs z-50">

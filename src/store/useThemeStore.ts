@@ -1,5 +1,18 @@
 import { create } from 'zustand'
 
+const THEME_MEDIA_QUERY = '(prefers-color-scheme: dark)'
+
+let themeMediaQuery: MediaQueryList | null = null
+let themeMediaQueryHandler: ((e: MediaQueryListEvent) => void) | null = null
+
+function cleanupSystemThemeListener() {
+  if (themeMediaQuery && themeMediaQueryHandler) {
+    themeMediaQuery.removeEventListener('change', themeMediaQueryHandler)
+  }
+  themeMediaQuery = null
+  themeMediaQueryHandler = null
+}
+
 interface ThemeState {
   // 主题状态
   isDarkMode: boolean
@@ -10,6 +23,7 @@ interface ThemeState {
 
   // 初始化主题
   initTheme: () => void
+  cleanupThemeListener: () => void
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
@@ -49,6 +63,9 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
 
   // 初始化主题
   initTheme: () => {
+    // 防止 HMR 或重复初始化导致监听器叠加
+    cleanupSystemThemeListener()
+
     // 1. 检查 localStorage
     const savedTheme = localStorage.getItem('mindnotes-theme')
 
@@ -65,7 +82,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     }
 
     // 2. 检查系统偏好
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    themeMediaQuery = window.matchMedia(THEME_MEDIA_QUERY)
+    const prefersDark = themeMediaQuery.matches
 
     if (prefersDark) {
       set({ isDarkMode: true })
@@ -73,7 +91,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     }
 
     // 3. 监听系统主题变化
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    themeMediaQueryHandler = (e: MediaQueryListEvent) => {
       if (!localStorage.getItem('mindnotes-theme')) {
         const isDark = e.matches
         set({ isDarkMode: isDark })
@@ -84,6 +102,18 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
           document.documentElement.classList.remove('dark')
         }
       }
-    })
+    }
+
+    themeMediaQuery.addEventListener('change', themeMediaQueryHandler)
+  },
+
+  cleanupThemeListener: () => {
+    cleanupSystemThemeListener()
   },
 }))
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    cleanupSystemThemeListener()
+  })
+}

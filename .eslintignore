@@ -1,0 +1,4 @@
+dist/
+coverage/
+release/
+node_modules/

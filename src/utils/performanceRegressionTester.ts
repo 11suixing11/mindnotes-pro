@@ -5,7 +5,7 @@
  * 自动检测性能下降并生成报告
  */
 
-import { vi, describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 
 export interface PerformanceBenchmark {
   name: string
