@@ -37,7 +37,7 @@ interface DrawingActions {
   setSize: (size: number) => void
 }
 
-export const useDrawingStore = create<DrawingState & DrawingActions>((set, get) => ({
+export const useDrawingStore = create<DrawingState & DrawingActions>((set) => ({
   // 初始状态
   strokes: [],
   currentStroke: null,

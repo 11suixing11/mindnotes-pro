@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ErrorBoundary } from '../ErrorBoundary'
+import { describe, it, expect, vi } from 'vitest'
+import { ErrorBoundary } from './ErrorBoundary'
 import { render, screen, fireEvent } from '@testing-library/react'
+import '@testing-library/jest-dom'
 
 describe('ErrorBoundary', () => {
   const TestComponent = ({ shouldThrow }: { shouldThrow: boolean }) => {
