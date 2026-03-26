@@ -1,10 +1,17 @@
 import { create } from 'zustand'
-import type { CanvasState } from './types'
 
-const DEFAULT_VIEWBOX = { x: 0, y: 0, zoom: 1 }
+interface ViewState {
+  viewBox: {
+    x: number
+    y: number
+    zoom: number
+  }
+  isPanning: boolean
+  lastPanPosition: { x: number; y: number } | null
+}
 
 interface ViewActions {
-  setViewBox: (viewBox: CanvasState['viewBox']) => void
+  setViewBox: (viewBox: ViewState['viewBox']) => void
   zoomIn: () => void
   zoomOut: () => void
   resetView: () => void
@@ -13,7 +20,9 @@ interface ViewActions {
   endPan: () => void
 }
 
-export const useViewStore = create<CanvasState & ViewActions>((set, get) => ({
+const DEFAULT_VIEWBOX = { x: 0, y: 0, zoom: 1 }
+
+export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
   viewBox: DEFAULT_VIEWBOX,
   isPanning: false,
   lastPanPosition: null,
@@ -49,3 +58,5 @@ export const useViewStore = create<CanvasState & ViewActions>((set, get) => ({
 
   endPan: () => set({ isPanning: false, lastPanPosition: null }),
 }))
+
+export default useViewStore
