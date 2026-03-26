@@ -2,43 +2,30 @@ import { create } from 'zustand'
 import type { Stroke, Shape, ToolType } from './types'
 
 interface DrawingState {
-  // 笔迹数据
   strokes: Stroke[]
   currentStroke: Stroke | null
-
-  // 形状数据
   shapes: Shape[]
   currentShape: Shape | null
-
-  // 工具状态
   tool: ToolType
   color: string
   size: number
-
-  // 操作状态
   isDrawing: boolean
 }
 
 interface DrawingActions {
-  // 笔迹方法
   addStroke: (stroke: Stroke) => void
   updateCurrentStroke: (points: number[][]) => void
   startStroke: () => void
   clearStrokes: () => void
-
-  // 形状方法
   addShape: (shape: Shape) => void
   updateCurrentShape: (shape: Partial<Shape>) => void
-  clearShapes: () => void
-
-  // 工具方法
+  startShape: (type: Shape['type']) => void
   setTool: (tool: ToolType) => void
   setColor: (color: string) => void
   setSize: (size: number) => void
 }
 
-export const useDrawingStore = create<DrawingState & DrawingActions>((set) => ({
-  // 初始状态
+export const useDrawingStore = create<DrawingState & DrawingActions>((set, get) => ({
   strokes: [],
   currentStroke: null,
   shapes: [],
@@ -48,11 +35,11 @@ export const useDrawingStore = create<DrawingState & DrawingActions>((set) => ({
   size: 4,
   isDrawing: false,
 
-  // 笔迹操作
   addStroke: (stroke) =>
     set((state) => ({
       strokes: [...state.strokes, stroke],
       currentStroke: null,
+      isDrawing: false,
     })),
 
   updateCurrentStroke: (points) =>
@@ -76,7 +63,6 @@ export const useDrawingStore = create<DrawingState & DrawingActions>((set) => ({
 
   clearStrokes: () => set({ strokes: [], currentStroke: null }),
 
-  // 形状操作
   addShape: (shape) =>
     set((state) => ({
       shapes: [...state.shapes, shape],
@@ -90,10 +76,23 @@ export const useDrawingStore = create<DrawingState & DrawingActions>((set) => ({
         : null,
     })),
 
-  clearShapes: () => set({ shapes: [], currentShape: null }),
+  startShape: (type) =>
+    set((state) => ({
+      currentShape: {
+        id: `shape-${Date.now()}`,
+        type,
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        color: state.color,
+        size: state.size,
+      },
+    })),
 
-  // 工具操作
   setTool: (tool) => set({ tool }),
   setColor: (color) => set({ color }),
   setSize: (size) => set({ size }),
 }))
+
+export default useDrawingStore
