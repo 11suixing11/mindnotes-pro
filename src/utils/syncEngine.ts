@@ -3,7 +3,8 @@
  * Phase 3.2 - 网络感知同步和冲突检测
  */
 
-import { offlineStorage, DocumentChange, Document } from './offlineStorageManager'
+import OfflineStorageManager from './offlineStorageManager/index'
+import type { DocumentChange, Document } from './offlineStorageManager/types'
 
 export interface SyncResult {
   success: boolean
@@ -35,6 +36,11 @@ export class SyncEngine {
   private lastSyncTime = 0
   private syncInProgress = false
   private retryTimeoutId: number | null = null
+  private offlineStorage: OfflineStorageManager
+
+  constructor() {
+    this.offlineStorage = new OfflineStorageManager()
+  }
 
   private readonly handleOnline = () => {
     this.onNetworkOnline()
@@ -58,7 +64,7 @@ export class SyncEngine {
     this.state = navigator.onLine ? 'online' : 'offline'
     
     // 初始化离线存储
-    await offlineStorage.initialize()
+    await this.offlineStorage.initialize()
 
     // 如果在线，立即开始同步
     if (this.state === 'online') {
@@ -138,7 +144,7 @@ export class SyncEngine {
 
     try {
       // 获取待同步项目
-      const items = await offlineStorage.getPendingSyncItems()
+      const items = await this.offlineStorage.getPendingSyncItems()
       
       if (items.length === 0) {
         result.duration = Date.now() - startTime
@@ -151,7 +157,7 @@ export class SyncEngine {
       for (const item of items) {
         try {
           // 获取文档最新状态
-          const localDoc = await offlineStorage.getDocument(item.documentId)
+          const localDoc = await this.offlineStorage.getDocument(item.documentId)
           if (!localDoc) continue
 
           // 模拟上传到服务器
@@ -160,7 +166,7 @@ export class SyncEngine {
           if (syncSuccess) {
             // 标记变更为已同步
             const changeIds = item.changes.map(c => c.id)
-            await offlineStorage.markChangesSynced(changeIds)
+            await this.offlineStorage.markChangesSynced(changeIds)
             result.itemsSynced++
           } else {
             result.itemsFailed++
@@ -178,7 +184,7 @@ export class SyncEngine {
 
       // 清除已同步的队列项目
       const syncedItemIds = items.slice(0, result.itemsSynced).map(i => i.id)
-      await offlineStorage.clearSyncedItems(syncedItemIds)
+      await this.offlineStorage.clearSyncedItems(syncedItemIds)
 
       result.success = result.itemsFailed === 0 && result.conflictsDetected === 0
       result.duration = Date.now() - startTime
@@ -229,7 +235,7 @@ export class SyncEngine {
     const conflicts: ConflictInfo[] = []
 
     // 从服务器获取最新版本（模拟）
-    const documents = await offlineStorage.getAllDocuments()
+    const documents = await this.offlineStorage.getAllDocuments()
 
     for (const doc of documents) {
       if (doc.syncStatus === 'conflict') {
@@ -310,7 +316,7 @@ export class SyncEngine {
     docId: string,
     strategy: 'local' | 'remote' | 'merge'
   ): Promise<void> {
-    const doc = await offlineStorage.getDocument(docId)
+    const doc = await this.offlineStorage.getDocument(docId)
     if (!doc) return
 
     switch (strategy) {
@@ -332,7 +338,7 @@ export class SyncEngine {
         break
     }
 
-    await offlineStorage.saveDocument(doc)
+    await this.offlineStorage.saveDocument(doc)
     this.emit('conflict-resolved', { documentId: docId, strategy })
   }
 
@@ -350,10 +356,10 @@ export class SyncEngine {
     state: SyncState
     lastSyncTime: number
     pendingItems: number
-    stats: Awaited<ReturnType<typeof offlineStorage.getStats>>
+    stats: Awaited<ReturnType<typeof this.offlineStorage.getStats>>
   }> {
-    const stats = await offlineStorage.getStats()
-    const pendingItems = await offlineStorage.getPendingSyncItems()
+    const stats = await this.offlineStorage.getStats()
+    const pendingItems = await this.offlineStorage.getPendingSyncItems()
 
     return {
       state: this.state,
