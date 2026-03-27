@@ -1,41 +1,39 @@
-import { useAppStore, Stroke, Shape } from '../store/useAppStore'
+import { useLayerStore } from '../store/useLayerStore'
+import { useDrawingStore } from '../store/useDrawingStore'
+import type { Stroke, Shape } from '../store/types'
 import { useEffect } from 'react'
 import { FadeIn, StaggerContainer } from './ui/Motion'
 
 export default function LayersPanel() {
   const {
-    strokes,
-    shapes,
     selectedLayerId,
     showLayersPanel,
     setSelectedLayer,
     toggleLayersPanel,
     toggleLayerLock,
     toggleLayerHidden,
-    deleteLayer,
-    clearAllLayers,
-  } = useAppStore()
+    removeLayer: deleteLayer,
+  } = useLayerStore()
+
+  const { strokes, shapes } = useDrawingStore()
 
   // 监听关闭事件
   useEffect(() => {
     const handleToggle = () => toggleLayersPanel()
-    const handleClear = () => clearAllLayers()
 
     window.addEventListener('toggle-layers-panel', handleToggle)
-    window.addEventListener('clear-all-layers', handleClear)
 
     return () => {
       window.removeEventListener('toggle-layers-panel', handleToggle)
-      window.removeEventListener('clear-all-layers', handleClear)
     }
-  }, [toggleLayersPanel, clearAllLayers])
+  }, [toggleLayersPanel])
 
   if (!showLayersPanel) return null
 
   // 合并所有图层（笔迹和形状）
   const allLayers = [
-    ...strokes.map((s, idx) => ({ ...s, layerType: 'stroke' as const, index: idx })),
-    ...shapes.map((s, idx) => ({ ...s, layerType: 'shape' as const, index: idx })),
+    ...strokes.map((s: Stroke, idx: number) => ({ ...s, layerType: 'stroke' as const, index: idx })),
+    ...shapes.map((s: Shape, idx: number) => ({ ...s, layerType: 'shape' as const, index: idx })),
   ]
 
   const getLayerName = (layer: Stroke | Shape) => {

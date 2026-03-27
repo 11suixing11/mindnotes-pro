@@ -1,5 +1,8 @@
 import { useEffect, useCallback } from 'react'
-import { useAppStore } from '../store/useAppStore'
+import { useDrawingStore } from '../store/useDrawingStore'
+import { useViewStore } from '../store/useViewStore'
+import { useGuideStore } from '../store/useGuideStore'
+import { useHistoryStore } from '../store/useHistoryStore'
 
 export interface ShortcutConfig {
   key: string
@@ -53,16 +56,14 @@ export const DEFAULT_SHORTCUTS: ShortcutConfig[] = [
 ]
 
 export function useShortcuts() {
-  const {
-    setTool,
-    undo,
-    clearStrokes,
-    zoomIn,
-    zoomOut,
-    resetView,
-    toggleShowGuides,
-    toggleSnapToGrid,
-  } = useAppStore()
+  const setTool = useDrawingStore(state => state.setTool)
+  const clearStrokes = useDrawingStore(state => state.clearStrokes)
+  const undo = useHistoryStore(state => state.undo)
+  const zoomIn = useViewStore(state => state.zoomIn)
+  const zoomOut = useViewStore(state => state.zoomOut)
+  const resetView = useViewStore(state => state.resetView)
+  const toggleShowGuides = useGuideStore(state => state.toggleShowGuides)
+  const toggleSnapToGrid = useGuideStore(state => state.toggleSnapToGrid)
 
   const executeAction = useCallback(
     (action: string) => {

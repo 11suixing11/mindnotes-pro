@@ -5,7 +5,7 @@
 import { VersionTracker } from './VersionTracker'
 import { RolloutManager } from './RolloutManager'
 import { MonitoringService } from './MonitoringService'
-import type { ReleaseChannelName, ReleaseChannel, VersionMetadata, ReleaseMonitoring } from './types'
+import type { VersionMetadata, ReleaseMonitoring, ReleaseChannelName } from './types'
 
 export class ReleaseChannelManager {
   private versionTracker: VersionTracker

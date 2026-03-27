@@ -1,5 +1,7 @@
 import React from 'react'
-import { useAppStore } from '../../store/useAppStore'
+import { useViewStore } from '../../store/useViewStore'
+import { useDrawingStore } from '../../store/useDrawingStore'
+import { useHistoryStore } from '../../store/useHistoryStore'
 import { useThemeStore } from '../../store/useThemeStore'
 
 interface ViewControlsProps {
@@ -7,7 +9,9 @@ interface ViewControlsProps {
 }
 
 export const ViewControls: React.FC<ViewControlsProps> = ({ onAction }) => {
-  const { zoomIn, zoomOut, resetView, clearStrokes, undo } = useAppStore()
+  const { zoomIn, zoomOut, resetView } = useViewStore()
+  const { clearStrokes } = useDrawingStore()
+  const { undo } = useHistoryStore()
   const { isDarkMode, toggleTheme } = useThemeStore()
 
   const handleZoomIn = () => {

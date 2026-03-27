@@ -4,10 +4,8 @@
 
 import OfflineStorageManager from '../offlineStorageManager/index'
 import { ConflictResolver } from './ConflictResolver'
-import { SyncScheduler } from './SyncScheduler'
 import { StatsTracker } from './StatsTracker'
-import type { DocumentChange, Document } from '../offlineStorageManager/types'
-import type { SyncState, SyncResult, SyncEvent } from './types'
+import type { SyncState, SyncResult } from './types'
 
 export class SyncEngine {
   private state: SyncState = 'offline'
@@ -15,14 +13,12 @@ export class SyncEngine {
   private syncInProgress = false
   private offlineStorage: OfflineStorageManager
   private conflictResolver: ConflictResolver
-  private scheduler: SyncScheduler
   private statsTracker: StatsTracker
   private listeners: Map<string, Function[]> = new Map()
 
   constructor() {
     this.offlineStorage = new OfflineStorageManager()
     this.conflictResolver = new ConflictResolver()
-    this.scheduler = new SyncScheduler()
     this.statsTracker = new StatsTracker()
   }
 

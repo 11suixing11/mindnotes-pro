@@ -1,4 +1,4 @@
-import { Shape } from '../store/useAppStore'
+import type { Shape } from '../store/types'
 
 export interface GuideLine {
   type: 'horizontal' | 'vertical'

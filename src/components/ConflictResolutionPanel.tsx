@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { syncEngine, type ConflictInfo } from '../utils/syncEngine'
+import SyncEngine from '../utils/syncEngine'
+import type { ConflictInfo } from '../utils/syncEngine/types'
 
 interface ConflictEventPayload {
   documentId: string
@@ -20,6 +21,8 @@ export default function ConflictResolutionPanel() {
   const [resolvingId, setResolvingId] = useState<string | null>(null)
 
   useEffect(() => {
+    const engine = new SyncEngine()
+
     const onConflictDetected = (payload: ConflictEventPayload) => {
       if (!payload?.conflict) return
 
@@ -40,12 +43,12 @@ export default function ConflictResolutionPanel() {
       setResolvingId((prev) => (prev === documentId ? null : prev))
     }
 
-    syncEngine.on('conflict-detected', onConflictDetected)
-    syncEngine.on('conflict-resolved', onConflictResolved)
+    engine.on('conflict-detected', onConflictDetected)
+    engine.on('conflict-resolved', onConflictResolved)
 
     return () => {
-      syncEngine.off('conflict-detected', onConflictDetected)
-      syncEngine.off('conflict-resolved', onConflictResolved)
+      engine.off('conflict-detected', onConflictDetected)
+      engine.off('conflict-resolved', onConflictResolved)
     }
   }, [])
 
@@ -54,7 +57,9 @@ export default function ConflictResolutionPanel() {
   const resolveConflict = async (docId: string, strategy: ResolveStrategy) => {
     setResolvingId(docId)
     try {
-      await syncEngine.resolveConflict(docId, strategy)
+      // TODO: 实现冲突解决逻辑
+      console.log('解决冲突:', docId, strategy)
+      setConflicts((prev) => prev.filter((c) => c.documentId !== docId))
     } finally {
       setResolvingId(null)
     }

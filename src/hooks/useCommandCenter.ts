@@ -1,5 +1,9 @@
 import { useCallback, useEffect } from 'react'
-import { useAppStore } from '../store/useAppStore'
+import { useDrawingStore } from '../store/useDrawingStore'
+import { useViewStore } from '../store/useViewStore'
+import { useGuideStore } from '../store/useGuideStore'
+import { useLayerStore } from '../store/useLayerStore'
+import { useHistoryStore } from '../store/useHistoryStore'
 import { commandRegistry } from '../core/commands/registry'
 import { defaultCommands } from '../core/commands/defaultCommands'
 import type { CommandId, CommandPayload } from '../core/commands/types'
@@ -7,18 +11,16 @@ import { keybindingManager } from '../core/keybindings/KeybindingManager'
 import { defaultKeybindings } from '../core/keybindings/defaultKeybindings'
 
 export function useCommandCenter() {
-  const {
-    setTool,
-    undo,
-    redo,
-    clearStrokes,
-    zoomIn,
-    zoomOut,
-    resetView,
-    toggleShowGuides,
-    toggleSnapToGrid,
-    toggleLayersPanel,
-  } = useAppStore()
+  const setTool = useDrawingStore(state => state.setTool)
+  const clearStrokes = useDrawingStore(state => state.clearStrokes)
+  const undo = useHistoryStore(state => state.undo)
+  const redo = useHistoryStore(state => state.redo)
+  const zoomIn = useViewStore(state => state.zoomIn)
+  const zoomOut = useViewStore(state => state.zoomOut)
+  const resetView = useViewStore(state => state.resetView)
+  const toggleShowGuides = useGuideStore(state => state.toggleShowGuides)
+  const toggleSnapToGrid = useGuideStore(state => state.toggleSnapToGrid)
+  const toggleLayersPanel = useLayerStore(state => state.toggleLayersPanel)
 
   useEffect(() => {
     for (const descriptor of defaultCommands) {

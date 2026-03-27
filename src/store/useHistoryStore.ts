@@ -14,7 +14,7 @@ interface HistoryActions {
   clear: () => void
 }
 
-export const useHistoryStore = create<HistoryState & HistoryActions>((set, get) => ({
+export const useHistoryStore = create<HistoryState & HistoryActions>((set, _get) => ({
   canUndo: false,
   canRedo: false,
   undoStack: [],

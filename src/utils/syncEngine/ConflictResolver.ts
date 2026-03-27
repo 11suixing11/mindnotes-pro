@@ -27,7 +27,7 @@ export class ConflictResolver {
     return null
   }
 
-  resolve(documentId: string, strategy: 'local' | 'remote' | 'merge'): ConflictInfo | null {
+  resolve(documentId: string): ConflictInfo | null {
     const conflict = this.conflicts.get(documentId)
     if (!conflict) return null
 

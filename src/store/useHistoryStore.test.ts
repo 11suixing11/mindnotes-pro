@@ -78,7 +78,6 @@ describe('useHistoryStore', () => {
   it('should update undo and redo flags correctly', () => {
     const action1 = { type: 'add-stroke', data: { id: '1' } }
     const action2 = { type: 'add-shape', data: { id: '2' } }
-    const action3 = { type: 'delete-layer', data: { id: '3' } }
 
     // Initial state
     expect(useHistoryStore.getState().canUndo).toBe(false)

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useAppStore } from '../store/useAppStore'
+import { useDrawingStore } from '../store/useDrawingStore'
 import { saveAs } from 'file-saver'
 import jsPDF from 'jspdf'
 import { debugError } from '../utils/logger'
@@ -11,7 +11,7 @@ interface SaveDialogProps {
 }
 
 const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
-  const { strokes } = useAppStore()
+  const { strokes } = useDrawingStore()
   const [format, setFormat] = useState<'png' | 'json' | 'pdf' | 'svg'>('png')
   const [isSaving, setIsSaving] = useState(false)
 
@@ -49,7 +49,7 @@ const SaveDialog: React.FC<SaveDialogProps> = ({ isOpen, onClose, canvas }) => {
   const exportAsSVG = () => {
     setIsSaving(true)
     try {
-      const { shapes } = useAppStore.getState()
+      const { shapes } = useDrawingStore.getState()
 
       // 生成 SVG 内容
       let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">

@@ -25,7 +25,7 @@ interface DrawingActions {
   setSize: (size: number) => void
 }
 
-export const useDrawingStore = create<DrawingState & DrawingActions>((set, get) => ({
+export const useDrawingStore = create<DrawingState & DrawingActions>((set, _get) => ({
   strokes: [],
   currentStroke: null,
   shapes: [],
