@@ -1,7 +1,7 @@
-import { useAppStore } from '../store/useAppStore'
+import { useDrawingStore } from '../store/useDrawingStore'
 
 export default function ColorPicker() {
-  const { color, setColor } = useAppStore()
+  const { color, setColor } = useDrawingStore()
 
   const presetColors = [
     '#000000',

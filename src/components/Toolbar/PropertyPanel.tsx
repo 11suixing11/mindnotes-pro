@@ -1,5 +1,5 @@
 import React from 'react'
-import { useAppStore } from '../../store/useAppStore'
+import { useDrawingStore } from '../../store/useDrawingStore'
 
 const COLORS = [
   { value: '#000000', label: '黑色' },
@@ -22,7 +22,7 @@ interface PropertyPanelProps {
 }
 
 export const PropertyPanel: React.FC<PropertyPanelProps> = ({ onPropertyChange }) => {
-  const { color, size, setColor, setSize } = useAppStore()
+  const { color, size, setColor, setSize } = useDrawingStore()
 
   const handleColorChange = (newColor: string) => {
     setColor(newColor)

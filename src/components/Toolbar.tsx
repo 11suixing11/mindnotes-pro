@@ -1,6 +1,5 @@
 import React, { Suspense, lazy, useCallback, useState } from 'react'
-import { useAppStore } from '../store/useAppStore'
-import { useThemeStore } from '../store/useThemeStore'
+
 import { aiService, type CanvasAnalysisResult } from '../services/aiService'
 import { useToast } from './ui/Toast'
 import { ToolSelector } from './Toolbar/ToolSelector'
@@ -17,8 +16,6 @@ declare global {
 
 const Toolbar: React.FC = () => {
   const { showInfo, showSuccess, showError } = useToast()
-  useAppStore()
-  useThemeStore()
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<CanvasAnalysisResult | null>(null)
   const [showAnalysisPanel, setShowAnalysisPanel] = useState(false)

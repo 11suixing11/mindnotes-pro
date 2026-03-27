@@ -4,7 +4,7 @@
 
 import { MetricCollector } from './MetricCollector'
 import { ReportGenerator } from './ReportGenerator'
-import type { PerformanceMetrics, MetricType } from './types'
+import type { PerformanceMetrics } from './types'
 
 export class PerformanceMonitor {
   private metricCollector: MetricCollector

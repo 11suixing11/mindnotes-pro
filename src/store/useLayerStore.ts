@@ -29,7 +29,7 @@ interface LayerActions {
   reorderLayers: (newOrder: string[]) => void
 }
 
-export const useLayerStore = create<LayerState & LayerActions>((set, get) => ({
+export const useLayerStore = create<LayerState & LayerActions>((set, _get) => ({
   layers: [],
   selectedLayerId: null,
   showLayersPanel: false,

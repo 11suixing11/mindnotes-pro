@@ -1,5 +1,5 @@
 import React from 'react'
-import { useAppStore } from '../../store/useAppStore'
+import { useDrawingStore } from '../../store/useDrawingStore'
 
 type ToolType = 'pen' | 'eraser' | 'pan' | 'rectangle' | 'circle' | 'triangle'
 
@@ -42,7 +42,7 @@ interface ToolSelectorProps {
 }
 
 export const ToolSelector: React.FC<ToolSelectorProps> = ({ onToolChange }) => {
-  const { tool, setTool } = useAppStore()
+  const { tool, setTool } = useDrawingStore()
 
   const handleToolChange = (newTool: ToolType) => {
     setTool(newTool)

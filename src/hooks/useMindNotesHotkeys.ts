@@ -1,18 +1,20 @@
 import { useHotkeys } from 'react-hotkeys-hook'
-import { useAppStore } from '../store/useAppStore'
+import { useDrawingStore } from '../store/useDrawingStore'
+import { useViewStore } from '../store/useViewStore'
+import { useGuideStore } from '../store/useGuideStore'
+import { useLayerStore } from '../store/useLayerStore'
+import { useHistoryStore } from '../store/useHistoryStore'
 
 export function useMindNotesHotkeys() {
-  const {
-    setTool,
-    undo,
-    clearStrokes,
-    zoomIn,
-    zoomOut,
-    resetView,
-    toggleShowGuides,
-    toggleSnapToGrid,
-    toggleLayersPanel,
-  } = useAppStore()
+  const setTool = useDrawingStore(state => state.setTool)
+  const clearStrokes = useDrawingStore(state => state.clearStrokes)
+  const undo = useHistoryStore(state => state.undo)
+  const zoomIn = useViewStore(state => state.zoomIn)
+  const zoomOut = useViewStore(state => state.zoomOut)
+  const resetView = useViewStore(state => state.resetView)
+  const toggleShowGuides = useGuideStore(state => state.toggleShowGuides)
+  const toggleSnapToGrid = useGuideStore(state => state.toggleSnapToGrid)
+  const toggleLayersPanel = useLayerStore(state => state.toggleLayersPanel)
 
   // 工具切换
   useHotkeys('1', () => setTool('pen'), { preventDefault: true })

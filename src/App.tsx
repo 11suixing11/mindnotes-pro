@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react'
 import LoadingFallback from './components/ui/LoadingFallback'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useThemeStore } from './store/useThemeStore'
-import { syncEngine } from './utils/syncEngine'
+import SyncEngine from './utils/syncEngine'
 
 const WelcomeGuide = lazy(() => import('./components/WelcomeGuide'))
 const OnboardingGuide = lazy(() => import('./components/OnboardingGuide'))
@@ -46,7 +46,8 @@ export default function App() {
   }, [initTheme])
 
   useEffect(() => {
-    syncEngine.initialize().catch((error) => {
+    const engine = new SyncEngine()
+    engine.initialize().catch((error: Error) => {
       console.error('同步引擎初始化失败:', error)
     })
   }, [])

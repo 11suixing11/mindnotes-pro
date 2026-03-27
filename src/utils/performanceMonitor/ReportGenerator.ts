@@ -40,6 +40,12 @@ export class ReportGenerator {
   clear(): void {
     this.reports = []
   }
+
+  getStats(): { count: number } {
+    return {
+      count: this.reports.length,
+    }
+  }
 }
 
 export default ReportGenerator
