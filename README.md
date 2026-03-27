@@ -1,77 +1,82 @@
-# 🎯 MindNotes Pro
+# 🧠 MindNotes Pro
 
 <div align="center">
 
-**一款现代化手写笔记应用 - 免费、开源、全平台**
+**下一代智能笔记应用 - 手写与文字的完美结合**
 
-[![GitHub stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?style=social)](https://github.com/11suixing11/mindnotes-pro/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/11suixing11/mindnotes-pro?style=social)](https://github.com/11suixing11/mindnotes-pro/network)
-[![GitHub issues](https://img.shields.io/github/issues/11suixing11/mindnotes-pro)](https://github.com/11suixing11/mindnotes-pro/issues)
-[![GitHub license](https://img.shields.io/github/license/11suixing11/mindnotes-pro)](LICENSE)
-[![GitHub release](https://img.shields.io/github/v/release/11suixing11/mindnotes-pro)](https://github.com/11suixing11/mindnotes-pro/releases)
+[![Version](https://img.shields.io/github/v/release/11suixing11/mindnotes-pro?color=blue&label=Version)](https://github.com/11suixing11/mindnotes-pro/releases)
+[![License](https://img.shields.io/github/license/11suixing11/mindnotes-pro?color=green)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/11suixing11/mindnotes-pro?style=social)](https://github.com/11suixing11/mindnotes-pro/stargazers)
+[![Forks](https://img.shields.io/github/forks/11suixing11/mindnotes-pro?style=social)](https://github.com/11suixing11/mindnotes-pro/network)
 [![CI/CD](https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml/badge.svg)](https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-97%20passing-brightgreen)](https://github.com/11suixing11/mindnotes-pro/actions)
 
-[🚀 在线体验](https://11suixing11.github.io/mindnotes-pro/) · [📖 使用指南](docs/README.md) · [💬 社区讨论](https://github.com/11suixing11/mindnotes-pro/discussions) · [🐛 问题反馈](https://github.com/11suixing11/mindnotes-pro/issues)
+[🚀 在线体验](https://11suixing11.github.io/mindnotes-pro/) · [📖 文档中心](docs/README.md) · [💬 社区](https://github.com/11suixing11/mindnotes-pro/discussions) · [🎁 下载](https://github.com/11suixing11/mindnotes-pro/releases)
 
 </div>
 
 ---
 
-## 🌟 为什么选择 MindNotes Pro？
+## 🎯 产品定位
 
-在这个数字化的时代，你需要一个**自由、灵活、强大**的笔记工具。
-
-| 特性 | MindNotes Pro | 传统笔记应用 |
-|------|---------------|-------------|
-| **输入方式** | ✍️ 手写 + ⌨️ 文字无缝切换 | 通常只支持一种 |
-| **平台支持** | 🌐 Web/Windows/macOS/Linux/Android | 通常有限平台 |
-| **费用** | 💰 完全免费，开源 | 💳 高级功能需订阅 |
-| **数据存储** | 🔒 本地优先，隐私安全 | ☁️ 云端存储为主 |
-| **离线使用** | ✅ PWA 支持，完全离线 | ❌ 通常需要网络 |
-| **扩展性** | 🔌 开源可定制 | 🔒 封闭系统 |
+> **MindNotes Pro** 是一款为知识工作者、学生和创作者打造的智能笔记应用。
+> 结合手写的自然感和文字的结构化，让你的思维更自由，让知识更有条理。
 
 ---
 
-## ✨ 核心功能
+## ✨ 核心亮点
 
-### 🎨 创作能力
+### 🎨 手写 + 文字，完美融合
 
-- **手写笔记** - 流畅书写体验，支持压感
-- **文字编辑** - 富文本编辑器，格式丰富
-- **混合编辑** - 手写与文字自由切换
-- **智能模板** - 6 个专业模板（康奈尔、子弹笔记等）
-- **图形绘制** - 自动识别几何图形
-- **无限画布** - 不受限制的创作空间
+- ✍️ **自然手写** - 流畅的笔触，支持压感，像在纸上书写
+- ⌨️ **文字输入** - 富文本编辑，结构化整理
+- 🔄 **无缝切换** - 手写与文字自由混合，发挥最大创造力
+- 📐 **智能图形** - 自动识别几何图形，手绘变标准
 
-### ⚡ 效率工具
+### ⚡ 效率倍增
 
-- **命令面板** - `Ctrl+P` 快速访问所有功能
-- **快捷键系统** - 完整的键盘操作支持
-- **图层管理** - 组织复杂笔记结构
-- **多格式导出** - PNG/SVG/PDF/Markdown
-- **版本历史** - 随时回溯到之前的版本
+- 🎯 **命令面板** - `Ctrl+P` 快速访问所有功能
+- ⌨️ **快捷键** - 完整的键盘操作体系
+- 📑 **图层管理** - 组织复杂内容，清晰有序
+- 🔍 **智能搜索** - 快速定位笔记内容
 
-### 🔧 技术特性
+### 🔒 隐私优先
 
-- **PWA 支持** - 安装到桌面，离线可用
-- **本地优先** - 数据存储在本地，快速响应
-- **TypeScript** - 类型安全，开发友好
-- **测试覆盖** - 61 个测试用例全部通过
-- **性能优化** - 首屏加载 <1 秒
+- 💾 **本地存储** - 数据完全存储在本地浏览器
+- 🚫 **零数据收集** - 不收集任何个人信息
+- 🔓 **开源透明** - 代码开源，安全可审计
+- 🌐 **离线可用** - PWA 支持，无需网络也能使用
+
+### 🌍 全平台支持
+
+| 平台 | 状态 | 说明 |
+|------|------|------|
+| **Web** | ✅ 已发布 | 打开浏览器即用 |
+| **Windows** | ✅ 已发布 | Electron 桌面应用 |
+| **macOS** | ✅ 已发布 | Electron 桌面应用 |
+| **Linux** | ✅ 已发布 | Electron 桌面应用 |
+| **Android** | 🚧 开发中 | Capacitor 构建 |
+| **iOS** | 📅 计划中 | 待开发 |
 
 ---
 
 ## 🚀 快速开始
 
-### 在线体验（推荐新手）
+### 在线使用（推荐）
 
-直接访问：[https://11suixing11.github.io/mindnotes-pro/](https://11suixing11.github.io/mindnotes-pro/)
+访问 [https://11suixing11.github.io/mindnotes-pro/](https://11suixing11.github.io/mindnotes-pro/)
 
-无需安装，打开浏览器即可使用！
+**无需安装，打开浏览器即可开始创作！**
+
+### 桌面应用下载
+
+| 系统 | 下载 | 大小 |
+|------|------|------|
+| Windows | [下载 .exe](https://github.com/11suixing11/mindnotes-pro/releases) | ~80MB |
+| macOS | [下载 .dmg](https://github.com/11suixing11/mindnotes-pro/releases) | ~85MB |
+| Linux | [下载 .AppImage](https://github.com/11suixing11/mindnotes-pro/releases) | ~80MB |
 
 ### 本地开发
-
-**环境要求**：Node.js 18+，npm 9+
 
 ```bash
 # 1. 克隆项目
@@ -87,154 +92,27 @@ npm run dev
 # 4. 访问 http://localhost:5173
 ```
 
-### 常用命令
-
-```bash
-# 构建生产版本
-npm run build
-
-# 运行测试
-npm test
-
-# 测试覆盖率
-npm run test:coverage
-
-# 代码检查
-npm run lint
-
-# Bundle 分析
-npm run bundle:analyze
-
-# 平台环境检查
-npm run health:multi
-```
-
 ---
 
-## 📦 平台支持
+## 📚 使用场景
 
-| 平台 | 状态 | 说明 |
-|------|------|------|
-| **Web** | ✅ 已发布 | GitHub Pages 在线访问 |
-| **Windows** | ✅ 已发布 | Electron 打包 |
-| **macOS** | ✅ 已发布 | Electron 打包 |
-| **Linux** | ✅ 已发布 | Electron 打包 |
-| **Android** | 🚧 开发中 | Capacitor 构建 |
-| **iOS** | 📅 计划中 | 待开发 |
+### 👨‍🎓 学生党
 
----
+- 📖 **课堂笔记** - 手写公式 + 文字说明，完美记录
+- 📝 **作业整理** - 智能模板，结构化复习
+- 🎯 **考试复习** - 快速搜索，高效回顾
 
-## 📊 最新版本
+### 💼 知识工作者
 
-**当前版本**: v1.3.2
+- 📊 **会议记录** - 快速捕捉灵感，会后整理
+- 💡 **头脑风暴** - 无限画布，自由发散
+- 📋 **项目管理** - 图层管理，清晰有序
 
-### 更新亮点
+### 🎨 创作者
 
-- ✅ 性能优化 - 首屏加载时间减少 30%
-- ✅ 冲突解决 UI - 更好的协作体验
-- ✅ 快捷键优化 - 统一交互路径
-- ✅ 文档完善 - 新增使用指南
-
-📝 详细更新内容请查看：
-- [CHANGELOG.md](CHANGELOG.md) - 完整更新日志
-- [RELEASE_NOTES_v1.3.2.md](RELEASE_NOTES_v1.3.2.md) - 发布说明
-
----
-
-## 🗺️ 路线图
-
-### v1.3.x（当前）
-- [x] 基础手写 + 文字功能
-- [x] 命令面板和快捷键
-- [x] 多格式导出
-- [x] PWA 离线支持
-- [ ] 继续优化包体积和加载速度
-
-### v1.4.x（开发中）
-- [ ] 协作能力增强
-- [ ] 冲突解决体验完善
-- [ ] 云端同步（可选）
-- [ ] 更多智能模板
-
-### v2.0.0（愿景）
-- [ ] AI 辅助功能
-- [ ] 实时协作编辑
-- [ ] 知识图谱视图
-- [ ] 跨设备同步
-
----
-
-## 🙋 常见问题
-
-### Q: 需要安装吗？
-**A**: 不需要！可以直接在线使用。如果需要离线使用或桌面应用，可以下载 Electron 版本。
-
-### Q: 数据安全吗？
-**A:** 非常安全。数据默认存储在本地浏览器中，不会上传到任何服务器。你也可以导出备份。
-
-### Q: 支持导入其他笔记应用的数据吗？
-**A:** 目前支持导入 Markdown 文件。其他格式的导入功能正在开发中。
-
-### Q: 可以在手机上使用吗？
-**A:** Web 版本可以在手机浏览器中使用。Android 原生应用正在开发中。
-
-### Q: 如何贡献代码？
-**A:** 欢迎贡献！请查看 [贡献指南](#-贡献)，从简单的文档改进或 Bug 修复开始。
-
-### Q: 遇到问题怎么办？
-**A:** 可以通过以下方式获取帮助：
-- 📖 查看 [使用指南](docs/README.md)
-- 💬 在 [GitHub Discussions](https://github.com/11suixing11/mindnotes-pro/discussions) 提问
-- 🐛 提交 [Issue](https://github.com/11suixing11/mindnotes-pro/issues)
-
----
-
-## 🤝 贡献
-
-MindNotes Pro 是开源项目，欢迎你的参与！
-
-### 贡献方式
-
-- 🐛 [报告 Bug](https://github.com/11suixing11/mindnotes-pro/issues/new?template=bug_report.yml)
-- ✨ [建议新功能](https://github.com/11suixing11/mindnotes-pro/issues/new?template=feature_request.yml)
-- 📖 改进文档
-- 🎨 优化 UI/UX
-- 🧪 编写测试
-- 🌍 帮助翻译
-
-### 开发流程
-
-```bash
-# 1. Fork 仓库
-# 2. 创建功能分支
-git checkout -b feature/amazing-feature
-
-# 3. 开发并测试
-npm run dev
-npm test
-
-# 4. 提交代码
-git commit -m "feat: add amazing feature"
-
-# 5. 推送到 Fork
-git push origin feature/amazing-feature
-
-# 6. 创建 Pull Request
-```
-
-### 开发环境设置
-
-```bash
-# 克隆项目
-git clone https://github.com/11suixing11/mindnotes-pro.git
-cd mindnotes-pro
-
-# 安装依赖
-npm install
-
-# 启动开发服务器
-npm run dev
-```
+- ✏️ **草图绘制** - 流畅笔触，创意无限
+- 📝 **内容创作** - 手写 + 文字，最佳组合
+- 🗂️ **灵感收集** - 随时记录，随时整理
 
 ---
 
@@ -262,11 +140,150 @@ npm run dev
 
 ---
 
+## 📊 项目质量
+
+### 测试覆盖
+
+```
+✅ 97 个测试全部通过
+├── Store 测试：51 个
+├── 组件测试：11 个
+├── 核心功能：25 个
+└── 其他测试：10 个
+```
+
+### 代码质量
+
+```
+✅ TypeScript 严格模式
+✅ ESLint 代码规范
+✅ Prettier 代码格式化
+✅ CI/CD 自动化
+```
+
+### 性能指标
+
+| 指标 | 当前值 | 目标值 | 状态 |
+|------|--------|--------|------|
+| 首屏加载 (FCP) | ~600ms | <700ms | ✅ 优秀 |
+| Bundle 大小 | ~150KB | <200KB | ✅ 优秀 |
+| 测试覆盖率 | ~75% | >80% | 🔄 进行中 |
+
+---
+
+## 🗺️ 路线图
+
+### ✅ v1.3.2（当前版本）
+
+- [x] 基础手写 + 文字功能
+- [x] 命令面板和快捷键
+- [x] 多格式导出
+- [x] PWA 离线支持
+- [x] 代码模块化重构
+
+### 🚧 v1.4.0（开发中）
+
+- [ ] 实时协作编辑
+- [ ] 云端同步（可选）
+- [ ] AI 智能辅助
+- [ ] 更多智能模板
+
+### 📅 v2.0.0（愿景）
+
+- [ ] 知识图谱视图
+- [ ] 跨设备同步
+- [ ] 移动端应用
+- [ ] 插件系统
+
+---
+
+## 🤝 参与贡献
+
+MindNotes Pro 是开源项目，欢迎你的参与！
+
+### 贡献方式
+
+- 🐛 [报告 Bug](https://github.com/11suixing11/mindnotes-pro/issues/new?template=bug_report.yml)
+- ✨ [建议功能](https://github.com/11suixing11/mindnotes-pro/issues/new?template=feature_request.yml)
+- 📖 改进文档
+- 🎨 优化 UI/UX
+- 🧪 编写测试
+- 🌍 帮助翻译
+
+### 开发流程
+
+```bash
+# 1. Fork 仓库
+# 2. 创建功能分支
+git checkout -b feature/amazing-feature
+
+# 3. 开发并测试
+npm run dev
+npm test
+
+# 4. 提交代码
+git commit -m "feat: add amazing feature"
+
+# 5. 推送到 Fork
+git push origin feature/amazing-feature
+
+# 6. 创建 Pull Request
+```
+
+### 开发环境
+
+```bash
+# 环境要求
+- Node.js 18+
+- npm 9+
+
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+
+# 运行测试
+npm test
+
+# 构建生产版本
+npm run build
+```
+
+---
+
+## 📰 更新日志
+
+### v1.3.2 (2026-03-27)
+
+**🎉 重大重构**
+- 拆分 9 个大文件为模块化组件 (3459 行 → 1310 行，减少 62%)
+- 新增 97 个自动化测试，覆盖率 75%+
+- 修复所有组件和 Hooks 的 Store 导入
+
+**✨ 新增功能**
+- 错误边界组件，提升稳定性
+- 新手引导，改善用户体验
+- 自动化代码扫描工具
+
+**🐛 Bug 修复**
+- 修复 21 个组件的 Store 导入问题
+- 修复所有失败的测试
+- 优化 TypeScript 类型定义
+
+[查看详细更新日志](CHANGELOG.md)
+
+---
+
 ## 📄 许可证
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
+**MIT License** - 详见 [LICENSE](LICENSE) 文件
 
-简单来说：你可以自由地使用、修改、分发这个软件，甚至用于商业目的。
+简单来说：
+- ✅ 可以自由使用、修改、分发
+- ✅ 可用于商业用途
+- ✅ 需要保留许可证声明
+- ❌ 不提供任何担保
 
 ---
 
@@ -285,8 +302,9 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 ## 📬 联系方式
 
 - 💬 [GitHub Discussions](https://github.com/11suixing11/mindnotes-pro/discussions) - 社区讨论
-- 🐛 [GitHub Issues](https://github.com/11suixing11/mindnotes-pro/issues) - Bug 报告和功能建议
+- 🐛 [GitHub Issues](https://github.com/11suixing11/mindnotes-pro/issues) - Bug 报告
 - 📧 Email - 1977717178@qq.com
+- 🌐 官网 - https://11suixing11.github.io/mindnotes-pro/
 
 ---
 
@@ -294,10 +312,10 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 如果你觉得 MindNotes Pro 有用：
 
-- 🌟 给项目一个 **Star** - 这是最大的支持！
-- 📢 **分享给朋友** - 让更多人受益
-- 💻 **参与贡献** - 一起让项目更好
-- 📝 **反馈建议** - 帮助我们改进
+1. 🌟 **给个 Star** - 这是最大的支持！
+2. 📢 **分享给朋友** - 让更多人受益
+3. 💻 **参与贡献** - 一起让项目更好
+4. 📝 **反馈建议** - 帮助我们改进
 
 ---
 
@@ -305,6 +323,8 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 **Made with ❤️ by [11suixing11](https://github.com/11suixing11)**
 
-[🚀 开始使用](#-快速开始) · [📖 查看文档](#-使用指南) · [🤝 参与贡献](#-贡献)
+[🚀 开始使用](#-快速开始) · [📖 查看文档](#-使用场景) · [🤝 参与贡献](#-参与贡献)
+
+**🎯 让灵感瞬间结构化，让知识更有条理**
 
 </div>
