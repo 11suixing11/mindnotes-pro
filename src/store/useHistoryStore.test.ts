@@ -42,7 +42,8 @@ describe('useHistoryStore', () => {
 
     const state = useHistoryStore.getState()
     expect(state.redoStack).toEqual([])
-    expect(state.undoStack).toHaveLength(2)
+    expect(state.undoStack).toHaveLength(1) // undo removed action1, then action2 was added
+    expect(state.undoStack[0]).toEqual(action2)
   })
 
   it('should undo action', () => {

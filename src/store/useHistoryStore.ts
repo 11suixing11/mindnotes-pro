@@ -21,12 +21,15 @@ export const useHistoryStore = create<HistoryState & HistoryActions>((set, get) 
   redoStack: [],
 
   push: (action) =>
-    set((state) => ({
-      undoStack: [...state.undoStack, action],
-      redoStack: [],
-      canUndo: true,
-      canRedo: false,
-    })),
+    set((state) => {
+      // Only clear redo stack if this is a new action (not from undo/redo)
+      return {
+        undoStack: [...state.undoStack, action],
+        redoStack: [],
+        canUndo: true,
+        canRedo: false,
+      }
+    }),
 
   undo: () =>
     set((state) => {
