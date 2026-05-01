@@ -2,369 +2,338 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
 :root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8f9fa;
-  --text-primary: #1a1a2e;
-  --text-secondary: #6c757d;
-  --text-muted: #adb5bd;
-  --border: #e9ecef;
-  --border-hover: #dee2e6;
-  --primary: #4263eb;
-  --primary-hover: #3b5bdb;
-  --primary-subtle: #edf2ff;
-  --danger: #e03131;
-  --success: #2f9e44;
-  --island-bg: #ffffff;
-  --island-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
-  --island-shadow-lg: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-  --canvas-bg: #ffffff;
-  --canvas-dot: rgba(0,0,0,0.08);
-  --hover-bg: #f1f3f5;
-  --active-bg: #e9ecef;
-  --radius: 8px;
-  --radius-lg: 12px;
+  --bg: #f5f5f5;
+  --bg-card: #ffffff;
+  --text: #1d2129;
+  --text-2: #4e5969;
+  --text-3: #86909c;
+  --text-4: #c9cdd4;
+  --border: #e5e6eb;
+  --primary: #165dff;
+  --primary-hover: #4080ff;
+  --primary-light: #e8f3ff;
+  --primary-bg: rgba(22, 93, 255, 0.08);
+  --danger: #f53f3f;
+  --success: #00b42a;
+  --warning: #ff7d00;
+  --shadow-1: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-2: 0 4px 12px rgba(0,0,0,0.06);
+  --shadow-3: 0 8px 24px rgba(0,0,0,0.08);
+  --canvas: #ffffff;
+  --grid: rgba(0,0,0,0.04);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
 }
 
 .dark {
-  --bg-primary: #1a1b1e;
-  --bg-secondary: #25262b;
-  --text-primary: #e9ecef;
-  --text-secondary: #909296;
-  --text-muted: #5c5f66;
-  --border: #373a40;
-  --border-hover: #495057;
-  --primary: #748ffc;
-  --primary-hover: #5c7cfa;
-  --primary-subtle: #1b1d2e;
-  --danger: #ff6b6b;
-  --success: #51cf66;
-  --island-bg: #25262b;
-  --island-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
-  --island-shadow-lg: 0 4px 12px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2);
-  --canvas-bg: #1a1b1e;
-  --canvas-dot: rgba(255,255,255,0.06);
-  --hover-bg: #2c2e33;
-  --active-bg: #373a40;
+  --bg: #17171a;
+  --bg-card: #232326;
+  --text: #f6f6f6;
+  --text-2: #c9cdd4;
+  --text-3: #86909c;
+  --text-4: #4e5969;
+  --border: #3a3a3c;
+  --primary: #306eff;
+  --primary-hover: #5a8aff;
+  --primary-light: rgba(48, 110, 255, 0.15);
+  --primary-bg: rgba(48, 110, 255, 0.1);
+  --danger: #f76965;
+  --success: #34c759;
+  --warning: #ff9500;
+  --shadow-1: 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-2: 0 4px 12px rgba(0,0,0,0.25);
+  --shadow-3: 0 8px 24px rgba(0,0,0,0.3);
+  --canvas: #17171a;
+  --grid: rgba(255,255,255,0.04);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
-  background: var(--canvas-bg);
-  color: var(--text-primary);
+  background: var(--canvas);
+  color: var(--text);
 }
 
 #root { width: 100vw; height: 100vh; }
 
-/* ========== Island (panel base) ========== */
-.island {
-  background: var(--island-bg);
+/* ========== 卡片面板 ========== */
+.card {
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--island-shadow);
+  box-shadow: var(--shadow-2);
 }
 
-/* ========== Toolbar ========== */
-.toolbar {
+/* ========== 工具栏 ========== */
+.toolbar-wrap {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 4px;
+  gap: 4px;
+  padding: 6px 8px;
 }
 
-.toolbar-group {
+.tb-group {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
 }
 
-.toolbar-sep {
+.tb-sep {
   width: 1px;
-  height: 24px;
+  height: 22px;
   background: var(--border);
-  margin: 0 4px;
+  margin: 0 6px;
   flex-shrink: 0;
 }
 
-/* ========== Tool Icon Button ========== */
-.tool-icon {
+/* ========== 工具按钮 ========== */
+.tbtn {
   position: relative;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: var(--radius);
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-2);
   cursor: pointer;
-  transition: all 0.1s ease;
-  font-size: 18px;
-  user-select: none;
+  transition: all 0.15s ease;
+  font-size: 16px;
   outline: none;
 }
 
-.tool-icon:hover {
-  background: var(--hover-bg);
-  color: var(--text-primary);
+.tbtn:hover {
+  background: var(--primary-bg);
+  color: var(--primary);
 }
 
-.tool-icon:active {
-  background: var(--active-bg);
-  transform: scale(0.96);
+.tbtn:active {
+  transform: scale(0.93);
 }
 
-.tool-icon.active {
+.tbtn.on {
   background: var(--primary);
   color: #fff;
-  box-shadow: 0 2px 4px rgba(66, 99, 235, 0.3);
+  box-shadow: 0 2px 8px rgba(22, 93, 255, 0.35);
 }
 
-.tool-icon.active:hover {
+.tbtn.on:hover {
   background: var(--primary-hover);
 }
 
-.tool-icon:focus-visible {
-  box-shadow: 0 0 0 2px var(--primary);
-}
-
-.tool-icon:disabled {
-  opacity: 0.35;
-  cursor: default;
+.tbtn:disabled {
+  opacity: 0.3;
   pointer-events: none;
 }
 
-/* Keybinding hint */
-.tool-icon .key {
+.tbtn .k {
   position: absolute;
-  bottom: 2px;
-  right: 3px;
+  bottom: 3px;
+  right: 4px;
   font-size: 9px;
-  font-weight: 600;
-  color: var(--text-muted);
-  opacity: 0.6;
+  font-weight: 700;
+  color: var(--text-4);
   line-height: 1;
 }
 
-.tool-icon.active .key {
-  color: rgba(255,255,255,0.7);
-}
+.tbtn.on .k { color: rgba(255,255,255,0.6); }
 
-/* Tooltip */
-.tool-icon[data-tooltip]::before {
-  content: attr(data-tooltip);
+/* 提示条 */
+.tbtn[data-tip]::before {
+  content: attr(data-tip);
   position: absolute;
-  bottom: calc(100% + 6px);
+  bottom: calc(100% + 8px);
   left: 50%;
-  transform: translateX(-50%);
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 11px;
+  transform: translateX(-50%) translateY(4px);
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
-  background: var(--text-primary);
-  color: var(--bg-primary);
+  background: var(--text);
+  color: var(--bg);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.12s ease;
+  transition: all 0.15s ease;
   z-index: 100;
+  box-shadow: var(--shadow-1);
 }
 
-.tool-icon[data-tooltip]:hover::before {
+.tbtn[data-tip]:hover::before {
   opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
-/* ========== Color Swatch ========== */
-.color-swatch {
-  width: 24px;
-  height: 24px;
+/* ========== 颜色圆点 ========== */
+.cdot {
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  border: 2px solid transparent;
+  border: 2.5px solid transparent;
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: all 0.15s ease;
   outline: none;
-  position: relative;
 }
 
-.color-swatch:hover {
-  transform: scale(1.15);
-}
+.cdot:hover { transform: scale(1.2); }
 
-.color-swatch.active {
+.cdot.on {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--primary-subtle);
+  box-shadow: 0 0 0 3px var(--primary-light);
 }
 
-/* ========== Size Button ========== */
-.size-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  height: 28px;
-  padding: 0 6px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.1s ease;
-  outline: none;
-  letter-spacing: 0.02em;
-}
-
-.size-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-primary);
-}
-
-.size-btn.active {
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary);
-}
-
-/* ========== Export Button ========== */
-.export-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: var(--radius);
-  border: 1px solid var(--primary);
-  background: var(--primary);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.1s ease;
-  outline: none;
-  letter-spacing: 0.01em;
-}
-
-.export-trigger:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-}
-
-.export-trigger:active {
-  transform: scale(0.97);
-}
-
-/* ========== Dropdown ========== */
-.dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  min-width: 200px;
-  padding: 4px;
-  z-index: 50;
-  animation: dropdown-in 0.12s ease;
-}
-
-@keyframes dropdown-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.dropdown-item {
+/* ========== 线宽按钮 ========== */
+.szbtn {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.szbtn:hover { background: var(--primary-bg); }
+
+.szbtn.on {
+  background: var(--primary);
+}
+
+.szbtn .dot {
+  border-radius: 50%;
+  background: var(--text-3);
+  transition: all 0.15s ease;
+}
+
+.szbtn.on .dot { background: #fff; }
+
+/* ========== 导出按钮 ========== */
+.exbtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--radius);
+  border: none;
+  background: linear-gradient(135deg, #165dff, #4080ff);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+  box-shadow: 0 2px 8px rgba(22, 93, 255, 0.3);
+}
+
+.exbtn:hover {
+  background: linear-gradient(135deg, #4080ff, #6e9fff);
+  box-shadow: 0 4px 14px rgba(22, 93, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.exbtn:active { transform: translateY(0); }
+
+/* ========== 下拉菜单 ========== */
+.dmenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  padding: 6px;
+  z-index: 50;
+  animation: dmenu-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dmenu-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.ditem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: var(--radius);
   border: none;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--text);
   font-size: 13px;
   cursor: pointer;
-  transition: background 0.08s ease;
+  transition: background 0.1s ease;
   text-align: left;
   outline: none;
 }
 
-.dropdown-item:hover {
-  background: var(--hover-bg);
-}
+.ditem:hover { background: var(--primary-bg); }
 
-.dropdown-item .di-icon {
-  width: 20px;
-  text-align: center;
-  font-size: 14px;
-  flex-shrink: 0;
-}
+.ditem .di { width: 20px; text-align: center; font-size: 15px; flex-shrink: 0; }
+.ditem .dl { font-weight: 600; }
+.ditem .dd { font-size: 11px; color: var(--text-3); font-weight: 400; }
 
-.dropdown-item .di-label {
-  font-weight: 500;
-}
+.dsep { height: 1px; background: var(--border); margin: 4px 8px; }
 
-.dropdown-item .di-desc {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 400;
-}
-
-.dropdown-sep {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 6px;
-}
-
-/* ========== Status Bar ========== */
-.status-bar {
+/* ========== 底部信息 ========== */
+.info-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 5px 12px;
-  font-size: 11px;
-  color: var(--text-secondary);
+  gap: 14px;
+  padding: 7px 14px;
+  font-size: 12px;
+  color: var(--text-3);
   font-weight: 500;
-  letter-spacing: 0.01em;
 }
 
-.status-dot {
-  width: 6px;
-  height: 6px;
+.info-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--success);
-  flex-shrink: 0;
+  box-shadow: 0 0 8px rgba(0, 180, 42, 0.4);
 }
 
-.status-bar .sep {
+.info-bar .vl {
   width: 1px;
-  height: 12px;
+  height: 14px;
   background: var(--border);
-  flex-shrink: 0;
 }
 
-/* ========== Hint Bar ========== */
-.hint-bar {
-  padding: 5px 12px;
-  font-size: 11px;
-  color: var(--text-muted);
+/* ========== 快捷键提示 ========== */
+.kb-hint {
+  padding: 7px 14px;
+  font-size: 12px;
+  color: var(--text-4);
   font-weight: 500;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.3px;
 }
 
-/* ========== Theme transition ========== */
-.theme-transition * {
-  transition: background-color 0.2s ease, color 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
-}
-
-/* ========== Selection box ========== */
-::selection {
-  background: var(--primary-subtle);
-  color: var(--text-primary);
+.kb-hint kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  margin: 0 2px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  line-height: 1.4;
 }

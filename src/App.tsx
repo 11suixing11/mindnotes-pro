@@ -17,23 +17,21 @@ export default function App() {
   useEffect(() => { initTheme() }, [initTheme])
 
   return (
-    <div className="w-full h-screen relative overflow-hidden" style={{ background: 'var(--canvas-bg)' }}>
+    <div className="w-full h-screen relative overflow-hidden" style={{ background: 'var(--canvas)' }}>
       <Canvas />
       <Toolbar />
 
-      {/* Bottom-left status */}
-      <div className="fixed bottom-3 left-3 island status-bar">
-        <span className="status-dot" />
-        <span>本地</span>
-        <span className="sep" />
+      <div className="fixed bottom-4 left-4 card info-bar">
+        <span className="info-dot" />
+        <span>本地存储</span>
+        <span className="vl" />
         <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{TOOL_NAMES[tool] ?? tool}</span>
-        <span className="sep" />
-        <span>{strokes.length + shapes.length} 对象</span>
+        <span className="vl" />
+        <span>{strokes.length + shapes.length} 个对象</span>
       </div>
 
-      {/* Bottom-right hint */}
-      <div className="fixed bottom-3 right-3 island hint-bar">
-        Ctrl+Z 撤销 · 滚轮缩放 · 0-8 切换工具
+      <div className="fixed bottom-4 right-4 card kb-hint">
+        <kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销 · 滚轮缩放 · <kbd>0</kbd>-<kbd>8</kbd> 切换工具
       </div>
     </div>
   )
