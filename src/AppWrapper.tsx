@@ -1,84 +1,52 @@
-import { useState, useEffect, useRef } from 'react'
+import { Component, ErrorInfo, ReactNode } from 'react'
 import App from './App'
-import LoadingScreen from './components/ui/LoadingScreen'
-import { ToastProvider, useToast } from './components/ui/Toast'
-import { ErrorBoundaryClass } from './components/ui/ErrorBoundary'
-import { useServiceWorker } from './hooks/useServiceWorker'
-import {
-  COMMAND_EXECUTION_ERROR_EVENT,
-  type CommandExecutionErrorDetail,
-} from './core/commands/registry'
 
-const COMMAND_ERROR_TOAST_DEDUP_MS = 2000
-
-function AppContent() {
-  const [isLoading, setIsLoading] = useState(true)
-  const { updateAvailable, skipWaiting } = useServiceWorker()
-  const { showWarning, showError } = useToast()
-  const lastCommandErrorRef = useRef<{ key: string; ts: number } | null>(null)
-
-  useEffect(() => {
-    if (updateAvailable) {
-      showWarning('🆕 发现新版本，立即更新可获得最新修复与功能。', {
-        label: '立即更新',
-        onClick: skipWaiting,
-        variant: 'primary',
-      })
-    }
-  }, [updateAvailable, skipWaiting, showWarning])
-
-  useEffect(() => {
-    const openShortcutsHelp = () => {
-      window.dispatchEvent(new CustomEvent('toggle-shortcuts'))
-    }
-
-    const onCommandError = (event: Event) => {
-      const customEvent = event as CustomEvent<CommandExecutionErrorDetail>
-      const detail = customEvent.detail
-      if (!detail) return
-
-      const key = `${detail.commandId}::${detail.message}`
-      const now = Date.now()
-      const last = lastCommandErrorRef.current
-
-      if (last && last.key === key && now - last.ts < COMMAND_ERROR_TOAST_DEDUP_MS) return
-
-      lastCommandErrorRef.current = { key, ts: now }
-
-      showError(`命令执行失败：${detail.commandId}（${detail.message}）`, {
-        label: '查看快捷键',
-        onClick: openShortcutsHelp,
-        variant: 'secondary',
-      })
-    }
-
-    window.addEventListener(COMMAND_EXECUTION_ERROR_EVENT, onCommandError)
-    return () => window.removeEventListener(COMMAND_EXECUTION_ERROR_EVENT, onCommandError)
-  }, [showError])
-
-  const handleLoad = () => {
-    setIsLoading(false)
-  }
-
-  if (isLoading) {
-    return <LoadingScreen onLoad={handleLoad} />
-  }
-
-  return <App />
+interface ErrorProps {
+  children: ReactNode
 }
 
-function AppWrapper() {
-  return (
-    <ToastProvider>
-      <AppContent />
-    </ToastProvider>
-  )
+interface ErrorState {
+  hasError: boolean
+  error?: Error
+}
+
+class ErrorBoundary extends Component<ErrorProps, ErrorState> {
+  state: ErrorState = { hasError: false }
+
+  static getDerivedStateFromError(error: Error): ErrorState {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[ErrorBoundary]', error, info)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md shadow-xl text-center">
+            <div className="text-5xl mb-4">😕</div>
+            <h1 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">出错了</h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm">{this.state.error?.message}</p>
+            <button
+              onClick={() => { this.setState({ hasError: false }); window.location.reload() }}
+              className="px-6 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600"
+            >
+              刷新页面
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
 }
 
 export default function Root() {
   return (
-    <ErrorBoundaryClass>
-      <AppWrapper />
-    </ErrorBoundaryClass>
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   )
 }
