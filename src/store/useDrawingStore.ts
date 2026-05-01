@@ -33,6 +33,8 @@ interface DrawingState {
 interface DrawingActions {
   addStroke: (stroke: Stroke) => void
   addShape: (shape: Shape) => void
+  removeStrokeById: (id: string) => void
+  removeShapeById: (id: string) => void
   clearAll: () => void
   setTool: (tool: ToolType) => void
   setColor: (color: string) => void
@@ -57,6 +59,20 @@ export const useDrawingStore = create<DrawingState & DrawingActions>((set) => ({
   addShape: (shape) =>
     set((state) => {
       const next = [...state.shapes, shape]
+      saveToStorage(state.strokes, next)
+      return { shapes: next }
+    }),
+
+  removeStrokeById: (id) =>
+    set((state) => {
+      const next = state.strokes.filter((s) => s.id !== id)
+      saveToStorage(next, state.shapes)
+      return { strokes: next }
+    }),
+
+  removeShapeById: (id) =>
+    set((state) => {
+      const next = state.shapes.filter((s) => s.id !== id)
       saveToStorage(state.strokes, next)
       return { shapes: next }
     }),
