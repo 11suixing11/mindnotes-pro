@@ -1,175 +1,94 @@
-import React, { Suspense, lazy, useCallback, useState } from 'react'
+import React from 'react'
+import { useDrawingStore } from '../store/useDrawingStore'
+import { useViewStore } from '../store/useViewStore'
+import { useHistoryStore } from '../store/useHistoryStore'
+import { useThemeStore } from '../store/useThemeStore'
 
-import { aiService, type CanvasAnalysisResult } from '../services/aiService'
-import { useToast } from './ui/Toast'
-import { ToolSelector } from './Toolbar/ToolSelector'
-import { PropertyPanel } from './Toolbar/PropertyPanel'
-import { ViewControls } from './Toolbar/ViewControls'
+const TOOLS = [
+  { id: 'pen' as const, label: '✏️ 笔', shortcut: '1' },
+  { id: 'eraser' as const, label: '🧹 橡皮', shortcut: '2' },
+  { id: 'pan' as const, label: '✋ 平移', shortcut: '3' },
+  { id: 'rectangle' as const, label: '⬜ 矩形', shortcut: '4' },
+  { id: 'circle' as const, label: '⭕ 圆形', shortcut: '5' },
+]
 
-const AIResultPanel = lazy(() => import('./AIResultPanel'))
-
-declare global {
-  interface Window {
-    __MINDNOTES_TLDRAW_EDITOR__?: unknown
-  }
-}
+const COLORS = ['#000000', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6']
+const SIZES = [
+  { id: 'thin', label: '细', value: 2 },
+  { id: 'medium', label: '中', value: 4 },
+  { id: 'thick', label: '粗', value: 8 },
+]
 
 const Toolbar: React.FC = () => {
-  const { showInfo, showSuccess, showError } = useToast()
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [analysisResult, setAnalysisResult] = useState<CanvasAnalysisResult | null>(null)
-  const [showAnalysisPanel, setShowAnalysisPanel] = useState(false)
-
-  const blobToDataURL = useCallback((blob: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          resolve(reader.result)
-          return
-        }
-        reject(new Error('图片转换失败：无法读取 base64 数据'))
-      }
-      reader.onerror = () => reject(new Error('图片转换失败：文件读取异常'))
-      reader.readAsDataURL(blob)
-    })
-  }, [])
-
-  const getTldrawImage = useCallback(async (): Promise<string | null> => {
-    const editor = window.__MINDNOTES_TLDRAW_EDITOR__ as
-      | { getCurrentPageShapeIds?: () => Set<unknown> }
-      | undefined
-
-    if (!editor) return null
-
-    try {
-      const tldrawModule = (await import('@tldraw/tldraw')) as {
-        exportToBlob?: (input: {
-          editor: unknown
-          format?: 'png' | 'jpeg' | 'svg'
-          darkMode?: boolean
-          background?: boolean
-          ids?: Set<unknown>
-          padding?: number
-        }) => Promise<Blob>
-      }
-
-      if (typeof tldrawModule.exportToBlob !== 'function') return null
-
-      const ids = editor.getCurrentPageShapeIds?.()
-      const blob = await tldrawModule.exportToBlob({
-        editor,
-        format: 'png',
-        background: true,
-        darkMode: false,
-        padding: 16,
-        ids,
-      })
-
-      return blobToDataURL(blob)
-    } catch {
-      return null
-    }
-  }, [blobToDataURL])
-
-  const getVisibleCanvasImage = useCallback(async (): Promise<string> => {
-    const tldrawImage = await getTldrawImage()
-    if (tldrawImage) return tldrawImage
-
-    const canvas = document.querySelector('[data-whiteboard-canvas="true"]') as HTMLCanvasElement | null
-    if (!canvas) throw new Error('未找到画布元素')
-
-    const rect = canvas.getBoundingClientRect()
-    const visibleLeft = Math.max(rect.left, 0)
-    const visibleTop = Math.max(rect.top, 0)
-    const visibleRight = Math.min(rect.right, window.innerWidth)
-    const visibleBottom = Math.min(rect.bottom, window.innerHeight)
-
-    const visibleWidth = visibleRight - visibleLeft
-    const visibleHeight = visibleBottom - visibleTop
-
-    if (visibleWidth <= 0 || visibleHeight <= 0) {
-      throw new Error('当前画布不在可视区域内，无法分析')
-    }
-
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
-    const sx = (visibleLeft - rect.left) * scaleX
-    const sy = (visibleTop - rect.top) * scaleY
-    const sw = visibleWidth * scaleX
-    const sh = visibleHeight * scaleY
-
-    const exportCanvas = document.createElement('canvas')
-    exportCanvas.width = Math.max(1, Math.floor(sw))
-    exportCanvas.height = Math.max(1, Math.floor(sh))
-
-    const exportCtx = exportCanvas.getContext('2d')
-    if (!exportCtx) throw new Error('无法创建导出画布上下文')
-
-    exportCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, exportCanvas.width, exportCanvas.height)
-    return exportCanvas.toDataURL('image/png')
-  }, [getTldrawImage])
-
-  const handleAnalyzeCanvas = useCallback(async () => {
-    try {
-      setIsAnalyzing(true)
-      showInfo('正在分析当前白板，请稍候...')
-
-      const base64Image = await getVisibleCanvasImage()
-      const result = await aiService.analyzeWhiteboard(base64Image)
-
-      setAnalysisResult(result)
-      setShowAnalysisPanel(true)
-      showSuccess('AI 智能分析完成', {
-        label: '查看结果',
-        onClick: () => setShowAnalysisPanel(true),
-        variant: 'primary',
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'AI 分析失败，请稍后重试'
-      showError(message)
-    } finally {
-      setIsAnalyzing(false)
-    }
-  }, [getVisibleCanvasImage, showError, showInfo, showSuccess])
+  const tool = useDrawingStore((s) => s.tool)
+  const setTool = useDrawingStore((s) => s.setTool)
+  const color = useDrawingStore((s) => s.color)
+  const setColor = useDrawingStore((s) => s.setColor)
+  const size = useDrawingStore((s) => s.size)
+  const setSize = useDrawingStore((s) => s.setSize)
+  const clearStrokes = useDrawingStore((s) => s.clearStrokes)
+  const undo = useHistoryStore((s) => s.undo)
+  const zoomIn = useViewStore((s) => s.zoomIn)
+  const zoomOut = useViewStore((s) => s.zoomOut)
+  const resetView = useViewStore((s) => s.resetView)
+  const { isDarkMode, toggleTheme } = useThemeStore()
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-[var(--toolbar-bg)] backdrop-blur-sm rounded-2xl shadow-xl border border-[var(--border-color)] px-6 py-3 flex items-center gap-4 z-10">
-      {/* 工具选择 */}
-      <ToolSelector />
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center gap-3 z-10">
+      {TOOLS.map((t) => (
+        <button
+          key={t.id}
+          onClick={() => setTool(t.id)}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            tool === t.id
+              ? 'bg-indigo-500 text-white'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+          }`}
+          title={`${t.label} (${t.shortcut})`}
+        >
+          {t.label}
+        </button>
+      ))}
 
-      <div className="w-px h-8 bg-[var(--border-color)]" />
+      <div className="w-px h-6 bg-gray-200 dark:bg-gray-600" />
 
-      {/* 属性设置 */}
-      <PropertyPanel />
+      {COLORS.map((c) => (
+        <button
+          key={c}
+          onClick={() => setColor(c)}
+          className={`w-6 h-6 rounded-full border-2 transition-transform ${
+            color === c ? 'border-indigo-500 scale-110' : 'border-gray-300 dark:border-gray-600'
+          }`}
+          style={{ backgroundColor: c }}
+        />
+      ))}
 
-      <div className="w-px h-8 bg-[var(--border-color)]" />
+      <div className="w-px h-6 bg-gray-200 dark:bg-gray-600" />
 
-      {/* 视图控制 */}
-      <ViewControls />
+      {SIZES.map((s) => (
+        <button
+          key={s.id}
+          onClick={() => setSize(s.value)}
+          className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+            size === s.value
+              ? 'bg-indigo-500 text-white'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+          }`}
+        >
+          {s.label}
+        </button>
+      ))}
 
-      <div className="w-px h-8 bg-[var(--border-color)]" />
+      <div className="w-px h-6 bg-gray-200 dark:bg-gray-600" />
 
-      {/* AI 分析 */}
-      <button
-        onClick={handleAnalyzeCanvas}
-        disabled={isAnalyzing}
-        className={`toolbar-btn ${isAnalyzing ? 'loading' : ''}`}
-        title="AI 智能分析白板内容"
-      >
-        {isAnalyzing ? '⏳ 分析中...' : '🤖 AI 分析'}
+      <button onClick={undo} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700" title="撤销 (Ctrl+Z)">↩️</button>
+      <button onClick={() => { if (confirm('确定清空？')) clearStrokes() }} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700" title="清空">🗑️</button>
+      <button onClick={zoomIn} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700" title="放大">+</button>
+      <button onClick={zoomOut} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700" title="缩小">-</button>
+      <button onClick={resetView} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700" title="重置视图">📐</button>
+      <button onClick={toggleTheme} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700" title="切换主题">
+        {isDarkMode ? '☀️' : '🌙'}
       </button>
-
-      {/* AI 结果面板 */}
-      {showAnalysisPanel && analysisResult && (
-        <Suspense fallback={<div className="loading">加载中...</div>}>
-          <AIResultPanel
-            open={showAnalysisPanel}
-            result={analysisResult}
-            onClose={() => setShowAnalysisPanel(false)}
-          />
-        </Suspense>
-      )}
     </div>
   )
 }

@@ -1,51 +1,33 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { visualizer } from 'rollup-plugin-visualizer'
 
 export default defineConfig({
   plugins: [
     react({
-      // 启用 React Compiler 级别的优化
       babel: {
         plugins: []
       }
     }),
-    // 可视化束大小（开发工具）
-    process.env.ANALYZE === 'true' && visualizer({
-      open: true,
-      gzipSize: true,
-      brotliSize: true,
-    })
   ],
   
-  // Default to root path for local/desktop builds, and repo path in GitHub Actions.
   base: process.env.VITE_APP_BASE || (process.env.GITHUB_ACTIONS ? '/mindnotes-pro/' : '/'),
   
   server: {
     port: 3000,
     open: true,
-    // 启用 HTTP/2 服务推送
-    middlewareMode: false
   },
   
   build: {
     target: 'esnext',
     minify: 'esbuild',
-    
-    // 增强的 source map（仅限开发）
     sourcemap: process.env.NODE_ENV === 'development' ? 'inline' : false,
     
-    // 优化输出
     rollupOptions: {
-      // 默认仅构建主入口，避免把实验/备用 HTML 入口一起打包。
-      // 如需全量多入口构建，可设置 VITE_BUILD_ALL_HTML=true。
-      input: process.env.VITE_BUILD_ALL_HTML === 'true' ? undefined : 'index.html',
+      input: 'index.html',
       output: {
-        // 智能代码分割
         manualChunks: (id) => {
           const normalizedId = id.replace(/\\/g, '/')
 
-          // React 栈单独分包，稳定首屏缓存
           if (
             normalizedId.includes('/node_modules/react/') ||
             normalizedId.includes('/node_modules/react-dom/') ||
@@ -55,34 +37,11 @@ export default defineConfig({
             return 'vendor-react'
           }
 
-          // 协作协议单独分包，减少白板主包压力
-          if (
-            normalizedId.includes('/node_modules/yjs/') ||
-            normalizedId.includes('/node_modules/y-websocket/')
-          ) {
-            return 'vendor-collab'
-          }
-
-          // 绘制算法单独分包，便于长期缓存
-          if (normalizedId.includes('/node_modules/perfect-freehand/')) {
-            return 'vendor-drawing'
-          }
-
-          // 白板核心单独分包，避免阻塞主入口解析
-          if (
-            normalizedId.includes('/node_modules/@tldraw/') ||
-            normalizedId.includes('/node_modules/tldraw/')
-          ) {
-            return 'vendor-tldraw'
-          }
-
-          // 其余第三方依赖
           if (normalizedId.includes('/node_modules/')) {
             return 'vendor'
           }
         },
         
-        // 优化文件输出
         entryFileNames: 'js/[name].[hash].js',
         chunkFileNames: 'js/[name].[hash].js',
         assetFileNames: (assetInfo) => {
@@ -100,18 +59,12 @@ export default defineConfig({
       }
     },
     
-    // 块大小警告阈值
-    // tldraw 为按需加载依赖，主包未阻塞首屏；提升阈值避免无效噪音告警。
-    chunkSizeWarningLimit: 1200,
-    
-    // 报告压缩大小
+    chunkSizeWarningLimit: 500,
     reportCompressedSize: true
   },
   
   optimizeDeps: {
-    // 预构建依赖，提升构建速度
     include: ['react', 'react-dom', 'zustand'],
-    // 排除不需要的依赖
     exclude: ['@vite/client', '@vite/env']
   }
 })

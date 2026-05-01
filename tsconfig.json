@@ -21,6 +21,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  "exclude": ["src/utils/codeSpittingOptimization.tsx"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
