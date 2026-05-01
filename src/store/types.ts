@@ -7,6 +7,7 @@ export type ToolType =
   | 'triangle'
   | 'arrow'
   | 'line'
+  | 'text'
 
 export interface Stroke {
   id: string
