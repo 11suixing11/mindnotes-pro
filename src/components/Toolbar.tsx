@@ -1,9 +1,8 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { useDrawingStore } from '../store/useDrawingStore'
 import { useViewStore } from '../store/useViewStore'
-import { useHistoryStore } from '../store/useHistoryStore'
 import { useThemeStore } from '../store/useThemeStore'
-import type { ToolType } from '../store/types'
+import type { Stroke, Shape, ToolType } from '../store/types'
 
 const TOOLS: { id: ToolType; label: string; shortcut: string }[] = [
   { id: 'pen', label: '✏️ 笔', shortcut: '1' },
@@ -28,13 +27,54 @@ const Toolbar: React.FC = () => {
   const setColor = useDrawingStore((s) => s.setColor)
   const size = useDrawingStore((s) => s.size)
   const setSize = useDrawingStore((s) => s.setSize)
-  const clearStrokes = useDrawingStore((s) => s.clearStrokes)
-  const undo = useHistoryStore((s) => s.undo)
-  const redo = useHistoryStore((s) => s.redo)
+  const clearAll = useDrawingStore((s) => s.clearAll)
+  const strokes = useDrawingStore((s) => s.strokes)
+  const shapes = useDrawingStore((s) => s.shapes)
+  const loadData = useDrawingStore((s) => s.loadData)
   const zoomIn = useViewStore((s) => s.zoomIn)
   const zoomOut = useViewStore((s) => s.zoomOut)
   const resetView = useViewStore((s) => s.resetView)
   const { isDarkMode, toggleTheme } = useThemeStore()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const exportPNG = () => {
+    const canvas = document.querySelector('canvas')
+    if (!canvas) return
+    const url = canvas.toDataURL('image/png')
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `mindnotes-${new Date().toISOString().slice(0, 10)}.png`
+    a.click()
+  }
+
+  const exportJSON = () => {
+    const data = JSON.stringify({ strokes, shapes, version: 1 }, null, 2)
+    const blob = new Blob([data], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `mindnotes-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const importJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result as string)
+        const importedStrokes: Stroke[] = data.strokes ?? []
+        const importedShapes: Shape[] = data.shapes ?? []
+        loadData(importedStrokes, importedShapes)
+      } catch {
+        alert('无法解析文件，请确认是 MindNotes 导出的 JSON 文件')
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
 
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 px-3 py-2 flex items-center gap-2 z-10">
@@ -86,9 +126,7 @@ const Toolbar: React.FC = () => {
 
       <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-1" />
 
-      <button onClick={undo} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm" title="撤销 (Ctrl+Z)">↩️</button>
-      <button onClick={redo} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm" title="重做 (Ctrl+Shift+Z)">↪️</button>
-      <button onClick={() => { clearStrokes(); useHistoryStore.getState().clear() }} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm" title="清空">🗑️</button>
+      <button onClick={() => { if (confirm('清空所有笔迹？')) clearAll() }} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm" title="清空">🗑️</button>
 
       <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-1" />
 
@@ -98,6 +136,13 @@ const Toolbar: React.FC = () => {
       <button onClick={toggleTheme} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm" title="切换主题">
         {isDarkMode ? '☀️' : '🌙'}
       </button>
+
+      <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-1" />
+
+      <button onClick={exportPNG} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm" title="导出 PNG">📷</button>
+      <button onClick={exportJSON} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm" title="保存到本地 JSON">💾</button>
+      <button onClick={() => fileInputRef.current?.click()} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm" title="从 JSON 导入">📂</button>
+      <input ref={fileInputRef} type="file" accept=".json" onChange={importJSON} className="hidden" />
     </div>
   )
 }
