@@ -5,12 +5,15 @@ import { useThemeStore } from '../store/useThemeStore'
 import type { ToolType } from '../store/types'
 
 const TOOLS: { id: ToolType; label: string; shortcut: string }[] = [
+  { id: 'select', label: '🔲 选择', shortcut: '0' },
   { id: 'pen', label: '✏️ 笔', shortcut: '1' },
   { id: 'eraser', label: '🧹 橡皮', shortcut: '2' },
   { id: 'text', label: '🔤 文字', shortcut: '6' },
   { id: 'pan', label: '✋ 平移', shortcut: '3' },
   { id: 'rectangle', label: '⬜ 矩形', shortcut: '4' },
   { id: 'circle', label: '⭕ 圆形', shortcut: '5' },
+  { id: 'line', label: '📏 直线', shortcut: '7' },
+  { id: 'arrow', label: '➡️ 箭头', shortcut: '8' },
 ]
 
 const COLORS = ['#000000', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4']
