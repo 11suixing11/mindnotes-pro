@@ -14,6 +14,8 @@ export default function Canvas() {
   const shapes = useDrawingStore((s) => s.shapes)
   const addStroke = useDrawingStore((s) => s.addStroke)
   const addShape = useDrawingStore((s) => s.addShape)
+  const removeStrokeById = useDrawingStore((s) => s.removeStrokeById)
+  const removeShapeById = useDrawingStore((s) => s.removeShapeById)
 
   const viewBox = useViewStore((s) => s.viewBox)
   const startPan = useViewStore((s) => s.startPan)
@@ -27,6 +29,28 @@ export default function Canvas() {
   const currentPointsRef = useRef<number[][]>([])
   const shapeStartRef = useRef<{ x: number; y: number } | null>(null)
   const currentShapeRef = useRef<Shape | null>(null)
+  const erasedIdsRef = useRef<Set<string>>(new Set())
+
+  function pointNearStroke(px: number, py: number, stroke: Stroke, radius: number): boolean {
+    for (const pt of stroke.points) {
+      const dx = pt[0] - px
+      const dy = pt[1] - py
+      if (dx * dx + dy * dy < radius * radius) return true
+    }
+    return false
+  }
+
+  function pointNearShape(px: number, py: number, shape: Shape, radius: number): boolean {
+    const sx = shape.startX ?? shape.x
+    const sy = shape.startY ?? shape.y
+    const ex = shape.endX ?? shape.x + shape.width
+    const ey = shape.endY ?? shape.y + shape.height
+    const cx = (sx + ex) / 2
+    const cy = (sy + ey) / 2
+    const hw = Math.abs(ex - sx) / 2
+    const hh = Math.abs(ey - sy) / 2
+    return Math.abs(px - cx) < hw + radius && Math.abs(py - cy) < hh + radius
+  }
 
   const getPos = useCallback(
     (e: MouseEvent | TouchEvent) => {
@@ -96,14 +120,14 @@ export default function Canvas() {
       drawShape(ctx, shape)
     }
 
-    // Draw current stroke in progress
-    if (drawingRef.current && currentPointsRef.current.length > 1) {
+    // Draw current stroke in progress (pen only)
+    if (drawingRef.current && tool === 'pen' && currentPointsRef.current.length > 1) {
       const tempStroke: Stroke = {
         id: 'temp',
         points: currentPointsRef.current,
-        color: tool === 'eraser' ? '#ffffff' : color,
-        size: tool === 'eraser' ? size * 3 : size,
-        tool: tool === 'eraser' ? 'eraser' : 'pen',
+        color,
+        size,
+        tool: 'pen',
       }
       drawStroke(ctx, tempStroke)
     }
@@ -119,7 +143,7 @@ export default function Canvas() {
   function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
     if (stroke.points.length < 2) return
     ctx.beginPath()
-    ctx.strokeStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color
+    ctx.strokeStyle = stroke.color
     ctx.lineWidth = stroke.size
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
@@ -198,6 +222,24 @@ export default function Canvas() {
     }
   }
 
+  function eraseAt(x: number, y: number) {
+    const eraserRadius = size * 2 + 10
+    const currentStrokes = useDrawingStore.getState().strokes
+    const currentShapes = useDrawingStore.getState().shapes
+    for (const stroke of currentStrokes) {
+      if (!erasedIdsRef.current.has(stroke.id) && pointNearStroke(x, y, stroke, eraserRadius)) {
+        erasedIdsRef.current.add(stroke.id)
+        removeStrokeById(stroke.id)
+      }
+    }
+    for (const shape of currentShapes) {
+      if (!erasedIdsRef.current.has(shape.id) && pointNearShape(x, y, shape, eraserRadius)) {
+        erasedIdsRef.current.add(shape.id)
+        removeShapeById(shape.id)
+      }
+    }
+  }
+
   const handleStart = useCallback(
     (e: MouseEvent | TouchEvent) => {
       e.preventDefault()
@@ -211,9 +253,13 @@ export default function Canvas() {
       }
 
       drawingRef.current = true
+      erasedIdsRef.current = new Set()
 
-      if (tool === 'pen' || tool === 'eraser') {
+      if (tool === 'pen') {
         currentPointsRef.current = [[pos.x, pos.y]]
+      } else if (tool === 'eraser') {
+        currentPointsRef.current = [[pos.x, pos.y]]
+        eraseAt(pos.x, pos.y)
       } else {
         shapeStartRef.current = pos
         currentShapeRef.current = {
@@ -250,7 +296,13 @@ export default function Canvas() {
       if (!drawingRef.current) return
       const pos = getPos(e)
 
-      if (tool === 'pen' || tool === 'eraser') {
+      if (tool === 'eraser') {
+        eraseAt(pos.x, pos.y)
+        redraw()
+        return
+      }
+
+      if (tool === 'pen') {
         currentPointsRef.current.push([pos.x, pos.y])
       } else if (shapeStartRef.current && currentShapeRef.current) {
         currentShapeRef.current = {
@@ -279,17 +331,19 @@ export default function Canvas() {
       if (!drawingRef.current) return
       drawingRef.current = false
 
-      if (tool === 'pen' || tool === 'eraser') {
+      if (tool === 'pen') {
         if (currentPointsRef.current.length > 1) {
           const stroke: Stroke = {
             id: `stroke-${Date.now()}`,
             points: [...currentPointsRef.current],
-            color: tool === 'eraser' ? '#ffffff' : color,
-            size: tool === 'eraser' ? size * 3 : size,
-            tool: tool === 'eraser' ? 'eraser' : 'pen',
+            color,
+            size,
+            tool: 'pen',
           }
           addStroke(stroke)
         }
+        currentPointsRef.current = []
+      } else if (tool === 'eraser') {
         currentPointsRef.current = []
       } else if (currentShapeRef.current) {
         addShape(currentShapeRef.current)
