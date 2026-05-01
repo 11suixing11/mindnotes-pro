@@ -3,23 +3,19 @@ import { useDrawingStore } from './useDrawingStore'
 
 describe('useDrawingStore', () => {
   beforeEach(() => {
+    localStorage.clear()
     useDrawingStore.setState({
       strokes: [],
-      currentStroke: null,
       shapes: [],
-      currentShape: null,
       tool: 'pen',
       color: '#000000',
       size: 4,
-      isDrawing: false,
     })
   })
 
   it('should initialize with correct default state', () => {
     const state = useDrawingStore.getState()
-
     expect(state.strokes).toEqual([])
-    expect(state.currentStroke).toBeNull()
     expect(state.shapes).toEqual([])
     expect(state.tool).toBe('pen')
     expect(state.color).toBe('#000000')
@@ -44,7 +40,7 @@ describe('useDrawingStore', () => {
     expect(useDrawingStore.getState().size).toBe(8)
   })
 
-  it('should add stroke', () => {
+  it('should add stroke and persist to localStorage', () => {
     const stroke = {
       id: '1',
       points: [[0, 0], [1, 1]],
@@ -58,24 +54,9 @@ describe('useDrawingStore', () => {
 
     expect(state.strokes).toHaveLength(1)
     expect(state.strokes[0]).toEqual(stroke)
-    expect(state.currentStroke).toBeNull()
-  })
 
-  it('should clear strokes', () => {
-    const stroke = {
-      id: '1',
-      points: [[0, 0]],
-      color: '#000000',
-      size: 4,
-      tool: 'pen' as const,
-    }
-
-    useDrawingStore.getState().addStroke(stroke)
-    useDrawingStore.getState().clearStrokes()
-
-    const state = useDrawingStore.getState()
-    expect(state.strokes).toHaveLength(0)
-    expect(state.currentStroke).toBeNull()
+    const saved = JSON.parse(localStorage.getItem('mindnotes-drawing-data') || '{}')
+    expect(saved.strokes).toHaveLength(1)
   })
 
   it('should add shape', () => {
@@ -97,49 +78,36 @@ describe('useDrawingStore', () => {
     expect(state.shapes[0]).toEqual(shape)
   })
 
-  it('should start stroke and set isDrawing to true', () => {
-    useDrawingStore.getState().startStroke()
+  it('should clear all and persist', () => {
+    useDrawingStore.getState().addStroke({
+      id: '1',
+      points: [[0, 0]],
+      color: '#000000',
+      size: 4,
+      tool: 'pen',
+    })
+    useDrawingStore.getState().clearAll()
+
+    expect(useDrawingStore.getState().strokes).toHaveLength(0)
+    expect(useDrawingStore.getState().shapes).toHaveLength(0)
+
+    const saved = JSON.parse(localStorage.getItem('mindnotes-drawing-data') || '{}')
+    expect(saved.strokes).toHaveLength(0)
+  })
+
+  it('should load data from external source', () => {
+    const strokes = [
+      { id: 'a', points: [[0, 0], [1, 1]], color: '#f00', size: 2, tool: 'pen' as const },
+    ]
+    const shapes = [
+      { id: 'b', type: 'circle' as const, x: 0, y: 0, width: 50, height: 50, color: '#0f0', size: 4 },
+    ]
+
+    useDrawingStore.getState().loadData(strokes, shapes)
     const state = useDrawingStore.getState()
 
-    expect(state.isDrawing).toBe(true)
-    expect(state.currentStroke).not.toBeNull()
-    expect(state.currentStroke?.points).toEqual([])
-  })
-
-  it('should start shape with correct type', () => {
-    useDrawingStore.getState().startShape('circle')
-    const state = useDrawingStore.getState()
-
-    expect(state.currentShape).not.toBeNull()
-    expect(state.currentShape?.type).toBe('circle')
-  })
-
-  it('should update current stroke points only when stroke exists', () => {
-    const points = [[0, 0], [1, 1], [2, 2]]
-
-    // Should not update when currentStroke is null
-    useDrawingStore.getState().updateCurrentStroke(points)
-    expect(useDrawingStore.getState().currentStroke).toBeNull()
-
-    // Should update when currentStroke exists
-    useDrawingStore.getState().startStroke()
-    useDrawingStore.getState().updateCurrentStroke(points)
-    expect(useDrawingStore.getState().currentStroke?.points).toEqual(points)
-  })
-
-  it('should update current shape only when shape exists', () => {
-    const updates = { x: 50, y: 50, width: 150 }
-
-    // Should not update when currentShape is null
-    useDrawingStore.getState().updateCurrentShape(updates)
-    expect(useDrawingStore.getState().currentShape).toBeNull()
-
-    // Should update when currentShape exists
-    useDrawingStore.getState().startShape('rectangle')
-    useDrawingStore.getState().updateCurrentShape(updates)
-    const shape = useDrawingStore.getState().currentShape
-    expect(shape?.x).toBe(50)
-    expect(shape?.y).toBe(50)
-    expect(shape?.width).toBe(150)
+    expect(state.strokes).toHaveLength(1)
+    expect(state.shapes).toHaveLength(1)
+    expect(state.strokes[0].color).toBe('#f00')
   })
 })

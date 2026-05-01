@@ -1,7 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { useDrawingStore } from '../store/useDrawingStore'
 import { useViewStore } from '../store/useViewStore'
-import { useHistoryStore } from '../store/useHistoryStore'
 import type { Stroke, Shape, ToolType } from '../store/types'
 
 export default function Canvas() {
@@ -23,12 +22,6 @@ export default function Canvas() {
   const isPanning = useViewStore((s) => s.isPanning)
   const zoomIn = useViewStore((s) => s.zoomIn)
   const zoomOut = useViewStore((s) => s.zoomOut)
-
-  const pushHistory = useHistoryStore((s) => s.push)
-  const undoStack = useHistoryStore((s) => s.undoStack)
-  const redoStack = useHistoryStore((s) => s.redoStack)
-  const undo = useHistoryStore((s) => s.undo)
-  const redo = useHistoryStore((s) => s.redo)
 
   const drawingRef = useRef(false)
   const currentPointsRef = useRef<number[][]>([])
@@ -93,19 +86,8 @@ export default function Canvas() {
       ctx.stroke()
     }
 
-    // Draw strokes (with undo support)
-    const visibleStrokes = [...strokes]
-    // Remove undone strokes
-    const undoneIds = new Set(
-      undoStack.filter((a: any) => a.type === 'removeStroke').map((a: any) => a.strokeId)
-    )
-    // Re-add redone strokes
-    const redoneIds = new Set(
-      redoStack.filter((a: any) => a.type === 'removeStroke').map((a: any) => a.strokeId)
-    )
-
-    for (const stroke of visibleStrokes) {
-      if (undoneIds.has(stroke.id) && !redoneIds.has(stroke.id)) continue
+    // Draw strokes
+    for (const stroke of strokes) {
       drawStroke(ctx, stroke)
     }
 
@@ -132,7 +114,7 @@ export default function Canvas() {
     }
 
     ctx.restore()
-  }, [strokes, shapes, viewBox, undoStack, redoStack, color, size, tool])
+  }, [strokes, shapes, viewBox, color, size, tool])
 
   function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
     if (stroke.points.length < 2) return
@@ -307,19 +289,17 @@ export default function Canvas() {
             tool: tool === 'eraser' ? 'eraser' : 'pen',
           }
           addStroke(stroke)
-          pushHistory({ type: 'addStroke', strokeId: stroke.id })
         }
         currentPointsRef.current = []
       } else if (currentShapeRef.current) {
         addShape(currentShapeRef.current)
-        pushHistory({ type: 'addShape', shapeId: currentShapeRef.current.id })
         currentShapeRef.current = null
         shapeStartRef.current = null
       }
 
       redraw()
     },
-    [tool, color, size, addStroke, addShape, pushHistory, endPan, redraw]
+    [tool, color, size, addStroke, addShape, endPan, redraw]
   )
 
   // Keyboard shortcuts
@@ -328,24 +308,11 @@ export default function Canvas() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
 
       const setTool = useDrawingStore.getState().setTool
-      const clearStrokes = useDrawingStore.getState().clearStrokes
+      const clearAll = useDrawingStore.getState().clearAll
 
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault()
-        undo()
-        redraw()
-        return
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
-        e.preventDefault()
-        redo()
-        redraw()
-        return
-      }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (confirm('确定清空所有笔迹？')) {
-          clearStrokes()
-          useHistoryStore.getState().clear()
+          clearAll()
           redraw()
         }
         return
@@ -365,7 +332,7 @@ export default function Canvas() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [undo, redo, zoomIn, zoomOut, redraw])
+  }, [zoomIn, zoomOut, redraw])
 
   // Canvas resize
   useEffect(() => {
