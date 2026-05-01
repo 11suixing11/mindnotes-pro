@@ -29,6 +29,7 @@ interface DrawingState {
   size: number
   undoStack: Snapshot[]
   redoStack: Snapshot[]
+  selectedId: string | null
 }
 
 interface DrawingActions {
@@ -37,12 +38,15 @@ interface DrawingActions {
   addText: (text: { id: string; x: number; y: number; content: string; color: string; size: number }) => void
   removeStrokeById: (id: string) => void
   removeShapeById: (id: string) => void
+  moveStrokeById: (id: string, dx: number, dy: number) => void
+  moveShapeById: (id: string, dx: number, dy: number) => void
   clearAll: () => void
   undo: () => void
   redo: () => void
   setTool: (tool: ToolType) => void
   setColor: (color: string) => void
   setSize: (size: number) => void
+  setSelectedId: (id: string | null) => void
   loadData: (strokes: Stroke[], shapes: Shape[]) => void
 }
 
@@ -63,6 +67,7 @@ export const useDrawingStore = create<DrawingState & DrawingActions>((set, get) 
   size: 4,
   undoStack: [],
   redoStack: [],
+  selectedId: null,
 
   addStroke: (stroke) => {
     const state = get()
@@ -131,6 +136,33 @@ export const useDrawingStore = create<DrawingState & DrawingActions>((set, get) 
     set({ shapes: next, undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [] })
   },
 
+  moveStrokeById: (id, dx, dy) => {
+    const state = get()
+    const snap = pushSnapshot(state)
+    const next = state.strokes.map((s) =>
+      s.id === id ? { ...s, points: s.points.map((p) => [p[0] + dx, p[1] + dy]) } : s
+    )
+    saveToStorage(next, state.shapes)
+    set({ strokes: next, undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [] })
+  },
+
+  moveShapeById: (id, dx, dy) => {
+    const state = get()
+    const snap = pushSnapshot(state)
+    const next = state.shapes.map((s) =>
+      s.id === id
+        ? {
+            ...s,
+            x: s.x + dx, y: s.y + dy,
+            startX: (s.startX ?? s.x) + dx, startY: (s.startY ?? s.y) + dy,
+            endX: (s.endX ?? s.x + s.width) + dx, endY: (s.endY ?? s.y + s.height) + dy,
+          }
+        : s
+    )
+    saveToStorage(state.strokes, next)
+    set({ shapes: next, undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [] })
+  },
+
   clearAll: () => {
     const state = get()
     const snap = pushSnapshot(state)
@@ -162,9 +194,10 @@ export const useDrawingStore = create<DrawingState & DrawingActions>((set, get) 
     })
   },
 
-  setTool: (tool) => set({ tool }),
+  setTool: (tool) => set({ tool, selectedId: null }),
   setColor: (color) => set({ color }),
   setSize: (size) => set({ size }),
+  setSelectedId: (id) => set({ selectedId: id }),
 
   loadData: (strokes, shapes) => {
     const state = get()

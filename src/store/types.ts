@@ -1,4 +1,5 @@
 export type ToolType =
+  | 'select'
   | 'pen'
   | 'eraser'
   | 'pan'
