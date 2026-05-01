@@ -4,24 +4,28 @@ import { useViewStore } from '../store/useViewStore'
 import { useThemeStore } from '../store/useThemeStore'
 import type { ToolType } from '../store/types'
 
-const TOOLS: { id: ToolType; label: string; shortcut: string }[] = [
-  { id: 'select', label: '🔲 选择', shortcut: '0' },
-  { id: 'pen', label: '✏️ 笔', shortcut: '1' },
-  { id: 'eraser', label: '🧹 橡皮', shortcut: '2' },
-  { id: 'text', label: '🔤 文字', shortcut: '6' },
-  { id: 'pan', label: '✋ 平移', shortcut: '3' },
-  { id: 'rectangle', label: '⬜ 矩形', shortcut: '4' },
-  { id: 'circle', label: '⭕ 圆形', shortcut: '5' },
-  { id: 'line', label: '📏 直线', shortcut: '7' },
-  { id: 'arrow', label: '➡️ 箭头', shortcut: '8' },
+const TOOLS: { id: ToolType; icon: string; tip: string; key: string }[] = [
+  { id: 'select', icon: '⬚', tip: '选择 · 0', key: '0' },
+  { id: 'pen', icon: '✎', tip: '画笔 · 1', key: '1' },
+  { id: 'eraser', icon: '◻', tip: '橡皮 · 2', key: '2' },
+  { id: 'pan', icon: '✥', tip: '平移 · 3', key: '3' },
+  { id: 'rectangle', icon: '▭', tip: '矩形 · 4', key: '4' },
+  { id: 'circle', icon: '◯', tip: '圆形 · 5', key: '5' },
+  { id: 'text', icon: 'T', tip: '文字 · 6', key: '6' },
+  { id: 'line', icon: '╲', tip: '直线 · 7', key: '7' },
+  { id: 'arrow', icon: '→', tip: '箭头 · 8', key: '8' },
 ]
 
-const COLORS = ['#000000', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4']
+const COLORS = [
+  '#1e293b', '#ef4444', '#f97316', '#eab308',
+  '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899',
+]
+
 const SIZES = [
-  { label: '细', value: 2 },
-  { label: '中', value: 4 },
-  { label: '粗', value: 8 },
-  { label: '特粗', value: 16 },
+  { label: 'XS', value: 2 },
+  { label: 'S', value: 4 },
+  { label: 'M', value: 8 },
+  { label: 'L', value: 16 },
 ]
 
 function download(blob: Blob, filename: string) {
@@ -59,7 +63,7 @@ const Toolbar: React.FC = () => {
     const c = getCanvas(); if (!c) return
     const tmp = document.createElement('canvas'); tmp.width = c.width; tmp.height = c.height
     const ctx = tmp.getContext('2d')!
-    ctx.fillStyle = isDarkMode ? '#1f2937' : '#ffffff'
+    ctx.fillStyle = isDarkMode ? '#0f172a' : '#ffffff'
     ctx.fillRect(0, 0, tmp.width, tmp.height); ctx.drawImage(c, 0, 0)
     tmp.toBlob((blob) => { if (blob) download(blob, `mindnotes-${ts()}.png`) }, 'image/png')
   }
@@ -75,7 +79,7 @@ const Toolbar: React.FC = () => {
     const { jsPDF } = await import('jspdf')
     const tmp = document.createElement('canvas'); tmp.width = c.width; tmp.height = c.height
     const ctx = tmp.getContext('2d')!
-    ctx.fillStyle = isDarkMode ? '#1f2937' : '#ffffff'
+    ctx.fillStyle = isDarkMode ? '#0f172a' : '#ffffff'
     ctx.fillRect(0, 0, tmp.width, tmp.height); ctx.drawImage(c, 0, 0)
     const imgData = tmp.toDataURL('image/png')
     const landscape = c.width > c.height
@@ -85,7 +89,7 @@ const Toolbar: React.FC = () => {
   }
   const exportSVG = () => {
     const c = getCanvas(); if (!c) return
-    const bg = isDarkMode ? '#1f2937' : '#ffffff'
+    const bg = isDarkMode ? '#0f172a' : '#ffffff'
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${c.width}" height="${c.height}"><rect width="100%" height="100%" fill="${bg}"/>\n`
     for (const s of strokes) {
       if (s.name) { svg += `  <text x="${s.points[0][0]}" y="${s.points[0][1]}" fill="${s.color}" font-size="${s.size * 4}" font-family="sans-serif">${s.name}</text>\n`; continue }
@@ -109,7 +113,7 @@ const Toolbar: React.FC = () => {
     const c = getCanvas(); if (!c) return
     const tmp = document.createElement('canvas'); tmp.width = c.width; tmp.height = c.height
     const ctx = tmp.getContext('2d')!
-    ctx.fillStyle = isDarkMode ? '#1f2937' : '#ffffff'
+    ctx.fillStyle = isDarkMode ? '#0f172a' : '#ffffff'
     ctx.fillRect(0, 0, tmp.width, tmp.height); ctx.drawImage(c, 0, 0)
     const imgData = tmp.toDataURL('image/png')
     const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset="utf-8"><style>body{font-family:sans-serif}img{max-width:100%}</style></head><body><h1>MindNotes Pro</h1><p>导出时间：${new Date().toLocaleString('zh-CN')}</p><p><img src="${imgData}" width="${c.width}" height="${c.height}"/></p></body></html>`
@@ -126,70 +130,85 @@ const Toolbar: React.FC = () => {
   }
 
   const EXPORTS = [
-    { label: '📷 PNG 图片', action: exportPNG },
-    { label: '🖼️ JPG 图片', action: exportJPG },
-    { label: '📄 PDF 文档', action: exportPDF },
-    { label: '🔷 SVG 矢量', action: exportSVG },
-    { label: '📝 Word 文档', action: exportWord },
-    { label: '💾 JSON 数据', action: exportJSON },
+    { icon: '📷', label: 'PNG 图片', desc: '透明背景', action: exportPNG },
+    { icon: '🖼️', label: 'JPG 图片', desc: '白色背景', action: exportJPG },
+    { icon: '📄', label: 'PDF 文档', desc: '自适应版式', action: exportPDF },
+    { icon: '🔷', label: 'SVG 矢量', desc: '无损缩放', action: exportSVG },
+    { icon: '📝', label: 'Word 文档', desc: '嵌入截图', action: exportWord },
+    { icon: '💾', label: 'JSON 数据', desc: '完整备份', action: exportJSON },
   ]
 
   return (
     <>
-      <div className="fixed top-3 left-1/2 -translate-x-1/2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 px-4 py-2.5 z-10 max-w-[98vw]">
-        <div className="flex items-center gap-2 flex-wrap justify-center">
+      <div className="fixed top-3 left-1/2 -translate-x-1/2 glass-panel rounded-2xl px-3 py-2 z-10 max-w-[98vw]">
+        <div className="flex items-center gap-1.5 flex-wrap justify-center">
           {TOOLS.map((t) => (
             <button key={t.id} onClick={() => setTool(t.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${tool === t.id ? 'bg-indigo-500 text-white shadow' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
-              title={`${t.label} (${t.shortcut})`}>{t.label}</button>
+              className={`tool-btn ${tool === t.id ? 'active' : ''}`}
+              data-tip={t.tip}>{t.icon}</button>
           ))}
 
-          <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-0.5" />
+          <div className="separator" />
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 mx-1">
             {COLORS.map((c) => (
               <button key={c} onClick={() => setColor(c)}
-                className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${color === c ? 'border-indigo-500 scale-110 ring-2 ring-indigo-300' : 'border-gray-300 dark:border-gray-600'}`}
+                className={`color-swatch ${color === c ? 'active' : ''}`}
                 style={{ backgroundColor: c }} />
             ))}
-            <button onClick={() => colorInputRef.current?.click()} className="w-6 h-6 rounded-full border-2 border-dashed border-gray-400 dark:border-gray-500 flex items-center justify-center text-xs hover:scale-110 transition-transform" title="自定义颜色">+</button>
+            <button onClick={() => colorInputRef.current?.click()}
+              className="color-swatch flex items-center justify-center text-xs font-bold"
+              style={{ border: `2px dashed var(--border-color)`, color: 'var(--text-secondary)', fontSize: '14px' }}
+              data-tip="自定义颜色">+</button>
             <input ref={colorInputRef} type="color" value={color} onChange={(e) => setColor(e.target.value)} className="w-0 h-0 opacity-0 absolute" />
           </div>
 
-          <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-0.5" />
+          <div className="separator" />
 
           {SIZES.map((s) => (
             <button key={s.label} onClick={() => setSize(s.value)}
-              className={`px-2 py-1 rounded text-xs font-medium transition-colors ${size === s.value ? 'bg-indigo-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
-              title={`${s.label} (${s.value}px)`}>{s.label}</button>
+              className={`size-btn ${size === s.value ? 'active' : ''}`}
+              data-tip={`${s.value}px`}>{s.label}</button>
           ))}
 
-          <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-0.5" />
+          <div className="separator" />
 
-          <button onClick={undo} disabled={undoLen === 0} className={`px-2 py-1 rounded text-sm ${undoLen > 0 ? 'hover:bg-gray-100 dark:hover:bg-gray-700' : 'opacity-30 cursor-not-allowed'}`} title="撤销 (Ctrl+Z)">↩️</button>
-          <button onClick={redo} disabled={redoLen === 0} className={`px-2 py-1 rounded text-sm ${redoLen > 0 ? 'hover:bg-gray-100 dark:hover:bg-gray-700' : 'opacity-30 cursor-not-allowed'}`} title="重做 (Ctrl+Shift+Z)">↪️</button>
-          <button onClick={() => { if (confirm('清空所有笔迹？')) clearAll() }} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm" title="清空">🗑️</button>
+          <button onClick={undo} disabled={undoLen === 0} className="action-btn" data-tip="撤销 · Ctrl+Z">↩</button>
+          <button onClick={redo} disabled={redoLen === 0} className="action-btn" data-tip="重做 · Ctrl+Shift+Z">↪</button>
+          <button onClick={() => { if (confirm('清空所有笔迹？')) clearAll() }} className="action-btn" data-tip="清空">🗑</button>
 
-          <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-0.5" />
+          <div className="separator" />
 
-          <button onClick={zoomIn} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-bold" title="放大">+</button>
-          <button onClick={zoomOut} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-bold" title="缩小">−</button>
-          <button onClick={resetView} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm" title="重置视图">⊙</button>
-          <button onClick={toggleTheme} className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm" title="切换主题">{isDarkMode ? '☀️' : '🌙'}</button>
+          <button onClick={zoomIn} className="action-btn" data-tip="放大">+</button>
+          <button onClick={zoomOut} className="action-btn" data-tip="缩小">−</button>
+          <button onClick={resetView} className="action-btn" data-tip="重置视图">⊙</button>
+          <button onClick={toggleTheme} className="action-btn" data-tip="切换主题">{isDarkMode ? '☀' : '☽'}</button>
 
-          <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-0.5" />
+          <div className="separator" />
 
           <div className="relative">
-            <button onClick={() => setShowExport(!showExport)} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-500 text-white hover:bg-indigo-600 transition-colors">导出 ▾</button>
+            <button onClick={() => setShowExport(!showExport)} className="export-btn">
+              <span>导出</span>
+              <span style={{ fontSize: '10px', opacity: 0.8 }}>▾</span>
+            </button>
             {showExport && (
-              <div className="absolute top-full right-0 mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1 min-w-[180px] z-20">
+              <div className="export-dropdown glass-panel">
                 {EXPORTS.map((item) => (
                   <button key={item.label} onClick={() => { item.action(); setShowExport(false) }}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors">{item.label}</button>
+                    className="export-item">
+                    <span className="icon">{item.icon}</span>
+                    <div className="flex flex-col items-start">
+                      <span>{item.label}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 400 }}>{item.desc}</span>
+                    </div>
+                  </button>
                 ))}
-                <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                <div style={{ height: '1px', background: 'var(--border-color)', margin: '4px 8px' }} />
                 <button onClick={() => { fileInputRef.current?.click(); setShowExport(false) }}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors">📂 导入 JSON</button>
+                  className="export-item">
+                  <span className="icon">📂</span>
+                  <span>导入 JSON</span>
+                </button>
               </div>
             )}
           </div>

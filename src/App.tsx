@@ -1,25 +1,47 @@
 import { useEffect } from 'react'
 import Canvas from './components/Canvas'
 import Toolbar from './components/Toolbar'
+import { useDrawingStore } from './store/useDrawingStore'
+import { useViewStore } from './store/useViewStore'
 import { useThemeStore } from './store/useThemeStore'
+
+const TOOL_NAMES: Record<string, string> = {
+  select: '选择', pen: '画笔', eraser: '橡皮', pan: '平移', text: '文字',
+  rectangle: '矩形', circle: '圆形', line: '直线', arrow: '箭头',
+}
 
 export default function App() {
   const { initTheme } = useThemeStore()
+  const tool = useDrawingStore((s) => s.tool)
+  const strokes = useDrawingStore((s) => s.strokes)
+  const shapes = useDrawingStore((s) => s.shapes)
+  const zoom = useViewStore((s) => s.viewBox.zoom)
 
-  useEffect(() => {
-    initTheme()
-  }, [initTheme])
+  useEffect(() => { initTheme() }, [initTheme])
 
   return (
-    <div className="w-full h-screen relative overflow-hidden" style={{ backgroundColor: 'var(--canvas-bg, #fff)' }}>
+    <div className="w-full h-screen relative overflow-hidden" style={{ backgroundColor: 'var(--canvas-bg)' }}>
       <Canvas />
       <Toolbar />
-      <div className="fixed bottom-4 left-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-xl px-4 py-3 text-sm text-gray-600 dark:text-gray-300 shadow-lg border border-gray-200 dark:border-gray-700 pointer-events-none">
-        <div className="font-medium mb-1">快捷键</div>
-        <div className="space-y-0.5 text-xs">
-          <div>1-5 切换工具 | Delete 清空 | 滚轮缩放</div>
-          <div>📷 导出PNG | 💾 保存JSON | 📂 导入JSON</div>
+
+      <div className="fixed bottom-3 left-3 glass-panel status-bar">
+        <div className="status-item">
+          <span className="status-dot" />
+          <span>本地存储</span>
         </div>
+        <div className="status-item">
+          <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{TOOL_NAMES[tool] ?? tool}</span>
+        </div>
+        <div className="status-item">
+          <span>{Math.round(zoom * 100)}%</span>
+        </div>
+        <div className="status-item">
+          <span>{strokes.length + shapes.length} 个对象</span>
+        </div>
+      </div>
+
+      <div className="fixed bottom-3 right-3 glass-panel px-3 py-1.5 rounded-lg text-xs pointer-events-none" style={{ color: 'var(--text-secondary)' }}>
+        Ctrl+Z 撤销 · 滚轮缩放 · 0-8 切换工具
       </div>
     </div>
   )

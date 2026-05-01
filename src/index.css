@@ -2,91 +2,316 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CSS 变量主题系统 */
 :root {
-  /* 浅色主题 */
   --bg-primary: #ffffff;
   --bg-secondary: #f9fafb;
   --bg-tertiary: #f3f4f6;
   --text-primary: #1f2937;
   --text-secondary: #6b7280;
   --border-color: #e5e7eb;
-  --shadow-color: rgba(0, 0, 0, 0.1);
-  --primary-color: #4f46e5;
-  --primary-hover: #4338ca;
-  --toolbar-bg: rgba(255, 255, 255, 0.95);
+  --shadow-color: rgba(0, 0, 0, 0.08);
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --primary-light: #eef2ff;
   --canvas-bg: #ffffff;
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.5);
 }
 
 .dark {
-  /* 深色主题 */
-  --bg-primary: #1f2937;
-  --bg-secondary: #111827;
-  --bg-tertiary: #030712;
-  --text-primary: #f9fafb;
-  --text-secondary: #9ca3af;
-  --border-color: #374151;
-  --shadow-color: rgba(0, 0, 0, 0.3);
-  --primary-color: #6366f1;
-  --primary-hover: #818cf8;
-  --toolbar-bg: rgba(31, 41, 55, 0.95);
-  --canvas-bg: #1f2937;
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #0f172a;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --border-color: #334155;
+  --shadow-color: rgba(0, 0, 0, 0.25);
+  --primary: #818cf8;
+  --primary-hover: #6366f1;
+  --primary-light: #1e1b4b;
+  --canvas-bg: #0f172a;
+  --glass-bg: rgba(15, 23, 42, 0.88);
+  --glass-border: rgba(51, 65, 85, 0.6);
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
-  background-color: var(--bg-primary);
+  background-color: var(--canvas-bg);
   color: var(--text-primary);
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-              color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 深色模式平滑过渡 */
-.dark,
-.dark * {
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-              color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-              border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+#root { width: 100vw; height: 100vh; }
+
+/* Glass morphism panel */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px var(--shadow-color), 0 1px 2px rgba(0,0,0,0.04);
 }
 
-#root {
-  width: 100vw;
-  height: 100vh;
+/* Tool button */
+.tool-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 16px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
 }
 
-/* 画布容器 */
-.canvas-container {
-  touch-action: none;
-  cursor: crosshair;
+.tool-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+  transform: translateY(-1px);
 }
 
-/* 工具栏按钮 */
-.toolbar-btn {
-  @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
-  @apply hover:scale-105 active:scale-95;
+.tool-btn:active {
+  transform: translateY(0) scale(0.95);
 }
 
-.toolbar-btn.active {
-  @apply bg-primary text-white shadow-lg;
+.tool-btn.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
 }
 
-/* 保存对话框 */
-.dialog-overlay {
-  @apply fixed inset-0 bg-black/50 flex items-center justify-center z-50;
+.tool-btn.active:hover {
+  background: var(--primary-hover);
 }
 
-.dialog-content {
-  @apply bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl;
+/* Tooltip */
+.tool-btn::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.9);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.15s ease;
+  z-index: 50;
+}
+
+.tool-btn:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+/* Color swatch */
+.color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.color-swatch:hover {
+  transform: scale(1.2);
+}
+
+.color-swatch.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+  transform: scale(1.15);
+}
+
+/* Size button */
+.size-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.size-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.size-btn.active {
+  background: var(--primary);
+  color: white;
+}
+
+/* Action button */
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.action-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.action-btn:active {
+  transform: scale(0.9);
+}
+
+.action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.action-btn:disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+/* Export button */
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: var(--primary);
+  color: white;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.export-btn:hover {
+  background: var(--primary-hover);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px);
+}
+
+.export-btn:active {
+  transform: translateY(0);
+}
+
+/* Export dropdown */
+.export-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  border-radius: 14px;
+  padding: 6px;
+  z-index: 30;
+  animation: dropIn 0.15s ease;
+}
+
+@keyframes dropIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.export-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  transition: all 0.1s ease;
+}
+
+.export-item:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.export-item .icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+/* Status bar */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
+}
+
+/* Separator */
+.separator {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+/* Smooth theme transition */
+.theme-transition,
+.theme-transition * {
+  transition: background-color 0.3s ease, color 0.2s ease, border-color 0.3s ease !important;
 }
