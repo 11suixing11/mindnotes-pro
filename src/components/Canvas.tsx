@@ -1,111 +1,448 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
+import { useDrawingStore } from '../store/useDrawingStore'
+import { useViewStore } from '../store/useViewStore'
+import { useHistoryStore } from '../store/useHistoryStore'
+import type { Stroke, Shape, ToolType } from '../store/types'
 
 export default function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [canvasSize, setCanvasSize] = useState({ w: window.innerWidth, h: window.innerHeight })
 
+  const tool = useDrawingStore((s) => s.tool)
+  const color = useDrawingStore((s) => s.color)
+  const size = useDrawingStore((s) => s.size)
+  const strokes = useDrawingStore((s) => s.strokes)
+  const shapes = useDrawingStore((s) => s.shapes)
+  const addStroke = useDrawingStore((s) => s.addStroke)
+  const addShape = useDrawingStore((s) => s.addShape)
+
+  const viewBox = useViewStore((s) => s.viewBox)
+  const startPan = useViewStore((s) => s.startPan)
+  const updatePan = useViewStore((s) => s.updatePan)
+  const endPan = useViewStore((s) => s.endPan)
+  const isPanning = useViewStore((s) => s.isPanning)
+  const zoomIn = useViewStore((s) => s.zoomIn)
+  const zoomOut = useViewStore((s) => s.zoomOut)
+
+  const pushHistory = useHistoryStore((s) => s.push)
+  const undoStack = useHistoryStore((s) => s.undoStack)
+  const redoStack = useHistoryStore((s) => s.redoStack)
+  const undo = useHistoryStore((s) => s.undo)
+  const redo = useHistoryStore((s) => s.redo)
+
+  const drawingRef = useRef(false)
+  const currentPointsRef = useRef<number[][]>([])
+  const shapeStartRef = useRef<{ x: number; y: number } | null>(null)
+  const currentShapeRef = useRef<Shape | null>(null)
+
+  const getPos = useCallback(
+    (e: MouseEvent | TouchEvent) => {
+      const canvas = canvasRef.current
+      if (!canvas) return { x: 0, y: 0 }
+      const rect = canvas.getBoundingClientRect()
+      let cx: number, cy: number
+      if ('touches' in e && e.touches.length > 0) {
+        cx = e.touches[0].clientX
+        cy = e.touches[0].clientY
+      } else if ('changedTouches' in e && e.changedTouches.length > 0) {
+        cx = e.changedTouches[0].clientX
+        cy = e.changedTouches[0].clientY
+      } else {
+        cx = (e as MouseEvent).clientX
+        cy = (e as MouseEvent).clientY
+      }
+      return {
+        x: (cx - rect.left) / viewBox.zoom + viewBox.x,
+        y: (cy - rect.top) / viewBox.zoom + viewBox.y,
+      }
+    },
+    [viewBox]
+  )
+
+  const redraw = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    ctx.save()
+    ctx.scale(viewBox.zoom, viewBox.zoom)
+    ctx.translate(-viewBox.x, -viewBox.y)
+
+    // Draw grid
+    if (viewBox.zoom > 0.3) {
+      const gridSize = 40
+      const startX = Math.floor(viewBox.x / gridSize) * gridSize
+      const startY = Math.floor(viewBox.y / gridSize) * gridSize
+      const endX = viewBox.x + canvas.width / viewBox.zoom
+      const endY = viewBox.y + canvas.height / viewBox.zoom
+
+      ctx.strokeStyle = 'rgba(0,0,0,0.06)'
+      ctx.lineWidth = 0.5 / viewBox.zoom
+      ctx.beginPath()
+      for (let x = startX; x <= endX; x += gridSize) {
+        ctx.moveTo(x, startY)
+        ctx.lineTo(x, endY)
+      }
+      for (let y = startY; y <= endY; y += gridSize) {
+        ctx.moveTo(startX, y)
+        ctx.lineTo(endX, y)
+      }
+      ctx.stroke()
+    }
+
+    // Draw strokes (with undo support)
+    const visibleStrokes = [...strokes]
+    // Remove undone strokes
+    const undoneIds = new Set(
+      undoStack.filter((a: any) => a.type === 'removeStroke').map((a: any) => a.strokeId)
+    )
+    // Re-add redone strokes
+    const redoneIds = new Set(
+      redoStack.filter((a: any) => a.type === 'removeStroke').map((a: any) => a.strokeId)
+    )
+
+    for (const stroke of visibleStrokes) {
+      if (undoneIds.has(stroke.id) && !redoneIds.has(stroke.id)) continue
+      drawStroke(ctx, stroke)
+    }
+
+    // Draw shapes
+    for (const shape of shapes) {
+      drawShape(ctx, shape)
+    }
+
+    // Draw current stroke in progress
+    if (drawingRef.current && currentPointsRef.current.length > 1) {
+      const tempStroke: Stroke = {
+        id: 'temp',
+        points: currentPointsRef.current,
+        color: tool === 'eraser' ? '#ffffff' : color,
+        size: tool === 'eraser' ? size * 3 : size,
+        tool: tool === 'eraser' ? 'eraser' : 'pen',
+      }
+      drawStroke(ctx, tempStroke)
+    }
+
+    // Draw current shape in progress
+    if (currentShapeRef.current) {
+      drawShape(ctx, currentShapeRef.current)
+    }
+
+    ctx.restore()
+  }, [strokes, shapes, viewBox, undoStack, redoStack, color, size, tool])
+
+  function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
+    if (stroke.points.length < 2) return
+    ctx.beginPath()
+    ctx.strokeStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color
+    ctx.lineWidth = stroke.size
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+
+    ctx.moveTo(stroke.points[0][0], stroke.points[0][1])
+    for (let i = 1; i < stroke.points.length; i++) {
+      const prev = stroke.points[i - 1]
+      const curr = stroke.points[i]
+      const mx = (prev[0] + curr[0]) / 2
+      const my = (prev[1] + curr[1]) / 2
+      ctx.quadraticCurveTo(prev[0], prev[1], mx, my)
+    }
+    ctx.stroke()
+  }
+
+  function drawShape(ctx: CanvasRenderingContext2D, shape: Shape) {
+    ctx.strokeStyle = shape.color
+    ctx.lineWidth = shape.size
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+
+    const sx = shape.startX ?? shape.x
+    const sy = shape.startY ?? shape.y
+    const ex = shape.endX ?? shape.x + shape.width
+    const ey = shape.endY ?? shape.y + shape.height
+
+    switch (shape.type) {
+      case 'rectangle':
+        ctx.strokeRect(sx, sy, ex - sx, ey - sy)
+        break
+      case 'circle': {
+        const cx = (sx + ex) / 2
+        const cy = (sy + ey) / 2
+        const rx = Math.abs(ex - sx) / 2
+        const ry = Math.abs(ey - sy) / 2
+        ctx.beginPath()
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
+        ctx.stroke()
+        break
+      }
+      case 'line':
+        ctx.beginPath()
+        ctx.moveTo(sx, sy)
+        ctx.lineTo(ex, ey)
+        ctx.stroke()
+        break
+      case 'triangle':
+        ctx.beginPath()
+        ctx.moveTo((sx + ex) / 2, sy)
+        ctx.lineTo(sx, ey)
+        ctx.lineTo(ex, ey)
+        ctx.closePath()
+        ctx.stroke()
+        break
+      case 'arrow': {
+        ctx.beginPath()
+        ctx.moveTo(sx, sy)
+        ctx.lineTo(ex, ey)
+        ctx.stroke()
+        const angle = Math.atan2(ey - sy, ex - sx)
+        const headLen = 15
+        ctx.beginPath()
+        ctx.moveTo(ex, ey)
+        ctx.lineTo(
+          ex - headLen * Math.cos(angle - Math.PI / 6),
+          ey - headLen * Math.sin(angle - Math.PI / 6)
+        )
+        ctx.moveTo(ex, ey)
+        ctx.lineTo(
+          ex - headLen * Math.cos(angle + Math.PI / 6),
+          ey - headLen * Math.sin(angle + Math.PI / 6)
+        )
+        ctx.stroke()
+        break
+      }
+    }
+  }
+
+  const handleStart = useCallback(
+    (e: MouseEvent | TouchEvent) => {
+      e.preventDefault()
+      const pos = getPos(e)
+
+      if (tool === 'pan') {
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
+        const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
+        startPan(clientX, clientY)
+        return
+      }
+
+      drawingRef.current = true
+
+      if (tool === 'pen' || tool === 'eraser') {
+        currentPointsRef.current = [[pos.x, pos.y]]
+      } else {
+        shapeStartRef.current = pos
+        currentShapeRef.current = {
+          id: `shape-${Date.now()}`,
+          type: tool,
+          x: pos.x,
+          y: pos.y,
+          width: 0,
+          height: 0,
+          color,
+          size,
+          startX: pos.x,
+          startY: pos.y,
+          endX: pos.x,
+          endY: pos.y,
+        }
+      }
+    },
+    [tool, color, size, getPos, startPan]
+  )
+
+  const handleMove = useCallback(
+    (e: MouseEvent | TouchEvent) => {
+      e.preventDefault()
+
+      if (tool === 'pan' && isPanning) {
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
+        const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
+        updatePan(clientX, clientY)
+        redraw()
+        return
+      }
+
+      if (!drawingRef.current) return
+      const pos = getPos(e)
+
+      if (tool === 'pen' || tool === 'eraser') {
+        currentPointsRef.current.push([pos.x, pos.y])
+      } else if (shapeStartRef.current && currentShapeRef.current) {
+        currentShapeRef.current = {
+          ...currentShapeRef.current,
+          endX: pos.x,
+          endY: pos.y,
+          width: pos.x - shapeStartRef.current.x,
+          height: pos.y - shapeStartRef.current.y,
+        }
+      }
+
+      redraw()
+    },
+    [tool, isPanning, getPos, updatePan, redraw]
+  )
+
+  const handleEnd = useCallback(
+    (e: MouseEvent | TouchEvent) => {
+      e.preventDefault()
+
+      if (tool === 'pan') {
+        endPan()
+        return
+      }
+
+      if (!drawingRef.current) return
+      drawingRef.current = false
+
+      if (tool === 'pen' || tool === 'eraser') {
+        if (currentPointsRef.current.length > 1) {
+          const stroke: Stroke = {
+            id: `stroke-${Date.now()}`,
+            points: [...currentPointsRef.current],
+            color: tool === 'eraser' ? '#ffffff' : color,
+            size: tool === 'eraser' ? size * 3 : size,
+            tool: tool === 'eraser' ? 'eraser' : 'pen',
+          }
+          addStroke(stroke)
+          pushHistory({ type: 'addStroke', strokeId: stroke.id })
+        }
+        currentPointsRef.current = []
+      } else if (currentShapeRef.current) {
+        addShape(currentShapeRef.current)
+        pushHistory({ type: 'addShape', shapeId: currentShapeRef.current.id })
+        currentShapeRef.current = null
+        shapeStartRef.current = null
+      }
+
+      redraw()
+    },
+    [tool, color, size, addStroke, addShape, pushHistory, endPan, redraw]
+  )
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+
+      const setTool = useDrawingStore.getState().setTool
+      const clearStrokes = useDrawingStore.getState().clearStrokes
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        undo()
+        redraw()
+        return
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+        e.preventDefault()
+        redo()
+        redraw()
+        return
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (confirm('确定清空所有笔迹？')) {
+          clearStrokes()
+          useHistoryStore.getState().clear()
+          redraw()
+        }
+        return
+      }
+
+      const toolMap: Record<string, ToolType> = {
+        '1': 'pen', '2': 'eraser', '3': 'pan',
+        '4': 'rectangle', '5': 'circle',
+      }
+      if (toolMap[e.key]) {
+        setTool(toolMap[e.key])
+        return
+      }
+      if (e.key === '+' || e.key === '=') { zoomIn(); redraw(); return }
+      if (e.key === '-') { zoomOut(); redraw(); return }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [undo, redo, zoomIn, zoomOut, redraw])
+
+  // Canvas resize
+  useEffect(() => {
+    const handleResize = () => {
+      setCanvasSize({ w: window.innerWidth, h: window.innerHeight })
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Mouse/touch events
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    // 获取 2D 上下文
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    // 设置 Canvas 大小
-    const resize = () => {
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight
-    }
-    resize()
-    window.addEventListener('resize', resize)
-
-    // 设置绘制样式
-    ctx.strokeStyle = '#000000'
-    ctx.lineWidth = 4
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-
-    // 绘制状态
-    let isDrawing = false
-    let lastX = 0
-    let lastY = 0
-
-    // 开始绘制
-    const startDrawing = (e: MouseEvent | TouchEvent) => {
-      isDrawing = true
-      const pos = getPosition(e)
-      lastX = pos.x
-      lastY = pos.y
-    }
-
-    // 绘制中
-    const draw = (e: MouseEvent | TouchEvent) => {
-      if (!isDrawing) return
-      const pos = getPosition(e)
-      
-      ctx.beginPath()
-      ctx.moveTo(lastX, lastY)
-      ctx.lineTo(pos.x, pos.y)
-      ctx.stroke()
-      
-      lastX = pos.x
-      lastY = pos.y
-    }
-
-    // 停止绘制
-    const stopDrawing = () => {
-      isDrawing = false
-    }
-
-    // 获取坐标
-    const getPosition = (e: MouseEvent | TouchEvent) => {
-      const rect = canvas.getBoundingClientRect()
-      let clientX, clientY
-      
-      if ('touches' in e) {
-        clientX = e.touches[0].clientX
-        clientY = e.touches[0].clientY
-      } else {
-        clientX = (e as MouseEvent).clientX
-        clientY = (e as MouseEvent).clientY
-      }
-      
-      return {
-        x: clientX - rect.left,
-        y: clientY - rect.top
-      }
-    }
-
-    // 添加事件监听
-    canvas.addEventListener('mousedown', startDrawing)
-    canvas.addEventListener('mousemove', draw)
-    canvas.addEventListener('mouseup', stopDrawing)
-    canvas.addEventListener('mouseout', stopDrawing)
-    
-    canvas.addEventListener('touchstart', startDrawing, { passive: false })
-    canvas.addEventListener('touchmove', draw, { passive: false })
-    canvas.addEventListener('touchend', stopDrawing)
+    canvas.addEventListener('mousedown', handleStart)
+    canvas.addEventListener('mousemove', handleMove)
+    canvas.addEventListener('mouseup', handleEnd)
+    canvas.addEventListener('mouseleave', handleEnd)
+    canvas.addEventListener('touchstart', handleStart, { passive: false })
+    canvas.addEventListener('touchmove', handleMove, { passive: false })
+    canvas.addEventListener('touchend', handleEnd, { passive: false })
 
     return () => {
-      window.removeEventListener('resize', resize)
-      canvas.removeEventListener('mousedown', startDrawing)
-      canvas.removeEventListener('mousemove', draw)
-      canvas.removeEventListener('mouseup', stopDrawing)
-      canvas.removeEventListener('mouseout', stopDrawing)
-      canvas.removeEventListener('touchstart', startDrawing)
-      canvas.removeEventListener('touchmove', draw)
-      canvas.removeEventListener('touchend', stopDrawing)
+      canvas.removeEventListener('mousedown', handleStart)
+      canvas.removeEventListener('mousemove', handleMove)
+      canvas.removeEventListener('mouseup', handleEnd)
+      canvas.removeEventListener('mouseleave', handleEnd)
+      canvas.removeEventListener('touchstart', handleStart)
+      canvas.removeEventListener('touchmove', handleMove)
+      canvas.removeEventListener('touchend', handleEnd)
     }
-  }, [])
+  }, [handleStart, handleMove, handleEnd])
+
+  // Redraw on state change
+  useEffect(() => {
+    redraw()
+  }, [redraw, canvasSize])
+
+  // Wheel zoom
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      if (e.deltaY < 0) zoomIn()
+      else zoomOut()
+      redraw()
+    }
+
+    canvas.addEventListener('wheel', handleWheel, { passive: false })
+    return () => canvas.removeEventListener('wheel', handleWheel)
+  }, [zoomIn, zoomOut, redraw])
+
+  const cursorMap: Record<string, string> = {
+    pen: 'crosshair',
+    eraser: 'cell',
+    pan: 'grab',
+    rectangle: 'crosshair',
+    circle: 'crosshair',
+    triangle: 'crosshair',
+    arrow: 'crosshair',
+    line: 'crosshair',
+  }
 
   return (
-    <div className="w-full h-screen">
-      <canvas
-        ref={canvasRef}
-        data-whiteboard-canvas="true"
-        className="w-full h-full touch-none"
-        style={{ touchAction: 'none' }}
-      />
-    </div>
+    <canvas
+      ref={canvasRef}
+      width={canvasSize.w}
+      height={canvasSize.h}
+      className="w-full h-full touch-none"
+      style={{
+        touchAction: 'none',
+        cursor: isPanning ? 'grabbing' : cursorMap[tool] ?? 'crosshair',
+        backgroundColor: 'var(--canvas-bg, #fff)',
+      }}
+    />
   )
 }
