@@ -30,13 +30,7 @@ vi.mock('./components/ui/Toast', () => ({
 }))
 
 vi.mock('./components/ui/ErrorBoundary', () => ({
-  ErrorBoundaryProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  ErrorFallback: () => <div>Error</div>,
-  useErrorBoundary: () => ({
-    hasError: false,
-    error: null,
-    resetError: vi.fn(),
-  }),
+  ErrorBoundaryClass: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
 vi.mock('./hooks/useServiceWorker', () => ({
