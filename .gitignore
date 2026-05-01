@@ -2,10 +2,6 @@
 logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
 # Dependencies
 node_modules
@@ -13,30 +9,14 @@ dist
 dist-ssr
 *.local
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
+# Editor
+.vscode
 .idea
 .DS_Store
 
-# Electron builds
-release/
-*.AppImage
-*.dmg
-*.exe
-*.msi
-*.deb
-*.rpm
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Environment variables
+# Environment
 .env
-.env.local
-.env.production
+.env.*
 
 # Build output
 build/
@@ -44,32 +24,14 @@ out/
 
 # Coverage
 coverage/
-.nyc_output/
 
-# Temporary files
+# Temporary
 tmp/
 temp/
 *.tmp
 *.bak
 *.swp
 *~
-.vercel
 
-# Release notes / reports (keep in git tags, not in tree)
-RELEASE_NOTES_*.md
-RELEASE_COMPLETE_*.md
-RELEASE_COMPLETE_*.txt
-RELEASE_PUSH_CHECKLIST_*.md
-RELEASE_v*_STATUS.md
-RELEASE_v*_SUMMARY.md
-PROGRESS_REPORT*.md
-DEPLOYMENT_REPORT_*.md
-BUILD_OPTIMIZATION_PLAN_*.md
-COMPLETE_RELEASE_PACKAGE_*.md
-PROJECT_DELIVERY_SUMMARY.md
-VERSION_RELEASE_POLICY.md
-DOCUMENTATION_ENHANCEMENT_REPORT.md
-FINAL_RELEASE_REPORT.ps1
-RELEASE_VERIFICATION.ps1
-performance-reports/
-一键安装包/
+# Kilo config
+.kilo/
