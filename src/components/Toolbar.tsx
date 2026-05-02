@@ -24,6 +24,10 @@ const I = {
   reset: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>,
   download: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
   bg: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>,
+  image: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
+  clear: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
+  file: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
+  fullscreen: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>,
 }
 
 const TOOLS: { id: ToolType; icon: React.ReactNode; tip: string; key: string }[] = [
@@ -71,6 +75,7 @@ export default function Toolbar() {
   const canvasBg = useDrawingStore((s) => s.canvasBg)
   const setCanvasBg = useDrawingStore((s) => s.setCanvasBg)
   const clearAll = useDrawingStore((s) => s.clearAll)
+  const addStroke = useDrawingStore((s) => s.addStroke)
   const strokes = useDrawingStore((s) => s.strokes)
   const shapes = useDrawingStore((s) => s.shapes)
   const loadData = useDrawingStore((s) => s.loadData)
@@ -84,6 +89,7 @@ export default function Toolbar() {
   const zoom = useViewStore((s) => s.viewBox.zoom)
   const { isDarkMode, toggleTheme } = useThemeStore()
   const fileRef = useRef<HTMLInputElement>(null)
+  const imgRef = useRef<HTMLInputElement>(null)
   const colorRef = useRef<HTMLInputElement>(null)
   const bgRef = useRef<HTMLInputElement>(null)
   const [showExport, setShowExport] = useState(false)
@@ -110,6 +116,31 @@ export default function Toolbar() {
   const exportWord = () => { const c = getCanvas(); if (!c) return; const d = withBg(c, isDarkMode ? '#0a0a0c' : '#fff').toDataURL('image/png'); const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset="utf-8"><style>body{font-family:sans-serif}img{max-width:100%}</style></head><body><h1>MindNotes Pro</h1><p>导出时间：${new Date().toLocaleString('zh-CN')}</p><p><img src="${d}" width="${c.width}" height="${c.height}"/></p></body></html>`; download(new Blob([h], { type: 'application/msword' }), `mindnotes-${ts()}.doc`) }
   const exportJSON = () => download(new Blob([JSON.stringify({ strokes, shapes, version: 1 }, null, 2)], { type: 'application/json' }), `mindnotes-${ts()}.json`)
   const importJSON = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result as string); loadData(d.strokes ?? [], d.shapes ?? []) } catch { alert('无法解析文件') } }; r.readAsText(f); e.target.value = '' }
+
+  const importImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; if (!f) return
+    const r = new FileReader()
+    r.onload = () => {
+      const img = new Image()
+      img.onload = () => {
+        const c = getCanvas(); if (!c) return
+        const ctx = c.getContext('2d'); if (!ctx) return
+        const maxW = c.width * 0.5, maxH = c.height * 0.5
+        const scale = Math.min(maxW / img.width, maxH / img.height, 1)
+        const w = img.width * scale, h = img.height * scale
+        const x = (c.width / 2 - w / 2) / 1 + 0, y = (c.height / 2 - h / 2) / 1 + 0
+        ctx.drawImage(img, x, y, w, h)
+        addStroke({ id: `img-${Date.now()}`, points: [[x, y]], color: 'transparent', size: 0, tool: 'pen', name: `[图片: ${f?.name}]` })
+      }
+      img.src = r.result as string
+    }
+    r.readAsDataURL(f); e.target.value = ''
+  }
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen()
+    else document.exitFullscreen()
+  }
 
   const EXPORTS = [
     { icon: '🖼️', label: 'PNG 图片', desc: '透明背景', action: exportPNG },
@@ -212,6 +243,15 @@ export default function Toolbar() {
           <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: 3, background: canvasBg, border: '1.5px solid var(--border)' }} />
         </button>
         <input ref={bgRef} type="color" value={canvasBg} onChange={(e) => setCanvasBg(e.target.value)} className="hidden" />
+
+        <div className="tb-sep" />
+
+        <button onClick={() => imgRef.current?.click()} className="abtn" data-tip="插入图片">{I.image}</button>
+        <input ref={imgRef} type="file" accept="image/*" onChange={importImage} className="hidden" />
+
+        <button onClick={() => { if (confirm('清空画布？')) clearAll() }} className="abtn" data-tip="清屏">{I.clear}</button>
+
+        <button onClick={toggleFullscreen} className="abtn" data-tip="全屏">{I.fullscreen}</button>
 
         <div className="tb-sep" />
 
