@@ -5,7 +5,6 @@ import { useThemeStore } from '../store/useThemeStore'
 import type { Stroke, Shape, ToolType } from '../store/types'
 
 const imageCache = new Map<string, HTMLImageElement>()
-const [, forceUpdate] = useState(0)
 
 function getCachedImage(dataUrl: string): HTMLImageElement | null {
   if (imageCache.has(dataUrl)) return imageCache.get(dataUrl)!
@@ -17,7 +16,7 @@ function getCachedImage(dataUrl: string): HTMLImageElement | null {
   }
   img.onload = () => {
     imageCache.set(dataUrl, img)
-    forceUpdate(n => n + 1)
+    window.dispatchEvent(new Event('image-loaded'))
   }
   return null
 }
@@ -556,6 +555,13 @@ export default function Canvas() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  // Re-render when images finish loading
+  useEffect(() => {
+    const handler = () => redraw()
+    window.addEventListener('image-loaded', handler)
+    return () => window.removeEventListener('image-loaded', handler)
+  }, [redraw])
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return
