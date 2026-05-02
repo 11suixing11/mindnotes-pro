@@ -36,6 +36,7 @@ export default function Canvas() {
   const brush = useDrawingStore((s) => s.brush)
   const color = useDrawingStore((s) => s.color)
   const size = useDrawingStore((s) => s.size)
+  const canvasBg = useDrawingStore((s) => s.canvasBg)
   const strokes = useDrawingStore((s) => s.strokes)
   const shapes = useDrawingStore((s) => s.shapes)
   const selectedId = useDrawingStore((s) => s.selectedId)
@@ -65,6 +66,8 @@ export default function Canvas() {
   const currentShapeRef = useRef<Shape | null>(null)
   const erasedIdsRef = useRef<Set<string>>(new Set())
   const dragStartRef = useRef<{ x: number; y: number; id: string } | null>(null)
+  const [textInput, setTextInput] = useState<{ x: number; y: number; screenX: number; screenY: number } | null>(null)
+  const textInputRef = useRef<HTMLInputElement>(null)
 
   function hitTest(px: number, py: number): string | null {
     const r = 12
@@ -414,8 +417,13 @@ export default function Canvas() {
       }
 
       if (tool === 'text') {
-        const text = prompt('输入文字：')
-        if (text && text.trim()) addText({ id: `text-${Date.now()}`, x: pos.x, y: pos.y, content: text.trim(), color, size })
+        const rect = canvasRef.current?.getBoundingClientRect()
+        if (rect) {
+          const screenX = (pos.x - viewBox.x) * viewBox.zoom + rect.left
+          const screenY = (pos.y - viewBox.y) * viewBox.zoom + rect.top
+          setTextInput({ x: pos.x, y: pos.y, screenX, screenY })
+          setTimeout(() => textInputRef.current?.focus(), 50)
+        }
         return
       }
 
@@ -542,12 +550,50 @@ export default function Canvas() {
   }
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={canvasSize.w}
-      height={canvasSize.h}
-      className="w-full h-full touch-none"
-      style={{ touchAction: 'none', cursor: isPanning ? 'grabbing' : cursorMap[tool] ?? 'crosshair', backgroundColor: 'var(--canvas-bg, #fff)' }}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        width={canvasSize.w}
+        height={canvasSize.h}
+        className="w-full h-full touch-none"
+        style={{ touchAction: 'none', cursor: isPanning ? 'grabbing' : cursorMap[tool] ?? 'crosshair', backgroundColor: canvasBg }}
+      />
+      {textInput && (
+        <input
+          ref={textInputRef}
+          type="text"
+          placeholder="输入文字..."
+          style={{
+            position: 'fixed',
+            left: textInput.screenX,
+            top: textInput.screenY - 16,
+            minWidth: '120px',
+            maxWidth: '400px',
+            padding: '4px 8px',
+            fontSize: `${size * 4}px`,
+            color: color,
+            background: 'rgba(255,255,255,0.9)',
+            border: '2px solid var(--primary)',
+            borderRadius: '6px',
+            outline: 'none',
+            zIndex: 100,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && textInputRef.current?.value.trim()) {
+              addText({ id: `text-${Date.now()}`, x: textInput.x, y: textInput.y, content: textInputRef.current.value.trim(), color, size })
+              setTextInput(null)
+            }
+            if (e.key === 'Escape') setTextInput(null)
+          }}
+          onBlur={() => {
+            if (textInputRef.current?.value.trim()) {
+              addText({ id: `text-${Date.now()}`, x: textInput.x, y: textInput.y, content: textInputRef.current.value.trim(), color, size })
+            }
+            setTextInput(null)
+          }}
+        />
+      )}
+    </>
   )
 }
