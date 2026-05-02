@@ -4,21 +4,21 @@
 
 # MindNotes Pro
 
-### 开源免费的本地白板绘图应用
+### Open-source local whiteboard drawing app
 
 <br />
 
-**在线使用 · 零注册 · 数据纯本地 · 中国 IP 直接访问**
+**Use online · No registration · 100% local data · Accessible from China**
 
 <br />
 
 <a href="https://11suixing11.github.io/mindnotes-pro/">
-  <img src="https://img.shields.io/badge/🟢_在线体验-GitHub_Pages-22c55e?style=for-the-badge&logo=github&logoColor=white" alt="在线体验" />
+  <img src="https://img.shields.io/badge/🟢_Try_Online-GitHub_Pages-22c55e?style=for-the-badge&logo=github&logoColor=white" alt="Try Online" />
 </a>
 
 <br /><br />
 
-[![Release](https://img.shields.io/github/v/release/11suixing11/mindnotes-pro?color=blue&label=Release)](https://github.com/11suixing11/mindnotes-pro/releases)
+[![Release](https://img.shields.io/github/v/release/11suixing11/mindnotes-pro?color=blue&label=Release)](https://github.com/11suixing11/mindnotes-pro/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](https://www.typescriptlang.org)
@@ -30,69 +30,70 @@
 
 ---
 
-## 项目简介
+## What is MindNotes Pro?
 
-MindNotes Pro 是一款轻量级的白板绘图应用，完全运行在浏览器中，数据 100% 保存在本地设备上。
+MindNotes Pro is a lightweight whiteboard drawing app that runs entirely in the browser. All data is stored locally on your device — no server, no account, no internet required.
 
-无需注册、无需登录、无需联网。打开即用，关闭即存。
-
-<br />
-
-## 功能一览
-
-### 绘图工具
-
-| 工具 | 说明 | 快捷键 |
-|:-----|:-----|:------:|
-| 🔲 选择 | 点击选中对象，拖拽移动 | `0` |
-| ✏️ 画笔 | 6 种笔型可选（钢笔/荧光笔/铅笔/书法笔/虚线笔/霓虹笔） | `1` |
-| 🧹 橡皮 | 真正删除笔迹，虚线圆圈光标指示擦除范围 | `2` |
-| ✋ 平移 | 拖拽移动画布视图 | `3` |
-| ⬜ 矩形 | 拖拽绘制矩形 | `4` |
-| ⭕ 圆形 | 拖拽绘制椭圆 | `5` |
-| 🔤 文字 | 点击画布输入文字 | `6` |
-| 📏 直线 | 拖拽绘制直线 | `7` |
-| ➡️ 箭头 | 拖拽绘制箭头 | `8` |
-
-### 笔型选择
-
-| 笔型 | 效果 |
-|:-----|:-----|
-| ✒️ 钢笔 | 平滑流畅，Bézier 曲线插值 |
-| 🖍 荧光笔 | 半透明宽笔，适合标注重点 |
-| ✏️ 铅笔 | 粗糙质感，模拟真实铅笔 |
-| 🖊 书法笔 | 粗细随角度变化 |
-| ┅ 虚线笔 | 虚线笔迹 |
-| ✨ 霓虹笔 | 发光效果，shadowBlur 双层渲染 |
-
-### 其他功能
-
-- **8 色调色板** + 自定义颜色拾色器
-- **4 档线宽** — 细 / 中 / 粗 / 特粗
-- **撤销 / 重做** — 50 步快照 (Ctrl+Z / Ctrl+Shift+Z)
-- **缩放** — 鼠标滚轮 / 工具栏按钮 / 快捷键 +/-
-- **深色模式** — 一键切换明暗主题
-- **画布背景** — 自定义背景颜色
-- **最小地图** — 右下角缩略导航
-- **localStorage 自动保存** — 刷新页面不丢失
-- **6 格式导出** — PNG / JPG / PDF / SVG / Word / JSON
-- **导入 JSON** — 恢复之前保存的绘图数据
-- **插入图片** — 本地图片放入画布
-- **全屏模式** — 浏览器全屏
+Open it and draw. Close it and your work is saved automatically.
 
 <br />
 
-## 快速开始
+## Features
 
-### 方式一：在线使用（推荐）
+### Drawing Tools
 
-> 国内用户直接访问，无需梯子：
+| Tool | Description | Shortcut |
+|:-----|:------------|:--------:|
+| 🔲 Select | Click to select, drag to move | `0` |
+| ✏️ Pen | 6 brush types available | `1` |
+| 🧹 Eraser | Actually deletes strokes (not white overlay) | `2` |
+| ✋ Pan | Drag to move the canvas | `3` |
+| ⬜ Rectangle | Drag to draw | `4` |
+| ⭕ Circle | Drag to draw | `5` |
+| 🔤 Text | Click canvas to type | `6` |
+| 📏 Line | Drag to draw | `7` |
+| ➡️ Arrow | Drag to draw | `8` |
+
+### Brush Types
+
+| Brush | Effect |
+|:------|:-------|
+| ✒️ Pen | Smooth Bézier curves |
+| 🖍 Highlighter | Semi-transparent wide stroke |
+| ✏️ Pencil | Rough texture, simulated pressure |
+| 🖊 Calligraphy | Width varies with angle |
+| ┅ Dashed | Dashed line stroke |
+| ✨ Glow | Neon glow effect with shadowBlur |
+
+### More Features
+
+- 8-color palette + custom color picker
+- 4 line widths (XS / S / M / L)
+- Undo / Redo (50-step snapshot)
+- Zoom (scroll wheel / buttons / keyboard)
+- Dark mode
+- Custom canvas background color
+- Minimap navigation
+- localStorage auto-save
+- 6 export formats (PNG / JPG / PDF / SVG / Word / JSON)
+- Import JSON to restore drawings
+- Insert images from local files
+- Fullscreen mode
+- Keyboard shortcuts (0–8 to switch tools)
+
+<br />
+
+## Quick Start
+
+### Option 1: Use Online (Recommended)
+
+> Accessible from China, no VPN needed:
 >
-> 👉 **https://11suixing11.github.io/mindnotes-pro/**
+> **https://11suixing11.github.io/mindnotes-pro/**
 
 <br />
 
-### 方式二：本地运行
+### Option 2: Run Locally
 
 ```bash
 git clone https://github.com/11suixing11/mindnotes-pro.git
@@ -101,80 +102,80 @@ npm install
 npm run dev
 ```
 
-浏览器自动打开 `http://localhost:3000`。
+Browser opens `http://localhost:3000` automatically.
 
 <br />
 
-## 快捷键
+## Keyboard Shortcuts
 
-| 按键 | 功能 |
-|:-----|:-----|
-| `0` | 选择工具 |
-| `1` | 画笔 |
-| `2` | 橡皮 |
-| `3` | 平移 |
-| `4` | 矩形 |
-| `5` | 圆形 |
-| `6` | 文字 |
-| `7` | 直线 |
-| `8` | 箭头 |
-| `Ctrl+Z` | 撤销 |
-| `Ctrl+Shift+Z` | 重做 |
-| `+` / `-` | 放大 / 缩小 |
-| `Delete` | 清空画布 |
-
-<br />
-
-## 技术栈
-
-| 层级 | 技术 |
-|:-----|:-----|
-| UI 框架 | React 18 |
-| 语言 | TypeScript 5 |
-| 构建工具 | Vite 5 |
-| 状态管理 | Zustand |
-| 样式 | Tailwind CSS 3 |
-| 绘图引擎 | Canvas API |
-| 测试 | Vitest + Testing Library |
-
-**生产依赖仅 3 个**：`react`、`react-dom`、`zustand`
-
-**零外部 CDN · 零网络请求 · 中国 IP 直接访问**
+| Key | Action |
+|:----|:-------|
+| `0` | Select tool |
+| `1` | Pen |
+| `2` | Eraser |
+| `3` | Pan |
+| `4` | Rectangle |
+| `5` | Circle |
+| `6` | Text |
+| `7` | Line |
+| `8` | Arrow |
+| `Ctrl+Z` | Undo |
+| `Ctrl+Shift+Z` | Redo |
+| `+` / `-` | Zoom in / out |
+| `Delete` | Clear canvas |
 
 <br />
 
-## 项目结构
+## Tech Stack
+
+| Layer | Technology |
+|:------|:-----------|
+| UI Framework | React 18 |
+| Language | TypeScript 5 |
+| Build Tool | Vite 5 |
+| State Management | Zustand |
+| Styling | Tailwind CSS 3 |
+| Drawing Engine | Canvas API |
+| Testing | Vitest + Testing Library |
+
+**Only 3 production dependencies**: `react`, `react-dom`, `zustand`
+
+**Zero external CDN · Zero network requests · Accessible from China**
+
+<br />
+
+## Project Structure
 
 ```
 src/
-├── main.tsx                 # 入口
-├── App.tsx                  # 主应用
+├── main.tsx                 # Entry point
+├── App.tsx                  # Main app
 ├── AppWrapper.tsx           # ErrorBoundary
-├── index.css                # 设计系统 (CSS 变量 + 动画)
+├── index.css                # Design system (CSS variables + animations)
 ├── components/
-│   ├── Canvas.tsx           # 画布 (绘图 + 缩放 + 最小地图)
-│   └── Toolbar.tsx          # 工具栏 (左侧工具 + 顶部属性 + 导出)
+│   ├── Canvas.tsx           # Canvas (drawing + zoom + minimap)
+│   └── Toolbar.tsx          # Toolbar (left tools + top properties + export)
 └── store/
-    ├── types.ts             # 类型定义
-    ├── useDrawingStore.ts   # 绘图状态 + localStorage
-    ├── useThemeStore.ts     # 深色/浅色主题
-    └── useViewStore.ts      # 缩放/平移
+    ├── types.ts             # Type definitions
+    ├── useDrawingStore.ts   # Drawing state + localStorage
+    ├── useThemeStore.ts     # Dark/light theme
+    └── useViewStore.ts      # Zoom/pan
 ```
 
 <br />
 
-## 构建
+## Build
 
 ```bash
-npm run build      # 生产构建 → dist/
-npm run preview    # 预览构建产物
-npm run test:run   # 运行测试
+npm run build      # Production build → dist/
+npm run preview    # Preview build output
+npm run test:run   # Run tests
 ```
 
-构建产物为纯静态文件，可部署到任意 HTTP 服务器。
+Build output is static files, deployable to any HTTP server.
 
 <br />
 
-## 许可证
+## License
 
 [MIT](LICENSE)
