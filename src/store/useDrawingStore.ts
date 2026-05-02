@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Stroke, Shape, ToolType } from './types'
+import type { Stroke, Shape, ToolType, BrushType } from './types'
 
 const STORAGE_KEY = 'mindnotes-drawing-data'
 const MAX_HISTORY = 50
@@ -25,6 +25,7 @@ interface DrawingState {
   strokes: Stroke[]
   shapes: Shape[]
   tool: ToolType
+  brush: BrushType
   color: string
   size: number
   undoStack: Snapshot[]
@@ -44,6 +45,7 @@ interface DrawingActions {
   undo: () => void
   redo: () => void
   setTool: (tool: ToolType) => void
+  setBrush: (brush: BrushType) => void
   setColor: (color: string) => void
   setSize: (size: number) => void
   setSelectedId: (id: string | null) => void
@@ -63,6 +65,7 @@ export const useDrawingStore = create<DrawingState & DrawingActions>((set, get) 
   strokes: saved?.strokes ?? [],
   shapes: saved?.shapes ?? [],
   tool: 'pen',
+  brush: 'pen',
   color: '#000000',
   size: 4,
   undoStack: [],
@@ -195,6 +198,7 @@ export const useDrawingStore = create<DrawingState & DrawingActions>((set, get) 
   },
 
   setTool: (tool) => set({ tool, selectedId: null }),
+  setBrush: (brush) => set({ brush }),
   setColor: (color) => set({ color }),
   setSize: (size) => set({ size }),
   setSelectedId: (id) => set({ selectedId: id }),

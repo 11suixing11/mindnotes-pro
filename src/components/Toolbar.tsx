@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react'
 import { useDrawingStore } from '../store/useDrawingStore'
 import { useViewStore } from '../store/useViewStore'
 import { useThemeStore } from '../store/useThemeStore'
-import type { ToolType } from '../store/types'
+import type { ToolType, BrushType } from '../store/types'
 
 const I = {
   select: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></svg>,
@@ -37,6 +37,15 @@ const TOOLS: { id: ToolType; icon: React.ReactNode; tip: string; key: string }[]
   { id: 'arrow', icon: I.arrow, tip: '箭头', key: '8' },
 ]
 
+const BRUSHES: { id: BrushType; label: string; desc: string }[] = [
+  { id: 'pen', label: '✒️ 钢笔', desc: '平滑流畅' },
+  { id: 'highlighter', label: '🖍 荧光笔', desc: '半透明宽笔' },
+  { id: 'pencil', label: '✏️ 铅笔', desc: '粗糙质感' },
+  { id: 'calligraphy', label: '🖊 书法笔', desc: '粗细变化' },
+  { id: 'dashed', label: '┅ 虚线笔', desc: '虚线笔迹' },
+  { id: 'glow', label: '✨ 荧光笔', desc: '霓虹发光' },
+]
+
 const COLORS = ['#1d2129', '#f53f3f', '#ff7d00', '#ffb400', '#00b42a', '#165dff', '#722ed1', '#f5319d']
 const SIZES = [
   { value: 2, dot: 4 },
@@ -56,6 +65,8 @@ function getCanvas() { return document.querySelector('canvas') }
 const Toolbar: React.FC = () => {
   const tool = useDrawingStore((s) => s.tool)
   const setTool = useDrawingStore((s) => s.setTool)
+  const brush = useDrawingStore((s) => s.brush)
+  const setBrush = useDrawingStore((s) => s.setBrush)
   const color = useDrawingStore((s) => s.color)
   const setColor = useDrawingStore((s) => s.setColor)
   const size = useDrawingStore((s) => s.size)
@@ -76,6 +87,7 @@ const Toolbar: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const colorInputRef = useRef<HTMLInputElement>(null)
   const [showExport, setShowExport] = useState(false)
+  const [showBrush, setShowBrush] = useState(false)
 
   const withBg = (c: HTMLCanvasElement, bg: string) => {
     const t = document.createElement('canvas'); t.width = c.width; t.height = c.height
@@ -141,6 +153,37 @@ const Toolbar: React.FC = () => {
             </button>
           ))}
         </div>
+
+        {/* 笔型选择 (仅画笔工具激活时) */}
+        {tool === 'pen' && (
+          <>
+            <div className="tb-sep" />
+            <div className="relative">
+              <button onClick={() => setShowBrush(!showBrush)}
+                className={`tbtn ${showBrush ? 'on' : ''}`}
+                data-tip="笔型"
+                style={{ width: 'auto', padding: '0 10px', fontSize: '12px', gap: '4px' }}>
+                <span>{BRUSHES.find(b => b.id === brush)?.label?.split(' ')[0]}</span>
+                <span style={{ fontSize: '10px', opacity: 0.6 }}>▾</span>
+              </button>
+              {showBrush && (
+                <div className="dmenu card" style={{ minWidth: '180px' }}>
+                  {BRUSHES.map((b) => (
+                    <button key={b.id} onClick={() => { setBrush(b.id); setShowBrush(false) }}
+                      className="ditem" style={{ background: brush === b.id ? 'var(--primary-bg)' : undefined }}>
+                      <span className="di">{b.label.split(' ')[0]}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span className="dl">{b.label.split(' ').slice(1).join(' ')}</span>
+                        <span className="dd">{b.desc}</span>
+                      </div>
+                      {brush === b.id && <span style={{ marginLeft: 'auto', color: 'var(--primary)', fontSize: '14px' }}>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
         <div className="tb-sep" />
 
@@ -221,6 +264,7 @@ const Toolbar: React.FC = () => {
         <input ref={fileInputRef} type="file" accept=".json" onChange={importJSON} className="hidden" />
       </div>
       {showExport && <div className="fixed inset-0" style={{ zIndex: 5 }} onClick={() => setShowExport(false)} />}
+      {showBrush && <div className="fixed inset-0" style={{ zIndex: 5 }} onClick={() => setShowBrush(false)} />}
     </>
   )
 }
