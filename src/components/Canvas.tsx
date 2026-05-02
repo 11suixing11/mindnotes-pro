@@ -160,7 +160,7 @@ export default function Canvas() {
 
     drawMinimap(ctx, canvas)
     drawZoomLevel(ctx, canvas)
-  }, [strokes, shapes, viewBox, color, size, tool, selectedId, isDarkMode])
+  }, [strokes, shapes, viewBox, color, size, tool, brush, canvasBg, selectedId, isDarkMode])
 
   function getStrokeBounds(s: Stroke) {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
@@ -188,7 +188,7 @@ export default function Canvas() {
   function drawMinimap(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
     if (strokes.length === 0 && shapes.length === 0) return
     const mmW = 120, mmH = 80, pad = 10
-    const mmX = canvas.width - mmW - pad, mmY = canvas.height - mmH - pad
+    const mmX = canvas.width - mmW - pad, mmY = canvas.height - mmH - pad - 40
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const s of strokes) for (const p of s.points) { minX = Math.min(minX, p[0]); minY = Math.min(minY, p[1]); maxX = Math.max(maxX, p[0]); maxY = Math.max(maxY, p[1]) }
@@ -234,7 +234,7 @@ export default function Canvas() {
     ctx.font = '12px sans-serif'
     ctx.fillStyle = isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'
     ctx.textAlign = 'right'
-    ctx.fillText(`${pct}%`, canvas.width - 145, canvas.height - 10)
+    ctx.fillText(`${pct}%`, canvas.width - 145, canvas.height - 50)
     ctx.restore()
   }
 
@@ -291,8 +291,9 @@ export default function Canvas() {
       ctx.lineCap = 'round'
       for (let i = 1; i < pts.length; i++) {
         ctx.beginPath()
-        const jitterX = (Math.random() - 0.5) * stroke.size * 0.3
-        const jitterY = (Math.random() - 0.5) * stroke.size * 0.3
+        const seed = (i * 7919) % 100 / 100
+        const jitterX = (seed - 0.5) * stroke.size * 0.3
+        const jitterY = ((seed * 1.3) % 1 - 0.5) * stroke.size * 0.3
         ctx.moveTo(pts[i - 1][0] + jitterX, pts[i - 1][1] + jitterY)
         ctx.lineTo(pts[i][0] + jitterX * 0.5, pts[i][1] + jitterY * 0.5)
         ctx.stroke()

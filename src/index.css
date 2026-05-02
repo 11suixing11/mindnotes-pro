@@ -49,7 +49,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -389,13 +389,13 @@ body {
 /* ========== 品牌 ========== */
 .brand {
   position: fixed;
-  top: 14px;
+  bottom: 14px;
   left: 14px;
   display: flex;
   align-items: center;
   gap: 8px;
   z-index: 20;
-  animation: slideRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
   user-select: none;
 }
 

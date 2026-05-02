@@ -44,13 +44,3 @@ export interface Shape {
   hidden?: boolean
   opacity?: number
 }
-
-export interface Layer {
-  id: string
-  name: string
-  type: 'strokes' | 'shapes' | 'text' | 'image'
-  visible: boolean
-  locked: boolean
-  opacity: number
-  order: number
-}
