@@ -33,6 +33,7 @@ export default function Canvas() {
   const [canvasSize, setCanvasSize] = useState({ w: window.innerWidth, h: window.innerHeight })
 
   const tool = useDrawingStore((s) => s.tool)
+  const brush = useDrawingStore((s) => s.brush)
   const color = useDrawingStore((s) => s.color)
   const size = useDrawingStore((s) => s.size)
   const strokes = useDrawingStore((s) => s.strokes)
@@ -148,7 +149,7 @@ export default function Canvas() {
     }
 
     if (drawingRef.current && tool === 'pen' && currentPointsRef.current.length > 1) {
-      drawStroke(ctx, { id: 'temp', points: currentPointsRef.current, color, size, tool: 'pen' })
+      drawStroke(ctx, { id: 'temp', points: currentPointsRef.current, color, size, tool: 'pen', brush })
     }
     if (currentShapeRef.current) drawShape(ctx, currentShapeRef.current)
 
@@ -243,17 +244,120 @@ export default function Canvas() {
       ctx.fillText(stroke.name, stroke.points[0][0], stroke.points[0][1])
       return
     }
-    ctx.beginPath()
-    ctx.strokeStyle = stroke.color
-    ctx.lineWidth = stroke.size
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.moveTo(stroke.points[0][0], stroke.points[0][1])
-    for (let i = 1; i < stroke.points.length; i++) {
-      const prev = stroke.points[i - 1], curr = stroke.points[i]
-      ctx.quadraticCurveTo(prev[0], prev[1], (prev[0] + curr[0]) / 2, (prev[1] + curr[1]) / 2)
+
+    const b = stroke.brush ?? 'pen'
+    const pts = stroke.points
+
+    if (b === 'pen') {
+      ctx.beginPath()
+      ctx.strokeStyle = stroke.color
+      ctx.lineWidth = stroke.size
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      ctx.globalAlpha = 1
+      ctx.moveTo(pts[0][0], pts[0][1])
+      for (let i = 1; i < pts.length; i++) {
+        const prev = pts[i - 1], curr = pts[i]
+        ctx.quadraticCurveTo(prev[0], prev[1], (prev[0] + curr[0]) / 2, (prev[1] + curr[1]) / 2)
+      }
+      ctx.stroke()
+      ctx.globalAlpha = 1
     }
-    ctx.stroke()
+
+    else if (b === 'highlighter') {
+      ctx.save()
+      ctx.globalAlpha = 0.35
+      ctx.strokeStyle = stroke.color
+      ctx.lineWidth = stroke.size * 4
+      ctx.lineCap = 'square'
+      ctx.lineJoin = 'miter'
+      ctx.beginPath()
+      ctx.moveTo(pts[0][0], pts[0][1])
+      for (let i = 1; i < pts.length; i++) {
+        ctx.lineTo(pts[i][0], pts[i][1])
+      }
+      ctx.stroke()
+      ctx.restore()
+    }
+
+    else if (b === 'pencil') {
+      ctx.save()
+      ctx.globalAlpha = 0.7
+      ctx.strokeStyle = stroke.color
+      ctx.lineWidth = stroke.size * 0.6
+      ctx.lineCap = 'round'
+      for (let i = 1; i < pts.length; i++) {
+        ctx.beginPath()
+        const jitterX = (Math.random() - 0.5) * stroke.size * 0.3
+        const jitterY = (Math.random() - 0.5) * stroke.size * 0.3
+        ctx.moveTo(pts[i - 1][0] + jitterX, pts[i - 1][1] + jitterY)
+        ctx.lineTo(pts[i][0] + jitterX * 0.5, pts[i][1] + jitterY * 0.5)
+        ctx.stroke()
+      }
+      ctx.restore()
+    }
+
+    else if (b === 'calligraphy') {
+      ctx.strokeStyle = stroke.color
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      for (let i = 1; i < pts.length; i++) {
+        const prev = pts[i - 1], curr = pts[i]
+        const dx = curr[0] - prev[0], dy = curr[1] - prev[1]
+        const angle = Math.atan2(dy, dx)
+        const penAngle = Math.PI / 4
+        const widthFactor = 0.3 + 0.7 * Math.abs(Math.sin(angle - penAngle))
+        ctx.beginPath()
+        ctx.lineWidth = stroke.size * widthFactor
+        ctx.moveTo(prev[0], prev[1])
+        ctx.lineTo(curr[0], curr[1])
+        ctx.stroke()
+      }
+    }
+
+    else if (b === 'dashed') {
+      ctx.beginPath()
+      ctx.strokeStyle = stroke.color
+      ctx.lineWidth = stroke.size
+      ctx.lineCap = 'round'
+      ctx.setLineDash([stroke.size * 2, stroke.size * 1.5])
+      ctx.moveTo(pts[0][0], pts[0][1])
+      for (let i = 1; i < pts.length; i++) {
+        const prev = pts[i - 1], curr = pts[i]
+        ctx.quadraticCurveTo(prev[0], prev[1], (prev[0] + curr[0]) / 2, (prev[1] + curr[1]) / 2)
+      }
+      ctx.stroke()
+      ctx.setLineDash([])
+    }
+
+    else if (b === 'glow') {
+      ctx.save()
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      ctx.shadowColor = stroke.color
+      ctx.shadowBlur = stroke.size * 3
+      ctx.strokeStyle = stroke.color
+      ctx.lineWidth = stroke.size * 0.5
+      ctx.globalAlpha = 0.9
+      ctx.beginPath()
+      ctx.moveTo(pts[0][0], pts[0][1])
+      for (let i = 1; i < pts.length; i++) {
+        const prev = pts[i - 1], curr = pts[i]
+        ctx.quadraticCurveTo(prev[0], prev[1], (prev[0] + curr[0]) / 2, (prev[1] + curr[1]) / 2)
+      }
+      ctx.stroke()
+      ctx.shadowBlur = stroke.size * 6
+      ctx.globalAlpha = 0.3
+      ctx.lineWidth = stroke.size * 1.5
+      ctx.beginPath()
+      ctx.moveTo(pts[0][0], pts[0][1])
+      for (let i = 1; i < pts.length; i++) {
+        const prev = pts[i - 1], curr = pts[i]
+        ctx.quadraticCurveTo(prev[0], prev[1], (prev[0] + curr[0]) / 2, (prev[1] + curr[1]) / 2)
+      }
+      ctx.stroke()
+      ctx.restore()
+    }
   }
 
   function drawShape(ctx: CanvasRenderingContext2D, shape: Shape) {
@@ -374,14 +478,14 @@ export default function Canvas() {
       if (tool === 'pen') {
         if (currentPointsRef.current.length > 1) {
           const smoothed = simplifyPoints(currentPointsRef.current, 2)
-          addStroke({ id: `stroke-${Date.now()}`, points: smoothed, color, size, tool: 'pen' })
+          addStroke({ id: `stroke-${Date.now()}`, points: smoothed, color, size, tool: 'pen', brush })
         }
         currentPointsRef.current = []
       } else if (tool === 'eraser') { currentPointsRef.current = [] }
       else if (currentShapeRef.current) { addShape(currentShapeRef.current); currentShapeRef.current = null; shapeStartRef.current = null }
       redraw()
     },
-    [tool, color, size, addStroke, addShape, endPan, redraw]
+    [tool, color, size, brush, addStroke, addShape, endPan, redraw]
   )
 
   useEffect(() => {

@@ -10,12 +10,15 @@ export type ToolType =
   | 'line'
   | 'text'
 
+export type BrushType = 'pen' | 'highlighter' | 'pencil' | 'calligraphy' | 'dashed' | 'glow'
+
 export interface Stroke {
   id: string
   points: number[][]
   color: string
   size: number
   tool: 'pen' | 'eraser'
+  brush?: BrushType
   name?: string
   locked?: boolean
   hidden?: boolean
