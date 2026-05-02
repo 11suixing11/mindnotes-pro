@@ -21,17 +21,17 @@ export default function App() {
       <Canvas />
       <Toolbar />
 
-      <div className="fixed bottom-4 left-4 card info-bar">
-        <span className="info-dot" />
+      <div className="status panel">
+        <span className="dot" />
         <span>本地存储</span>
         <span className="vl" />
         <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{TOOL_NAMES[tool] ?? tool}</span>
         <span className="vl" />
-        <span>{strokes.length + shapes.length} 个对象</span>
+        <span>{strokes.length + shapes.length} 对象</span>
       </div>
 
-      <div className="fixed bottom-4 right-4 card kb-hint">
-        <kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销 · 滚轮缩放 · <kbd>0</kbd>-<kbd>8</kbd> 切换工具
+      <div className="hints panel">
+        <kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销 · 滚轮缩放 · <kbd>0</kbd>-<kbd>8</kbd> 工具
       </div>
     </div>
   )
