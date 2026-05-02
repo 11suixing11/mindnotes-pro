@@ -442,7 +442,7 @@ body {
 /* ========== 底部状态 ========== */
 .status {
   position: fixed;
-  bottom: 12px;
+  bottom: 44px;
   left: 64px;
   display: flex;
   align-items: center;
