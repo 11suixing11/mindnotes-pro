@@ -10,14 +10,8 @@ function getCachedImage(dataUrl: string): HTMLImageElement | null {
   if (imageCache.has(dataUrl)) return imageCache.get(dataUrl)!
   const img = new Image()
   img.src = dataUrl
-  if (img.complete) {
-    imageCache.set(dataUrl, img)
-    return img
-  }
-  img.onload = () => {
-    imageCache.set(dataUrl, img)
-    window.dispatchEvent(new Event('image-loaded'))
-  }
+  if (img.complete) { imageCache.set(dataUrl, img); return img }
+  img.onload = () => { imageCache.set(dataUrl, img); window.dispatchEvent(new Event('image-loaded')) }
   return null
 }
 
@@ -27,10 +21,7 @@ function simplifyPoints(points: number[][], tolerance: number): number[][] {
   let prev = points[0]
   for (let i = 1; i < points.length; i++) {
     const dx = points[i][0] - prev[0], dy = points[i][1] - prev[1]
-    if (dx * dx + dy * dy >= tolerance * tolerance) {
-      result.push(points[i])
-      prev = points[i]
-    }
+    if (dx * dx + dy * dy >= tolerance * tolerance) { result.push(points[i]); prev = points[i] }
   }
   if (result[result.length - 1] !== points[points.length - 1]) result.push(points[points.length - 1])
   return result
@@ -85,10 +76,16 @@ export default function Canvas() {
   const dragStartRef = useRef<{ x: number; y: number; id: string } | null>(null)
   const [textInput, setTextInput] = useState<{ x: number; y: number; screenX: number; screenY: number } | null>(null)
   const textInputRef = useRef<HTMLInputElement>(null)
+  const mousePosRef = useRef<{ x: number; y: number } | null>(null)
 
   function hitTest(px: number, py: number): string | null {
     const r = 12
     for (const s of strokes) {
+      if (s.name) {
+        const dx = px - s.points[0][0], dy = py - s.points[0][1]
+        if (Math.abs(dx) < 80 && Math.abs(dy) < 20) return s.id
+        continue
+      }
       for (let i = 0; i < s.points.length - 1; i++) {
         if (distToSegment(px, py, s.points[i][0], s.points[i][1], s.points[i + 1][0], s.points[i + 1][1]) < r + s.size / 2)
           return s.id
@@ -145,6 +142,7 @@ export default function Canvas() {
     ctx.scale(viewBox.zoom, viewBox.zoom)
     ctx.translate(-viewBox.x, -viewBox.y)
 
+    // Grid
     if (viewBox.zoom > 0.3) {
       const gridSize = 40
       const startX = Math.floor(viewBox.x / gridSize) * gridSize
@@ -159,19 +157,40 @@ export default function Canvas() {
       ctx.stroke()
     }
 
+    // Strokes
     for (const stroke of strokes) {
       drawStroke(ctx, stroke)
       if (stroke.id === selectedId) drawSelectionBox(ctx, getStrokeBounds(stroke))
     }
+
+    // Shapes
     for (const shape of shapes) {
       drawShape(ctx, shape)
       if (shape.id === selectedId) drawSelectionBox(ctx, getShapeBounds(shape))
     }
 
+    // Current stroke preview
     if (drawingRef.current && tool === 'pen' && currentPointsRef.current.length > 1) {
       drawStroke(ctx, { id: 'temp', points: currentPointsRef.current, color, size, tool: 'pen', brush })
     }
+
+    // Current shape preview
     if (currentShapeRef.current) drawShape(ctx, currentShapeRef.current)
+
+    // Eraser cursor
+    if (tool === 'eraser' && mousePosRef.current) {
+      const mx = mousePosRef.current.x, my = mousePosRef.current.y
+      const r = size * 2 + 10
+      ctx.save()
+      ctx.strokeStyle = isDarkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'
+      ctx.lineWidth = 1.5 / viewBox.zoom
+      ctx.setLineDash([4 / viewBox.zoom, 4 / viewBox.zoom])
+      ctx.beginPath()
+      ctx.arc(mx, my, r, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.setLineDash([])
+      ctx.restore()
+    }
 
     ctx.restore()
 
@@ -197,8 +216,8 @@ export default function Canvas() {
     ctx.setLineDash([4 / viewBox.zoom, 4 / viewBox.zoom])
     ctx.strokeRect(b.x, b.y, b.w, b.h)
     ctx.setLineDash([])
-    const corners = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]
     ctx.fillStyle = '#4f46e5'
+    const corners = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]
     for (const [cx, cy] of corners) ctx.fillRect(cx - 3 / viewBox.zoom, cy - 3 / viewBox.zoom, 6 / viewBox.zoom, 6 / viewBox.zoom)
   }
 
@@ -206,7 +225,6 @@ export default function Canvas() {
     if (strokes.length === 0 && shapes.length === 0) return
     const mmW = 120, mmH = 80, pad = 10
     const mmX = canvas.width - mmW - pad, mmY = canvas.height - mmH - pad - 40
-
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const s of strokes) for (const p of s.points) { minX = Math.min(minX, p[0]); minY = Math.min(minY, p[1]); maxX = Math.max(maxX, p[0]); maxY = Math.max(maxY, p[1]) }
     for (const s of shapes) {
@@ -214,10 +232,8 @@ export default function Canvas() {
       minX = Math.min(minX, sx); minY = Math.min(minY, sy); maxX = Math.max(maxX, ex); maxY = Math.max(maxY, ey)
     }
     if (!isFinite(minX)) return
-
     const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1
     const scale = Math.min(mmW / rangeX, mmH / rangeY) * 0.8
-
     ctx.save()
     ctx.globalAlpha = 0.7
     ctx.fillStyle = isDarkMode ? '#374151' : '#f3f4f6'
@@ -227,12 +243,10 @@ export default function Canvas() {
     ctx.roundRect(mmX - 2, mmY - 2, mmW + 4, mmH + 4, 6)
     ctx.fill()
     ctx.stroke()
-
     ctx.fillStyle = isDarkMode ? '#9ca3af' : '#6b7280'
     for (const s of strokes) for (const p of s.points) {
       ctx.fillRect(mmX + (p[0] - minX) * scale + (mmW - rangeX * scale) / 2, mmY + (p[1] - minY) * scale + (mmH - rangeY * scale) / 2, 1.5, 1.5)
     }
-
     const vx = (viewBox.x - minX) * scale + (mmW - rangeX * scale) / 2
     const vy = (viewBox.y - minY) * scale + (mmH - rangeY * scale) / 2
     const vw = canvas.width / viewBox.zoom * scale
@@ -240,23 +254,20 @@ export default function Canvas() {
     ctx.strokeStyle = '#4f46e5'
     ctx.lineWidth = 1.5
     ctx.strokeRect(mmX + vx, mmY + vy, vw, vh)
-
     ctx.restore()
   }
 
   function drawZoomLevel(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
     ctx.save()
     ctx.setTransform(1, 0, 0, 1, 0, 0)
-    const pct = Math.round(viewBox.zoom * 100)
     ctx.font = '12px sans-serif'
     ctx.fillStyle = isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'
     ctx.textAlign = 'right'
-    ctx.fillText(`${pct}%`, canvas.width - 145, canvas.height - 50)
+    ctx.fillText(`${Math.round(viewBox.zoom * 100)}%`, canvas.width - 145, canvas.height - 50)
     ctx.restore()
   }
 
   function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
-    // Image rendering (single point with imageData) — must check before name
     if ((stroke as any).imageData) {
       const img = getCachedImage((stroke as any).imageData)
       if (img && img.complete) {
@@ -269,8 +280,6 @@ export default function Canvas() {
       }
       return
     }
-
-    // Text rendering (single point with name)
     if (stroke.name) {
       ctx.save()
       ctx.font = `${Math.max(stroke.size * 4, 16)}px 'Noto Sans SC', 'PingFang SC', sans-serif`
@@ -281,12 +290,9 @@ export default function Canvas() {
       ctx.restore()
       return
     }
-
     if (stroke.points.length < 2) return
-
     const b = stroke.brush ?? 'pen'
     const pts = stroke.points
-
     if (b === 'pen') {
       ctx.beginPath()
       ctx.strokeStyle = stroke.color
@@ -301,9 +307,7 @@ export default function Canvas() {
       }
       ctx.stroke()
       ctx.globalAlpha = 1
-    }
-
-    else if (b === 'highlighter') {
+    } else if (b === 'highlighter') {
       ctx.save()
       ctx.globalAlpha = 0.35
       ctx.strokeStyle = stroke.color
@@ -312,14 +316,10 @@ export default function Canvas() {
       ctx.lineJoin = 'miter'
       ctx.beginPath()
       ctx.moveTo(pts[0][0], pts[0][1])
-      for (let i = 1; i < pts.length; i++) {
-        ctx.lineTo(pts[i][0], pts[i][1])
-      }
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
       ctx.stroke()
       ctx.restore()
-    }
-
-    else if (b === 'pencil') {
+    } else if (b === 'pencil') {
       ctx.save()
       ctx.globalAlpha = 0.7
       ctx.strokeStyle = stroke.color
@@ -335,27 +335,21 @@ export default function Canvas() {
         ctx.stroke()
       }
       ctx.restore()
-    }
-
-    else if (b === 'calligraphy') {
+    } else if (b === 'calligraphy') {
       ctx.strokeStyle = stroke.color
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
       for (let i = 1; i < pts.length; i++) {
         const prev = pts[i - 1], curr = pts[i]
-        const dx = curr[0] - prev[0], dy = curr[1] - prev[1]
-        const angle = Math.atan2(dy, dx)
-        const penAngle = Math.PI / 4
-        const widthFactor = 0.3 + 0.7 * Math.abs(Math.sin(angle - penAngle))
+        const angle = Math.atan2(curr[1] - prev[1], curr[0] - prev[0])
+        const widthFactor = 0.3 + 0.7 * Math.abs(Math.sin(angle - Math.PI / 4))
         ctx.beginPath()
         ctx.lineWidth = stroke.size * widthFactor
         ctx.moveTo(prev[0], prev[1])
         ctx.lineTo(curr[0], curr[1])
         ctx.stroke()
       }
-    }
-
-    else if (b === 'dashed') {
+    } else if (b === 'dashed') {
       ctx.beginPath()
       ctx.strokeStyle = stroke.color
       ctx.lineWidth = stroke.size
@@ -368,9 +362,7 @@ export default function Canvas() {
       }
       ctx.stroke()
       ctx.setLineDash([])
-    }
-
-    else if (b === 'glow') {
+    } else if (b === 'glow') {
       ctx.save()
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
@@ -477,15 +469,16 @@ export default function Canvas() {
         }
       }
     },
-    [tool, color, size, getPos, startPan, addText, setSelectedId, redraw]
+    [tool, color, size, getPos, startPan, addText, setSelectedId, redraw, viewBox]
   )
 
   const handleMove = useCallback(
     (e: MouseEvent | TouchEvent) => {
       e.preventDefault()
+      const pos = getPos(e)
+      mousePosRef.current = pos
 
       if (tool === 'select' && dragStartRef.current) {
-        const pos = getPos(e)
         const dx = pos.x - dragStartRef.current.x, dy = pos.y - dragStartRef.current.y
         const id = dragStartRef.current.id
         if (strokes.find((s) => s.id === id)) moveStrokeById(id, dx, dy)
@@ -500,10 +493,14 @@ export default function Canvas() {
         updatePan(cx, cy); redraw(); return
       }
 
-      if (!drawingRef.current) return
-      const pos = getPos(e)
+      if (tool === 'eraser') {
+        if (drawingRef.current) eraseAt(pos.x, pos.y)
+        redraw()
+        return
+      }
 
-      if (tool === 'eraser') { eraseAt(pos.x, pos.y); redraw(); return }
+      if (!drawingRef.current) return
+
       if (tool === 'pen') { currentPointsRef.current.push([pos.x, pos.y]) }
       else if (shapeStartRef.current && currentShapeRef.current) {
         currentShapeRef.current = { ...currentShapeRef.current, endX: pos.x, endY: pos.y, width: pos.x - shapeStartRef.current.x, height: pos.y - shapeStartRef.current.y }
@@ -533,6 +530,7 @@ export default function Canvas() {
     [tool, color, size, brush, addStroke, addShape, endPan, redraw]
   )
 
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
@@ -550,19 +548,21 @@ export default function Canvas() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [undo, redo, zoomIn, zoomOut, redraw])
 
+  // Resize
   useEffect(() => {
     const handleResize = () => setCanvasSize({ w: window.innerWidth, h: window.innerHeight })
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Re-render when images finish loading
+  // Image loaded
   useEffect(() => {
     const handler = () => redraw()
     window.addEventListener('image-loaded', handler)
     return () => window.removeEventListener('image-loaded', handler)
   }, [redraw])
 
+  // Mouse/touch events
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return
     canvas.addEventListener('mousedown', handleStart)
@@ -581,6 +581,7 @@ export default function Canvas() {
 
   useEffect(() => { redraw() }, [redraw, canvasSize])
 
+  // Wheel zoom
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return
     const handleWheel = (e: WheelEvent) => { e.preventDefault(); if (e.deltaY < 0) zoomIn(); else zoomOut(); redraw() }
@@ -589,7 +590,7 @@ export default function Canvas() {
   }, [zoomIn, zoomOut, redraw])
 
   const cursorMap: Record<string, string> = {
-    select: 'default', pen: 'crosshair', eraser: 'cell', pan: 'grab', text: 'text',
+    select: 'default', pen: 'crosshair', eraser: 'none', pan: 'grab', text: 'text',
     rectangle: 'crosshair', circle: 'crosshair', triangle: 'crosshair', arrow: 'crosshair', line: 'crosshair',
   }
 
@@ -606,22 +607,22 @@ export default function Canvas() {
         <input
           ref={textInputRef}
           type="text"
-          placeholder="输入文字..."
+          placeholder="输入文字，回车确认..."
           style={{
             position: 'fixed',
             left: textInput.screenX,
             top: textInput.screenY - 16,
-            minWidth: '120px',
+            minWidth: '150px',
             maxWidth: '400px',
-            padding: '4px 8px',
-            fontSize: `${size * 4}px`,
+            padding: '6px 10px',
+            fontSize: `${Math.max(size * 4, 16)}px`,
             color: color,
-            background: 'rgba(255,255,255,0.9)',
-            border: '2px solid var(--primary)',
-            borderRadius: '6px',
+            background: 'rgba(255,255,255,0.95)',
+            border: '2px solid #4f46e5',
+            borderRadius: '8px',
             outline: 'none',
             zIndex: 100,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            boxShadow: '0 4px 12px rgba(79,70,229,0.2)',
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && textInputRef.current?.value.trim()) {
