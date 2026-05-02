@@ -124,13 +124,24 @@ export default function Toolbar() {
       const img = new Image()
       img.onload = () => {
         const c = getCanvas(); if (!c) return
-        const ctx = c.getContext('2d'); if (!ctx) return
         const maxW = c.width * 0.5, maxH = c.height * 0.5
         const scale = Math.min(maxW / img.width, maxH / img.height, 1)
         const w = img.width * scale, h = img.height * scale
-        const x = (c.width / 2 - w / 2) / 1 + 0, y = (c.height / 2 - h / 2) / 1 + 0
-        ctx.drawImage(img, x, y, w, h)
-        addStroke({ id: `img-${Date.now()}`, points: [[x, y]], color: 'transparent', size: 0, tool: 'pen', name: `[图片: ${f?.name}]` })
+        const viewBox = useViewStore.getState().viewBox
+        const x = (c.width / 2 - w / 2) / viewBox.zoom + viewBox.x
+        const y = (c.height / 2 - h / 2) / viewBox.zoom + viewBox.y
+        const stroke: any = {
+          id: `img-${Date.now()}`,
+          points: [[x, y]],
+          color: 'transparent',
+          size: 0,
+          tool: 'pen',
+          name: `[图片] ${f?.name}`,
+          imageData: r.result as string,
+          imageWidth: w,
+          imageHeight: h,
+        }
+        addStroke(stroke)
       }
       img.src = r.result as string
     }
