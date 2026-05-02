@@ -4,6 +4,20 @@ import { useViewStore } from '../store/useViewStore'
 import { useThemeStore } from '../store/useThemeStore'
 import type { Stroke, Shape, ToolType } from '../store/types'
 
+const imageCache = new Map<string, HTMLImageElement>()
+
+function getCachedImage(dataUrl: string): HTMLImageElement | null {
+  if (imageCache.has(dataUrl)) return imageCache.get(dataUrl)!
+  const img = new Image()
+  img.src = dataUrl
+  if (img.complete) {
+    imageCache.set(dataUrl, img)
+    return img
+  }
+  img.onload = () => imageCache.set(dataUrl, img)
+  return null
+}
+
 function simplifyPoints(points: number[][], tolerance: number): number[][] {
   if (points.length <= 2) return points
   const result: number[][] = [points[0]]
@@ -239,14 +253,33 @@ export default function Canvas() {
   }
 
   function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
-    if (stroke.points.length < 2) return
+    // Text rendering (single point with name)
     if (stroke.name) {
-      ctx.font = `${stroke.size * 4}px sans-serif`
-      ctx.fillStyle = stroke.color
+      ctx.save()
+      ctx.font = `${Math.max(stroke.size * 4, 16)}px 'Noto Sans SC', 'PingFang SC', sans-serif`
+      ctx.fillStyle = stroke.color === 'transparent' ? 'var(--text)' : stroke.color
       ctx.textBaseline = 'top'
+      ctx.globalAlpha = stroke.opacity ?? 1
       ctx.fillText(stroke.name, stroke.points[0][0], stroke.points[0][1])
+      ctx.restore()
       return
     }
+
+    // Image rendering (single point with imageData)
+    if ((stroke as any).imageData) {
+      const img = getCachedImage((stroke as any).imageData)
+      if (img && img.complete) {
+        const w = (stroke as any).imageWidth ?? 200
+        const h = (stroke as any).imageHeight ?? 200
+        ctx.save()
+        ctx.globalAlpha = stroke.opacity ?? 1
+        ctx.drawImage(img, stroke.points[0][0], stroke.points[0][1], w, h)
+        ctx.restore()
+      }
+      return
+    }
+
+    if (stroke.points.length < 2) return
 
     const b = stroke.brush ?? 'pen'
     const pts = stroke.points
