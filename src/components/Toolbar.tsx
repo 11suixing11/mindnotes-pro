@@ -115,7 +115,19 @@ export default function Toolbar() {
   }
   const exportWord = () => { const c = getCanvas(); if (!c) return; const d = withBg(c, isDarkMode ? '#0a0a0c' : '#fff').toDataURL('image/png'); const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset="utf-8"><style>body{font-family:sans-serif}img{max-width:100%}</style></head><body><h1>MindNotes Pro</h1><p>导出时间：${new Date().toLocaleString('zh-CN')}</p><p><img src="${d}" width="${c.width}" height="${c.height}"/></p></body></html>`; download(new Blob([h], { type: 'application/msword' }), `mindnotes-${ts()}.doc`) }
   const exportJSON = () => download(new Blob([JSON.stringify({ strokes, shapes, version: 1 }, null, 2)], { type: 'application/json' }), `mindnotes-${ts()}.json`)
-  const importJSON = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result as string); loadData(d.strokes ?? [], d.shapes ?? []) } catch { alert('无法解析文件') } }; r.readAsText(f); e.target.value = '' }
+  const importJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; if (!f) return
+    const r = new FileReader()
+    r.onload = () => {
+      try {
+        const d = JSON.parse(r.result as string)
+        if (!d.strokes && !d.shapes) { alert('文件格式不正确'); return }
+        loadData(d.strokes ?? [], d.shapes ?? [])
+      } catch { alert('无法解析文件') }
+    }
+    r.readAsText(f)
+    e.target.value = ''
+  }
 
   const importImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return
@@ -234,7 +246,6 @@ export default function Toolbar() {
           ))}
           <button onClick={() => colorRef.current?.click()} className="cdot"
             style={{ border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: 'var(--text-4)' }}>+</button>
-          <input ref={colorRef} type="color" value={color} onChange={(e) => setColor(e.target.value)} className="hidden" />
         </div>
 
         <div className="tb-sep" />
@@ -253,12 +264,10 @@ export default function Toolbar() {
         <button onClick={() => bgRef.current?.click()} className="abtn" data-tip="背景色">
           <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: 3, background: canvasBg, border: '1.5px solid var(--border)' }} />
         </button>
-        <input ref={bgRef} type="color" value={canvasBg} onChange={(e) => setCanvasBg(e.target.value)} className="hidden" />
 
         <div className="tb-sep" />
 
         <button onClick={() => imgRef.current?.click()} className="abtn" data-tip="插入图片">{I.image}</button>
-        <input ref={imgRef} type="file" accept="image/*" onChange={importImage} className="hidden" />
 
         <button onClick={() => { if (confirm('清空画布？')) clearAll() }} className="abtn" data-tip="清屏">{I.clear}</button>
 
@@ -293,7 +302,6 @@ export default function Toolbar() {
             </div>
           )}
         </div>
-        <input ref={fileRef} type="file" accept=".json" onChange={importJSON} className="hidden" />
       </div>
 
       {/* 笔型下拉 */}
@@ -315,6 +323,16 @@ export default function Toolbar() {
 
       {showExport && <div className="fixed inset-0" style={{ zIndex: 5 }} onClick={() => setShowExport(false)} />}
       {showBrush && <div className="fixed inset-0" style={{ zIndex: 5 }} onClick={() => setShowBrush(false)} />}
+
+      {/* 文件输入 (全局, 不受 overflow 裁剪) */}
+      <input ref={fileRef} type="file" accept=".json" onChange={importJSON}
+        style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }} />
+      <input ref={imgRef} type="file" accept="image/*" onChange={importImage}
+        style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }} />
+      <input ref={colorRef} type="color" value={color} onChange={(e) => setColor(e.target.value)}
+        style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }} />
+      <input ref={bgRef} type="color" value={canvasBg} onChange={(e) => setCanvasBg(e.target.value)}
+        style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }} />
     </>
   )
 }
