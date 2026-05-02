@@ -28,6 +28,7 @@ interface DrawingState {
   brush: BrushType
   color: string
   size: number
+  canvasBg: string
   undoStack: Snapshot[]
   redoStack: Snapshot[]
   selectedId: string | null
@@ -48,6 +49,7 @@ interface DrawingActions {
   setBrush: (brush: BrushType) => void
   setColor: (color: string) => void
   setSize: (size: number) => void
+  setCanvasBg: (bg: string) => void
   setSelectedId: (id: string | null) => void
   loadData: (strokes: Stroke[], shapes: Shape[]) => void
 }
@@ -68,6 +70,7 @@ export const useDrawingStore = create<DrawingState & DrawingActions>((set, get) 
   brush: 'pen',
   color: '#000000',
   size: 4,
+  canvasBg: '#ffffff',
   undoStack: [],
   redoStack: [],
   selectedId: null,
@@ -201,6 +204,7 @@ export const useDrawingStore = create<DrawingState & DrawingActions>((set, get) 
   setBrush: (brush) => set({ brush }),
   setColor: (color) => set({ color }),
   setSize: (size) => set({ size }),
+  setCanvasBg: (bg) => set({ canvasBg: bg }),
   setSelectedId: (id) => set({ selectedId: id }),
 
   loadData: (strokes, shapes) => {

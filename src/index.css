@@ -212,15 +212,20 @@ body {
 .topbar {
   position: fixed;
   top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 64px;
+  right: 12px;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 6px 12px;
   z-index: 20;
   animation: slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
+
+.topbar::-webkit-scrollbar { display: none; }
 
 .topbar .tb-group {
   display: flex;
@@ -385,7 +390,7 @@ body {
 .brand {
   position: fixed;
   top: 14px;
-  left: 64px;
+  left: 14px;
   display: flex;
   align-items: center;
   gap: 8px;

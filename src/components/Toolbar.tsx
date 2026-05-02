@@ -67,6 +67,8 @@ export default function Toolbar() {
   const setColor = useDrawingStore((s) => s.setColor)
   const size = useDrawingStore((s) => s.size)
   const setSize = useDrawingStore((s) => s.setSize)
+  const canvasBg = useDrawingStore((s) => s.canvasBg)
+  const setCanvasBg = useDrawingStore((s) => s.setCanvasBg)
   const clearAll = useDrawingStore((s) => s.clearAll)
   const strokes = useDrawingStore((s) => s.strokes)
   const shapes = useDrawingStore((s) => s.shapes)
@@ -84,6 +86,7 @@ export default function Toolbar() {
   const colorRef = useRef<HTMLInputElement>(null)
   const [showExport, setShowExport] = useState(false)
   const [showBrush, setShowBrush] = useState(false)
+  const bgRef = useRef<HTMLInputElement>(null)
 
   const withBg = (c: HTMLCanvasElement, bg: string) => {
     const t = document.createElement('canvas'); t.width = c.width; t.height = c.height
@@ -209,6 +212,19 @@ export default function Toolbar() {
           <button onClick={undo} disabled={undoLen === 0} className="abtn" data-tip="撤销">{I.undo}</button>
           <button onClick={redo} disabled={redoLen === 0} className="abtn" data-tip="重做">{I.redo}</button>
           <button onClick={() => { if (confirm('清空所有？')) clearAll() }} className="abtn">{I.trash}</button>
+        </div>
+
+        <div className="tb-sep" />
+
+        {/* 背景色 */}
+        <div className="tb-group">
+          <button onClick={() => bgRef.current?.click()}
+            className="abtn"
+            data-tip="画布背景"
+            style={{ position: 'relative' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1" fill={canvasBg} stroke="currentColor" strokeWidth="1.5"/></svg>
+          </button>
+          <input ref={bgRef} type="color" value={canvasBg} onChange={(e) => setCanvasBg(e.target.value)} className="hidden" />
         </div>
 
         <div className="tb-sep" />

@@ -14,10 +14,11 @@ export default function App() {
   const tool = useDrawingStore((s) => s.tool)
   const strokes = useDrawingStore((s) => s.strokes)
   const shapes = useDrawingStore((s) => s.shapes)
+  const canvasBg = useDrawingStore((s) => s.canvasBg)
   useEffect(() => { initTheme() }, [initTheme])
 
   return (
-    <div className="w-full h-screen relative overflow-hidden" style={{ background: 'var(--canvas)' }}>
+    <div className="w-full h-screen relative overflow-hidden" style={{ background: canvasBg }}>
       <Canvas />
       <Toolbar />
 
