@@ -22,7 +22,7 @@ export default function App() {
       <Canvas />
       <Toolbar />
 
-      <div className="status panel" style={{ bottom: 48 }}>
+      <div className="status panel">
         <span className="dot" />
         <span>本地存储</span>
         <span className="vl" />

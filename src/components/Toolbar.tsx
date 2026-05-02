@@ -22,7 +22,8 @@ const I = {
   zoomIn: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>,
   zoomOut: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>,
   reset: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>,
-  download: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+  download: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+  bg: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>,
 }
 
 const TOOLS: { id: ToolType; icon: React.ReactNode; tip: string; key: string }[] = [
@@ -50,7 +51,7 @@ const BRUSHES: { id: BrushType; label: string; desc: string }[] = [
 ]
 
 const COLORS = ['#1d2129', '#f53f3f', '#ff7d00', '#ffb400', '#00b42a', '#165dff', '#722ed1', '#f5319d']
-const SIZES = [{ value: 2, dot: 4 }, { value: 4, dot: 7 }, { value: 8, dot: 11 }, { value: 16, dot: 16 }]
+const SIZES = [{ value: 2, dot: 4 }, { value: 4, dot: 6 }, { value: 8, dot: 9 }, { value: 16, dot: 13 }]
 
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url)
@@ -84,13 +85,13 @@ export default function Toolbar() {
   const { isDarkMode, toggleTheme } = useThemeStore()
   const fileRef = useRef<HTMLInputElement>(null)
   const colorRef = useRef<HTMLInputElement>(null)
+  const bgRef = useRef<HTMLInputElement>(null)
   const [showExport, setShowExport] = useState(false)
   const [showBrush, setShowBrush] = useState(false)
-  const [brushPos, setBrushPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
-  const [exportPos, setExportPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
+  const [brushPos, setBrushPos] = useState({ top: 0, left: 0 })
+  const [exportPos, setExportPos] = useState({ top: 0, right: 0 })
   const brushBtnRef = useRef<HTMLButtonElement>(null)
   const exportBtnRef = useRef<HTMLButtonElement>(null)
-  const bgRef = useRef<HTMLInputElement>(null)
 
   const withBg = (c: HTMLCanvasElement, bg: string) => {
     const t = document.createElement('canvas'); t.width = c.width; t.height = c.height
@@ -128,7 +129,7 @@ export default function Toolbar() {
         <span className="brand-ver">v2.0</span>
       </div>
 
-      {/* 左侧工具栏 */}
+      {/* 左侧工具栏: 工具 + 形状 + 操作 */}
       <div className="sidebar panel">
         <div className="sb-group">
           {TOOLS.map((t) => (
@@ -151,46 +152,51 @@ export default function Toolbar() {
             </button>
           ))}
         </div>
+        <div className="sb-sep" />
+        <div className="sb-group">
+          <button onClick={undo} disabled={undoLen === 0} className="abtn" data-tip="撤销 Ctrl+Z">{I.undo}</button>
+          <button onClick={redo} disabled={redoLen === 0} className="abtn" data-tip="重做 Ctrl+Shift+Z">{I.redo}</button>
+          <button onClick={() => { if (confirm('清空所有？')) clearAll() }} className="abtn" data-tip="清空">{I.trash}</button>
+        </div>
+        <div className="sb-sep" />
+        <div className="sb-group">
+          <button onClick={zoomIn} className="abtn" data-tip="放大">{I.zoomIn}</button>
+          <button onClick={resetView} className="abtn" data-tip={`${Math.round(zoom * 100)}%`}>
+            <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-3)' }}>{Math.round(zoom * 100)}</span>
+          </button>
+          <button onClick={zoomOut} className="abtn" data-tip="缩小">{I.zoomOut}</button>
+          <button onClick={toggleTheme} className="abtn" data-tip={isDarkMode ? '浅色' : '深色'}>{isDarkMode ? I.sun : I.moon}</button>
+        </div>
       </div>
 
-      {/* 顶部属性栏 */}
+      {/* 顶部属性栏: 笔型 + 颜色 + 线宽 + 背景 + 导出 */}
       <div className="topbar panel">
-        {/* 笔型 */}
         {tool === 'pen' && (
           <>
-            <div>
-              <button ref={brushBtnRef} onClick={() => {
-                if (!showBrush && brushBtnRef.current) {
-                  const r = brushBtnRef.current.getBoundingClientRect()
-                  setBrushPos({ top: r.bottom + 8, left: r.left })
-                }
-                setShowBrush(!showBrush)
-              }} className="pill-btn ghost">
-                <span>{BRUSHES.find(b => b.id === brush)?.label}</span>
-                <span style={{ fontSize: '9px', opacity: 0.5 }}>▾</span>
-              </button>
-            </div>
+            <button ref={brushBtnRef} onClick={() => {
+              if (!showBrush && brushBtnRef.current) { const r = brushBtnRef.current.getBoundingClientRect(); setBrushPos({ top: r.bottom + 8, left: r.left }) }
+              setShowBrush(!showBrush)
+            }} className="pill-btn ghost">
+              <span>{BRUSHES.find(b => b.id === brush)?.label}</span>
+              <span style={{ fontSize: '9px', opacity: 0.5 }}>▾</span>
+            </button>
             <div className="tb-sep" />
           </>
         )}
 
-        {/* 颜色 */}
         <div className="tb-group">
           {COLORS.map((c) => (
             <button key={c} onClick={() => setColor(c)}
               className={`cdot ${color === c ? 'on' : ''}`}
               style={{ backgroundColor: c }} />
           ))}
-          <button onClick={() => colorRef.current?.click()}
-            className="cdot"
-            style={{ border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: 'var(--text-4)' }}
-            data-tip="自定义颜色">+</button>
+          <button onClick={() => colorRef.current?.click()} className="cdot"
+            style={{ border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: 'var(--text-4)' }}>+</button>
           <input ref={colorRef} type="color" value={color} onChange={(e) => setColor(e.target.value)} className="hidden" />
         </div>
 
         <div className="tb-sep" />
 
-        {/* 线宽 */}
         <div className="tb-group">
           {SIZES.map((s) => (
             <button key={s.value} onClick={() => setSize(s.value)}
@@ -202,53 +208,23 @@ export default function Toolbar() {
 
         <div className="tb-sep" />
 
-        {/* 操作 */}
-        <div className="tb-group">
-          <button onClick={undo} disabled={undoLen === 0} className="abtn" data-tip="撤销">{I.undo}</button>
-          <button onClick={redo} disabled={redoLen === 0} className="abtn" data-tip="重做">{I.redo}</button>
-          <button onClick={() => { if (confirm('清空所有？')) clearAll() }} className="abtn">{I.trash}</button>
-        </div>
+        <button onClick={() => bgRef.current?.click()} className="abtn" data-tip="背景色">
+          <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: 3, background: canvasBg, border: '1.5px solid var(--border)' }} />
+        </button>
+        <input ref={bgRef} type="color" value={canvasBg} onChange={(e) => setCanvasBg(e.target.value)} className="hidden" />
 
         <div className="tb-sep" />
 
-        {/* 背景色 */}
-        <div className="tb-group">
-          <button onClick={() => bgRef.current?.click()}
-            className="abtn"
-            data-tip="画布背景"
-            style={{ position: 'relative' }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1" fill={canvasBg} stroke="currentColor" strokeWidth="1.5"/></svg>
-          </button>
-          <input ref={bgRef} type="color" value={canvasBg} onChange={(e) => setCanvasBg(e.target.value)} className="hidden" />
-        </div>
-
-        <div className="tb-sep" />
-
-        {/* 缩放 */}
-        <div className="tb-group">
-          <button onClick={zoomIn} className="abtn">{I.zoomIn}</button>
-          <span className="zoom-display">{Math.round(zoom * 100)}%</span>
-          <button onClick={zoomOut} className="abtn">{I.zoomOut}</button>
-          <button onClick={resetView} className="abtn">{I.reset}</button>
-          <button onClick={toggleTheme} className="abtn">{isDarkMode ? I.sun : I.moon}</button>
-        </div>
-
-        <div className="tb-sep" />
-
-        {/* 导出 */}
         <div className="relative">
           <button ref={exportBtnRef} onClick={() => {
-            if (!showExport && exportBtnRef.current) {
-              const r = exportBtnRef.current.getBoundingClientRect()
-              setExportPos({ top: r.bottom + 8, right: window.innerWidth - r.right })
-            }
+            if (!showExport && exportBtnRef.current) { const r = exportBtnRef.current.getBoundingClientRect(); setExportPos({ top: r.bottom + 8, right: window.innerWidth - r.right }) }
             setShowExport(!showExport)
           }} className="pill-btn primary">
             {I.download}
             <span>导出</span>
           </button>
           {showExport && (
-            <div className="panel" style={{ position: 'fixed', top: exportPos.top, right: exportPos.right, minWidth: '220px', padding: '5px', zIndex: 100, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
+            <div className="panel" style={{ position: 'fixed', top: exportPos.top, right: exportPos.right, minWidth: '200px', padding: '5px', zIndex: 100, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
               {EXPORTS.map((item) => (
                 <button key={item.label} onClick={() => { item.action(); setShowExport(false) }} className="ditem">
                   <span className="di">{item.icon}</span>
@@ -269,7 +245,7 @@ export default function Toolbar() {
         <input ref={fileRef} type="file" accept=".json" onChange={importJSON} className="hidden" />
       </div>
 
-      {/* 笔型下拉 (fixed 定位，不被 topbar 裁剪) */}
+      {/* 笔型下拉 */}
       {showBrush && (
         <div className="panel" style={{ position: 'fixed', top: brushPos.top, left: brushPos.left, minWidth: '200px', padding: '5px', zIndex: 100, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
           {BRUSHES.map((b) => (
@@ -286,7 +262,6 @@ export default function Toolbar() {
         </div>
       )}
 
-      {/* 点击外部关闭 */}
       {showExport && <div className="fixed inset-0" style={{ zIndex: 5 }} onClick={() => setShowExport(false)} />}
       {showBrush && <div className="fixed inset-0" style={{ zIndex: 5 }} onClick={() => setShowBrush(false)} />}
     </>

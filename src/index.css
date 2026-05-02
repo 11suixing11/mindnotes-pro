@@ -221,38 +221,40 @@ body {
   z-index: 20;
   animation: slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
   flex-wrap: wrap;
+  max-height: 52px;
+  overflow: hidden;
 }
 
 .topbar .tb-group {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .topbar .tb-sep {
   width: 1px;
-  height: 22px;
+  height: 20px;
   background: var(--border);
-  margin: 0 4px;
+  margin: 0 3px;
 }
 
 /* ========== 颜色圆点 ========== */
 .cdot {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  border: 2.5px solid transparent;
+  border: 2px solid transparent;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   outline: none;
 }
 
-.cdot:hover { transform: scale(1.3) rotate(10deg); }
+.cdot:hover { transform: scale(1.25); }
 
 .cdot.on {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-light);
-  transform: scale(1.15);
+  transform: scale(1.1);
 }
 
 /* ========== 线宽按钮 ========== */
@@ -260,9 +262,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -275,33 +277,57 @@ body {
 .szbtn .dot { border-radius: 50%; background: var(--text-3); transition: all 0.15s ease; }
 .szbtn.on .dot { background: #fff; }
 
-/* ========== 操作按钮 (顶部) ========== */
+/* ========== 操作按钮 (侧栏底部) ========== */
 .abtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius);
   border: none;
   background: transparent;
   color: var(--text-2);
   cursor: pointer;
   transition: all 0.15s ease;
   outline: none;
+  position: relative;
 }
 
 .abtn:hover { background: var(--primary-bg); color: var(--primary); }
 .abtn:active { transform: scale(0.9); }
 .abtn:disabled { opacity: 0.2; pointer-events: none; }
 
+.abtn[data-tip]::before {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: var(--text);
+  color: var(--bg);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.15s ease;
+  z-index: 100;
+}
+.abtn[data-tip]:hover::before {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
 /* ========== 笔型/导出按钮 ========== */
 .pill-btn {
   display: flex;
   align-items: center;
   gap: 5px;
-  height: 32px;
-  padding: 0 12px;
+  height: 30px;
+  padding: 0 10px;
   border-radius: var(--radius);
   border: none;
   cursor: pointer;
@@ -347,18 +373,6 @@ body {
 }
 
 /* ========== 下拉菜单 ========== */
-.dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  min-width: 200px;
-  padding: 5px;
-  z-index: 50;
-  animation: popIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.dropdown.left { left: calc(100% + 8px); top: 0; }
-
 .ditem {
   display: flex;
   align-items: center;
@@ -396,32 +410,32 @@ body {
 }
 
 .brand-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   background: linear-gradient(135deg, #165dff, #722ed1);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   box-shadow: 0 2px 8px rgba(22,93,255,0.3);
 }
 
 .brand-text {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text);
   letter-spacing: -0.3px;
 }
 
 .brand-ver {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   color: var(--text-4);
-  padding: 1px 5px;
-  border-radius: 4px;
+  padding: 1px 4px;
+  border-radius: 3px;
   background: var(--primary-bg);
 }
 
@@ -429,11 +443,11 @@ body {
 .status {
   position: fixed;
   bottom: 12px;
-  left: 12px;
+  left: 64px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 6px 14px;
+  gap: 10px;
+  padding: 5px 12px;
   font-size: 11px;
   color: var(--text-3);
   font-weight: 500;
@@ -450,14 +464,14 @@ body {
   animation: pulse 2s ease-in-out infinite;
 }
 
-.status .vl { width: 1px; height: 12px; background: var(--border); }
+.status .vl { width: 1px; height: 10px; background: var(--border); }
 
 /* ========== 快捷键提示 ========== */
 .hints {
   position: fixed;
   bottom: 12px;
-  right: 12px;
-  padding: 6px 14px;
+  right: 14px;
+  padding: 5px 12px;
   font-size: 11px;
   color: var(--text-4);
   font-weight: 500;
@@ -467,9 +481,9 @@ body {
 
 .hints kbd {
   display: inline-block;
-  padding: 1px 5px;
+  padding: 1px 4px;
   margin: 0 1px;
-  border-radius: 4px;
+  border-radius: 3px;
   background: var(--bg);
   border: 1px solid var(--border);
   font-family: inherit;
@@ -485,7 +499,7 @@ body {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-3);
-  min-width: 38px;
+  min-width: 36px;
   text-align: center;
   user-select: none;
 }
