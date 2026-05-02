@@ -2,8 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
-
 :root {
   --bg: #f7f8fa;
   --card: rgba(255,255,255,0.88);
