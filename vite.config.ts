@@ -37,6 +37,10 @@ export default defineConfig({
             return 'vendor-react'
           }
 
+          if (normalizedId.includes('/node_modules/jspdf')) {
+            return 'vendor-pdf'
+          }
+
           if (normalizedId.includes('/node_modules/')) {
             return 'vendor'
           }
