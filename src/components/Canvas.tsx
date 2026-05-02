@@ -253,19 +253,7 @@ export default function Canvas() {
   }
 
   function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
-    // Text rendering (single point with name)
-    if (stroke.name) {
-      ctx.save()
-      ctx.font = `${Math.max(stroke.size * 4, 16)}px 'Noto Sans SC', 'PingFang SC', sans-serif`
-      ctx.fillStyle = stroke.color === 'transparent' ? 'var(--text)' : stroke.color
-      ctx.textBaseline = 'top'
-      ctx.globalAlpha = stroke.opacity ?? 1
-      ctx.fillText(stroke.name, stroke.points[0][0], stroke.points[0][1])
-      ctx.restore()
-      return
-    }
-
-    // Image rendering (single point with imageData)
+    // Image rendering (single point with imageData) — must check before name
     if ((stroke as any).imageData) {
       const img = getCachedImage((stroke as any).imageData)
       if (img && img.complete) {
@@ -275,7 +263,30 @@ export default function Canvas() {
         ctx.globalAlpha = stroke.opacity ?? 1
         ctx.drawImage(img, stroke.points[0][0], stroke.points[0][1], w, h)
         ctx.restore()
+      } else {
+        // Image not loaded yet, trigger redraw after load
+        const dataUrl = (stroke as any).imageData
+        if (!imageCache.has(dataUrl)) {
+          const pending = new Image()
+          pending.src = dataUrl
+          pending.onload = () => {
+            imageCache.set(dataUrl, pending)
+            redraw()
+          }
+        }
       }
+      return
+    }
+
+    // Text rendering (single point with name)
+    if (stroke.name) {
+      ctx.save()
+      ctx.font = `${Math.max(stroke.size * 4, 16)}px 'Noto Sans SC', 'PingFang SC', sans-serif`
+      ctx.fillStyle = stroke.color === 'transparent' ? '#1d2129' : stroke.color
+      ctx.textBaseline = 'top'
+      ctx.globalAlpha = stroke.opacity ?? 1
+      ctx.fillText(stroke.name, stroke.points[0][0], stroke.points[0][1])
+      ctx.restore()
       return
     }
 
