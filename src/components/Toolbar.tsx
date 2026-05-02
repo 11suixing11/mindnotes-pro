@@ -133,31 +133,33 @@ export default function Toolbar() {
     const f = e.target.files?.[0]; if (!f) return
     const r = new FileReader()
     r.onload = () => {
+      const dataUrl = r.result as string
       const img = new Image()
       img.onload = () => {
         const c = getCanvas(); if (!c) return
-        const maxW = c.width * 0.5, maxH = c.height * 0.5
+        const maxW = c.width * 0.6, maxH = c.height * 0.6
         const scale = Math.min(maxW / img.width, maxH / img.height, 1)
         const w = img.width * scale, h = img.height * scale
         const viewBox = useViewStore.getState().viewBox
         const x = (c.width / 2 - w / 2) / viewBox.zoom + viewBox.x
         const y = (c.height / 2 - h / 2) / viewBox.zoom + viewBox.y
-        const stroke: any = {
+        addStroke({
           id: `img-${Date.now()}`,
           points: [[x, y]],
-          color: 'transparent',
+          color: '#000000',
           size: 0,
           tool: 'pen',
-          name: `[图片] ${f?.name}`,
-          imageData: r.result as string,
+          name: '',
+          imageData: dataUrl,
           imageWidth: w,
           imageHeight: h,
-        }
-        addStroke(stroke)
+        } as any)
       }
-      img.src = r.result as string
+      img.onerror = () => { alert('图片加载失败') }
+      img.src = dataUrl
     }
-    r.readAsDataURL(f); e.target.value = ''
+    r.readAsDataURL(f)
+    e.target.value = ''
   }
 
   const toggleFullscreen = () => {

@@ -5,6 +5,7 @@ import { useThemeStore } from '../store/useThemeStore'
 import type { Stroke, Shape, ToolType } from '../store/types'
 
 const imageCache = new Map<string, HTMLImageElement>()
+const [, forceUpdate] = useState(0)
 
 function getCachedImage(dataUrl: string): HTMLImageElement | null {
   if (imageCache.has(dataUrl)) return imageCache.get(dataUrl)!
@@ -14,7 +15,10 @@ function getCachedImage(dataUrl: string): HTMLImageElement | null {
     imageCache.set(dataUrl, img)
     return img
   }
-  img.onload = () => imageCache.set(dataUrl, img)
+  img.onload = () => {
+    imageCache.set(dataUrl, img)
+    forceUpdate(n => n + 1)
+  }
   return null
 }
 
@@ -263,17 +267,6 @@ export default function Canvas() {
         ctx.globalAlpha = stroke.opacity ?? 1
         ctx.drawImage(img, stroke.points[0][0], stroke.points[0][1], w, h)
         ctx.restore()
-      } else {
-        // Image not loaded yet, trigger redraw after load
-        const dataUrl = (stroke as any).imageData
-        if (!imageCache.has(dataUrl)) {
-          const pending = new Image()
-          pending.src = dataUrl
-          pending.onload = () => {
-            imageCache.set(dataUrl, pending)
-            redraw()
-          }
-        }
       }
       return
     }
