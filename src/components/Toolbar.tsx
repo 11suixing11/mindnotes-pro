@@ -86,6 +86,10 @@ export default function Toolbar() {
   const colorRef = useRef<HTMLInputElement>(null)
   const [showExport, setShowExport] = useState(false)
   const [showBrush, setShowBrush] = useState(false)
+  const [brushPos, setBrushPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+  const [exportPos, setExportPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
+  const brushBtnRef = useRef<HTMLButtonElement>(null)
+  const exportBtnRef = useRef<HTMLButtonElement>(null)
   const bgRef = useRef<HTMLInputElement>(null)
 
   const withBg = (c: HTMLCanvasElement, bg: string) => {
@@ -154,26 +158,17 @@ export default function Toolbar() {
         {/* 笔型 */}
         {tool === 'pen' && (
           <>
-            <div className="relative">
-              <button onClick={() => setShowBrush(!showBrush)} className="pill-btn ghost">
+            <div>
+              <button ref={brushBtnRef} onClick={() => {
+                if (!showBrush && brushBtnRef.current) {
+                  const r = brushBtnRef.current.getBoundingClientRect()
+                  setBrushPos({ top: r.bottom + 8, left: r.left })
+                }
+                setShowBrush(!showBrush)
+              }} className="pill-btn ghost">
                 <span>{BRUSHES.find(b => b.id === brush)?.label}</span>
                 <span style={{ fontSize: '9px', opacity: 0.5 }}>▾</span>
               </button>
-              {showBrush && (
-                <div className="dropdown panel">
-                  {BRUSHES.map((b) => (
-                    <button key={b.id} onClick={() => { setBrush(b.id); setShowBrush(false) }}
-                      className="ditem" style={{ background: brush === b.id ? 'var(--primary-bg)' : undefined }}>
-                      <span className="di">{b.label.split(' ')[0]}</span>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span className="dl">{b.label.split(' ').slice(1).join(' ')}</span>
-                        <span className="dd">{b.desc}</span>
-                      </div>
-                      {brush === b.id && <span style={{ marginLeft: 'auto', color: 'var(--primary)', fontWeight: 700 }}>✓</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
             <div className="tb-sep" />
           </>
@@ -242,12 +237,18 @@ export default function Toolbar() {
 
         {/* 导出 */}
         <div className="relative">
-          <button onClick={() => setShowExport(!showExport)} className="pill-btn primary">
+          <button ref={exportBtnRef} onClick={() => {
+            if (!showExport && exportBtnRef.current) {
+              const r = exportBtnRef.current.getBoundingClientRect()
+              setExportPos({ top: r.bottom + 8, right: window.innerWidth - r.right })
+            }
+            setShowExport(!showExport)
+          }} className="pill-btn primary">
             {I.download}
             <span>导出</span>
           </button>
           {showExport && (
-            <div className="dropdown panel">
+            <div className="panel" style={{ position: 'fixed', top: exportPos.top, right: exportPos.right, minWidth: '220px', padding: '5px', zIndex: 100, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
               {EXPORTS.map((item) => (
                 <button key={item.label} onClick={() => { item.action(); setShowExport(false) }} className="ditem">
                   <span className="di">{item.icon}</span>
@@ -267,6 +268,23 @@ export default function Toolbar() {
         </div>
         <input ref={fileRef} type="file" accept=".json" onChange={importJSON} className="hidden" />
       </div>
+
+      {/* 笔型下拉 (fixed 定位，不被 topbar 裁剪) */}
+      {showBrush && (
+        <div className="panel" style={{ position: 'fixed', top: brushPos.top, left: brushPos.left, minWidth: '200px', padding: '5px', zIndex: 100, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
+          {BRUSHES.map((b) => (
+            <button key={b.id} onClick={() => { setBrush(b.id); setShowBrush(false) }}
+              className="ditem" style={{ background: brush === b.id ? 'var(--primary-bg)' : undefined }}>
+              <span className="di">{b.label.split(' ')[0]}</span>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span className="dl">{b.label.split(' ').slice(1).join(' ')}</span>
+                <span className="dd">{b.desc}</span>
+              </div>
+              {brush === b.id && <span style={{ marginLeft: 'auto', color: 'var(--primary)', fontWeight: 700 }}>✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 点击外部关闭 */}
       {showExport && <div className="fixed inset-0" style={{ zIndex: 5 }} onClick={() => setShowExport(false)} />}

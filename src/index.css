@@ -213,19 +213,15 @@ body {
   position: fixed;
   top: 12px;
   left: 64px;
-  right: 12px;
+  right: 120px;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
   z-index: 20;
   animation: slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
+  flex-wrap: wrap;
 }
-
-.topbar::-webkit-scrollbar { display: none; }
 
 .topbar .tb-group {
   display: flex;
@@ -389,13 +385,13 @@ body {
 /* ========== 品牌 ========== */
 .brand {
   position: fixed;
-  bottom: 14px;
-  left: 14px;
+  top: 14px;
+  right: 14px;
   display: flex;
   align-items: center;
   gap: 8px;
   z-index: 20;
-  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
   user-select: none;
 }
 
