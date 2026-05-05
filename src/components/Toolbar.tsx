@@ -182,7 +182,7 @@ export default function Toolbar() {
       <div className="brand">
         <div className="brand-icon">M</div>
         <span className="brand-text">MindNotes</span>
-        <span className="brand-ver">v2.0</span>
+        <span className="brand-ver">v2.1</span>
       </div>
 
       {/* 左侧工具栏: 工具 + 形状 + 操作 */}

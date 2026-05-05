@@ -60,15 +60,20 @@ body {
   overflow: hidden;
   background: var(--canvas);
   color: var(--text);
+  letter-spacing: 0.01em;
 }
 
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
   pointer-events: none;
   z-index: 0;
+}
+
+.dark body::before {
+  opacity: 0.4;
 }
 
 #root { width: 100vw; height: 100vh; position: relative; z-index: 1; }
@@ -114,6 +119,7 @@ body::before {
   padding: 8px;
   z-index: 20;
   animation: slideRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
 .sidebar .sb-group {
@@ -217,6 +223,7 @@ body::before {
   flex-wrap: wrap;
   max-height: 56px;
   overflow: hidden;
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
 .topbar .tb-group {
@@ -388,7 +395,7 @@ body::before {
   width: 28px;
   height: 28px;
   border-radius: 10px;
-  background: var(--primary);
+  background: linear-gradient(135deg, #c47a5a, #b8654a);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -434,6 +441,7 @@ body::before {
   height: 6px;
   border-radius: 50%;
   background: var(--success);
+  opacity: 0.7;
 }
 
 .status .vl { width: 1px; height: 10px; background: var(--border); }
@@ -455,12 +463,12 @@ body::before {
   padding: 1px 5px;
   margin: 0 1px;
   border-radius: 4px;
-  background: var(--bg);
+  background: var(--card);
   border: 1px solid var(--border);
   font-family: inherit;
   font-size: 10px;
   font-weight: 600;
-  color: var(--text-2);
+  color: var(--text-3);
   line-height: 1.5;
 }
 
