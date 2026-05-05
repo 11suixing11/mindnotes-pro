@@ -46,15 +46,15 @@ const SHAPES: { id: ToolType; icon: React.ReactNode; tip: string; key: string }[
 ]
 
 const BRUSHES: { id: BrushType; label: string; desc: string }[] = [
-  { id: 'pen', label: '✒️ 钢笔', desc: '平滑流畅' },
-  { id: 'highlighter', label: '🖍 荧光笔', desc: '半透明宽笔' },
-  { id: 'pencil', label: '✏️ 铅笔', desc: '粗糙质感' },
-  { id: 'calligraphy', label: '🖊 书法笔', desc: '粗细变化' },
-  { id: 'dashed', label: '┅ 虚线笔', desc: '虚线笔迹' },
-  { id: 'glow', label: '✨ 霓虹笔', desc: '发光效果' },
+  { id: 'pen', label: '钢笔', desc: '平滑流畅' },
+  { id: 'highlighter', label: '荧光笔', desc: '半透明宽笔' },
+  { id: 'pencil', label: '铅笔', desc: '粗糙质感' },
+  { id: 'calligraphy', label: '书法笔', desc: '粗细变化' },
+  { id: 'dashed', label: '虚线笔', desc: '虚线笔迹' },
+  { id: 'glow', label: '霓虹笔', desc: '发光效果' },
 ]
 
-const COLORS = ['#1d2129', '#f53f3f', '#ff7d00', '#ffb400', '#00b42a', '#165dff', '#722ed1', '#f5319d']
+const COLORS = ['#2c2416', '#c45a5a', '#c47a3a', '#b8963a', '#6a9c5a', '#5a8a9c', '#8a6a9c', '#9c5a7a']
 const SIZES = [{ value: 2, dot: 4 }, { value: 4, dot: 6 }, { value: 8, dot: 9 }, { value: 16, dot: 13 }]
 
 function download(blob: Blob, filename: string) {
@@ -168,12 +168,12 @@ export default function Toolbar() {
   }
 
   const EXPORTS = [
-    { icon: '🖼️', label: 'PNG 图片', desc: '透明背景', action: exportPNG },
-    { icon: '📷', label: 'JPG 图片', desc: '白色背景', action: exportJPG },
-    { icon: '📄', label: 'PDF 文档', desc: '自适应版式', action: exportPDF },
-    { icon: '🔷', label: 'SVG 矢量', desc: '无损缩放', action: exportSVG },
-    { icon: '📝', label: 'Word 文档', desc: '嵌入截图', action: exportWord },
-    { icon: '💾', label: 'JSON 数据', desc: '完整备份', action: exportJSON },
+    { icon: I.image, label: 'PNG 图片', desc: '透明背景', action: exportPNG },
+    { icon: I.image, label: 'JPG 图片', desc: '白色背景', action: exportJPG },
+    { icon: I.file, label: 'PDF 文档', desc: '自适应版式', action: exportPDF },
+    { icon: I.image, label: 'SVG 矢量', desc: '无损缩放', action: exportSVG },
+    { icon: I.file, label: 'Word 文档', desc: '嵌入截图', action: exportWord },
+    { icon: I.download, label: 'JSON 数据', desc: '完整备份', action: exportJSON },
   ]
 
   return (
@@ -289,7 +289,7 @@ export default function Toolbar() {
             <div className="panel" style={{ position: 'fixed', top: exportPos.top, right: exportPos.right, minWidth: '200px', padding: '5px', zIndex: 100, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
               {EXPORTS.map((item) => (
                 <button key={item.label} onClick={() => { item.action(); setShowExport(false) }} className="ditem">
-                  <span className="di">{item.icon}</span>
+                  <span className="di" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</span>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span className="dl">{item.label}</span>
                     <span className="dd">{item.desc}</span>
@@ -298,7 +298,7 @@ export default function Toolbar() {
               ))}
               <div className="dsep" />
               <button onClick={() => { fileRef.current?.click(); setShowExport(false) }} className="ditem">
-                <span className="di">📂</span>
+                <span className="di" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{I.file}</span>
                 <span className="dl">导入 JSON</span>
               </button>
             </div>
@@ -317,7 +317,7 @@ export default function Toolbar() {
                 <span className="dl">{b.label.split(' ').slice(1).join(' ')}</span>
                 <span className="dd">{b.desc}</span>
               </div>
-              {brush === b.id && <span style={{ marginLeft: 'auto', color: 'var(--primary)', fontWeight: 700 }}>✓</span>}
+              {brush === b.id && <span style={{ marginLeft: 'auto', color: 'var(--primary)', fontWeight: 700, fontSize: '14px' }}>✓</span>}
             </button>
           ))}
         </div>

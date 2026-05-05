@@ -149,7 +149,7 @@ export default function Canvas() {
       const startY = Math.floor(viewBox.y / gridSize) * gridSize
       const endX = viewBox.x + canvas.width / viewBox.zoom
       const endY = viewBox.y + canvas.height / viewBox.zoom
-      ctx.strokeStyle = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+      ctx.strokeStyle = isDarkMode ? 'rgba(200,180,140,0.06)' : 'rgba(120,100,70,0.06)'
       ctx.lineWidth = 0.5 / viewBox.zoom
       ctx.beginPath()
       for (let x = startX; x <= endX; x += gridSize) { ctx.moveTo(x, startY); ctx.lineTo(x, endY) }
@@ -182,7 +182,7 @@ export default function Canvas() {
       const mx = mousePosRef.current.x, my = mousePosRef.current.y
       const r = size * 2 + 10
       ctx.save()
-      ctx.strokeStyle = isDarkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'
+      ctx.strokeStyle = isDarkMode ? 'rgba(212,138,106,0.4)' : 'rgba(196,122,90,0.3)'
       ctx.lineWidth = 1.5 / viewBox.zoom
       ctx.setLineDash([4 / viewBox.zoom, 4 / viewBox.zoom])
       ctx.beginPath()
@@ -211,19 +211,19 @@ export default function Canvas() {
   }
 
   function drawSelectionBox(ctx: CanvasRenderingContext2D, b: { x: number; y: number; w: number; h: number }) {
-    ctx.strokeStyle = '#4f46e5'
+    ctx.strokeStyle = '#c47a5a'
     ctx.lineWidth = 1.5 / viewBox.zoom
     ctx.setLineDash([4 / viewBox.zoom, 4 / viewBox.zoom])
     ctx.strokeRect(b.x, b.y, b.w, b.h)
     ctx.setLineDash([])
-    ctx.fillStyle = '#4f46e5'
+    ctx.fillStyle = '#c47a5a'
     const corners = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]
     for (const [cx, cy] of corners) ctx.fillRect(cx - 3 / viewBox.zoom, cy - 3 / viewBox.zoom, 6 / viewBox.zoom, 6 / viewBox.zoom)
   }
 
   function drawMinimap(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
     if (strokes.length === 0 && shapes.length === 0) return
-    const mmW = 120, mmH = 80, pad = 10
+    const mmW = 120, mmH = 80, pad = 12
     const mmX = canvas.width - mmW - pad, mmY = canvas.height - mmH - pad - 40
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const s of strokes) for (const p of s.points) { minX = Math.min(minX, p[0]); minY = Math.min(minY, p[1]); maxX = Math.max(maxX, p[0]); maxY = Math.max(maxY, p[1]) }
@@ -235,15 +235,15 @@ export default function Canvas() {
     const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1
     const scale = Math.min(mmW / rangeX, mmH / rangeY) * 0.8
     ctx.save()
-    ctx.globalAlpha = 0.7
-    ctx.fillStyle = isDarkMode ? '#374151' : '#f3f4f6'
-    ctx.strokeStyle = isDarkMode ? '#6b7280' : '#d1d5db'
+    ctx.globalAlpha = 0.65
+    ctx.fillStyle = isDarkMode ? '#2a2418' : '#ece5d8'
+    ctx.strokeStyle = isDarkMode ? 'rgba(200,180,140,0.12)' : 'rgba(120,100,70,0.12)'
     ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.roundRect(mmX - 2, mmY - 2, mmW + 4, mmH + 4, 6)
+    ctx.roundRect(mmX - 2, mmY - 2, mmW + 4, mmH + 4, 8)
     ctx.fill()
     ctx.stroke()
-    ctx.fillStyle = isDarkMode ? '#9ca3af' : '#6b7280'
+    ctx.fillStyle = isDarkMode ? '#7a6e5c' : '#9c8e7a'
     for (const s of strokes) for (const p of s.points) {
       ctx.fillRect(mmX + (p[0] - minX) * scale + (mmW - rangeX * scale) / 2, mmY + (p[1] - minY) * scale + (mmH - rangeY * scale) / 2, 1.5, 1.5)
     }
@@ -251,7 +251,7 @@ export default function Canvas() {
     const vy = (viewBox.y - minY) * scale + (mmH - rangeY * scale) / 2
     const vw = canvas.width / viewBox.zoom * scale
     const vh = canvas.height / viewBox.zoom * scale
-    ctx.strokeStyle = '#4f46e5'
+    ctx.strokeStyle = '#c47a5a'
     ctx.lineWidth = 1.5
     ctx.strokeRect(mmX + vx, mmY + vy, vw, vh)
     ctx.restore()
@@ -614,15 +614,16 @@ export default function Canvas() {
             top: textInput.screenY - 16,
             minWidth: '150px',
             maxWidth: '400px',
-            padding: '6px 10px',
+            padding: '8px 12px',
             fontSize: `${Math.max(size * 4, 16)}px`,
             color: color,
-            background: 'rgba(255,255,255,0.95)',
-            border: '2px solid #4f46e5',
-            borderRadius: '8px',
+            background: 'rgba(250,247,240,0.95)',
+            border: '1.5px solid rgba(196,122,90,0.3)',
+            borderRadius: '12px',
             outline: 'none',
             zIndex: 100,
-            boxShadow: '0 4px 12px rgba(79,70,229,0.2)',
+            boxShadow: '0 4px 16px rgba(80,60,30,0.08)',
+            fontFamily: "'Noto Sans SC', 'PingFang SC', sans-serif",
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && textInputRef.current?.value.trim()) {
