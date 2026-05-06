@@ -312,34 +312,34 @@ export default function Toolbar() {
 
         <div className="tb-sep" />
 
-        <div className="relative">
-          <button ref={exportBtnRef} onClick={() => {
-            if (!showExport && exportBtnRef.current) { const r = exportBtnRef.current.getBoundingClientRect(); setExportPos({ top: r.bottom + 8, right: window.innerWidth - r.right }) }
-            setShowExport(!showExport)
-          }} className="pill-btn primary">
-            {I.download}
-            <span>导出</span>
-          </button>
-          {showExport && (
-            <div className="panel" style={{ position: 'fixed', top: exportPos.top, right: exportPos.right, minWidth: '200px', padding: '5px', zIndex: 100, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
-              {EXPORTS.map((item) => (
-                <button key={item.label} onClick={() => { item.action(); setShowExport(false) }} className="ditem">
-                  <span className="di" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</span>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span className="dl">{item.label}</span>
-                    <span className="dd">{item.desc}</span>
-                  </div>
-                </button>
-              ))}
-              <div className="dsep" />
-              <button onClick={() => { fileRef.current?.click(); setShowExport(false) }} className="ditem">
-                <span className="di" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{I.file}</span>
-                <span className="dl">导入 JSON</span>
-              </button>
-            </div>
-          )}
-        </div>
+        <button ref={exportBtnRef} onClick={() => {
+          if (!showExport && exportBtnRef.current) { const r = exportBtnRef.current.getBoundingClientRect(); setExportPos({ top: r.bottom + 8, right: window.innerWidth - r.right }) }
+          setShowExport(!showExport)
+        }} className="pill-btn primary">
+          {I.download}
+          <span>导出</span>
+        </button>
       </div>
+
+      {/* 导出下拉 (根级, 避免 backdrop-filter 裁剪 fixed 定位) */}
+      {showExport && (
+        <div className="panel" style={{ position: 'fixed', top: exportPos.top, right: exportPos.right, minWidth: '200px', padding: '5px', zIndex: 100, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
+          {EXPORTS.map((item) => (
+            <button key={item.label} onClick={() => { item.action(); setShowExport(false) }} className="ditem">
+              <span className="di" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</span>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span className="dl">{item.label}</span>
+                <span className="dd">{item.desc}</span>
+              </div>
+            </button>
+          ))}
+          <div className="dsep" />
+          <button onClick={() => { fileRef.current?.click(); setShowExport(false) }} className="ditem">
+            <span className="di" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{I.file}</span>
+            <span className="dl">导入 JSON</span>
+          </button>
+        </div>
+      )}
 
       {/* 笔型下拉 */}
       {showBrush && (
