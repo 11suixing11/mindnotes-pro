@@ -38,6 +38,7 @@ function distToSegment(px: number, py: number, ax: number, ay: number, bx: numbe
 
 export default function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
   const [canvasSize, setCanvasSize] = useState({ w: window.innerWidth, h: window.innerHeight })
 
   const tool = useDrawingStore((s) => s.tool)
@@ -81,6 +82,12 @@ export default function Canvas() {
   function hitTest(px: number, py: number): string | null {
     const r = 12
     for (const s of strokes) {
+      if ((s as any).imageData) {
+        const ix = s.points[0][0], iy = s.points[0][1]
+        const iw = (s as any).imageWidth ?? 200, ih = (s as any).imageHeight ?? 200
+        if (px >= ix - r && px <= ix + iw + r && py >= iy - r && py <= iy + ih + r) return s.id
+        continue
+      }
       if (s.name) {
         const dx = px - s.points[0][0], dy = py - s.points[0][1]
         if (Math.abs(dx) < 80 && Math.abs(dy) < 20) return s.id
@@ -137,7 +144,8 @@ export default function Canvas() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, canvasSize.w, canvasSize.h)
     ctx.save()
     ctx.scale(viewBox.zoom, viewBox.zoom)
     ctx.translate(-viewBox.x, -viewBox.y)
@@ -196,7 +204,7 @@ export default function Canvas() {
 
     drawMinimap(ctx, canvas)
     drawZoomLevel(ctx, canvas)
-  }, [strokes, shapes, viewBox, color, size, tool, brush, canvasBg, selectedId, isDarkMode])
+  }, [strokes, shapes, viewBox, color, size, tool, brush, canvasBg, selectedId, isDarkMode, dpr, canvasSize])
 
   function getStrokeBounds(s: Stroke) {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
@@ -224,7 +232,7 @@ export default function Canvas() {
   function drawMinimap(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
     if (strokes.length === 0 && shapes.length === 0) return
     const mmW = 120, mmH = 80, pad = 12
-    const mmX = canvas.width - mmW - pad, mmY = canvas.height - mmH - pad - 40
+    const mmX = canvasSize.w - mmW - pad, mmY = canvasSize.h - mmH - pad - 40
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const s of strokes) for (const p of s.points) { minX = Math.min(minX, p[0]); minY = Math.min(minY, p[1]); maxX = Math.max(maxX, p[0]); maxY = Math.max(maxY, p[1]) }
     for (const s of shapes) {
@@ -249,8 +257,8 @@ export default function Canvas() {
     }
     const vx = (viewBox.x - minX) * scale + (mmW - rangeX * scale) / 2
     const vy = (viewBox.y - minY) * scale + (mmH - rangeY * scale) / 2
-    const vw = canvas.width / viewBox.zoom * scale
-    const vh = canvas.height / viewBox.zoom * scale
+    const vw = canvasSize.w / viewBox.zoom * scale
+    const vh = canvasSize.h / viewBox.zoom * scale
     ctx.strokeStyle = '#c47a5a'
     ctx.lineWidth = 1.5
     ctx.strokeRect(mmX + vx, mmY + vy, vw, vh)
@@ -259,11 +267,11 @@ export default function Canvas() {
 
   function drawZoomLevel(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
     ctx.save()
-    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.font = '12px sans-serif'
     ctx.fillStyle = isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'
     ctx.textAlign = 'right'
-    ctx.fillText(`${Math.round(viewBox.zoom * 100)}%`, canvas.width - 145, canvas.height - 50)
+    ctx.fillText(`${Math.round(viewBox.zoom * 100)}%`, canvasSize.w - 145, canvasSize.h - 50)
     ctx.restore()
   }
 
@@ -598,10 +606,10 @@ export default function Canvas() {
     <>
       <canvas
         ref={canvasRef}
-        width={canvasSize.w}
-        height={canvasSize.h}
+        width={canvasSize.w * dpr}
+        height={canvasSize.h * dpr}
         className="w-full h-full touch-none"
-        style={{ touchAction: 'none', cursor: isPanning ? 'grabbing' : cursorMap[tool] ?? 'crosshair', backgroundColor: canvasBg }}
+        style={{ touchAction: 'none', cursor: isPanning ? 'grabbing' : cursorMap[tool] ?? 'crosshair', backgroundColor: canvasBg, width: canvasSize.w, height: canvasSize.h }}
       />
       {textInput && (
         <input
