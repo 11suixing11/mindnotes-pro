@@ -58,10 +58,14 @@ const COLORS = ['#2c2416', '#c45a5a', '#c47a3a', '#b8963a', '#6a9c5a', '#5a8a9c'
 const SIZES = [{ value: 2, dot: 4 }, { value: 4, dot: 6 }, { value: 8, dot: 9 }, { value: 16, dot: 13 }]
 
 function download(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-function downloadDataUrl(dataUrl: string, filename: string) {
-  const a = document.createElement('a'); a.href = dataUrl; a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.style.display = 'none'
+  document.body.appendChild(a)
+  a.click()
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 200)
 }
 function ts() { return new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-') }
 function getCanvas() { return document.querySelector('canvas') }
@@ -108,19 +112,43 @@ export default function Toolbar() {
     const t = document.createElement('canvas'); t.width = w; t.height = h
     const ctx = t.getContext('2d')!; ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h); ctx.drawImage(c, 0, 0, c.width, c.height, 0, 0, w, h); return t
   }
-  const exportPNG = () => { try { const c = getCanvas(); if (!c) return; const dataUrl = withBg(c, isDarkMode ? '#1a1610' : '#fff').toDataURL('image/png'); downloadDataUrl(dataUrl, `mindnotes-${ts()}.png`) } catch (e) { alert('PNG 导出失败') } }
-  const exportJPG = () => { try { const c = getCanvas(); if (!c) return; const dataUrl = withBg(c, '#fff').toDataURL('image/jpeg', 0.92); downloadDataUrl(dataUrl, `mindnotes-${ts()}.jpg`) } catch (e) { alert('JPG 导出失败') } }
-  const exportPDF = async () => { try { const c = getCanvas(); if (!c) return; const t = withBg(c, isDarkMode ? '#1a1610' : '#fff'); const { jsPDF } = await import('jspdf'); const p = new jsPDF({ orientation: t.width > t.height ? 'landscape' : 'portrait', unit: 'px', format: [t.width, t.height] }); p.addImage(t.toDataURL('image/png'), 'PNG', 0, 0, t.width, t.height); p.save(`mindnotes-${ts()}.pdf`) } catch (e) { alert('PDF 导出失败') } }
+  const exportBlob = (c: HTMLCanvasElement, bg: string, mime: string, quality?: number): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      try { withBg(c, bg).toBlob(b => resolve(b), mime, quality) } catch { resolve(null) }
+    })
+  }
+  const exportPNG = async () => {
+    const c = getCanvas(); if (!c) return alert('画布未就绪')
+    const b = await exportBlob(c, isDarkMode ? '#1a1610' : '#fff', 'image/png')
+    if (b) download(b, `mindnotes-${ts()}.png`); else alert('PNG 导出失败')
+  }
+  const exportJPG = async () => {
+    const c = getCanvas(); if (!c) return alert('画布未就绪')
+    const b = await exportBlob(c, '#fff', 'image/jpeg', 0.92)
+    if (b) download(b, `mindnotes-${ts()}.jpg`); else alert('JPG 导出失败')
+  }
+  const exportPDF = async () => {
+    const c = getCanvas(); if (!c) return alert('画布未就绪')
+    const t = withBg(c, isDarkMode ? '#1a1610' : '#fff')
+    const { jsPDF } = await import('jspdf')
+    const p = new jsPDF({ orientation: t.width > t.height ? 'landscape' : 'portrait', unit: 'px', format: [t.width, t.height] })
+    p.addImage(t.toDataURL('image/png'), 'PNG', 0, 0, t.width, t.height); p.save(`mindnotes-${ts()}.pdf`)
+  }
   const exportSVG = () => {
-    try {
-    const c = getCanvas(); if (!c) return; const dpr = window.devicePixelRatio || 1; const lw = Math.round(c.width / dpr), lh = Math.round(c.height / dpr); const bg = isDarkMode ? '#1a1610' : '#fff'
+    const c = getCanvas(); if (!c) return alert('画布未就绪')
+    const dpr = window.devicePixelRatio || 1; const lw = Math.round(c.width / dpr), lh = Math.round(c.height / dpr); const bg = isDarkMode ? '#1a1610' : '#fff'
     let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${lw}" height="${lh}"><rect width="100%" height="100%" fill="${bg}"/>\n`
     for (const st of strokes) { if (st.name) { s += `<text x="${st.points[0][0]}" y="${st.points[0][1]}" fill="${st.color}" font-size="${st.size * 4}" font-family="sans-serif">${st.name}</text>\n`; continue } if (st.points.length < 2) continue; let d = `M${st.points[0][0]} ${st.points[0][1]}`; for (let i = 1; i < st.points.length; i++) d += `L${st.points[i][0]} ${st.points[i][1]}`; s += `<path d="${d}" stroke="${st.color}" stroke-width="${st.size}" fill="none" stroke-linecap="round"/>\n` }
     for (const sh of shapes) { const sx = sh.startX ?? sh.x, sy = sh.startY ?? sh.y, ex = sh.endX ?? sh.x + sh.width, ey = sh.endY ?? sh.y + sh.height; if (sh.type === 'rectangle') s += `<rect x="${Math.min(sx, ex)}" y="${Math.min(sy, ey)}" width="${Math.abs(ex - sx)}" height="${Math.abs(ey - sy)}" stroke="${sh.color}" stroke-width="${sh.size}" fill="none"/>\n`; else if (sh.type === 'circle') s += `<ellipse cx="${(sx + ex) / 2}" cy="${(sy + ey) / 2}" rx="${Math.abs(ex - sx) / 2}" ry="${Math.abs(ey - sy) / 2}" stroke="${sh.color}" stroke-width="${sh.size}" fill="none"/>\n`; else if (sh.type === 'line' || sh.type === 'arrow') s += `<line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="${sh.color}" stroke-width="${sh.size}"/>\n`; else if (sh.type === 'triangle') s += `<polygon points="${(sx + ex) / 2},${sy} ${sx},${ey} ${ex},${ey}" stroke="${sh.color}" stroke-width="${sh.size}" fill="none"/>\n` }
     s += '</svg>'; download(new Blob([s], { type: 'image/svg+xml' }), `mindnotes-${ts()}.svg`)
-    } catch (e) { alert('SVG 导出失败') }
   }
-  const exportWord = () => { try { const c = getCanvas(); if (!c) return; const t = withBg(c, isDarkMode ? '#1a1610' : '#fff'); const d = t.toDataURL('image/png'); const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset="utf-8"><style>body{font-family:sans-serif}img{max-width:100%}</style></head><body><h1>MindNotes Pro</h1><p>导出时间：${new Date().toLocaleString('zh-CN')}</p><p><img src="${d}" width="${t.width}" height="${t.height}"/></p></body></html>`; download(new Blob([h], { type: 'application/msword' }), `mindnotes-${ts()}.doc`) } catch (e) { alert('Word 导出失败') } }
+  const exportWord = async () => {
+    const c = getCanvas(); if (!c) return alert('画布未就绪')
+    const t = withBg(c, isDarkMode ? '#1a1610' : '#fff')
+    const d = t.toDataURL('image/png')
+    const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset="utf-8"><style>body{font-family:sans-serif}img{max-width:100%}</style></head><body><h1>MindNotes Pro</h1><p>导出时间：${new Date().toLocaleString('zh-CN')}</p><p><img src="${d}" width="${t.width}" height="${t.height}"/></p></body></html>`
+    download(new Blob([h], { type: 'application/msword' }), `mindnotes-${ts()}.doc`)
+  }
   const exportJSON = () => download(new Blob([JSON.stringify({ strokes, shapes, version: 1 }, null, 2)], { type: 'application/json' }), `mindnotes-${ts()}.json`)
   const importJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return
