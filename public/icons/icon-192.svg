@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f5f0e8"/>
+      <stop offset="100%" style="stop-color:#ece5d8"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#d48a6a"/>
+      <stop offset="100%" style="stop-color:#b8654a"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#806040" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  <rect width="192" height="192" rx="40" fill="url(#bg)"/>
+  <rect x="33" y="33" width="126" height="126" rx="27" fill="url(#accent)" filter="url(#shadow)"/>
+  <path d="M68,68 L68,124 L78,124 L78,98 L96,98 Q105,98 111,93 Q117,88 117,78 Q117,68 111,63 Q105,58 96,58 L68,58 Z M78,69 L92,69 Q98,69 102,73 Q106,77 106,82 Q106,87 102,91 Q98,95 92,95 L78,95 Z" fill="white" fill-rule="evenodd"/>
+  <circle cx="128" cy="128" r="18" fill="none" stroke="white" stroke-width="5"/>
+  <line x1="140" y1="140" x2="153" y2="153" stroke="white" stroke-width="5" stroke-linecap="round"/>
+</svg>
