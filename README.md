@@ -6,6 +6,10 @@
 
 <br /><br />
 
+<img src=".github/demo.svg" alt="MindNotes Pro Demo" width="100%" />
+
+<br />
+
 # MindNotes Pro
 
 ### A beautiful, distraction-free whiteboard that lives in your browser.
