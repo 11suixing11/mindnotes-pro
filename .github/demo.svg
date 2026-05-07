@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
+  <defs>
+    <linearGradient id="canvas-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f5f0e8"/>
+      <stop offset="100%" style="stop-color:#ece5d8"/>
+    </linearGradient>
+    <filter id="paper">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="4" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feBlend in="SourceGraphic" mode="multiply"/>
+    </filter>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="8" flood-color="#806040" flood-opacity="0.08"/>
+    </filter>
+    <clipPath id="canvas-clip">
+      <rect x="50" y="30" width="700" height="390" rx="12"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="450" fill="#f5f0e8" rx="16"/>
+
+  <!-- Canvas area -->
+  <rect x="50" y="30" width="700" height="390" rx="12" fill="url(#canvas-bg)" filter="url(#shadow)"/>
+
+  <!-- Grid dots -->
+  <g opacity="0.15" clip-path="url(#canvas-clip)">
+    <pattern id="dots" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
+      <circle cx="15" cy="15" r="0.8" fill="#9c8e7a"/>
+    </pattern>
+    <rect x="50" y="30" width="700" height="390" fill="url(#dots)"/>
+  </g>
+
+  <!-- Sidebar -->
+  <rect x="10" y="80" width="36" height="290" rx="10" fill="rgba(250,247,240,0.85)" filter="url(#shadow)"/>
+  <rect x="16" y="88" width="24" height="24" rx="6" fill="#c47a5a"/>
+  <text x="28" y="105" font-family="system-ui" font-size="10" fill="white" text-anchor="middle" font-weight="700">1</text>
+  <rect x="16" y="118" width="24" height="24" rx="6" fill="none" stroke="#c8bba8" stroke-width="1"/>
+  <rect x="16" y="148" width="24" height="24" rx="6" fill="none" stroke="#c8bba8" stroke-width="1"/>
+  <rect x="16" y="178" width="24" height="24" rx="6" fill="none" stroke="#c8bba8" stroke-width="1"/>
+
+  <!-- Topbar -->
+  <rect x="55" y="5" width="350" height="22" rx="6" fill="rgba(250,247,240,0.85)" filter="url(#shadow)"/>
+  <circle cx="70" cy="16" r="5" fill="#2c2416"/>
+  <circle cx="85" cy="16" r="5" fill="#c45a5a"/>
+  <circle cx="100" cy="16" r="5" fill="#c47a3a"/>
+  <circle cx="115" cy="16" r="5" fill="#6a9c5a"/>
+  <circle cx="130" cy="16" r="5" fill="#5a8a9c"/>
+  <circle cx="145" cy="16" r="5" fill="#8a6a9c"/>
+  <rect x="160" y="11" width="16" height="10" rx="3" fill="none" stroke="#c8bba8" stroke-width="0.8"/>
+  <rect x="180" y="11" width="16" height="10" rx="3" fill="none" stroke="#c8bba8" stroke-width="0.8"/>
+  <rect x="200" y="11" width="16" height="10" rx="3" fill="#c8bba8"/>
+  <rect x="220" y="11" width="16" height="10" rx="3" fill="none" stroke="#c8bba8" stroke-width="0.8"/>
+
+  <!-- Brand -->
+  <rect x="680" y="5" width="60" height="22" rx="6" fill="rgba(250,247,240,0.85)" filter="url(#shadow)"/>
+  <rect x="686" y="9" width="14" height="14" rx="4" fill="#c47a5a"/>
+  <text x="693" y="20" font-family="system-ui" font-size="8" fill="white" text-anchor="middle" font-weight="700">M</text>
+  <text x="716" y="20" font-family="system-ui" font-size="8" fill="#2c2416" font-weight="600">v2.1</text>
+
+  <!-- Animated drawing path -->
+  <g clip-path="url(#canvas-clip)">
+    <!-- Stroke 1: A curve -->
+    <path d="M120,200 Q180,120 260,180 Q340,240 400,160" fill="none" stroke="#2c2416" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <animate attributeName="stroke-dasharray" from="0,1000" to="500,0" dur="2s" fill="freeze"/>
+      <animate attributeName="stroke-dashoffset" from="0" to="-500" dur="2s" fill="freeze"/>
+    </path>
+
+    <!-- Stroke 2: A highlight -->
+    <path d="M300,250 Q380,200 460,260" fill="none" stroke="#c45a5a" stroke-width="8" stroke-linecap="round" opacity="0.35">
+      <animate attributeName="stroke-dasharray" from="0,1000" to="300,0" dur="2s" begin="1.5s" fill="freeze"/>
+      <animate attributeName="stroke-dashoffset" from="0" to="-300" dur="2s" begin="1.5s" fill="freeze"/>
+    </path>
+
+    <!-- Stroke 3: An arrow -->
+    <path d="M480,300 L580,200" fill="none" stroke="#5a8a9c" stroke-width="2" stroke-linecap="round">
+      <animate attributeName="stroke-dasharray" from="0,1000" to="200,0" dur="1s" begin="3s" fill="freeze"/>
+    </path>
+    <path d="M560,210 L580,200 L570,220" fill="none" stroke="#5a8a9c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="4s" fill="freeze"/>
+    </path>
+
+    <!-- Stroke 4: A rectangle -->
+    <rect x="150" y="280" width="120" height="80" rx="4" fill="none" stroke="#6a9c5a" stroke-width="2">
+      <animate attributeName="stroke-dasharray" from="0,500" to="400,0" dur="1.5s" begin="3.5s" fill="freeze"/>
+    </rect>
+
+    <!-- Stroke 5: A circle -->
+    <circle cx="550" cy="320" r="40" fill="none" stroke="#8a6a9c" stroke-width="2">
+      <animate attributeName="stroke-dasharray" from="0,500" to="260,0" dur="1.5s" begin="4.5s" fill="freeze"/>
+    </circle>
+
+    <!-- Text -->
+    <text x="350" y="130" font-family="system-ui, sans-serif" font-size="18" fill="#2c2416" font-weight="600" opacity="0">
+      Hello, MindNotes!
+      <animate attributeName="opacity" from="0" to="1" dur="0.5s" begin="5.5s" fill="freeze"/>
+    </text>
+  </g>
+
+  <!-- Status bar -->
+  <rect x="55" y="425" width="200" height="18" rx="5" fill="rgba(250,247,240,0.85)" filter="url(#shadow)"/>
+  <circle cx="66" cy="434" r="3" fill="#6a9c5a"/>
+  <text x="75" y="438" font-family="system-ui" font-size="8" fill="#9c8e7a">本地存储</text>
+  <line x1="105" y1="429" x2="105" y2="439" stroke="#c8bba8" stroke-width="0.5"/>
+  <text x="112" y="438" font-family="system-ui" font-size="8" fill="#c47a5a" font-weight="600">画笔</text>
+  <line x1="132" y1="429" x2="132" y2="439" stroke="#c8bba8" stroke-width="0.5"/>
+  <text x="139" y="438" font-family="system-ui" font-size="8" fill="#9c8e7a">5 对象</text>
+
+  <!-- Hints -->
+  <rect x="540" y="425" width="200" height="18" rx="5" fill="rgba(250,247,240,0.85)" filter="url(#shadow)"/>
+  <text x="555" y="438" font-family="system-ui" font-size="7" fill="#c8bba8">
+    Ctrl+Z 撤销 · 滚轮缩放 · 0-8 工具
+  </text>
+</svg>
