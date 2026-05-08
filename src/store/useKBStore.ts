@@ -17,6 +17,7 @@ export interface NoteFile {
   createdAt: number
   updatedAt: number
   wordCount: number
+  canvasData?: { strokes: any[]; shapes: any[]; canvasBg: string }
 }
 
 interface KBState {
@@ -40,6 +41,7 @@ interface KBActions {
   deleteNote: (id: string) => Promise<void>
   importMarkdown: (file: File, dirId?: string | null) => Promise<void>
   exportNote: (id: string) => Promise<void>
+  saveCanvas: (id: string, strokes: any[], shapes: any[], canvasBg: string) => Promise<void>
   getStats: () => { docCount: number; totalWords: number }
   getActiveNote: () => NoteFile | null
 }
@@ -167,6 +169,13 @@ export const useKBStore = create<KBState & KBActions>((set, get) => ({
     a.href = url; a.download = `${note.title}.md`
     document.body.appendChild(a); a.click()
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 200)
+  },
+
+  saveCanvas: async (id, strokes, shapes, canvasBg) => {
+    const note = (await db.getAllNotes()).find((n) => n.id === id)
+    if (!note) return
+    await db.putNote({ ...note, canvasData: { strokes, shapes, canvasBg }, updatedAt: Date.now() })
+    set({ notes: await db.getAllNotes() })
   },
 
   getStats: () => {

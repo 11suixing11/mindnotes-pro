@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useKBStore } from '../store/useKBStore'
 import type { NoteDir, NoteFile } from '../store/useKBStore'
 
-export default function KBSidebar({ onOpenWhiteboard }: { onOpenWhiteboard?: () => void }) {
+export default function KBSidebar() {
   const dirs = useKBStore((s) => s.dirs)
   const notes = useKBStore((s) => s.notes)
   const activeNoteId = useKBStore((s) => s.activeNoteId)
@@ -110,7 +110,6 @@ export default function KBSidebar({ onOpenWhiteboard }: { onOpenWhiteboard?: () 
           <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>MindNotes</span>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={onOpenWhiteboard} style={{ flex: 1, padding: '6px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>白板</button>
           <button onClick={() => createDir('新文件夹')} style={{ flex: 1, padding: '6px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+ 文件夹</button>
           <button onClick={() => createNote()} style={{ flex: 1, padding: '6px 0', borderRadius: 8, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+ 笔记</button>
         </div>

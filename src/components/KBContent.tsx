@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { marked } from 'marked'
 import { useKBStore } from '../store/useKBStore'
+import { useDrawingStore } from '../store/useDrawingStore'
+import CanvasInline from './CanvasInline'
 
 marked.setOptions({ breaks: true, gfm: true })
 
@@ -9,19 +11,47 @@ export default function KBContent() {
   const notes = useKBStore((s) => s.notes)
   const dirs = useKBStore((s) => s.dirs)
   const saveNote = useKBStore((s) => s.saveNote)
+  const saveCanvas = useKBStore((s) => s.saveCanvas)
   const getStats = useKBStore((s) => s.getStats)
   const importMarkdown = useKBStore((s) => s.importMarkdown)
   const createNote = useKBStore((s) => s.createNote)
+  const loadFromDoc = useDrawingStore((s) => s.loadFromDoc)
+  const strokes = useDrawingStore((s) => s.strokes)
+  const shapes = useDrawingStore((s) => s.shapes)
+  const canvasBg = useDrawingStore((s) => s.canvasBg)
 
+  const [tab, setTab] = useState<'doc' | 'canvas'>('doc')
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState('')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const canvasSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const prevNoteId = useRef<string | null>(null)
 
   const note = notes.find((n) => n.id === activeNoteId) ?? null
   const stats = getStats()
 
-  useEffect(() => { setEditing(false) }, [activeNoteId])
+  useEffect(() => {
+    if (note && note.id !== prevNoteId.current) {
+      prevNoteId.current = note.id
+      setTab('doc')
+      setEditing(false)
+      if (note.canvasData) {
+        loadFromDoc(note.canvasData.strokes, note.canvasData.shapes, note.canvasData.canvasBg)
+      } else {
+        loadFromDoc([], [], '#ffffff')
+      }
+    }
+  }, [note?.id])
+
+  useEffect(() => {
+    if (tab === 'canvas' && note) {
+      if (canvasSaveTimer.current) clearTimeout(canvasSaveTimer.current)
+      canvasSaveTimer.current = setTimeout(() => {
+        saveCanvas(note.id, strokes, shapes, canvasBg)
+      }, 1500)
+    }
+  }, [strokes, shapes, canvasBg, tab])
 
   const handleEdit = () => { if (note) { setEditContent(note.content); setEditing(true) } }
 
@@ -37,17 +67,9 @@ export default function KBContent() {
     e.target.value = ''
   }
 
-  const fmtTime = (ts: number) => {
-    const d = new Date(ts)
-    return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-  }
-
+  const fmtTime = (ts: number) => new Date(ts).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
   const dirName = (dirId: string | null) => dirs.find((d) => d.id === dirId)?.name ?? '未分类'
-
-  const renderMarkdown = (content: string) => {
-    const html = marked.parse(content) as string
-    return { __html: html }
-  }
+  const renderMarkdown = (content: string) => ({ __html: marked.parse(content) as string })
 
   if (!note) {
     return (
@@ -61,42 +83,45 @@ export default function KBContent() {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-      <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>{note.title}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-4)', marginTop: 2 }}>{dirName(note.dirId)} · {note.wordCount} 字 · 更新于 {fmtTime(note.updatedAt)}</div>
+      <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note.title}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-4)', marginTop: 2 }}>{dirName(note.dirId)} · {note.wordCount} 字 · {fmtTime(note.updatedAt)}</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div style={{ fontSize: 11, color: 'var(--text-4)', padding: '4px 10px', borderRadius: 6, background: 'var(--primary-bg)' }}>{stats.docCount} 文档 · {stats.totalWords} 字</div>
-          <button onClick={() => fileRef.current?.click()} style={topBtnStyle} title="导入 .md">导入</button>
-          <button onClick={handleEdit} style={{ ...topBtnStyle, background: editing ? 'var(--primary)' : topBtnStyle.background, color: editing ? '#fff' : topBtnStyle.color }}>{editing ? '阅读' : '编辑'}</button>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+          <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+            <button onClick={() => setTab('doc')} style={{ ...tabBtn, background: tab === 'doc' ? 'var(--primary)' : 'transparent', color: tab === 'doc' ? '#fff' : 'var(--text-2)' }}>文档</button>
+            <button onClick={() => setTab('canvas')} style={{ ...tabBtn, background: tab === 'canvas' ? 'var(--primary)' : 'transparent', color: tab === 'canvas' ? '#fff' : 'var(--text-2)', borderLeft: '1px solid var(--border)' }}>画板</button>
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--text-4)', padding: '3px 8px', borderRadius: 5, background: 'var(--primary-bg)' }}>{stats.docCount} 文档 · {stats.totalWords} 字</div>
+          {tab === 'doc' && <button onClick={() => fileRef.current?.click()} style={topBtnStyle}>导入</button>}
+          {tab === 'doc' && <button onClick={handleEdit} style={{ ...topBtnStyle, background: editing ? 'var(--primary)' : undefined, color: editing ? '#fff' : undefined }}>{editing ? '阅读' : '编辑'}</button>}
         </div>
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '24px 32px' }}>
-        {editing ? (
-          <textarea
-            autoFocus
-            value={editContent}
-            onChange={(e) => { setEditContent(e.target.value); handleSave(e.target.value) }}
-            style={{
-              width: '100%', height: '100%', minHeight: 400, border: 'none', outline: 'none', resize: 'none',
-              fontSize: 14, lineHeight: 1.8, color: 'var(--text)', background: 'transparent',
-              fontFamily: "'Noto Sans SC', 'PingFang SC', monospace",
-            }}
-          />
-        ) : (
-          <div className="kb-content" dangerouslySetInnerHTML={renderMarkdown(note.content)} style={{
-            fontSize: 14, lineHeight: 1.8, color: 'var(--text)', maxWidth: 720,
-          }} />
-        )}
-      </div>
+      {tab === 'doc' ? (
+        <div style={{ flex: 1, overflow: 'auto', padding: '20px 32px' }}>
+          {editing ? (
+            <textarea autoFocus value={editContent} onChange={(e) => { setEditContent(e.target.value); handleSave(e.target.value) }}
+              style={{ width: '100%', height: '100%', minHeight: 400, border: 'none', outline: 'none', resize: 'none', fontSize: 14, lineHeight: 1.8, color: 'var(--text)', background: 'transparent', fontFamily: "'Noto Sans SC', monospace" }} />
+          ) : (
+            <div className="kb-content" dangerouslySetInnerHTML={renderMarkdown(note.content)} style={{ fontSize: 14, lineHeight: 1.8, color: 'var(--text)', maxWidth: 720 }} />
+          )}
+        </div>
+      ) : (
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          <CanvasInline />
+        </div>
+      )}
 
       <input ref={fileRef} type="file" accept=".md" multiple onChange={handleImport} style={{ display: 'none' }} />
     </div>
   )
 }
 
+const tabBtn: React.CSSProperties = {
+  padding: '5px 14px', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
+}
 const topBtnStyle: React.CSSProperties = {
   padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent',
   color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
