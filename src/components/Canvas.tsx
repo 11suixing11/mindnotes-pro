@@ -56,6 +56,8 @@ export default function Canvas() {
   const removeShapeById = useDrawingStore((s) => s.removeShapeById)
   const moveStrokeById = useDrawingStore((s) => s.moveStrokeById)
   const moveShapeById = useDrawingStore((s) => s.moveShapeById)
+  const resizeStrokeById = useDrawingStore((s) => s.resizeStrokeById)
+  const resizeShapeById = useDrawingStore((s) => s.resizeShapeById)
   const setSelectedId = useDrawingStore((s) => s.setSelectedId)
   const undo = useDrawingStore((s) => s.undo)
   const redo = useDrawingStore((s) => s.redo)
@@ -75,6 +77,7 @@ export default function Canvas() {
   const currentShapeRef = useRef<Shape | null>(null)
   const erasedIdsRef = useRef<Set<string>>(new Set())
   const dragStartRef = useRef<{ x: number; y: number; id: string } | null>(null)
+  const resizeRef = useRef<{ handle: number; id: string; bounds: { x: number; y: number; w: number; h: number } } | null>(null)
   const [textInput, setTextInput] = useState<{ x: number; y: number; screenX: number; screenY: number } | null>(null)
   const textInputRef = useRef<HTMLInputElement>(null)
   const mousePosRef = useRef<{ x: number; y: number } | null>(null)
@@ -108,7 +111,25 @@ export default function Canvas() {
     return null
   }
 
-  function pointNearStroke(px: number, py: number, stroke: Stroke, radius: number): boolean {
+  function hitHandle(px: number, py: number): { handle: number; id: string; bounds: { x: number; y: number; w: number; h: number } } | null {
+    if (!selectedId) return null
+    const hr = 8
+    let bounds: { x: number; y: number; w: number; h: number } | null = null
+    const stroke = strokes.find((s) => s.id === selectedId)
+    if (stroke) bounds = getStrokeBounds(stroke)
+    else { const shape = shapes.find((s) => s.id === selectedId); if (shape) bounds = getShapeBounds(shape) }
+    if (!bounds) return null
+    const corners = [
+      [bounds.x, bounds.y],
+      [bounds.x + bounds.w, bounds.y],
+      [bounds.x, bounds.y + bounds.h],
+      [bounds.x + bounds.w, bounds.y + bounds.h],
+    ]
+    for (let i = 0; i < 4; i++) {
+      if (Math.abs(px - corners[i][0]) < hr && Math.abs(py - corners[i][1]) < hr) return { handle: i, id: selectedId, bounds }
+    }
+    return null
+  }(px: number, py: number, stroke: Stroke, radius: number): boolean {
     for (const pt of stroke.points) {
       const dx = pt[0] - px, dy = pt[1] - py
       if (dx * dx + dy * dy < radius * radius) return true
@@ -447,6 +468,11 @@ export default function Canvas() {
       }
 
       if (tool === 'select') {
+        const handle = hitHandle(pos.x, pos.y)
+        if (handle) {
+          resizeRef.current = handle
+          redraw(); return
+        }
         const hit = hitTest(pos.x, pos.y)
         setSelectedId(hit)
         if (hit) dragStartRef.current = { x: pos.x, y: pos.y, id: hit }
@@ -477,7 +503,7 @@ export default function Canvas() {
         }
       }
     },
-    [tool, color, size, getPos, startPan, addText, setSelectedId, redraw, viewBox]
+    [tool, color, size, getPos, startPan, addText, setSelectedId, redraw, viewBox, selectedId, strokes, shapes, resizeStrokeById, resizeShapeById]
   )
 
   const handleMove = useCallback(
@@ -485,6 +511,33 @@ export default function Canvas() {
       e.preventDefault()
       const pos = getPos(e)
       mousePosRef.current = pos
+
+      if (tool === 'select' && resizeRef.current) {
+        const { handle, id, bounds } = resizeRef.current
+        const anchors = [
+          [bounds.x + bounds.w, bounds.y + bounds.h],
+          [bounds.x, bounds.y + bounds.h],
+          [bounds.x + bounds.w, bounds.y],
+          [bounds.x, bounds.y],
+        ]
+        const ax = anchors[handle][0], ay = anchors[handle][1]
+        const corners = [
+          [bounds.x, bounds.y],
+          [bounds.x + bounds.w, bounds.y],
+          [bounds.x, bounds.y + bounds.h],
+          [bounds.x + bounds.w, bounds.y + bounds.h],
+        ]
+        const origCorner = corners[handle]
+        const dx = pos.x - origCorner[0], dy = pos.y - origCorner[1]
+        const scaleX = handle === 0 || handle === 2 ? (bounds.w + dx) / bounds.w : (bounds.w - dx) / bounds.w
+        const scaleY = handle === 0 || handle === 1 ? (bounds.h + dy) / bounds.h : (bounds.h - dy) / bounds.h
+        const sx = Math.max(0.1, Math.min(10, scaleX))
+        const sy = Math.max(0.1, Math.min(10, scaleY))
+        if (strokes.find((s) => s.id === id)) resizeStrokeById(id, ax, ay, sx, sy)
+        else resizeShapeById(id, ax, ay, sx, sy)
+        resizeRef.current = { handle, id, bounds: { x: ax + (bounds.x - ax) * sx, y: ay + (bounds.y - ay) * sy, w: bounds.w * sx, h: bounds.h * sy } }
+        redraw(); return
+      }
 
       if (tool === 'select' && dragStartRef.current) {
         const dx = pos.x - dragStartRef.current.x, dy = pos.y - dragStartRef.current.y
@@ -515,13 +568,13 @@ export default function Canvas() {
       }
       redraw()
     },
-    [tool, isPanning, getPos, updatePan, redraw, strokes, moveStrokeById, moveShapeById]
+    [tool, isPanning, getPos, updatePan, redraw, strokes, moveStrokeById, moveShapeById, resizeStrokeById, resizeShapeById, selectedId, shapes]
   )
 
   const handleEnd = useCallback(
     (e: MouseEvent | TouchEvent) => {
       e.preventDefault()
-      if (tool === 'select') { dragStartRef.current = null; return }
+      if (tool === 'select') { dragStartRef.current = null; resizeRef.current = null; return }
       if (tool === 'pan') { endPan(); return }
       if (!drawingRef.current) return
       drawingRef.current = false
@@ -602,6 +655,18 @@ export default function Canvas() {
     rectangle: 'crosshair', circle: 'crosshair', triangle: 'crosshair', arrow: 'crosshair', line: 'crosshair',
   }
 
+  function getCursor(): string {
+    if (isPanning) return 'grabbing'
+    if (tool === 'select' && mousePosRef.current) {
+      const h = hitHandle(mousePosRef.current.x, mousePosRef.current.y)
+      if (h) {
+        const cursors = ['nwse-resize', 'nesw-resize', 'nesw-resize', 'nwse-resize']
+        return cursors[h.handle]
+      }
+    }
+    return cursorMap[tool] ?? 'crosshair'
+  }
+
   return (
     <>
       <canvas
@@ -609,7 +674,7 @@ export default function Canvas() {
         width={canvasSize.w * dpr}
         height={canvasSize.h * dpr}
         className="w-full h-full touch-none"
-        style={{ touchAction: 'none', cursor: isPanning ? 'grabbing' : cursorMap[tool] ?? 'crosshair', backgroundColor: canvasBg, width: canvasSize.w, height: canvasSize.h }}
+        style={{ touchAction: 'none', cursor: getCursor(), backgroundColor: canvasBg, width: canvasSize.w, height: canvasSize.h }}
       />
       {textInput && (
         <input
