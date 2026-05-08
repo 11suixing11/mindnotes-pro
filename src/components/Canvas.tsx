@@ -129,7 +129,9 @@ export default function Canvas() {
       if (Math.abs(px - corners[i][0]) < hr && Math.abs(py - corners[i][1]) < hr) return { handle: i, id: selectedId, bounds }
     }
     return null
-  }(px: number, py: number, stroke: Stroke, radius: number): boolean {
+  }
+
+  function pointNearStroke(px: number, py: number, stroke: Stroke, radius: number): boolean {
     for (const pt of stroke.points) {
       const dx = pt[0] - px, dy = pt[1] - py
       if (dx * dx + dy * dy < radius * radius) return true
