@@ -424,7 +424,7 @@ body::before {
 .status {
   position: absolute;
   bottom: 16px;
-  left: 12px;
+  left: 68px;
   display: flex;
   align-items: center;
   gap: 12px;

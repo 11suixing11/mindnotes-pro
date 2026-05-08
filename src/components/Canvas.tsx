@@ -65,7 +65,7 @@ export default function Canvas() {
   const currentShapeRef = useRef<ShapeElement | null>(null)
   const erasedRef = useRef<Set<string>>(new Set())
   const dragRef = useRef<{ x: number; y: number; id: string } | null>(null)
-  const resizeRef = useRef<{ handle: number; id: string; bounds: { x: number; y: number; w: number; h: number } } | null>(null)
+  const resizeRef = useRef<{ handle: number; id: string; startX: number; startY: number; origBounds: { x: number; y: number; w: number; h: number } } | null>(null)
   const mouseRef = useRef<{ x: number; y: number } | null>(null)
   const [editingText, setEditingText] = useState<{ id: string; x: number; y: number; screenX: number; screenY: number; content: string } | null>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
@@ -100,7 +100,7 @@ export default function Canvas() {
     const el = els.find((e) => e.id === selId); if (!el) return null
     const b = elementBounds(el)
     const corners: [number, number][] = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]
-    for (let i = 0; i < 4; i++) { if (Math.abs(px - corners[i][0]) < hr && Math.abs(py - corners[i][1]) < hr) return { handle: i, id: selId, bounds: b } }
+    for (let i = 0; i < 4; i++) { if (Math.abs(px - corners[i][0]) < hr && Math.abs(py - corners[i][1]) < hr) return { handle: i, id: selId } }
     return null
   }
 
@@ -250,7 +250,12 @@ export default function Canvas() {
     e.preventDefault(); const pos = getPos(e)
     if (tool === 'pan') { const cx = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX; const cy = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY; startPan(cx, cy); return }
     if (tool === 'select') {
-      const h = hitHandle(pos.x, pos.y); if (h) { resizeRef.current = h; redraw(); return }
+      const h = hitHandle(pos.x, pos.y)
+      if (h) {
+        const el = useAppStore.getState().elements.find((e) => e.id === h.id)
+        if (el) resizeRef.current = { ...h, startX: pos.x, startY: pos.y, origBounds: elementBounds(el) }
+        redraw(); return
+      }
       const hit = hitTest(pos.x, pos.y); setSelectedId(hit); if (hit) dragRef.current = { x: pos.x, y: pos.y, id: hit }; redraw(); return
     }
     if (tool === 'text') {
@@ -274,15 +279,18 @@ export default function Canvas() {
   const handleMove = useCallback((e: MouseEvent | TouchEvent) => {
     e.preventDefault(); const pos = getPos(e); mouseRef.current = pos
     if (tool === 'select' && resizeRef.current) {
-      const { handle, id, bounds } = resizeRef.current
-      const anchors: [number, number][] = [[bounds.x + bounds.w, bounds.y + bounds.h], [bounds.x, bounds.y + bounds.h], [bounds.x + bounds.w, bounds.y], [bounds.x, bounds.y]]
+      const { handle, id, startX, startY, origBounds } = resizeRef.current
+      const ob = origBounds
+      const anchors: [number, number][] = [[ob.x + ob.w, ob.y + ob.h], [ob.x, ob.y + ob.h], [ob.x + ob.w, ob.y], [ob.x, ob.y]]
       const ax = anchors[handle][0], ay = anchors[handle][1]
-      const corners: [number, number][] = [[bounds.x, bounds.y], [bounds.x + bounds.w, bounds.y], [bounds.x, bounds.y + bounds.h], [bounds.x + bounds.w, bounds.y + bounds.h]]
-      const orig = corners[handle]; const dx = pos.x - orig[0], dy = pos.y - orig[1]
-      const nsx = Math.max(0.1, Math.min(10, handle === 0 || handle === 2 ? (bounds.w + dx) / bounds.w : (bounds.w - dx) / bounds.w))
-      const nsy = Math.max(0.1, Math.min(10, handle === 0 || handle === 1 ? (bounds.h + dy) / bounds.h : (bounds.h - dy) / bounds.h))
+      const corners: [number, number][] = [[ob.x, ob.y], [ob.x + ob.w, ob.y], [ob.x, ob.y + ob.h], [ob.x + ob.w, ob.y + ob.h]]
+      const orig = corners[handle]
+      const totalDx = pos.x - startX, totalDy = pos.y - startY
+      const targetX = orig[0] + totalDx, targetY = orig[1] + totalDy
+      if (ob.w < 1 || ob.h < 1) { redraw(); return }
+      const nsx = Math.max(0.1, Math.min(10, handle === 0 || handle === 2 ? (targetX - ax) / (orig[0] - ax || 1) : (ax - targetX) / (ax - orig[0] || 1)))
+      const nsy = Math.max(0.1, Math.min(10, handle === 0 || handle === 1 ? (targetY - ay) / (orig[1] - ay || 1) : (ay - targetY) / (ay - orig[1] || 1)))
       resizeElementById(id, ax, ay, nsx, nsy)
-      resizeRef.current = { handle, id, bounds: { x: ax + (bounds.x - ax) * nsx, y: ay + (bounds.y - ay) * nsy, w: bounds.w * nsx, h: bounds.h * nsy } }
       redraw(); return
     }
     if (tool === 'select' && dragRef.current) { const dx = pos.x - dragRef.current.x, dy = pos.y - dragRef.current.y; moveElementById(dragRef.current.id, dx, dy); dragRef.current = { x: pos.x, y: pos.y, id: dragRef.current.id }; redraw(); return }
