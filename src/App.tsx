@@ -1,64 +1,56 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect } from 'react'
 import Canvas from './components/Canvas'
 import Toolbar from './components/Toolbar'
-import DocPanel from './components/DocPanel'
-import KBContent from './components/KBContent'
-import { useDrawingStore } from './store/useDrawingStore'
-import { useDocStore } from './store/useDocStore'
-import { useKBStore } from './store/useKBStore'
+import Sidebar from './components/Sidebar'
+import { useAppStore } from './store/appStore'
+import { useViewStore } from './store/useViewStore'
 import { useThemeStore } from './store/useThemeStore'
+
+const TOOL_LABELS: Record<string, string> = {
+  select: '选择', pen: '画笔', eraser: '橡皮', pan: '平移', text: '文字',
+  rectangle: '矩形', circle: '圆形', line: '直线', arrow: '箭头',
+}
 
 export default function App() {
   const { initTheme } = useThemeStore()
-  const tool = useDrawingStore((s) => s.tool)
-  const strokes = useDrawingStore((s) => s.strokes)
-  const shapes = useDrawingStore((s) => s.shapes)
-  const canvasBg = useDrawingStore((s) => s.canvasBg)
-  const docInit = useDocStore((s) => s.init)
-  const docs = useDocStore((s) => s.docs)
-  const docLoaded = useDocStore((s) => s.loaded)
-  const saveCurrent = useDocStore((s) => s.saveCurrent)
-  const currentId = useDocStore((s) => s.currentId)
-  const kbInit = useKBStore((s) => s.init)
-  const kbLoaded = useKBStore((s) => s.loaded)
-  const [showDocs, setShowDocs] = useState(false)
-  const [view, setView] = useState<'canvas' | 'doc'>('canvas')
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const init = useAppStore((s) => s.init)
+  const loaded = useAppStore((s) => s.loaded)
+  const tool = useAppStore((s) => s.tool)
+  const elements = useAppStore((s) => s.elements)
+  const bgColor = useAppStore((s) => s.bgColor)
+  const docs = useAppStore((s) => s.docs)
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen)
+  const zoom = useViewStore((s) => s.viewBox.zoom)
+  const zoomIn = useViewStore((s) => s.zoomIn)
+  const zoomOut = useViewStore((s) => s.zoomOut)
+  const resetView = useViewStore((s) => s.resetView)
 
-  useEffect(() => { initTheme(); docInit(); kbInit() }, [initTheme, docInit, kbInit])
+  useEffect(() => { initTheme(); init() }, [initTheme, init])
 
-  const autoSave = useCallback(() => {
-    if (!docLoaded || !currentId) return
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(() => { saveCurrent(strokes, shapes, canvasBg) }, 2000)
-  }, [docLoaded, currentId, strokes, shapes, canvasBg, saveCurrent])
-
-  useEffect(() => { autoSave() }, [strokes, shapes, canvasBg, autoSave])
+  if (!loaded) return <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f0e8', color: '#9c8e7a' }}>加载中...</div>
 
   return (
-    <div className="w-full h-screen relative overflow-hidden" style={{ background: canvasBg }}>
-      <Canvas />
-      <Toolbar onToggleDocs={() => setShowDocs(!showDocs)} />
-      <DocPanel open={showDocs} onClose={() => setShowDocs(false)} />
+    <div style={{ width: '100vw', height: '100vh', display: 'flex', overflow: 'hidden', background: bgColor }}>
+      <Sidebar />
 
-      {view === 'doc' && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 30, background: 'var(--card-solid)', display: 'flex' }}>
-          <KBContent />
-          <button onClick={() => setView('canvas')} style={{ position: 'absolute', top: 12, right: 12, zIndex: 31, padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>← 返回画板</button>
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <Canvas />
+        <Toolbar />
+
+        <div className="status panel" style={{ left: sidebarOpen ? 256 : 16 }}>
+          <span className="dot" />
+          <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{TOOL_LABELS[tool] ?? tool}</span>
+          <span className="vl" />
+          <span>{elements.length} 元素</span>
+          <span className="vl" />
+          <span>{docs.length} 画布</span>
+          <span className="vl" />
+          <span style={{ cursor: 'pointer' }} onClick={zoomIn}>{Math.round(zoom * 100)}%</span>
         </div>
-      )}
 
-      <div className="status panel">
-        <span className="dot" />
-        <span onClick={() => setView('doc')} style={{ cursor: 'pointer', color: 'var(--primary)', fontWeight: 600 }}>知识库</span>
-        <span className="vl" />
-        <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{tool}</span>
-        <span className="vl" />
-        <span>{strokes.length + shapes.length} 对象</span>
-      </div>
-
-      <div className="hints panel">
-        <kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销 · 滚轮缩放 · <kbd>0</kbd>-<kbd>8</kbd> 工具
+        <div className="hints panel">
+          <kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销 · 滚轮缩放 · <kbd>0</kbd>-<kbd>8</kbd> 工具 · <kbd>Del</kbd> 删除选中
+        </div>
       </div>
     </div>
   )

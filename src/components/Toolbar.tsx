@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react'
-import { useDrawingStore } from '../store/useDrawingStore'
+import { useAppStore } from '../store/appStore'
 import { useViewStore } from '../store/useViewStore'
 import { useThemeStore } from '../store/useThemeStore'
 import type { ToolType, BrushType } from '../store/types'
@@ -71,25 +71,23 @@ function ts() { return new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-
 function getCanvas() { return document.querySelector('canvas') }
 
 export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void }) {
-  const tool = useDrawingStore((s) => s.tool)
-  const setTool = useDrawingStore((s) => s.setTool)
-  const brush = useDrawingStore((s) => s.brush)
-  const setBrush = useDrawingStore((s) => s.setBrush)
-  const color = useDrawingStore((s) => s.color)
-  const setColor = useDrawingStore((s) => s.setColor)
-  const size = useDrawingStore((s) => s.size)
-  const setSize = useDrawingStore((s) => s.setSize)
-  const canvasBg = useDrawingStore((s) => s.canvasBg)
-  const setCanvasBg = useDrawingStore((s) => s.setCanvasBg)
-  const clearAll = useDrawingStore((s) => s.clearAll)
-  const addStroke = useDrawingStore((s) => s.addStroke)
-  const strokes = useDrawingStore((s) => s.strokes)
-  const shapes = useDrawingStore((s) => s.shapes)
-  const loadData = useDrawingStore((s) => s.loadData)
-  const undo = useDrawingStore((s) => s.undo)
-  const redo = useDrawingStore((s) => s.redo)
-  const undoLen = useDrawingStore((s) => s.undoStack.length)
-  const redoLen = useDrawingStore((s) => s.redoStack.length)
+  const tool = useAppStore((s) => s.tool)
+  const setTool = useAppStore((s) => s.setTool)
+  const brush = useAppStore((s) => s.brush)
+  const setBrush = useAppStore((s) => s.setBrush)
+  const color = useAppStore((s) => s.color)
+  const setColor = useAppStore((s) => s.setColor)
+  const size = useAppStore((s) => s.size)
+  const setSize = useAppStore((s) => s.setSize)
+  const canvasBg = useAppStore((s) => s.bgColor)
+  const setCanvasBg = useAppStore((s) => s.setBgColor)
+  const clearAll = useAppStore((s) => s.clearAll)
+  const addElement = useAppStore((s) => s.addElement)
+  const elements = useAppStore((s) => s.elements)
+  const undo = useAppStore((s) => s.undo)
+  const redo = useAppStore((s) => s.redo)
+  const undoLen = useAppStore((s) => s.undoStack.length)
+  const redoLen = useAppStore((s) => s.redoStack.length)
   const zoomIn = useViewStore((s) => s.zoomIn)
   const zoomOut = useViewStore((s) => s.zoomOut)
   const resetView = useViewStore((s) => s.resetView)
@@ -138,8 +136,11 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
     const c = getCanvas(); if (!c) return alert('画布未就绪')
     const dpr = window.devicePixelRatio || 1; const lw = Math.round(c.width / dpr), lh = Math.round(c.height / dpr); const bg = isDarkMode ? '#1a1610' : '#fff'
     let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${lw}" height="${lh}"><rect width="100%" height="100%" fill="${bg}"/>\n`
-    for (const st of strokes) { if (st.name) { s += `<text x="${st.points[0][0]}" y="${st.points[0][1]}" fill="${st.color}" font-size="${st.size * 4}" font-family="sans-serif">${st.name}</text>\n`; continue } if (st.points.length < 2) continue; let d = `M${st.points[0][0]} ${st.points[0][1]}`; for (let i = 1; i < st.points.length; i++) d += `L${st.points[i][0]} ${st.points[i][1]}`; s += `<path d="${d}" stroke="${st.color}" stroke-width="${st.size}" fill="none" stroke-linecap="round"/>\n` }
-    for (const sh of shapes) { const sx = sh.startX ?? sh.x, sy = sh.startY ?? sh.y, ex = sh.endX ?? sh.x + sh.width, ey = sh.endY ?? sh.y + sh.height; if (sh.type === 'rectangle') s += `<rect x="${Math.min(sx, ex)}" y="${Math.min(sy, ey)}" width="${Math.abs(ex - sx)}" height="${Math.abs(ey - sy)}" stroke="${sh.color}" stroke-width="${sh.size}" fill="none"/>\n`; else if (sh.type === 'circle') s += `<ellipse cx="${(sx + ex) / 2}" cy="${(sy + ey) / 2}" rx="${Math.abs(ex - sx) / 2}" ry="${Math.abs(ey - sy) / 2}" stroke="${sh.color}" stroke-width="${sh.size}" fill="none"/>\n`; else if (sh.type === 'line' || sh.type === 'arrow') s += `<line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="${sh.color}" stroke-width="${sh.size}"/>\n`; else if (sh.type === 'triangle') s += `<polygon points="${(sx + ex) / 2},${sy} ${sx},${ey} ${ex},${ey}" stroke="${sh.color}" stroke-width="${sh.size}" fill="none"/>\n` }
+    for (const el of elements) {
+      if (el.type === 'stroke' && el.points.length >= 2) { let d = `M${el.points[0][0]} ${el.points[0][1]}`; for (let i = 1; i < el.points.length; i++) d += `L${el.points[i][0]} ${el.points[i][1]}`; s += `<path d="${d}" stroke="${el.color}" stroke-width="${el.size}" fill="none" stroke-linecap="round"/>\n` }
+      else if (el.type === 'shape') { if (el.kind === 'rectangle') s += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" stroke="${el.color}" stroke-width="${el.size}" fill="none"/>\n`; else if (el.kind === 'circle') s += `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" stroke="${el.color}" stroke-width="${el.size}" fill="none"/>\n`; else s += `<line x1="${el.x}" y1="${el.y}" x2="${el.x + el.w}" y2="${el.y + el.h}" stroke="${el.color}" stroke-width="${el.size}"/>\n` }
+      else if (el.type === 'text') { s += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${el.color}" font-size="${el.fontSize}" font-family="sans-serif">${el.content.replace(/\n/g, ' ')}</text>\n` }
+    }
     s += '</svg>'; download(new Blob([s], { type: 'image/svg+xml' }), `mindnotes-${ts()}.svg`)
   }
   const exportWord = async () => {
@@ -149,15 +150,20 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
     const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset="utf-8"><style>body{font-family:sans-serif}img{max-width:100%}</style></head><body><h1>MindNotes Pro</h1><p>导出时间：${new Date().toLocaleString('zh-CN')}</p><p><img src="${d}" width="${t.width}" height="${t.height}"/></p></body></html>`
     download(new Blob([h], { type: 'application/msword' }), `mindnotes-${ts()}.doc`)
   }
-  const exportJSON = () => download(new Blob([JSON.stringify({ strokes, shapes, version: 1 }, null, 2)], { type: 'application/json' }), `mindnotes-${ts()}.json`)
+  const exportJSON = () => download(new Blob([JSON.stringify({ elements, version: 2 }, null, 2)], { type: 'application/json' }), `mindnotes-${ts()}.json`)
   const importJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return
     const r = new FileReader()
     r.onload = () => {
       try {
         const d = JSON.parse(r.result as string)
-        if (!d.strokes && !d.shapes) { alert('文件格式不正确'); return }
-        loadData(d.strokes ?? [], d.shapes ?? [])
+        if (d.elements) { useAppStore.getState().addElements(d.elements) }
+        else if (d.strokes || d.shapes) {
+          const els: any[] = []
+          for (const s of d.strokes ?? []) { if (s.imageData) els.push({ type: 'image', id: s.id, x: s.points[0][0], y: s.points[0][1], width: s.imageWidth ?? 200, height: s.imageHeight ?? 200, dataUrl: s.imageData }); else if (s.name) els.push({ type: 'text', id: s.id, x: s.points[0][0], y: s.points[0][1], width: 200, height: 30, content: s.name, fontSize: 16, color: s.color }); else els.push({ type: 'stroke', id: s.id, points: s.points, color: s.color, size: s.size, brush: s.brush ?? 'pen' }) }
+          for (const s of d.shapes ?? []) { if (s.type === 'text') continue; const sx = s.startX ?? s.x, sy = s.startY ?? s.y, ex = s.endX ?? s.x + s.width, ey = s.endY ?? s.y + s.height; els.push({ type: 'shape', id: s.id, kind: s.type, x: Math.min(sx, ex), y: Math.min(sy, ey), w: Math.abs(ex - sx), h: Math.abs(ey - sy), color: s.color, size: s.size }) }
+          useAppStore.getState().addElements(els)
+        } else { alert('文件格式不正确') }
       } catch { alert('无法解析文件') }
     }
     r.readAsText(f)
@@ -178,17 +184,7 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
         const viewBox = useViewStore.getState().viewBox
         const x = (c.width / 2 - w / 2) / viewBox.zoom + viewBox.x
         const y = (c.height / 2 - h / 2) / viewBox.zoom + viewBox.y
-        addStroke({
-          id: `img-${Date.now()}`,
-          points: [[x, y]],
-          color: '#000000',
-          size: 0,
-          tool: 'pen',
-          name: '',
-          imageData: dataUrl,
-          imageWidth: w,
-          imageHeight: h,
-        } as any)
+        addElement({ type: 'image', id: `img-${Date.now()}`, x, y, width: w, height: h, dataUrl })
       }
       img.onerror = () => { alert('图片加载失败') }
       img.src = dataUrl
