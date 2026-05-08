@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { CanvasElement, CanvasDoc, CanvasFolder, ToolType, BrushType, ShapeKind } from './types'
 import { moveElement, resizeElement, elementBounds } from './types'
 import * as storage from './storage'
+import { useViewStore } from './useViewStore'
 
 const SAVE_DELAY = 1500
 const MAX_HISTORY = 50
@@ -240,10 +241,14 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
 
   openDoc: async (id) => {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
     const state = get()
     if (state.currentDocId) await saveDocNow()
     const doc = await storage.get<CanvasDoc>('docs', id)
-    if (doc) set({ currentDocId: id, elements: doc.elements, bgColor: doc.bgColor, undoStack: [], redoStack: [], selectedId: null })
+    if (doc) {
+      set({ currentDocId: id, elements: doc.elements, bgColor: doc.bgColor, undoStack: [], redoStack: [], selectedId: null })
+      useViewStore.getState().resetView()
+    }
   },
 
   renameDoc: async (id, title) => {
