@@ -37,7 +37,7 @@ export default function App() {
         <Canvas />
         <Toolbar />
 
-        <div className="status panel" style={{ left: sidebarOpen ? 256 : 16 }}>
+        <div className="status panel">
           <span className="dot" />
           <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{TOOL_LABELS[tool] ?? tool}</span>
           <span className="vl" />
