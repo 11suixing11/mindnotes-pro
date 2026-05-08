@@ -2,13 +2,13 @@
 
 <br />
 
-<img src=".github/hero.png" alt="MindNotes Pro — 一个打开就能画的笔记本" width="100%" />
-
-<br /><br />
-
 # 一个打开就能画的笔记本
 
 <br />
+
+<img src=".github/demo.gif" alt="MindNotes Pro Demo" width="100%" />
+
+<br /><br />
 
 > 别的白板要你注册。这个不用。\
 > 别的白板要联网。这个不用。\
@@ -49,20 +49,19 @@
 
 | | **MindNotes Pro** | Excalidraw | tldraw |
 |:---|:---:|:---:|:---:|
-| 中国直接打开 | ✅ | ❌ 需要代理 | ❌ 需要代理 |
-| 完全离线 | ✅ | ⚠️ 部分功能 | ⚠️ 部分功能 |
-| 需要注册 | ❌ 不需要 | ❌ | ❌ |
-| 外部 CDN | **0 个** | 多个 | 多个 |
-| 笔刷种类 | **6 种** | 1 种 | 1 种 |
-| 文本块 | ✅ 画布内编辑 | ⚠️ 基础 | ✅ |
+| 中国直接打开 | ✅ | ❌ | ❌ |
+| 完全离线 | ✅ | ⚠️ | ⚠️ |
+| 需要注册 | ❌ | ❌ | ❌ |
+| 外部 CDN | **0** | 多个 | 多个 |
+| 笔刷种类 | **6** | 1 | 1 |
+| 文本块 | ✅ 画布内编辑 | ⚠️ | ✅ |
 | 多画布管理 | ✅ 文件夹 | ❌ | ❌ |
 | 数据存储 | 本地 IndexedDB | 本地+云端 | 本地+云端 |
-| 暖色纸纹设计 | ✅ | ❌ | ❌ |
-| 依赖数 | **3 个** | 20+ | 30+ |
+| 依赖数 | **3** | 20+ | 30+ |
 
 <br />
 
-**一句话：** 如果你在中国、不想注册、只想打开就画 — 用这个。
+**一句话：** 中国能用、不想注册、只想打开就画 — 用这个。
 
 <br />
 
@@ -85,7 +84,6 @@
 | 💾 | **6 种导出** | PNG · JPG · PDF · SVG · Word · JSON |
 | 🌙 | **暗色模式** | 一键切换，跟随系统 |
 | ⌨️ | **快捷键** | 0-8 切换工具，Ctrl+Z 撤销，滚轮缩放 |
-| 💰 | **自动保存** | IndexedDB，1.5 秒防抖，数据永不出浏览器 |
 
 <br />
 
@@ -97,17 +95,11 @@
 
 <br />
 
-### 在线使用
+**在线使用：** [https://11suixing11.github.io/mindnotes-pro/](https://11suixing11.github.io/mindnotes-pro/)
 
-> **[https://11suixing11.github.io/mindnotes-pro/](https://11suixing11.github.io/mindnotes-pro/)**
->
-> 国内直接访问，无需 VPN。打开就画。
+**下载离线版：** [Releases](https://github.com/11suixing11/mindnotes-pro/releases/latest) 下载 zip，解压后双击 `index.html`
 
-### 下载离线版
-
-从 [Releases](https://github.com/11suixing11/mindnotes-pro/releases/latest) 下载 zip，解压后双击 `index.html`。
-
-### 从源码运行
+**从源码运行：**
 
 ```bash
 git clone https://github.com/11suixing11/mindnotes-pro.git
@@ -150,10 +142,6 @@ React 18  ·  TypeScript 5  ·  Vite 5  ·  Zustand  ·  Canvas API
 
 <br />
 
-<img src=".github/architecture.svg" alt="Architecture" width="100%" />
-
-<br />
-
 ---
 
 <br />
@@ -180,11 +168,7 @@ React 18  ·  TypeScript 5  ·  Vite 5  ·  Zustand  ·  Canvas API
 
 <div align="center">
 
-**用心做的东西，自己会跑。**
-
-<br />
-
-如果你觉得有用，点个 ⭐ 鼓励一下。
+**如果这个项目帮你省了 5 分钟，一个 ⭐ 就是它应得的。**
 
 <br />
 
