@@ -42,6 +42,8 @@ interface DrawingActions {
   removeShapeById: (id: string) => void
   moveStrokeById: (id: string, dx: number, dy: number) => void
   moveShapeById: (id: string, dx: number, dy: number) => void
+  resizeStrokeById: (id: string, anchorX: number, anchorY: number, scaleX: number, scaleY: number) => void
+  resizeShapeById: (id: string, anchorX: number, anchorY: number, scaleX: number, scaleY: number) => void
   clearAll: () => void
   undo: () => void
   redo: () => void
@@ -165,6 +167,48 @@ export const useDrawingStore = create<DrawingState & DrawingActions>((set, get) 
           }
         : s
     )
+    saveToStorage(state.strokes, next)
+    set({ shapes: next, undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [] })
+  },
+
+  resizeStrokeById: (id, anchorX, anchorY, scaleX, scaleY) => {
+    const state = get()
+    const snap = pushSnapshot(state)
+    const next = state.strokes.map((s) => {
+      if (s.id !== id) return s
+      const newPoints = s.points.map((p) => [
+        anchorX + (p[0] - anchorX) * scaleX,
+        anchorY + (p[1] - anchorY) * scaleY,
+      ])
+      const newStroke: any = { ...s, points: newPoints }
+      if ((s as any).imageData) {
+        newStroke.imageWidth = ((s as any).imageWidth ?? 200) * scaleX
+        newStroke.imageHeight = ((s as any).imageHeight ?? 200) * scaleY
+      }
+      return newStroke
+    })
+    saveToStorage(next, state.shapes)
+    set({ strokes: next, undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [] })
+  },
+
+  resizeShapeById: (id, anchorX, anchorY, scaleX, scaleY) => {
+    const state = get()
+    const snap = pushSnapshot(state)
+    const next = state.shapes.map((s) => {
+      if (s.id !== id) return s
+      const sx = s.startX ?? s.x, sy = s.startY ?? s.y
+      const ex = s.endX ?? s.x + s.width, ey = s.endY ?? s.y + s.height
+      const nsx = anchorX + (sx - anchorX) * scaleX
+      const nsy = anchorY + (sy - anchorY) * scaleY
+      const nex = anchorX + (ex - anchorX) * scaleX
+      const ney = anchorY + (ey - anchorY) * scaleY
+      return {
+        ...s,
+        x: Math.min(nsx, nex), y: Math.min(nsy, ney),
+        width: Math.abs(nex - nsx), height: Math.abs(ney - nsy),
+        startX: nsx, startY: nsy, endX: nex, endY: ney,
+      }
+    })
     saveToStorage(state.strokes, next)
     set({ shapes: next, undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [] })
   },
