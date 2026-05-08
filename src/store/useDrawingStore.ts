@@ -54,6 +54,7 @@ interface DrawingActions {
   setCanvasBg: (bg: string) => void
   setSelectedId: (id: string | null) => void
   loadData: (strokes: Stroke[], shapes: Shape[]) => void
+  loadFromDoc: (strokes: Stroke[], shapes: Shape[], canvasBg: string) => void
 }
 
 function pushSnapshot(state: DrawingState): Snapshot {
@@ -260,6 +261,11 @@ export const useDrawingStore = create<DrawingState & DrawingActions>((set, get) 
       undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap],
       redoStack: [],
     })
+  },
+
+  loadFromDoc: (strokes, shapes, canvasBg) => {
+    saveToStorage(strokes, shapes)
+    set({ strokes, shapes, canvasBg, undoStack: [], redoStack: [], selectedId: null })
   },
 }))
 

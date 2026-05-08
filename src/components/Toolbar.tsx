@@ -70,7 +70,7 @@ function download(blob: Blob, filename: string) {
 function ts() { return new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-') }
 function getCanvas() { return document.querySelector('canvas') }
 
-export default function Toolbar() {
+export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void }) {
   const tool = useDrawingStore((s) => s.tool)
   const setTool = useDrawingStore((s) => s.setTool)
   const brush = useDrawingStore((s) => s.brush)
@@ -257,6 +257,7 @@ export default function Toolbar() {
           </button>
           <button onClick={zoomOut} className="abtn" data-tip="缩小">{I.zoomOut}</button>
           <button onClick={toggleTheme} className="abtn" data-tip={isDarkMode ? '浅色' : '深色'}>{isDarkMode ? I.sun : I.moon}</button>
+          {onToggleDocs && <button onClick={onToggleDocs} className="abtn" data-tip="画布列表">{I.file}</button>}
         </div>
       </div>
 
