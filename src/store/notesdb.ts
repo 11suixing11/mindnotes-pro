@@ -29,7 +29,7 @@ function reqToPromise<T>(r: IDBRequest<T>): Promise<T> {
 }
 
 export interface DirRecord { id: string; name: string; parentId: string | null; order: number; expanded: boolean }
-export interface NoteRecord { id: string; title: string; content: string; dirId: string | null; createdAt: number; updatedAt: number; wordCount: number }
+export interface NoteRecord { id: string; title: string; content: string; dirId: string | null; createdAt: number; updatedAt: number; wordCount: number; canvasData?: { strokes: any[]; shapes: any[]; canvasBg: string } }
 
 export const getAllDirs = () => reqToPromise(tx('dirs').getAll()) as Promise<DirRecord[]>
 export const putDir = (d: DirRecord) => reqToPromise(tx('dirs', 'readwrite').put(d)) as Promise<void>
