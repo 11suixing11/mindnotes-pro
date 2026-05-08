@@ -2,32 +2,23 @@
 
 <br />
 
-<img src="https://img.shields.io/badge/🎨%20MindNotes%20Pro-v2.1-c47a5a?style=for-the-badge&labelColor=f5f0e8&color=c47a5a" alt="MindNotes Pro" />
-
-<br /><br />
-
-<img src=".github/demo.svg" alt="MindNotes Pro Demo" width="100%" />
-
-<br />
-
 # MindNotes Pro
 
-### A beautiful, distraction-free whiteboard that lives in your browser.
+**暖色纸纹画布笔记本**
 
 <br />
 
-> You don't always need a full-featured note app.\
-> Sometimes you just need a **blank canvas** and something to draw with.\
-> MindNotes Pro is that canvas — it loads instantly, saves automatically, and never asks you to create an account.
+> 打开就能画，能写，能存。
+> 不联网，不注册，不打扰。
 
 <br />
 
 <a href="https://11suixing11.github.io/mindnotes-pro/">
-  <img src="https://img.shields.io/badge/🚀_Launch_Now-GitHub_Pages-c47a5a?style=for-the-badge&logo=googlechrome&logoColor=white&labelColor=b8654a" alt="Launch App" />
+  <img src="https://img.shields.io/badge/开始使用-GitHub_Pages-c47a5a?style=for-the-badge&logo=googlechrome&logoColor=white&labelColor=b8654a" alt="Launch" />
 </a>
 &nbsp;
 <a href="https://github.com/11suixing11/mindnotes-pro/releases/latest">
-  <img src="https://img.shields.io/badge/📦_Download-Zip-5c4f3d?style=for-the-badge&labelColor=9c8e7a" alt="Download" />
+  <img src="https://img.shields.io/badge/下载离线版-Zip-5c4f3d?style=for-the-badge&labelColor=9c8e7a" alt="Download" />
 </a>
 
 <br /><br />
@@ -36,260 +27,57 @@
 [![License](https://img.shields.io/badge/license-MIT-c47a5a?style=flat-square&labelColor=f5f0e8)](LICENSE)
 ![Dependencies](https://img.shields.io/badge/dependencies-3-6a9c5a?style=flat-square&labelColor=f5f0e8)
 ![CDN](https://img.shields.io/badge/CDN-0-6a9c5a?style=flat-square&labelColor=f5f0e8)
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=white)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
+[![CI](https://img.shields.io/github/actions/workflow/status/11suixing11/mindnotes-pro/deploy.yml?style=flat-square&label=CI&color=6a9c5a)](https://github.com/11suixing11/mindnotes-pro/actions)
 
 <br />
 <br />
+
+</div>
 
 ---
 
-<br />
+## 它是什么
 
-## ✦ What Makes It Different
+一个**画布笔记本**。不是白板工具，不是知识库，是能画能写的笔记本。
 
-<br />
+左侧边栏管理多个画布，右侧画布上自由绘图、书写、插入图片。每个画布独立保存，切换即切换。
 
-<table>
-<tr>
-<td width="50%" valign="top">
+**核心特性：**
 
-### 🪶 Featherweight
-
-**3 production dependencies.** React, Zustand, and that's it.\
-No 2MB bundle. No 47 transitive packages.\
-Just 160KB gzipped — loads in under a second.
-
-</td>
-<td width="50%" valign="top">
-
-### 🔒 Private by Design
-
-Everything stays **on your device**. Always.\
-No server. No analytics. No cookies. No tracking.\
-Works offline. Works in China. Works in airplane mode.
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-### ⚡ Zero Friction
-
-No sign-up. No onboarding. No loading spinner.\
-Open the URL → start drawing. That's the whole flow.\
-Your strokes are saved as you go.
-
-</td>
-<td width="50%" valign="top">
-
-### 🎨 Expressive Tools
-
-6 brush types, 9 drawing tools, 8 colors, shapes, text.\
-Undo/redo, zoom, minimap, dark mode.\
-Export to PNG, JPG, PDF, SVG, Word, or JSON.
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-### 📱 Touch Friendly
-
-Works on tablets and phones with touch input.\
-Pinch to zoom, finger draw, tap to select.\
-Responsive layout adapts to any screen size.
-
-</td>
-<td width="50%" valign="top">
-
-### 🌙 Dark Mode
-
-One-click toggle between light and dark themes.\
-System preference detection — follows your OS setting.\
-Warm parchment light · Deep espresso dark.
-
-</td>
-</tr>
-</table>
+- 6 种笔刷（钢笔 / 荧光笔 / 铅笔 / 书法笔 / 虚线笔 / 霓虹笔）
+- 9 种工具（选择 / 画笔 / 橡皮 / 平移 / 矩形 / 圆形 / 文字 / 直线 / 箭头）
+- 文本块：画布上直接打字，可拖拽、缩放、双击编辑
+- 选中缩放：拖动四角控制点缩放任意元素
+- 6 种导出格式（PNG / JPG / PDF / SVG / Word / JSON）
+- 多画布管理：侧栏文件夹 + 画布列表 + 右键菜单
+- 自动保存到 IndexedDB，数据永不出浏览器
+- 暗色模式 / 自定义背景色 / 小地图导航
 
 <br />
 
----
+## 为什么做这个
+
+每个白板应用都想让我注册账号、同步到云端、加载 2MB 的 JavaScript。
+
+我只是想要一块画布。
+
+所以做了 MindNotes Pro — 3 个依赖，0 个 CDN，纯本地运行。
 
 <br />
 
-## ✦ Tools & Brushes
+## 快速开始
 
-<br />
+### 在线使用
 
-<details open>
-<summary><b>Drawing Tools (9)</b></summary>
-<br />
-
-| &nbsp; | Tool | Description | Shortcut |
-|:---:|:-----|:------------|:--------:|
-| ◇ | **Select** | Click to select any element, drag to move it | `0` |
-| ✎ | **Pen** | Freehand drawing with 6 brush styles | `1` |
-| ◌ | **Eraser** | Actually deletes strokes — not a white paint overlay | `2` |
-| ☞ | **Pan** | Drag to move around the infinite canvas | `3` |
-| ▭ | **Rectangle** | Click and drag to draw rectangles | `4` |
-| ○ | **Circle** | Click and drag to draw ellipses | `5` |
-| A | **Text** | Click anywhere on the canvas to type | `6` |
-| ╱ | **Line** | Click and drag to draw straight lines | `7` |
-| → | **Arrow** | Click and drag to draw arrows | `8` |
-
-</details>
-
-<br />
-
-<details open>
-<summary><b>Brush Types (6)</b></summary>
-<br />
-
-| Brush | Feel | Best For |
-|:------|:-----|:---------|
-| **Pen** | Smooth Bézier curves with quadratic interpolation | General writing and sketching |
-| **Highlighter** | Semi-transparent wide stroke, 4× width | Emphasizing key points |
-| **Pencil** | Rough textured lines with simulated pressure jitter | Sketches, brainstorming |
-| **Calligraphy** | Width varies with stroke angle (sine function) | Elegant lettering, headers |
-| **Dashed** | Clean dashed lines with configurable dash/gap | Diagrams, annotations |
-| **Glow** | Neon effect with `shadowBlur` + layered opacity | Stand-out callouts, decoration |
-
-</details>
-
-<br />
-
----
-
-<br />
-
-## ✦ Feature Highlights
-
-<br />
-
-<table>
-<tr>
-<td width="33%" valign="top">
-
-### Canvas
-
-- Infinite canvas with pan & zoom
-- Scroll wheel zoom (smooth)
-- Zoom buttons + keyboard (`+`/`-`)
-- Minimap for navigation
-- Grid background (auto-hides at low zoom)
-- Custom background color picker
-
-</td>
-<td width="33%" valign="top">
-
-### Drawing
-
-- 6 brush types with unique rendering
-- 8-color palette + custom color picker
-- 4 line widths (XS / S / M / L)
-- 50-step undo/redo snapshot
-- Real eraser (stroke deletion, not white overlay)
-- Insert images from local files
-- Select & drag to reposition any element
-
-</td>
-<td width="33%" valign="top">
-
-### Export & Save
-
-- **PNG** — transparent or solid background
-- **JPG** — white background, 92% quality
-- **PDF** — auto-orientation (jsPDF)
-- **SVG** — lossless vector output
-- **Word** — embedded screenshot in .doc
-- **JSON** — full data backup & restore
-- Auto-save to localStorage
-
-</td>
-</tr>
-</table>
-
-<br />
-
----
-
-<br />
-
-## ✦ Keyboard Shortcuts
-
-<br />
-
-<table>
-<tr>
-<td width="50%">
-
-### Tools
-
-| Key | Action |
-|:----|:-------|
-| `0` | Select |
-| `1` | Pen |
-| `2` | Eraser |
-| `3` | Pan |
-| `4` | Rectangle |
-| `5` | Circle |
-| `6` | Text |
-| `7` | Line |
-| `8` | Arrow |
-
-</td>
-<td width="50%">
-
-### Canvas
-
-| Key | Action |
-|:----|:-------|
-| `Ctrl` `Z` | Undo |
-| `Ctrl` `⇧` `Z` | Redo |
-| `+` / `=` | Zoom in |
-| `-` | Zoom out |
-| `Scroll` | Zoom (mouse wheel) |
-| `Delete` | Clear canvas |
-
-</td>
-</tr>
-</table>
-
-<br />
-
----
-
-<br />
-
-## ✦ Quick Start
-
-<br />
-
-### 1. Use it right now
-
-> No download. No install. No sign-up. Just click:
->
 > **<https://11suixing11.github.io/mindnotes-pro/>**
 >
-> *(Accessible from China — no VPN needed)*
+> 国内直接访问，无需 VPN。
 
-<br />
+### 下载离线版
 
-### 2. Download for offline use
+从 [Releases](https://github.com/11suixing11/mindnotes-pro/releases/latest) 下载 zip，解压后双击 `index.html` 即可。
 
-```bash
-# Download the latest release
-# https://github.com/11suixing11/mindnotes-pro/releases/latest
-
-# Extract the zip and open index.html — no server needed
-```
-
-<br />
-
-### 3. Run from source
+### 从源码运行
 
 ```bash
 git clone https://github.com/11suixing11/mindnotes-pro.git
@@ -298,253 +86,83 @@ npm install
 npm run dev
 ```
 
-Opens at `http://localhost:3000` automatically.
+<br />
+
+## 快捷键
+
+| 键 | 功能 | | 键 | 功能 |
+|:---|:-----|:--|:---|:-----|
+| `0` | 选择 | | `Ctrl` `Z` | 撤销 |
+| `1` | 画笔 | | `Ctrl` `⇧` `Z` | 重做 |
+| `2` | 橡皮 | | `+` | 放大 |
+| `3` | 平移 | | `-` | 缩小 |
+| `4` | 矩形 | | `Scroll` | 滚轮缩放 |
+| `5` | 圆形 | | `Del` | 删除选中 |
+| `6` | 文字 | | | |
+| `7` | 直线 | | | |
+| `8` | 箭头 | | | |
 
 <br />
 
-### 4. Build for production
-
-```bash
-npm run build        # → dist/ (static files)
-npm run preview      # Preview the build
-npm run test:run     # Run test suite (29 tests)
-```
-
-Output is plain HTML/CSS/JS — deploy to any static host (GitHub Pages, Vercel, Netlify, Nginx, or just a USB drive).
-
-<br />
-
----
-
-<br />
-
-## ✦ Tech Stack
-
-<br />
+## 技术栈
 
 ```
-React 18  ·  TypeScript 5  ·  Vite 5  ·  Zustand  ·  Canvas API  ·  Tailwind CSS 3
+React 18  ·  TypeScript 5  ·  Vite 5  ·  Zustand  ·  Canvas API
 ```
 
-<br />
-
-| Layer | Technology | Why This Choice |
-|:------|:-----------|:----------------|
-| ⚛️ | **React 18** | Hooks-based components, concurrent features |
-| 🔷 | **TypeScript 5** | Type safety, better IDE support, fewer runtime bugs |
-| ⚡ | **Vite 5** | Instant HMR, fast builds, native ESM |
-| 🐻 | **Zustand** | Tiny (< 1KB), zero boilerplate, subscription-based |
-| 🖌 | **Canvas API** | Hardware-accelerated 2D, pixel-perfect control |
-| 🎨 | **Tailwind CSS** | Utility-first, small output, design token system |
-| 📄 | **jsPDF** | Dynamic import for PDF export (separate chunk) |
+**3 个生产依赖**：`react`、`react-dom`、`zustand`
 
 <br />
 
-> **3 production dependencies**: `react`, `react-dom`, `zustand`\
-> Everything else is dev tooling or dynamically imported.
-
-<br />
-
----
-
-<br />
-
-## ✦ Architecture
-
-<br />
+## 架构
 
 ```
 src/
-├── main.tsx                         # Entry point
-├── App.tsx                          # Root layout + status bar + hints
-├── AppWrapper.tsx                   # Error boundary
-├── index.css                        # Design system: CSS variables, animations, glass morphism
-│
+├── App.tsx                    主入口
 ├── components/
-│   ├── Canvas.tsx                   # Drawing engine: strokes, shapes, images, minimap, zoom
-│   └── Toolbar.tsx                  # UI: tool sidebar, property bar, export dropdown
-│
+│   ├── Canvas.tsx             统一画布（笔迹 + 形状 + 文本块 + 图片）
+│   ├── Sidebar.tsx            侧栏（文件夹 + 画布管理）
+│   └── Toolbar.tsx            工具栏
 └── store/
-    ├── types.ts                     # ToolType, BrushType, Stroke, Shape interfaces
-    ├── useDrawingStore.ts           # Drawing state + 50-step undo + localStorage persistence
-    ├── useThemeStore.ts             # Dark/light theme with system detection
-    └── useViewStore.ts              # Zoom & pan state
+    ├── appStore.ts            唯一 store（元素 + 画布 + 文件夹）
+    ├── storage.ts             IndexedDB 抽象
+    ├── types.ts               CanvasElement 联合类型
+    ├── useViewStore.ts        缩放 / 平移
+    └── useThemeStore.ts       主题
 ```
 
-<br />
+**数据模型：** `CanvasElement = StrokeElement | ShapeElement | TextElement | ImageElement`
 
-### Data Flow
-
-```
-User Input → Canvas.tsx (mouse/touch handlers)
-         → useDrawingStore (state update)
-         → Canvas.tsx (redraw via store subscription)
-         → localStorage (auto-persist)
-```
+所有元素统一存储，统一渲染管线，统一撤销重做。
 
 <br />
 
----
+## 浏览器支持
+
+| 浏览器 | 状态 |
+|:-------|:-----|
+| Chrome / Edge 90+ | ✅ |
+| Firefox 90+ | ✅ |
+| Safari 15+ | ✅ |
+| 移动端 Chrome / Safari | ✅ 触屏绘图 |
 
 <br />
 
-## ✦ Design Philosophy
+## License
 
-<br />
-
-MindNotes Pro follows **24 design principles** centered on restraint, warmth, and human feeling:
-
-<br />
-
-<table>
-<tr>
-<td width="50%">
-
-### Visual Language
-
-- **Warm palette** — parchment `#f5f0e8`, burnt umber `#c47a5a`
-- **Paper texture** — SVG fractal noise overlay at 2.5% opacity
-- **Glass morphism** — `backdrop-filter: blur(20px)` panels
-- **Soft shadows** — warm-toned, multi-layer, never harsh
-- **Generous whitespace** — breathing room everywhere
-
-</td>
-<td width="50%">
-
-### Interaction Design
-
-- **Restraint** — minimum UI, every element earns its place
-- **Hierarchy** — primary actions stand out, secondary recede
-- **Feedback** — scale animations on hover/active, smooth transitions
-- **Consistency** — 14px radius, 42px tool buttons, 8px gaps
-- **Zero learning curve** — tool tips on hover, keyboard hints visible
-
-</td>
-</tr>
-</table>
-
-<br />
-
-> *"Good design is restrained expression, warm thinking — making design more powerful, more felt, more memorable."*
-
-<br />
-
----
-
-<br />
-
-## ✦ Browser Support
-
-<br />
-
-| Browser | Status |
-|:--------|:-------|
-| Chrome / Edge 90+ | ✅ Full support |
-| Firefox 90+ | ✅ Full support |
-| Safari 15+ | ✅ Full support (needs `roundRect` polyfill for minimap on older versions) |
-| Mobile Chrome / Safari | ✅ Touch drawing supported |
-
-<br />
-
----
-
-<br />
-
-## ✦ FAQ
-
-<br />
-
-<details>
-<summary><b>Is my data stored on a server?</b></summary>
-<br />
-
-No. All data is stored in your browser's `localStorage`. Nothing ever leaves your device. There is no server, no database, no cloud sync.
-
-</details>
-
-<details>
-<summary><b>Can I use this offline?</b></summary>
-<br />
-
-Yes. Once the page loads, everything works without an internet connection. If you download the zip, you can use it completely offline forever.
-
-</details>
-
-<details>
-<summary><b>Does it work in China?</b></summary>
-<br />
-
-Yes. The app uses zero external CDNs — no Google Fonts, no analytics scripts, no third-party resources. Everything is bundled and served from GitHub Pages.
-
-</details>
-
-<details>
-<summary><b>How much data can it handle?</b></summary>
-<br />
-
-localStorage has a ~5MB limit. For typical whiteboard usage (a few hundred strokes), this is more than enough. For complex drawings, use the JSON export to back up your work.
-
-</details>
-
-<details>
-<summary><b>Can I contribute?</b></summary>
-<br />
-
-Absolutely. Fork the repo, make your changes, and open a pull request. The codebase is small and easy to navigate — check the architecture section above.
-
-</details>
-
-<br />
-
----
-
-<br />
-
-## ✦ Changelog
-
-<br />
-
-| Version | Date | Highlights |
-|:--------|:-----|:-----------|
-| **v2.1** | 2026-05 | Warm parchment design · Paper texture · DevicePixelRatio support · Image drag · Export fixes |
-| **v2.0** | 2026-05 | Complete rewrite: pure local architecture · 6 brush types · 9 tools · 6 export formats · minimap · zoom |
-| **v1.0** | 2026-04 | Initial release |
-
-<br />
-
----
-
-<br />
-
-## ✦ License
-
-<br />
-
-[MIT](LICENSE) — use it however you want. Commercial, personal, educational — all fine.
-
-<br />
-
----
+[MIT](LICENSE)
 
 <br />
 
 <div align="center">
 
-<br />
+**用心做的东西，自己会跑。**
 
-**Made with care.**
-
-If MindNotes Pro saved you time or sparked an idea, a ⭐ on this repo means the world.
-
-<br />
-
-<a href="https://11suixing11.github.io/mindnotes-pro/">Launch App</a>
+<a href="https://11suixing11.github.io/mindnotes-pro/">在线使用</a>
 &nbsp;·&nbsp;
-<a href="https://github.com/11suixing11/mindnotes-pro/releases">Downloads</a>
+<a href="https://github.com/11suixing11/mindnotes-pro/releases">下载</a>
 &nbsp;·&nbsp;
-<a href="https://github.com/11suixing11/mindnotes-pro/issues">Report Bug</a>
-&nbsp;·&nbsp;
-<a href="https://github.com/11suixing11/mindnotes-pro/discussions">Discussions</a>
+<a href="https://github.com/11suixing11/mindnotes-pro/issues">反馈</a>
 
 <br /><br />
 
