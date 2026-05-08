@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Canvas from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import DocPanel from './components/DocPanel'
+import KnowledgeBase from './components/KnowledgeBase'
 import { useDrawingStore } from './store/useDrawingStore'
 import { useDocStore } from './store/useDocStore'
 import { useThemeStore } from './store/useThemeStore'
@@ -23,6 +24,7 @@ export default function App() {
   const saveCurrent = useDocStore((s) => s.saveCurrent)
   const currentId = useDocStore((s) => s.currentId)
   const [showDocs, setShowDocs] = useState(false)
+  const [view, setView] = useState<'kb' | 'board'>('kb')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { initTheme(); docInit() }, [initTheme, docInit])
@@ -35,7 +37,11 @@ export default function App() {
     }, 2000)
   }, [docLoaded, currentId, strokes, shapes, canvasBg, saveCurrent])
 
-  useEffect(() => { autoSave() }, [strokes, shapes, canvasBg, autoSave])
+  useEffect(() => { if (view === 'board') autoSave() }, [strokes, shapes, canvasBg, autoSave, view])
+
+  if (view === 'kb') {
+    return <KnowledgeBase onOpenWhiteboard={() => setView('board')} />
+  }
 
   return (
     <div className="w-full h-screen relative overflow-hidden" style={{ background: canvasBg }}>
@@ -45,7 +51,7 @@ export default function App() {
 
       <div className="status panel">
         <span className="dot" />
-        <span>IndexedDB</span>
+        <span onClick={() => setView('kb')} style={{ cursor: 'pointer', textDecoration: 'underline' }}>知识库</span>
         <span className="vl" />
         <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{TOOL_NAMES[tool] ?? tool}</span>
         <span className="vl" />
