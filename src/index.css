@@ -109,8 +109,8 @@ body::before {
 }
 
 .sidebar {
-  position: fixed;
-  left: 16px;
+  position: absolute;
+  left: 12px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
@@ -210,10 +210,10 @@ body::before {
 }
 
 .topbar {
-  position: fixed;
-  top: 16px;
-  left: 72px;
-  right: 130px;
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -380,9 +380,9 @@ body::before {
 .dsep { height: 1px; background: var(--border); margin: 4px 8px; }
 
 .brand {
-  position: fixed;
-  top: 18px;
-  right: 18px;
+  position: absolute;
+  top: 14px;
+  right: 14px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -422,9 +422,9 @@ body::before {
 }
 
 .status {
-  position: fixed;
+  position: absolute;
   bottom: 16px;
-  left: 72px;
+  left: 12px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -447,9 +447,9 @@ body::before {
 .status .vl { width: 1px; height: 10px; background: var(--border); }
 
 .hints {
-  position: fixed;
+  position: absolute;
   bottom: 16px;
-  right: 18px;
+  right: 12px;
   padding: 7px 14px;
   font-size: 11px;
   color: var(--text-4);
