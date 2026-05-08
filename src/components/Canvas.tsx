@@ -82,8 +82,9 @@ export default function Canvas() {
 
   function hitTest(px: number, py: number): string | null {
     const r = 12
-    for (let i = elements.length - 1; i >= 0; i--) {
-      const el = elements[i]
+    const els = useAppStore.getState().elements
+    for (let i = els.length - 1; i >= 0; i--) {
+      const el = els[i]
       if (el.type === 'image') { if (px >= el.x - r && px <= el.x + el.width + r && py >= el.y - r && py <= el.y + el.height + r) return el.id }
       else if (el.type === 'text') { if (px >= el.x - r && px <= el.x + el.width + r && py >= el.y - r && py <= el.y + el.height + r) return el.id }
       else if (el.type === 'shape') { const b = elementBounds(el); if (px >= b.x - r && px <= b.x + b.w + r && py >= b.y - r && py <= b.y + b.h + r) return el.id }
@@ -93,11 +94,13 @@ export default function Canvas() {
   }
 
   function hitHandle(px: number, py: number): { handle: number; id: string; bounds: { x: number; y: number; w: number; h: number } } | null {
-    if (!selectedId) return null; const hr = 10
-    const el = elements.find((e) => e.id === selectedId); if (!el) return null
+    const selId = useAppStore.getState().selectedId
+    if (!selId) return null; const hr = 10
+    const els = useAppStore.getState().elements
+    const el = els.find((e) => e.id === selId); if (!el) return null
     const b = elementBounds(el)
     const corners: [number, number][] = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]
-    for (let i = 0; i < 4; i++) { if (Math.abs(px - corners[i][0]) < hr && Math.abs(py - corners[i][1]) < hr) return { handle: i, id: selectedId, bounds: b } }
+    for (let i = 0; i < 4; i++) { if (Math.abs(px - corners[i][0]) < hr && Math.abs(py - corners[i][1]) < hr) return { handle: i, id: selId, bounds: b } }
     return null
   }
 
@@ -113,6 +116,13 @@ export default function Canvas() {
   const redraw = useCallback(() => {
     const canvas = canvasRef.current; if (!canvas) return
     const ctx = canvas.getContext('2d'); if (!ctx) return
+    const els = useAppStore.getState().elements
+    const selId = useAppStore.getState().selectedId
+    const curTool = useAppStore.getState().tool
+    const curColor = useAppStore.getState().color
+    const curSize = useAppStore.getState().size
+    const curBrush = useAppStore.getState().brush
+
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, canvasSize.w, canvasSize.h)
     ctx.save(); ctx.scale(viewBox.zoom, viewBox.zoom); ctx.translate(-viewBox.x, -viewBox.y)
@@ -127,28 +137,28 @@ export default function Canvas() {
     }
 
     // Elements
-    for (const el of elements) {
+    for (const el of els) {
       drawElement(ctx, el)
-      if (el.id === selectedId) drawSelBox(ctx, elementBounds(el))
+      if (el.id === selId) drawSelBox(ctx, elementBounds(el))
     }
 
     // Current stroke preview
-    if (drawingRef.current && tool === 'pen' && currentPtsRef.current.length > 1) {
-      drawStrokeRaw(ctx, currentPtsRef.current, color, size, brush)
+    if (drawingRef.current && curTool === 'pen' && currentPtsRef.current.length > 1) {
+      drawStrokeRaw(ctx, currentPtsRef.current, curColor, curSize, curBrush)
     }
     // Current shape preview
     if (currentShapeRef.current) drawElement(ctx, currentShapeRef.current)
 
     // Eraser cursor
-    if (tool === 'eraser' && mouseRef.current) {
-      const mx = mouseRef.current.x, my = mouseRef.current.y, r = size * 2 + 10
+    if (curTool === 'eraser' && mouseRef.current) {
+      const mx = mouseRef.current.x, my = mouseRef.current.y, r = curSize * 2 + 10
       ctx.save(); ctx.strokeStyle = isDarkMode ? 'rgba(212,138,106,0.4)' : 'rgba(196,122,90,0.3)'; ctx.lineWidth = 1.5 / viewBox.zoom; ctx.setLineDash([4 / viewBox.zoom, 4 / viewBox.zoom]); ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.restore()
     }
 
     ctx.restore()
     drawMinimap(ctx, canvas)
     drawZoomLevel(ctx, canvas)
-  }, [elements, viewBox, color, size, tool, brush, bgColor, selectedId, isDarkMode, dpr, canvasSize])
+  }, [viewBox, bgColor, isDarkMode, dpr, canvasSize])
 
   function drawElement(ctx: CanvasRenderingContext2D, el: CanvasElement) {
     if (el.type === 'stroke') drawStrokeEl(ctx, el)
