@@ -1,0 +1,144 @@
+import { useState } from 'react'
+import { useAppStore } from '../store/appStore'
+import type { CanvasDoc, CanvasFolder } from '../store/types'
+
+export default function Sidebar() {
+  const docs = useAppStore((s) => s.docs)
+  const folders = useAppStore((s) => s.folders)
+  const currentDocId = useAppStore((s) => s.currentDocId)
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen)
+  const setSidebarOpen = useAppStore((s) => s.setSidebarOpen)
+  const createDoc = useAppStore((s) => s.createDoc)
+  const openDoc = useAppStore((s) => s.openDoc)
+  const renameDoc = useAppStore((s) => s.renameDoc)
+  const deleteDoc = useAppStore((s) => s.deleteDoc)
+  const duplicateDoc = useAppStore((s) => s.duplicateDoc)
+  const createFolder = useAppStore((s) => s.createFolder)
+  const renameFolder = useAppStore((s) => s.renameFolder)
+  const deleteFolder = useAppStore((s) => s.deleteFolder)
+  const toggleFolder = useAppStore((s) => s.toggleFolder)
+
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameVal, setRenameVal] = useState('')
+  const [ctx, setCtx] = useState<{ x: number; y: number; type: 'doc' | 'folder'; id: string } | null>(null)
+
+  if (!sidebarOpen) {
+    return (
+      <button onClick={() => setSidebarOpen(true)} style={{ position: 'fixed', left: 8, top: '50%', transform: 'translateY(-50%)', zIndex: 25, width: 28, height: 48, borderRadius: '0 8px 8px 0', border: '1px solid var(--border)', borderLeft: 'none', background: 'var(--card)', color: 'var(--text-3)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>☰</button>
+    )
+  }
+
+  const rootFolders = folders.filter((f) => f.parentId === null).sort((a, b) => a.order - b.order)
+  const folderDocs = (folderId: string | null) => docs.filter((d) => (d as any).folderId === folderId || (!('folderId' in d) && folderId === null)).sort((a, b) => b.updatedAt - a.updatedAt)
+  const orphanDocs = docs.filter((d) => !(d as any).folderId).sort((a, b) => b.updatedAt - a.updatedAt)
+
+  const fmtTime = (ts: number) => {
+    const d = new Date(ts); const pad = (n: number) => String(n).padStart(2, '0')
+    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  const handleRename = (id: string, type: 'doc' | 'folder') => {
+    if (renameVal.trim()) { type === 'doc' ? renameDoc(id, renameVal.trim()) : renameFolder(id, renameVal.trim()) }
+    setRenamingId(null)
+  }
+
+  const handleContext = (e: React.MouseEvent, type: 'doc' | 'folder', id: string) => { e.preventDefault(); e.stopPropagation(); setCtx({ x: e.clientX, y: e.clientY, type, id }) }
+
+  const renderDoc = (doc: CanvasDoc) => {
+    const isActive = doc.id === currentDocId
+    const elCount = doc.elements.length
+    return (
+      <div key={doc.id} onClick={() => openDoc(doc.id)} onContextMenu={(e) => handleContext(e, 'doc', doc.id)}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', paddingLeft: 28, cursor: 'pointer', borderRadius: 8, margin: '1px 4px', background: isActive ? 'var(--primary-bg)' : 'transparent', transition: 'background 0.12s' }}
+        onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--primary-bg)' }}
+        onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = '' }}>
+        <div style={{ width: 28, height: 28, borderRadius: 6, background: isActive ? 'var(--primary)' : 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isActive ? '#fff' : 'var(--text-3)', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{elCount || '—'}</div>
+        {renamingId === doc.id ? (
+          <input autoFocus value={renameVal} onChange={(e) => setRenameVal(e.target.value)} onBlur={() => handleRename(doc.id, 'doc')} onKeyDown={(e) => { if (e.key === 'Enter') handleRename(doc.id, 'doc'); if (e.key === 'Escape') setRenamingId(null) }} onClick={(e) => e.stopPropagation()} style={{ flex: 1, border: '1px solid var(--primary)', borderRadius: 5, padding: '2px 6px', fontSize: 12, background: 'var(--card)', color: 'var(--text)', outline: 'none' }} />
+        ) : (
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: isActive ? 600 : 400, color: isActive ? 'var(--primary)' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.title}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-4)', marginTop: 1 }}>{fmtTime(doc.updatedAt)}</div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderFolder = (folder: CanvasFolder, depth: number = 0) => {
+    const children = folders.filter((f) => f.parentId === folder.id).sort((a, b) => a.order - b.order)
+    const docsInFolder = folderDocs(folder.id)
+    return (
+      <div key={folder.id}>
+        <div onClick={() => toggleFolder(folder.id)} onContextMenu={(e) => handleContext(e, 'folder', folder.id)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', paddingLeft: 8 + depth * 14, cursor: 'pointer', borderRadius: 8, margin: '1px 4px', transition: 'background 0.12s' }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--primary-bg)')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = '')}>
+          <span style={{ fontSize: 9, color: 'var(--text-4)', width: 12, textAlign: 'center', transition: 'transform 0.15s', transform: folder.expanded ? 'rotate(90deg)' : '' }}>▶</span>
+          {renamingId === folder.id ? (
+            <input autoFocus value={renameVal} onChange={(e) => setRenameVal(e.target.value)} onBlur={() => handleRename(folder.id, 'folder')} onKeyDown={(e) => { if (e.key === 'Enter') handleRename(folder.id, 'folder'); if (e.key === 'Escape') setRenamingId(null) }} onClick={(e) => e.stopPropagation()} style={{ flex: 1, border: '1px solid var(--primary)', borderRadius: 4, padding: '1px 4px', fontSize: 12, background: 'var(--card)', color: 'var(--text)', outline: 'none' }} />
+          ) : (
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folder.name}</span>
+          )}
+          <span style={{ fontSize: 10, color: 'var(--text-4)' }}>{docsInFolder.length}</span>
+        </div>
+        {folder.expanded && (
+          <div>
+            {children.map((c) => renderFolder(c, depth + 1))}
+            {docsInFolder.map((d) => renderDoc(d))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div style={{ width: 240, height: '100%', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', background: 'var(--card-solid)', flexShrink: 0, zIndex: 20, position: 'relative' }}>
+        <div style={{ padding: '12px 12px 8px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700 }}>M</div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>MindNotes</span>
+            </div>
+            <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: 16, padding: '0 4px' }}>×</button>
+          </div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button onClick={() => createDoc()} style={{ flex: 1, padding: '6px 0', borderRadius: 8, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+ 新画布</button>
+            <button onClick={() => createFolder('新文件夹')} style={{ flex: 1, padding: '6px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+ 文件夹</button>
+          </div>
+        </div>
+        <div style={{ flex: 1, overflow: 'auto', padding: '6px 0' }}>
+          {rootFolders.map((f) => renderFolder(f))}
+          {orphanDocs.map((d) => renderDoc(d))}
+        </div>
+        <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border)', fontSize: 10, color: 'var(--text-4)', textAlign: 'center' }}>{docs.length} 画布</div>
+      </div>
+
+      {ctx && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setCtx(null)} />
+          <div className="panel" style={{ position: 'fixed', left: ctx.x, top: ctx.y, minWidth: 130, padding: 4, zIndex: 101, animation: 'popIn 0.15s ease' }}>
+            {ctx.type === 'folder' ? (
+              <>
+                <button onClick={() => { createDoc('未命名画布', ctx.id); setCtx(null) }} style={ctxStyle}>新建画布</button>
+                <button onClick={() => { const f = folders.find((x) => x.id === ctx.id); if (f) { setRenamingId(f.id); setRenameVal(f.name) }; setCtx(null) }} style={ctxStyle}>重命名</button>
+                <div style={{ height: 1, background: 'var(--border)', margin: '3px 6px' }} />
+                <button onClick={() => { if (confirm('删除文件夹？')) deleteFolder(ctx.id); setCtx(null) }} style={{ ...ctxStyle, color: 'var(--danger)' }}>删除</button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => { duplicateDoc(ctx.id); setCtx(null) }} style={ctxStyle}>复制</button>
+                <button onClick={() => { const d = docs.find((x) => x.id === ctx.id); if (d) { setRenamingId(d.id); setRenameVal(d.title) }; setCtx(null) }} style={ctxStyle}>重命名</button>
+                <div style={{ height: 1, background: 'var(--border)', margin: '3px 6px' }} />
+                <button onClick={() => { if (confirm('删除此画布？')) deleteDoc(ctx.id); setCtx(null) }} style={{ ...ctxStyle, color: 'var(--danger)' }}>删除</button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+
+const ctxStyle: React.CSSProperties = { display: 'block', width: '100%', padding: '7px 10px', border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', borderRadius: 6 }
