@@ -4,162 +4,163 @@
       <stop offset="0%" style="stop-color:#f5f0e8"/>
       <stop offset="100%" style="stop-color:#ece5d8"/>
     </linearGradient>
-    <filter id="card-shadow">
+    <filter id="shadow">
       <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#806040" flood-opacity="0.08"/>
     </filter>
-    <filter id="panel-shadow">
+    <filter id="ps">
       <feDropShadow dx="0" dy="1" stdDeviation="3" flood-color="#806040" flood-opacity="0.06"/>
     </filter>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#d48a6a"/>
+      <stop offset="100%" style="stop-color:#c47a5a"/>
+    </linearGradient>
   </defs>
 
   <!-- Browser frame -->
   <rect width="900" height="520" rx="12" fill="#2c2416"/>
-  <!-- Browser topbar -->
   <rect x="0" y="0" width="900" height="32" rx="12" fill="#3a3228"/>
   <rect x="0" y="20" width="900" height="12" fill="#3a3228"/>
-  <!-- Traffic lights -->
   <circle cx="18" cy="16" r="6" fill="#e85d4a"/>
   <circle cx="36" cy="16" r="6" fill="#e8a64a"/>
   <circle cx="54" cy="16" r="6" fill="#6a9c5a"/>
-  <!-- URL bar -->
   <rect x="180" y="8" width="540" height="20" rx="10" fill="#2c2416"/>
-  <text x="450" y="22" font-family="system-ui, sans-serif" font-size="10" fill="#9c8e7a" text-anchor="middle">11suixing11.github.io/mindnotes-pro</text>
+  <text x="450" y="22" font-family="system-ui" font-size="10" fill="#9c8e7a" text-anchor="middle">11suixing11.github.io/mindnotes-pro</text>
 
-  <!-- App container -->
-  <rect x="4" y="36" width="892" height="480" rx="0" fill="#f5f0e8"/>
+  <!-- App bg -->
+  <rect x="4" y="36" width="892" height="480" fill="#f5f0e8"/>
 
-  <!-- Left sidebar (folder tree) -->
-  <rect x="4" y="36" width="220" height="480" fill="#faf7f0" filter="url(#card-shadow)"/>
-  <line x1="224" y1="36" x2="224" y2="516" stroke="rgba(120,100,70,0.1)" stroke-width="1"/>
+  <!-- Sidebar -->
+  <rect x="4" y="36" width="200" height="480" fill="#faf7f0" filter="url(#shadow)"/>
+  <line x1="204" y1="36" x2="204" y2="516" stroke="rgba(120,100,70,0.1)" stroke-width="1"/>
+  <circle cx="24" cy="56" r="9" fill="url(#accent)"/>
+  <text x="24" y="60" font-family="system-ui" font-size="9" font-weight="700" fill="white" text-anchor="middle">M</text>
+  <text x="38" y="56" font-family="system-ui" font-size="10" font-weight="700" fill="#2c2416">MindNotes</text>
+  <rect x="12" y="72" width="86" height="22" rx="7" fill="#c47a5a"/>
+  <text x="55" y="87" font-family="system-ui" font-size="9" font-weight="600" fill="white" text-anchor="middle">+ 新画布</text>
+  <rect x="104" y="72" width="86" height="22" rx="7" fill="none" stroke="rgba(120,100,70,0.1)" stroke-width="1"/>
+  <text x="147" y="87" font-family="system-ui" font-size="9" font-weight="600" fill="#5c4f3d" text-anchor="middle">+ 文件夹</text>
 
-  <!-- Sidebar header -->
-  <circle cx="28" cy="58" r="10" fill="#c47a5a"/>
-  <text x="28" y="62" font-family="system-ui" font-size="10" font-weight="700" fill="white" text-anchor="middle">M</text>
-  <text x="44" y="58" font-family="system-ui" font-size="11" font-weight="700" fill="#2c2416">MindNotes</text>
-  <text x="115" y="58" font-family="system-ui" font-size="8" fill="#c8bba8">v2.2</text>
+  <!-- Sidebar doc list -->
+  <text x="18" y="118" font-family="system-ui" font-size="8" fill="#c8bba8">▸</text>
+  <text x="28" y="118" font-family="system-ui" font-size="9" font-weight="600" fill="#5c4f3d">我的笔记</text>
+  <rect x="8" y="126" width="190" height="36" rx="7" fill="rgba(196,122,90,0.08)"/>
+  <rect x="14" y="132" width="24" height="24" rx="5" fill="#c47a5a"/>
+  <text x="26" y="148" font-family="system-ui" font-size="9" font-weight="700" fill="white" text-anchor="middle">8</text>
+  <text x="44" y="143" font-family="system-ui" font-size="10" font-weight="600" fill="#c47a5a">我的画布</text>
+  <text x="44" y="155" font-family="system-ui" font-size="7" fill="#c8bba8">刚刚</text>
 
-  <!-- Sidebar buttons -->
-  <rect x="16" y="76" width="96" height="26" rx="8" fill="#c47a5a"/>
-  <text x="64" y="93" font-family="system-ui" font-size="10" font-weight="600" fill="white" text-anchor="middle">+ 新画布</text>
-  <rect x="118" y="76" width="96" height="26" rx="8" fill="none" stroke="rgba(120,100,70,0.12)" stroke-width="1"/>
-  <text x="166" y="93" font-family="system-ui" font-size="10" font-weight="600" fill="#5c4f3d" text-anchor="middle">+ 文件夹</text>
+  <rect x="14" y="168" width="24" height="24" rx="5" fill="rgba(120,100,70,0.06)"/>
+  <text x="26" y="184" font-family="system-ui" font-size="9" font-weight="700" fill="#9c8e7a" text-anchor="middle">5</text>
+  <text x="44" y="179" font-family="system-ui" font-size="10" fill="#5c4f3d">课堂笔记</text>
+  <text x="44" y="191" font-family="system-ui" font-size="7" fill="#c8bba8">05-07</text>
 
-  <!-- Folder -->
-  <text x="22" y="128" font-family="system-ui" font-size="8" fill="#c8bba8">▸</text>
-  <text x="34" y="128" font-family="system-ui" font-size="10" font-weight="600" fill="#5c4f3d">我的笔记</text>
-  <text x="190" y="128" font-family="system-ui" font-size="8" fill="#c8bba8">3</text>
-
-  <!-- Active doc -->
-  <rect x="12" y="136" width="200" height="44" rx="8" fill="rgba(196,122,90,0.08)"/>
-  <rect x="20" y="144" width="28" height="28" rx="6" fill="#c47a5a"/>
-  <text x="34" y="162" font-family="system-ui" font-size="11" font-weight="700" fill="white" text-anchor="middle">12</text>
-  <text x="56" y="155" font-family="system-ui" font-size="11" font-weight="600" fill="#c47a5a">课堂笔记</text>
-  <text x="56" y="170" font-family="system-ui" font-size="8" fill="#c8bba8">05-08 19:55</text>
-
-  <!-- Other docs -->
-  <rect x="20" y="188" width="28" height="28" rx="6" fill="rgba(120,100,70,0.08)"/>
-  <text x="34" y="206" font-family="system-ui" font-size="11" font-weight="700" fill="#9c8e7a" text-anchor="middle">5</text>
-  <text x="56" y="201" font-family="system-ui" font-size="11" fill="#5c4f3d">项目草图</text>
-  <text x="56" y="216" font-family="system-ui" font-size="8" fill="#c8bba8">05-07 14:20</text>
-
-  <rect x="20" y="228" width="28" height="28" rx="6" fill="rgba(120,100,70,0.08)"/>
-  <text x="34" y="246" font-family="system-ui" font-size="11" font-weight="700" fill="#9c8e7a" text-anchor="middle">3</text>
-  <text x="56" y="241" font-family="system-ui" font-size="11" fill="#5c4f3d">会议记录</text>
-  <text x="56" y="256" font-family="system-ui" font-size="8" fill="#c8bba8">05-06 10:30</text>
-
-  <!-- Sidebar footer -->
-  <line x1="16" y1="480" x2="208" y2="480" stroke="rgba(120,100,70,0.06)" stroke-width="1"/>
-  <text x="112" y="500" font-family="system-ui" font-size="9" fill="#c8bba8" text-anchor="middle">3 画布 · IndexedDB</text>
-
-  <!-- Canvas area background -->
-  <rect x="224" y="36" width="672" height="480" fill="#faf7f0"/>
-
-  <!-- Canvas toolbar (left) -->
-  <rect x="236" y="100" width="42" height="300" rx="12" fill="rgba(250,247,240,0.9)" filter="url(#panel-shadow)"/>
-  <!-- Tool buttons -->
-  <rect x="242" y="108" width="30" height="30" rx="8" fill="#c47a5a"/>
-  <text x="257" y="128" font-family="system-ui" font-size="9" font-weight="700" fill="white" text-anchor="middle">1</text>
-  <rect x="242" y="144" width="30" height="30" rx="8" fill="none" stroke="rgba(120,100,70,0.08)" stroke-width="1"/>
-  <rect x="242" y="180" width="30" height="30" rx="8" fill="none" stroke="rgba(120,100,70,0.08)" stroke-width="1"/>
-  <rect x="242" y="216" width="30" height="30" rx="8" fill="none" stroke="rgba(120,100,70,0.08)" stroke-width="1"/>
-  <line x1="248" y1="256" x2="266" y2="256" stroke="rgba(120,100,70,0.06)" stroke-width="1"/>
-  <rect x="242" y="264" width="30" height="30" rx="8" fill="none" stroke="rgba(120,100,70,0.08)" stroke-width="1"/>
-  <rect x="242" y="300" width="30" height="30" rx="8" fill="none" stroke="rgba(120,100,70,0.08)" stroke-width="1"/>
-  <rect x="242" y="336" width="30" height="30" rx="8" fill="none" stroke="rgba(120,100,70,0.08)" stroke-width="1"/>
-  <rect x="242" y="372" width="30" height="30" rx="8" fill="none" stroke="rgba(120,100,70,0.08)" stroke-width="1"/>
-
-  <!-- Top property bar -->
-  <rect x="290" y="46" width="520" height="34" rx="10" fill="rgba(250,247,240,0.9)" filter="url(#panel-shadow)"/>
-  <!-- Color dots -->
-  <circle cx="310" cy="63" r="6" fill="#2c2416"/>
-  <circle cx="326" cy="63" r="6" fill="#c45a5a"/>
-  <circle cx="342" cy="63" r="6" fill="#c47a3a"/>
-  <circle cx="358" cy="63" r="6" fill="#6a9c5a"/>
-  <circle cx="374" cy="63" r="6" fill="#5a8a9c"/>
-  <circle cx="390" cy="63" r="6" fill="#8a6a9c"/>
-  <circle cx="406" cy="63" r="6" fill="#9c5a7a"/>
-  <line x1="420" y1="55" x2="420" y2="71" stroke="rgba(120,100,70,0.08)" stroke-width="1"/>
-  <!-- Size dots -->
-  <circle cx="436" cy="63" r="3" fill="rgba(120,100,70,0.2)"/>
-  <circle cx="452" cy="63" r="4" fill="rgba(120,100,70,0.35)"/>
-  <circle cx="470" cy="63" r="5" fill="#c47a5a"/>
-  <circle cx="490" cy="63" r="6" fill="rgba(120,100,70,0.2)"/>
-  <line x1="505" y1="55" x2="505" y2="71" stroke="rgba(120,100,70,0.08)" stroke-width="1"/>
-  <!-- Background swatch -->
-  <rect x="515" y="55" width="16" height="16" rx="3" fill="#faf7f0" stroke="rgba(120,100,70,0.12)" stroke-width="1"/>
-  <line x1="540" y1="55" x2="540" y2="71" stroke="rgba(120,100,70,0.08)" stroke-width="1"/>
-  <!-- Export button -->
-  <rect x="720" y="52" width="68" height="24" rx="8" fill="#c47a5a"/>
-  <text x="754" y="68" font-family="system-ui" font-size="10" font-weight="600" fill="white" text-anchor="middle">导出 ▾</text>
-
-  <!-- Grid dots on canvas -->
-  <g opacity="0.1">
-    <pattern id="canvas-dots" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
+  <!-- Canvas area -->
+  <rect x="204" y="36" width="692" height="480" fill="#faf7f0"/>
+  <g opacity="0.08">
+    <pattern id="dots" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
       <circle cx="15" cy="15" r="0.5" fill="#9c8e7a"/>
     </pattern>
-    <rect x="290" y="90" width="596" height="416" fill="url(#canvas-dots)"/>
+    <rect x="204" y="36" width="692" height="480" fill="url(#dots)"/>
   </g>
 
-  <!-- Drawing content on canvas -->
-  <!-- Stroke: curved line -->
-  <path d="M380,200 Q440,150 520,190 Q600,230 660,170" fill="none" stroke="#2c2416" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Tool sidebar -->
+  <rect x="216" y="90" width="38" height="280" rx="10" fill="rgba(250,247,240,0.9)" filter="url(#ps)"/>
+  <!-- Active tool: pen -->
+  <rect id="tool-pen" x="222" y="98" width="26" height="26" rx="7" fill="transparent"/>
+  <rect x="222" y="130" width="26" height="26" rx="7" fill="none" stroke="rgba(120,100,70,0.06)" stroke-width="1"/>
+  <rect x="222" y="162" width="26" height="26" rx="7" fill="none" stroke="rgba(120,100,70,0.06)" stroke-width="1"/>
+  <rect x="222" y="194" width="26" height="26" rx="7" fill="none" stroke="rgba(120,100,70,0.06)" stroke-width="1"/>
+  <line x1="228" y1="230" x2="242" y2="230" stroke="rgba(120,100,70,0.06)" stroke-width="1"/>
+  <rect x="222" y="238" width="26" height="26" rx="7" fill="none" stroke="rgba(120,100,70,0.06)" stroke-width="1"/>
+  <rect x="222" y="270" width="26" height="26" rx="7" fill="none" stroke="rgba(120,100,70,0.06)" stroke-width="1"/>
+  <rect x="222" y="302" width="26" height="26" rx="7" fill="none" stroke="rgba(120,100,70,0.06)" stroke-width="1"/>
+  <rect x="222" y="334" width="26" height="26" rx="7" fill="none" stroke="rgba(120,100,70,0.06)" stroke-width="1"/>
 
-  <!-- Stroke: highlight -->
-  <path d="M420,260 Q500,220 580,270" fill="none" stroke="#c45a5a" stroke-width="10" stroke-linecap="round" opacity="0.25"/>
+  <!-- Tool highlight animation -->
+  <rect x="222" y="98" width="26" height="26" rx="7" fill="#c47a5a" opacity="0">
+    <animate attributeName="opacity" values="0;1;1;0;0;0;0;0;0;0;0;0" dur="12s" fill="freeze"/>
+  </rect>
+  <rect x="222" y="194" width="26" height="26" rx="7" fill="#c47a5a" opacity="0">
+    <animate attributeName="opacity" values="0;0;0;0;0;0;1;1;1;1;0;0" dur="12s" fill="freeze"/>
+  </rect>
 
-  <!-- Shape: rectangle -->
-  <rect x="360" y="300" width="130" height="80" rx="4" fill="none" stroke="#6a9c5a" stroke-width="1.5"/>
+  <!-- Topbar -->
+  <rect x="266" y="44" width="480" height="30" rx="9" fill="rgba(250,247,240,0.9)" filter="url(#ps)"/>
+  <circle cx="286" cy="59" r="5.5" fill="#2c2416"/>
+  <circle cx="300" cy="59" r="5.5" fill="#c45a5a"/>
+  <circle cx="314" cy="59" r="5.5" fill="#c47a3a"/>
+  <circle cx="328" cy="59" r="5.5" fill="#6a9c5a"/>
+  <circle cx="342" cy="59" r="5.5" fill="#5a8a9c"/>
+  <circle cx="356" cy="59" r="5.5" fill="#8a6a9c"/>
+  <rect x="660" y="50" width="64" height="20" rx="7" fill="#c47a5a"/>
+  <text x="692" y="64" font-family="system-ui" font-size="9" font-weight="600" fill="white" text-anchor="middle">导出 ▾</text>
 
-  <!-- Shape: circle -->
-  <circle cx="600" cy="340" r="45" fill="none" stroke="#5a8a9c" stroke-width="1.5"/>
+  <!-- Animated cursor -->
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;1;1;1;1;1;1;1;1;1;0;0" dur="12s" fill="freeze"/>
+    <!-- Crosshair cursor -->
+    <line x1="0" y1="-8" x2="0" y2="8" stroke="#c47a5a" stroke-width="1.2" stroke-linecap="round"/>
+    <line x1="-8" y1="0" x2="8" y2="0" stroke="#c47a5a" stroke-width="1.2" stroke-linecap="round"/>
+    <animateTransform attributeName="transform" type="translate"
+      values="350,180;400,160;460,180;520,170;560,190;560,190;620,280;680,260;680,260;750,200;750,200;750,200"
+      dur="12s" fill="freeze"/>
+  </g>
 
-  <!-- Arrow -->
-  <line x1="500" y1="340" x2="545" y2="340" stroke="#8a6a9c" stroke-width="1.5" stroke-linecap="round"/>
-  <polyline points="537,333 545,340 537,347" fill="none" stroke="#8a6a9c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Animated stroke 1: smooth curve -->
+  <path d="M350,180 Q400,160 460,180 Q520,170 560,190" fill="none" stroke="#2c2416" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="300" stroke-dashoffset="300">
+    <animate attributeName="stroke-dashoffset" values="300;300;0;0;0;0;0;0;0;0;0;0" dur="12s" fill="freeze"/>
+  </g>
 
-  <!-- Text block -->
-  <rect x="700" y="160" width="160" height="80" rx="8" fill="rgba(250,247,240,0.92)" stroke="rgba(196,122,90,0.15)" stroke-width="1"/>
-  <text x="716" y="184" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#2c2416">Hello, MindNotes!</text>
-  <text x="716" y="204" font-family="system-ui, sans-serif" font-size="10" fill="#9c8e7a">画布上直接打字</text>
-  <text x="716" y="220" font-family="system-ui, sans-serif" font-size="10" fill="#9c8e7a">可拖拽、可缩放</text>
+  <!-- Animated stroke 2: highlight -->
+  <path d="M620,280 Q650,260 680,270" fill="none" stroke="#c45a5a" stroke-width="10" stroke-linecap="round" opacity="0.3"
+    stroke-dasharray="100" stroke-dashoffset="100">
+    <animate attributeName="stroke-dashoffset" values="100;100;100;100;100;100;100;0;0;0;0;0" dur="12s" fill="freeze"/>
+  </path>
+
+  <!-- Animated rectangle -->
+  <rect x="350" y="260" width="120" height="70" rx="3" fill="none" stroke="#6a9c5a" stroke-width="1.5"
+    stroke-dasharray="380" stroke-dashoffset="380">
+    <animate attributeName="stroke-dashoffset" values="380;380;380;380;0;0;0;0;0;0;0;0" dur="12s" fill="freeze"/>
+  </rect>
+
+  <!-- Animated circle -->
+  <circle cx="560" cy="300" r="40" fill="none" stroke="#5a8a9c" stroke-width="1.5"
+    stroke-dasharray="260" stroke-dashoffset="260">
+    <animate attributeName="stroke-dashoffset" values="260;260;260;260;260;260;0;0;0;0;0;0" dur="12s" fill="freeze"/>
+  </circle>
+
+  <!-- Animated arrow -->
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;0;0;0;0;0;0;1;1;1;1" dur="12s" fill="freeze"/>
+    <line x1="480" y1="295" x2="520" y2="295" stroke="#8a6a9c" stroke-width="1.5" stroke-linecap="round"/>
+    <polyline points="512,288 520,295 512,302" fill="none" stroke="#8a6a9c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Animated text block -->
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;0;0;0;0;0;0;0;0;1;1" dur="12s" fill="freeze"/>
+    <rect x="700" y="150" width="160" height="90" rx="8" fill="rgba(250,247,240,0.92)" stroke="rgba(196,122,90,0.12)" stroke-width="1"/>
+    <text x="716" y="176" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#2c2416">Hello!</text>
+    <text x="716" y="196" font-family="system-ui, sans-serif" font-size="10" fill="#5c4f3d">画布上直接打字</text>
+    <text x="716" y="212" font-family="system-ui, sans-serif" font-size="10" fill="#9c8e7a">可拖拽 · 可缩放</text>
+    <text x="716" y="228" font-family="system-ui, sans-serif" font-size="10" fill="#9c8e7a">双击编辑</text>
+  </g>
 
   <!-- Minimap -->
-  <rect x="760" y="380" width="120" height="80" rx="8" fill="rgba(236,229,216,0.7)" stroke="rgba(120,100,70,0.1)" stroke-width="1"/>
-  <rect x="380" y="190" width="6" height="4" fill="#9c8e7a" opacity="0.5" transform="translate(340,180) scale(0.14)"/>
-  <rect x="770" y="390" width="30" height="20" rx="2" fill="none" stroke="#c47a5a" stroke-width="1"/>
+  <rect x="760" y="390" width="110" height="70" rx="7" fill="rgba(236,229,216,0.65)" stroke="rgba(120,100,70,0.08)" stroke-width="1"/>
+  <rect x="770" y="400" width="25" height="18" rx="2" fill="none" stroke="#c47a5a" stroke-width="1"/>
 
   <!-- Status bar -->
-  <rect x="290" y="480" width="200" height="22" rx="7" fill="rgba(250,247,240,0.85)" filter="url(#panel-shadow)"/>
-  <circle cx="304" cy="491" r="3.5" fill="#6a9c5a"/>
-  <text x="314" y="495" font-family="system-ui" font-size="9" fill="#9c8e7a">画笔</text>
-  <line x1="338" y1="486" x2="338" y2="496" stroke="rgba(120,100,70,0.08)" stroke-width="0.5"/>
-  <text x="346" y="495" font-family="system-ui" font-size="9" fill="#9c8e7a">12 元素</text>
-  <line x1="390" y1="486" x2="390" y2="496" stroke="rgba(120,100,70,0.08)" stroke-width="0.5"/>
-  <text x="398" y="495" font-family="system-ui" font-size="9" fill="#9c8e7a">3 画布</text>
-  <line x1="432" y1="486" x2="432" y2="496" stroke="rgba(120,100,70,0.08)" stroke-width="0.5"/>
-  <text x="440" y="495" font-family="system-ui" font-size="9" fill="#c47a5a" font-weight="600">100%</text>
+  <rect x="266" y="488" width="180" height="20" rx="6" fill="rgba(250,247,240,0.85)" filter="url(#ps)"/>
+  <circle cx="278" cy="498" r="3" fill="#6a9c5a"/>
+  <text x="286" y="502" font-family="system-ui" font-size="8" fill="#9c8e7a">画笔</text>
+  <line x1="306" y1="493" x2="306" y2="503" stroke="rgba(120,100,70,0.06)" stroke-width="0.5"/>
+  <text x="312" y="502" font-family="system-ui" font-size="8" fill="#9c8e7a">8 元素</text>
+  <line x1="348" y1="493" x2="348" y2="503" stroke="rgba(120,100,70,0.06)" stroke-width="0.5"/>
+  <text x="354" y="502" font-family="system-ui" font-size="8" fill="#c47a5a" font-weight="600">100%</text>
 
-  <!-- Hints bar -->
-  <rect x="620" y="480" width="260" height="22" rx="7" fill="rgba(250,247,240,0.85)" filter="url(#panel-shadow)"/>
-  <text x="636" y="495" font-family="system-ui" font-size="8" fill="#c8bba8">Ctrl+Z 撤销 · 滚轮缩放 · 0-8 工具 · Del 删除选中</text>
+  <!-- Hints -->
+  <rect x="600" y="488" width="280" height="20" rx="6" fill="rgba(250,247,240,0.85)" filter="url(#ps)"/>
+  <text x="616" y="502" font-family="system-ui" font-size="7" fill="#c8bba8">Ctrl+Z 撤销 · 滚轮缩放 · 0-8 工具 · Del 删除选中</text>
 </svg>
