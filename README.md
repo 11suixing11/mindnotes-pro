@@ -2,7 +2,7 @@
 
 <br />
 
-<img src=".github/hero.svg" alt="MindNotes Pro — 一个打开就能画的笔记本" width="100%" />
+<img src=".github/hero.png" alt="MindNotes Pro — 一个打开就能画的笔记本" width="100%" />
 
 <br /><br />
 
