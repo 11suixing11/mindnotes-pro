@@ -311,6 +311,14 @@ export default function Canvas() {
   }, [])
 
   useEffect(() => { redraw() }, [redraw, canvasSize])
+
+  // Trigger redraw when elements change (e.g. switching canvases)
+  useEffect(() => {
+    const unsub = useAppStore.subscribe((state) => {
+      redraw()
+    })
+    return unsub
+  }, [redraw])
   useEffect(() => { const h = () => redraw(); window.addEventListener('image-loaded', h); return () => window.removeEventListener('image-loaded', h) }, [redraw])
 
   useEffect(() => {
