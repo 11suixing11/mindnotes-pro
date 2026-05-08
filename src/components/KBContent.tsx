@@ -2,9 +2,16 @@ import { useState, useEffect, useRef } from 'react'
 import { marked } from 'marked'
 import { useKBStore } from '../store/useKBStore'
 import { useDrawingStore } from '../store/useDrawingStore'
-import CanvasInline from './CanvasInline'
+import Canvas from './Canvas'
+import Toolbar from './Toolbar'
+import DocPanel from './DocPanel'
 
 marked.setOptions({ breaks: true, gfm: true })
+
+const TOOL_NAMES: Record<string, string> = {
+  select: '选择', pen: '画笔', eraser: '橡皮', pan: '平移', text: '文字',
+  rectangle: '矩形', circle: '圆形', line: '直线', arrow: '箭头',
+}
 
 export default function KBContent() {
   const activeNoteId = useKBStore((s) => s.activeNoteId)
@@ -19,10 +26,12 @@ export default function KBContent() {
   const strokes = useDrawingStore((s) => s.strokes)
   const shapes = useDrawingStore((s) => s.shapes)
   const canvasBg = useDrawingStore((s) => s.canvasBg)
+  const tool = useDrawingStore((s) => s.tool)
 
   const [tab, setTab] = useState<'doc' | 'canvas'>('doc')
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState('')
+  const [showDocs, setShowDocs] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const canvasSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -49,7 +58,7 @@ export default function KBContent() {
       if (canvasSaveTimer.current) clearTimeout(canvasSaveTimer.current)
       canvasSaveTimer.current = setTimeout(() => {
         saveCanvas(note.id, strokes, shapes, canvasBg)
-      }, 1500)
+      }, 2000)
     }
   }, [strokes, shapes, canvasBg, tab])
 
@@ -81,6 +90,28 @@ export default function KBContent() {
     )
   }
 
+  if (tab === 'canvas') {
+    return (
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: canvasBg }}>
+        <Canvas />
+        <Toolbar onToggleDocs={() => setShowDocs(!showDocs)} />
+        <DocPanel open={showDocs} onClose={() => setShowDocs(false)} />
+
+        <div className="status panel" style={{ position: 'fixed', bottom: 16, left: 260, zIndex: 20 }}>
+          <span onClick={() => { setTab('doc'); if (note) saveCanvas(note.id, strokes, shapes, canvasBg) }} style={{ cursor: 'pointer', color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' }}>← 返回文档</span>
+          <span className="vl" />
+          <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{TOOL_NAMES[tool] ?? tool}</span>
+          <span className="vl" />
+          <span>{strokes.length + shapes.length} 对象</span>
+        </div>
+
+        <div className="hints panel" style={{ position: 'fixed', bottom: 16, right: 18, zIndex: 20 }}>
+          <kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销 · 滚轮缩放 · <kbd>0</kbd>-<kbd>8</kbd> 工具
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
       <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -90,29 +121,23 @@ export default function KBContent() {
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
           <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
-            <button onClick={() => setTab('doc')} style={{ ...tabBtn, background: tab === 'doc' ? 'var(--primary)' : 'transparent', color: tab === 'doc' ? '#fff' : 'var(--text-2)' }}>文档</button>
-            <button onClick={() => setTab('canvas')} style={{ ...tabBtn, background: tab === 'canvas' ? 'var(--primary)' : 'transparent', color: tab === 'canvas' ? '#fff' : 'var(--text-2)', borderLeft: '1px solid var(--border)' }}>画板</button>
+            <button onClick={() => setTab('doc')} style={{ ...tabBtn, background: 'var(--primary)', color: '#fff' }}>文档</button>
+            <button onClick={() => setTab('canvas')} style={{ ...tabBtn, background: 'transparent', color: 'var(--text-2)', borderLeft: '1px solid var(--border)' }}>画板</button>
           </div>
           <div style={{ fontSize: 10, color: 'var(--text-4)', padding: '3px 8px', borderRadius: 5, background: 'var(--primary-bg)' }}>{stats.docCount} 文档 · {stats.totalWords} 字</div>
-          {tab === 'doc' && <button onClick={() => fileRef.current?.click()} style={topBtnStyle}>导入</button>}
-          {tab === 'doc' && <button onClick={handleEdit} style={{ ...topBtnStyle, background: editing ? 'var(--primary)' : undefined, color: editing ? '#fff' : undefined }}>{editing ? '阅读' : '编辑'}</button>}
+          <button onClick={() => fileRef.current?.click()} style={topBtnStyle}>导入</button>
+          <button onClick={handleEdit} style={{ ...topBtnStyle, background: editing ? 'var(--primary)' : undefined, color: editing ? '#fff' : undefined }}>{editing ? '阅读' : '编辑'}</button>
         </div>
       </div>
 
-      {tab === 'doc' ? (
-        <div style={{ flex: 1, overflow: 'auto', padding: '20px 32px' }}>
-          {editing ? (
-            <textarea autoFocus value={editContent} onChange={(e) => { setEditContent(e.target.value); handleSave(e.target.value) }}
-              style={{ width: '100%', height: '100%', minHeight: 400, border: 'none', outline: 'none', resize: 'none', fontSize: 14, lineHeight: 1.8, color: 'var(--text)', background: 'transparent', fontFamily: "'Noto Sans SC', monospace" }} />
-          ) : (
-            <div className="kb-content" dangerouslySetInnerHTML={renderMarkdown(note.content)} style={{ fontSize: 14, lineHeight: 1.8, color: 'var(--text)', maxWidth: 720 }} />
-          )}
-        </div>
-      ) : (
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          <CanvasInline />
-        </div>
-      )}
+      <div style={{ flex: 1, overflow: 'auto', padding: '20px 32px' }}>
+        {editing ? (
+          <textarea autoFocus value={editContent} onChange={(e) => { setEditContent(e.target.value); handleSave(e.target.value) }}
+            style={{ width: '100%', height: '100%', minHeight: 400, border: 'none', outline: 'none', resize: 'none', fontSize: 14, lineHeight: 1.8, color: 'var(--text)', background: 'transparent', fontFamily: "'Noto Sans SC', monospace" }} />
+        ) : (
+          <div className="kb-content" dangerouslySetInnerHTML={renderMarkdown(note.content)} style={{ fontSize: 14, lineHeight: 1.8, color: 'var(--text)', maxWidth: 720 }} />
+        )}
+      </div>
 
       <input ref={fileRef} type="file" accept=".md" multiple onChange={handleImport} style={{ display: 'none' }} />
     </div>
