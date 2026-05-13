@@ -29,8 +29,8 @@ export default function Sidebar() {
   }
 
   const rootFolders = folders.filter((f) => f.parentId === null).sort((a, b) => a.order - b.order)
-  const folderDocs = (folderId: string | null) => docs.filter((d) => (d as any).folderId === folderId || (!('folderId' in d) && folderId === null)).sort((a, b) => b.updatedAt - a.updatedAt)
-  const orphanDocs = docs.filter((d) => !(d as any).folderId).sort((a, b) => b.updatedAt - a.updatedAt)
+  const folderDocs = (folderId: string | null) => docs.filter((d) => d.folderId === folderId).sort((a, b) => b.updatedAt - a.updatedAt)
+  const orphanDocs = docs.filter((d) => !d.folderId).sort((a, b) => b.updatedAt - a.updatedAt)
 
   const fmtTime = (ts: number) => {
     const d = new Date(ts); const pad = (n: number) => String(n).padStart(2, '0')

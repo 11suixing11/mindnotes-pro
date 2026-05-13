@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { CanvasElement, CanvasDoc, CanvasFolder, ToolType, BrushType, ShapeKind } from './types'
-import { moveElement, resizeElement, elementBounds } from './types'
+import type { CanvasElement, CanvasDoc, CanvasFolder, ToolType, BrushType } from './types'
+import { moveElement, resizeElement } from './types'
 import * as storage from './storage'
 import { useViewStore } from './useViewStore'
 
@@ -77,10 +77,6 @@ function snapshot(els: CanvasElement[]): Snapshot {
   return els.map((e) => ({ ...e, ...(e.type === 'stroke' ? { points: [...e.points.map((p) => [...p])] } : {}) }))
 }
 
-function calcWords(els: CanvasElement[]): number {
-  return els.filter((e) => e.type === 'text').reduce((s, e) => s + ((e as any).content?.length || 0), 0)
-}
-
 function migrateOld(): CanvasDoc | null {
   try {
     const raw = localStorage.getItem(MIGRATE_KEY)
@@ -103,7 +99,7 @@ function migrateOld(): CanvasDoc | null {
     }
     if (elements.length === 0) return null
     const now = Date.now()
-    return { id: `doc-${now}`, title: '我的画布', elements, bgColor: data.canvasBg ?? '#ffffff', createdAt: now, updatedAt: now }
+    return { id: `doc-${now}`, title: '我的画布', elements, bgColor: data.canvasBg ?? '#ffffff', folderId: null, createdAt: now, updatedAt: now }
   } catch { return null }
 }
 
@@ -143,6 +139,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
             { type: 'text', id: `txt-${now}`, x: 80, y: 60, width: 500, height: 120, content: '# 欢迎使用 MindNotes\n\n暖色纸纹画布笔记本。在这里你可以自由绘图、书写、记录。\n\n左侧边栏管理画布，右侧工具栏切换工具。', fontSize: 16, color: '#2c2416' },
           ],
           bgColor: '#ffffff',
+          folderId: null,
           createdAt: now,
           updatedAt: now,
         }
@@ -233,7 +230,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   createDoc: async (title = '未命名画布', folderId = null) => {
     const id = `doc-${Date.now()}`
     const now = Date.now()
-    const doc: CanvasDoc = { id, title, elements: [], bgColor: '#ffffff', createdAt: now, updatedAt: now }
+    const doc: CanvasDoc = { id, title, elements: [], bgColor: '#ffffff', folderId, createdAt: now, updatedAt: now }
     await storage.put('docs', doc)
     const docs = (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt)
     set({ docs, currentDocId: id, elements: [], bgColor: '#ffffff', undoStack: [], redoStack: [], selectedId: null })
