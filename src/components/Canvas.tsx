@@ -47,8 +47,6 @@ export default function Canvas() {
   const setSelectedId = useAppStore((s) => s.setSelectedId)
   const undo = useAppStore((s) => s.undo)
   const redo = useAppStore((s) => s.redo)
-  const undoLen = useAppStore((s) => s.undoStack.length)
-  const redoLen = useAppStore((s) => s.redoStack.length)
 
   const viewBox = useViewStore((s) => s.viewBox)
   const startPan = useViewStore((s) => s.startPan)
@@ -100,7 +98,7 @@ export default function Canvas() {
     const el = els.find((e) => e.id === selId); if (!el) return null
     const b = elementBounds(el)
     const corners: [number, number][] = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]
-    for (let i = 0; i < 4; i++) { if (Math.abs(px - corners[i][0]) < hr && Math.abs(py - corners[i][1]) < hr) return { handle: i, id: selId } }
+    for (let i = 0; i < 4; i++) { if (Math.abs(px - corners[i][0]) < hr && Math.abs(py - corners[i][1]) < hr) return { handle: i, id: selId, bounds: b } }
     return null
   }
 
@@ -217,7 +215,7 @@ export default function Canvas() {
     for (const [cx, cy] of [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]) ctx.fillRect(cx - 4 / viewBox.zoom, cy - 4 / viewBox.zoom, 8 / viewBox.zoom, 8 / viewBox.zoom)
   }
 
-  function drawMinimap(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+  function drawMinimap(ctx: CanvasRenderingContext2D, _canvas: HTMLCanvasElement) {
     if (elements.length === 0) return
     const mmW = 120, mmH = 80, pad = 12
     const mmX = canvasSize.w - mmW - pad, mmY = canvasSize.h - mmH - pad - 40
@@ -242,7 +240,7 @@ export default function Canvas() {
     ctx.restore()
   }
 
-  function drawZoomLevel(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+  function drawZoomLevel(ctx: CanvasRenderingContext2D, _canvas: HTMLCanvasElement) {
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.font = '12px sans-serif'; ctx.fillStyle = isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'; ctx.textAlign = 'right'; ctx.fillText(`${Math.round(viewBox.zoom * 100)}%`, canvasSize.w - 145, canvasSize.h - 50); ctx.restore()
   }
 
@@ -322,7 +320,7 @@ export default function Canvas() {
 
   // Trigger redraw when elements change (e.g. switching canvases)
   useEffect(() => {
-    const unsub = useAppStore.subscribe((state) => {
+    const unsub = useAppStore.subscribe(() => {
       redraw()
     })
     return unsub
