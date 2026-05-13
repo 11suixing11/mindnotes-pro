@@ -54,6 +54,7 @@ export interface CanvasDoc {
   title: string
   elements: CanvasElement[]
   bgColor: string
+  folderId: string | null
   createdAt: number
   updatedAt: number
 }
