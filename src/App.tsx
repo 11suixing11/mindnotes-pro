@@ -19,11 +19,8 @@ export default function App() {
   const elements = useAppStore((s) => s.elements)
   const bgColor = useAppStore((s) => s.bgColor)
   const docs = useAppStore((s) => s.docs)
-  const sidebarOpen = useAppStore((s) => s.sidebarOpen)
   const zoom = useViewStore((s) => s.viewBox.zoom)
   const zoomIn = useViewStore((s) => s.zoomIn)
-  const zoomOut = useViewStore((s) => s.zoomOut)
-  const resetView = useViewStore((s) => s.resetView)
 
   useEffect(() => { initTheme(); init() }, [initTheme, init])
 
