@@ -16,7 +16,7 @@ MindNotes Pro 是一个本地优先的白板笔记应用，基于 React 18 + Typ
 
 | # | 优点 | 说明 |
 |---|------|------|
-| 1 | **极致轻量** | gzip 压缩后约 160KB，生产依赖仅 5 个（react、react-dom、zustand、jspdf、marked） |
+| 1 | **极致轻量** | gzip 压缩后约 160KB，生产依赖仅 4 个（react、react-dom、zustand、jspdf） |
 | 2 | **本地优先架构** | 数据完全存储于 IndexedDB，零隐私风险，可完全离线运行 |
 | 3 | **全面 TypeScript** | 所有源文件均使用 TypeScript，`types.ts` 中类型定义清晰，元素类型使用判别联合（discriminated union） |
 | 4 | **清晰的状态分层** | Zustand 将状态拆分为三个职责明确的 store：`appStore`（业务逻辑）、`useViewStore`（视口/缩放）、`useThemeStore`（主题） |
