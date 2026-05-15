@@ -9,7 +9,7 @@ const I = {
   pen: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>,
   eraser: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 20H7L3 16l9-9 8 8-4 4z"/><path d="M6 11l4-4"/></svg>,
   pan: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>,
-  rect: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>,
+  rect: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/></svg>,
   circle: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/></svg>,
   text: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>,
   line: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="5" y1="19" x2="19" y2="5"/></svg>,
@@ -54,17 +54,17 @@ const BRUSHES: { id: BrushType; label: string; desc: string }[] = [
   { id: 'glow', label: '霓虹笔', desc: '发光效果' },
 ]
 
-const COLORS = ['#2c2416', '#c45a5a', '#c47a3a', '#b8963a', '#6a9c5a', '#5a8a9c', '#8a6a9c', '#9c5a7a']
+const COLORS = [
+  '#3A2E22', '#C07856', '#B8A0D0', '#D49898',
+  '#90B888', '#90B4D0', '#D0B888', '#A8CCE0',
+]
 const SIZES = [{ value: 2, dot: 4 }, { value: 4, dot: 6 }, { value: 8, dot: 9 }, { value: 16, dot: 13 }]
 
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.style.display = 'none'
-  document.body.appendChild(a)
-  a.click()
+  a.href = url; a.download = filename; a.style.display = 'none'
+  document.body.appendChild(a); a.click()
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 200)
 }
 function ts() { return new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-') }
@@ -117,7 +117,7 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
   }
   const exportPNG = async () => {
     const c = getCanvas(); if (!c) return alert('画布未就绪')
-    const b = await exportBlob(c, isDarkMode ? '#1a1610' : '#fff', 'image/png')
+    const b = await exportBlob(c, isDarkMode ? '#1C1A24' : '#fff', 'image/png')
     if (b) download(b, `mindnotes-${ts()}.png`); else alert('PNG 导出失败')
   }
   const exportJPG = async () => {
@@ -127,25 +127,25 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
   }
   const exportPDF = async () => {
     const c = getCanvas(); if (!c) return alert('画布未就绪')
-    const t = withBg(c, isDarkMode ? '#1a1610' : '#fff')
+    const t = withBg(c, isDarkMode ? '#1C1A24' : '#fff')
     const { jsPDF } = await import('jspdf')
     const p = new jsPDF({ orientation: t.width > t.height ? 'landscape' : 'portrait', unit: 'px', format: [t.width, t.height] })
     p.addImage(t.toDataURL('image/png'), 'PNG', 0, 0, t.width, t.height); p.save(`mindnotes-${ts()}.pdf`)
   }
   const exportSVG = () => {
     const c = getCanvas(); if (!c) return alert('画布未就绪')
-    const dpr = window.devicePixelRatio || 1; const lw = Math.round(c.width / dpr), lh = Math.round(c.height / dpr); const bg = isDarkMode ? '#1a1610' : '#fff'
+    const dpr = window.devicePixelRatio || 1; const lw = Math.round(c.width / dpr), lh = Math.round(c.height / dpr); const bg = isDarkMode ? '#1C1A24' : '#fff'
     let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${lw}" height="${lh}"><rect width="100%" height="100%" fill="${bg}"/>\n`
     for (const el of elements) {
       if (el.type === 'stroke' && el.points.length >= 2) { let d = `M${el.points[0][0]} ${el.points[0][1]}`; for (let i = 1; i < el.points.length; i++) d += `L${el.points[i][0]} ${el.points[i][1]}`; s += `<path d="${d}" stroke="${el.color}" stroke-width="${el.size}" fill="none" stroke-linecap="round"/>\n` }
-      else if (el.type === 'shape') { if (el.kind === 'rectangle') s += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" stroke="${el.color}" stroke-width="${el.size}" fill="none"/>\n`; else if (el.kind === 'circle') s += `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" stroke="${el.color}" stroke-width="${el.size}" fill="none"/>\n`; else s += `<line x1="${el.x}" y1="${el.y}" x2="${el.x + el.w}" y2="${el.y + el.h}" stroke="${el.color}" stroke-width="${el.size}"/>\n` }
+      else if (el.type === 'shape') { if (el.kind === 'rectangle') s += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" stroke="${el.color}" stroke-width="${el.size}" fill="none" rx="3"/>\n`; else if (el.kind === 'circle') s += `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" stroke="${el.color}" stroke-width="${el.size}" fill="none"/>\n`; else s += `<line x1="${el.x}" y1="${el.y}" x2="${el.x + el.w}" y2="${el.y + el.h}" stroke="${el.color}" stroke-width="${el.size}"/>\n` }
       else if (el.type === 'text') { s += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${el.color}" font-size="${el.fontSize}" font-family="sans-serif">${el.content.replace(/\n/g, ' ')}</text>\n` }
     }
     s += '</svg>'; download(new Blob([s], { type: 'image/svg+xml' }), `mindnotes-${ts()}.svg`)
   }
   const exportWord = async () => {
     const c = getCanvas(); if (!c) return alert('画布未就绪')
-    const t = withBg(c, isDarkMode ? '#1a1610' : '#fff')
+    const t = withBg(c, isDarkMode ? '#1C1A24' : '#fff')
     const d = t.toDataURL('image/png')
     const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset="utf-8"><style>body{font-family:sans-serif}img{max-width:100%}</style></head><body><h1>MindNotes Pro</h1><p>导出时间：${new Date().toLocaleString('zh-CN')}</p><p><img src="${d}" width="${t.width}" height="${t.height}"/></p></body></html>`
     download(new Blob([h], { type: 'application/msword' }), `mindnotes-${ts()}.doc`)
@@ -166,8 +166,7 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
         } else { alert('文件格式不正确') }
       } catch { alert('无法解析文件') }
     }
-    r.readAsText(f)
-    e.target.value = ''
+    r.readAsText(f); e.target.value = ''
   }
 
   const importImage = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,16 +180,15 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
         const maxW = c.width * 0.6, maxH = c.height * 0.6
         const scale = Math.min(maxW / img.width, maxH / img.height, 1)
         const w = img.width * scale, h = img.height * scale
-        const viewBox = useViewStore.getState().viewBox
-        const x = (c.width / 2 - w / 2) / viewBox.zoom + viewBox.x
-        const y = (c.height / 2 - h / 2) / viewBox.zoom + viewBox.y
+        const vb = useViewStore.getState().viewBox
+        const x = (c.width / 2 - w / 2) / vb.zoom + vb.x
+        const y = (c.height / 2 - h / 2) / vb.zoom + vb.y
         addElement({ type: 'image', id: `img-${Date.now()}`, x, y, width: w, height: h, dataUrl })
       }
       img.onerror = () => { alert('图片加载失败') }
       img.src = dataUrl
     }
-    r.readAsDataURL(f)
-    e.target.value = ''
+    r.readAsDataURL(f); e.target.value = ''
   }
 
   const toggleFullscreen = () => {
@@ -209,14 +207,12 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
 
   return (
     <>
-      {/* 品牌 */}
       <div className="brand">
         <div className="brand-icon">M</div>
         <span className="brand-text">MindNotes</span>
         <span className="brand-ver">v2.1</span>
       </div>
 
-      {/* 左侧工具栏: 工具 + 形状 + 操作 */}
       <div className="sidebar panel">
         <div className="sb-group">
           {TOOLS.map((t) => (
@@ -257,7 +253,6 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
         </div>
       </div>
 
-      {/* 顶部属性栏: 笔型 + 颜色 + 线宽 + 背景 + 导出 */}
       <div className="topbar panel">
         {tool === 'pen' && (
           <>
@@ -296,7 +291,7 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
         <div className="tb-sep" />
 
         <button onClick={() => bgRef.current?.click()} className="abtn" data-tip="背景色">
-          <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: 3, background: canvasBg, border: '1.5px solid var(--border)' }} />
+          <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: 4, background: canvasBg, border: '1.5px solid var(--border)' }} />
         </button>
 
         <div className="tb-sep" />
@@ -318,7 +313,6 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
         </button>
       </div>
 
-      {/* 导出下拉 (根级, 避免 backdrop-filter 裁剪 fixed 定位) */}
       {showExport && (
         <div className="panel" style={{ position: 'fixed', top: exportPos.top, right: exportPos.right, minWidth: '200px', padding: '5px', zIndex: 100, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
           {EXPORTS.map((item) => (
@@ -338,7 +332,6 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
         </div>
       )}
 
-      {/* 笔型下拉 */}
       {showBrush && (
         <div className="panel" style={{ position: 'fixed', top: brushPos.top, left: brushPos.left, minWidth: '200px', padding: '5px', zIndex: 100, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
           {BRUSHES.map((b) => (
@@ -358,7 +351,6 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
       {showExport && <div className="fixed inset-0" style={{ zIndex: 5 }} onClick={() => setShowExport(false)} />}
       {showBrush && <div className="fixed inset-0" style={{ zIndex: 5 }} onClick={() => setShowBrush(false)} />}
 
-      {/* 文件输入 (全局, 不受 overflow 裁剪) */}
       <input ref={fileRef} type="file" accept=".json" onChange={importJSON}
         style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }} />
       <input ref={imgRef} type="file" accept="image/*" onChange={importImage}
