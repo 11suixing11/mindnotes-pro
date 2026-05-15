@@ -2,6 +2,8 @@ import React, { useRef, useState } from 'react'
 import { useAppStore } from '../store/appStore'
 import { useViewStore } from '../store/useViewStore'
 import { useThemeStore } from '../store/useThemeStore'
+import { useToastStore } from '../store/toastStore'
+import ExportMenu from './ExportMenu'
 import type { ToolType, BrushType } from '../store/types'
 
 const I = {
@@ -21,9 +23,6 @@ const I = {
   moon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>,
   zoomIn: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>,
   zoomOut: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>,
-  reset: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>,
-  download: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-  bg: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>,
   image: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
   clear: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
   file: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
@@ -60,30 +59,24 @@ const COLORS = [
 ]
 const SIZES = [{ value: 2, dot: 4 }, { value: 4, dot: 6 }, { value: 8, dot: 9 }, { value: 16, dot: 13 }]
 
-function download(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = filename; a.style.display = 'none'
-  document.body.appendChild(a); a.click()
-  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 200)
-}
-function ts() { return new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-') }
 function getCanvas() { return document.querySelector('canvas') }
 
-export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void }) {
+export default function Toolbar() {
+  const toast = useToastStore((s) => s.show)
   const tool = useAppStore((s) => s.tool)
   const setTool = useAppStore((s) => s.setTool)
   const brush = useAppStore((s) => s.brush)
   const setBrush = useAppStore((s) => s.setBrush)
   const color = useAppStore((s) => s.color)
   const setColor = useAppStore((s) => s.setColor)
+  const fillColor = useAppStore((s) => s.fillColor)
+  const setFillColor = useAppStore((s) => s.setFillColor)
   const size = useAppStore((s) => s.size)
   const setSize = useAppStore((s) => s.setSize)
   const canvasBg = useAppStore((s) => s.bgColor)
   const setCanvasBg = useAppStore((s) => s.setBgColor)
   const clearAll = useAppStore((s) => s.clearAll)
   const addElement = useAppStore((s) => s.addElement)
-  const elements = useAppStore((s) => s.elements)
   const undo = useAppStore((s) => s.undo)
   const redo = useAppStore((s) => s.redo)
   const undoLen = useAppStore((s) => s.undoStack.length)
@@ -93,81 +86,13 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
   const resetView = useViewStore((s) => s.resetView)
   const zoom = useViewStore((s) => s.viewBox.zoom)
   const { isDarkMode, toggleTheme } = useThemeStore()
-  const fileRef = useRef<HTMLInputElement>(null)
   const imgRef = useRef<HTMLInputElement>(null)
   const colorRef = useRef<HTMLInputElement>(null)
+  const fillColorRef = useRef<HTMLInputElement>(null)
   const bgRef = useRef<HTMLInputElement>(null)
-  const [showExport, setShowExport] = useState(false)
   const [showBrush, setShowBrush] = useState(false)
   const [brushPos, setBrushPos] = useState({ top: 0, left: 0 })
-  const [exportPos, setExportPos] = useState({ top: 0, right: 0 })
   const brushBtnRef = useRef<HTMLButtonElement>(null)
-  const exportBtnRef = useRef<HTMLButtonElement>(null)
-
-  const withBg = (c: HTMLCanvasElement, bg: string) => {
-    const dpr = window.devicePixelRatio || 1
-    const w = Math.round(c.width / dpr), h = Math.round(c.height / dpr)
-    const t = document.createElement('canvas'); t.width = w; t.height = h
-    const ctx = t.getContext('2d')!; ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h); ctx.drawImage(c, 0, 0, c.width, c.height, 0, 0, w, h); return t
-  }
-  const exportBlob = (c: HTMLCanvasElement, bg: string, mime: string, quality?: number): Promise<Blob | null> => {
-    return new Promise((resolve) => {
-      try { withBg(c, bg).toBlob(b => resolve(b), mime, quality) } catch { resolve(null) }
-    })
-  }
-  const exportPNG = async () => {
-    const c = getCanvas(); if (!c) return alert('画布未就绪')
-    const b = await exportBlob(c, isDarkMode ? '#1C1A24' : '#fff', 'image/png')
-    if (b) download(b, `mindnotes-${ts()}.png`); else alert('PNG 导出失败')
-  }
-  const exportJPG = async () => {
-    const c = getCanvas(); if (!c) return alert('画布未就绪')
-    const b = await exportBlob(c, '#fff', 'image/jpeg', 0.92)
-    if (b) download(b, `mindnotes-${ts()}.jpg`); else alert('JPG 导出失败')
-  }
-  const exportPDF = async () => {
-    const c = getCanvas(); if (!c) return alert('画布未就绪')
-    const t = withBg(c, isDarkMode ? '#1C1A24' : '#fff')
-    const { jsPDF } = await import('jspdf')
-    const p = new jsPDF({ orientation: t.width > t.height ? 'landscape' : 'portrait', unit: 'px', format: [t.width, t.height] })
-    p.addImage(t.toDataURL('image/png'), 'PNG', 0, 0, t.width, t.height); p.save(`mindnotes-${ts()}.pdf`)
-  }
-  const exportSVG = () => {
-    const c = getCanvas(); if (!c) return alert('画布未就绪')
-    const dpr = window.devicePixelRatio || 1; const lw = Math.round(c.width / dpr), lh = Math.round(c.height / dpr); const bg = isDarkMode ? '#1C1A24' : '#fff'
-    let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${lw}" height="${lh}"><rect width="100%" height="100%" fill="${bg}"/>\n`
-    for (const el of elements) {
-      if (el.type === 'stroke' && el.points.length >= 2) { let d = `M${el.points[0][0]} ${el.points[0][1]}`; for (let i = 1; i < el.points.length; i++) d += `L${el.points[i][0]} ${el.points[i][1]}`; s += `<path d="${d}" stroke="${el.color}" stroke-width="${el.size}" fill="none" stroke-linecap="round"/>\n` }
-      else if (el.type === 'shape') { if (el.kind === 'rectangle') s += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" stroke="${el.color}" stroke-width="${el.size}" fill="none" rx="3"/>\n`; else if (el.kind === 'circle') s += `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" stroke="${el.color}" stroke-width="${el.size}" fill="none"/>\n`; else s += `<line x1="${el.x}" y1="${el.y}" x2="${el.x + el.w}" y2="${el.y + el.h}" stroke="${el.color}" stroke-width="${el.size}"/>\n` }
-      else if (el.type === 'text') { s += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${el.color}" font-size="${el.fontSize}" font-family="sans-serif">${el.content.replace(/\n/g, ' ')}</text>\n` }
-    }
-    s += '</svg>'; download(new Blob([s], { type: 'image/svg+xml' }), `mindnotes-${ts()}.svg`)
-  }
-  const exportWord = async () => {
-    const c = getCanvas(); if (!c) return alert('画布未就绪')
-    const t = withBg(c, isDarkMode ? '#1C1A24' : '#fff')
-    const d = t.toDataURL('image/png')
-    const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset="utf-8"><style>body{font-family:sans-serif}img{max-width:100%}</style></head><body><h1>MindNotes Pro</h1><p>导出时间：${new Date().toLocaleString('zh-CN')}</p><p><img src="${d}" width="${t.width}" height="${t.height}"/></p></body></html>`
-    download(new Blob([h], { type: 'application/msword' }), `mindnotes-${ts()}.doc`)
-  }
-  const exportJSON = () => download(new Blob([JSON.stringify({ elements, version: 2 }, null, 2)], { type: 'application/json' }), `mindnotes-${ts()}.json`)
-  const importJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]; if (!f) return
-    const r = new FileReader()
-    r.onload = () => {
-      try {
-        const d = JSON.parse(r.result as string)
-        if (d.elements) { useAppStore.getState().addElements(d.elements) }
-        else if (d.strokes || d.shapes) {
-          const els: any[] = []
-          for (const s of d.strokes ?? []) { if (s.imageData) els.push({ type: 'image', id: s.id, x: s.points[0][0], y: s.points[0][1], width: s.imageWidth ?? 200, height: s.imageHeight ?? 200, dataUrl: s.imageData }); else if (s.name) els.push({ type: 'text', id: s.id, x: s.points[0][0], y: s.points[0][1], width: 200, height: 30, content: s.name, fontSize: 16, color: s.color }); else els.push({ type: 'stroke', id: s.id, points: s.points, color: s.color, size: s.size, brush: s.brush ?? 'pen' }) }
-          for (const s of d.shapes ?? []) { if (s.type === 'text') continue; const sx = s.startX ?? s.x, sy = s.startY ?? s.y, ex = s.endX ?? s.x + s.width, ey = s.endY ?? s.y + s.height; els.push({ type: 'shape', id: s.id, kind: s.type, x: Math.min(sx, ex), y: Math.min(sy, ey), w: Math.abs(ex - sx), h: Math.abs(ey - sy), color: s.color, size: s.size }) }
-          useAppStore.getState().addElements(els)
-        } else { alert('文件格式不正确') }
-      } catch { alert('无法解析文件') }
-    }
-    r.readAsText(f); e.target.value = ''
-  }
 
   const importImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return
@@ -185,7 +110,7 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
         const y = (c.height / 2 - h / 2) / vb.zoom + vb.y
         addElement({ type: 'image', id: `img-${Date.now()}`, x, y, width: w, height: h, dataUrl })
       }
-      img.onerror = () => { alert('图片加载失败') }
+      img.onerror = () => { toast('图片加载失败', 'error') }
       img.src = dataUrl
     }
     r.readAsDataURL(f); e.target.value = ''
@@ -195,15 +120,6 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
     if (!document.fullscreenElement) document.documentElement.requestFullscreen()
     else document.exitFullscreen()
   }
-
-  const EXPORTS = [
-    { icon: I.image, label: 'PNG 图片', desc: '透明背景', action: exportPNG },
-    { icon: I.image, label: 'JPG 图片', desc: '白色背景', action: exportJPG },
-    { icon: I.file, label: 'PDF 文档', desc: '自适应版式', action: exportPDF },
-    { icon: I.image, label: 'SVG 矢量', desc: '无损缩放', action: exportSVG },
-    { icon: I.file, label: 'Word 文档', desc: '嵌入截图', action: exportWord },
-    { icon: I.download, label: 'JSON 数据', desc: '完整备份', action: exportJSON },
-  ]
 
   return (
     <>
@@ -249,7 +165,6 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
           </button>
           <button onClick={zoomOut} className="abtn" data-tip="缩小">{I.zoomOut}</button>
           <button onClick={toggleTheme} className="abtn" data-tip={isDarkMode ? '浅色' : '深色'}>{isDarkMode ? I.sun : I.moon}</button>
-          {onToggleDocs && <button onClick={onToggleDocs} className="abtn" data-tip="画布列表">{I.file}</button>}
         </div>
       </div>
 
@@ -294,6 +209,32 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
           <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: 4, background: canvasBg, border: '1.5px solid var(--border)' }} />
         </button>
 
+        {(tool === 'rectangle' || tool === 'circle') && (
+          <>
+            <button onClick={() => {
+              const next = fillColor === 'transparent' ? color : 'transparent'
+              setFillColor(next)
+            }} className="abtn" data-tip={fillColor === 'transparent' ? '无填充' : '有填充'}>
+              <span style={{
+                display: 'inline-block', width: 14, height: 14, borderRadius: 4,
+                background: fillColor === 'transparent' ? 'transparent' : fillColor,
+                border: '1.5px solid var(--border)',
+                position: 'relative', overflow: 'hidden',
+              }}>
+                {fillColor === 'transparent' && (
+                  <span style={{
+                    position: 'absolute', top: '50%', left: -2, right: -2, height: 1.5,
+                    background: 'var(--danger)', transform: 'rotate(-45deg)',
+                  }} />
+                )}
+              </span>
+            </button>
+            <button onClick={() => fillColorRef.current?.click()} className="abtn" data-tip="填充色">
+              <span style={{ fontSize: '10px', color: 'var(--text-4)' }}>填</span>
+            </button>
+          </>
+        )}
+
         <div className="tb-sep" />
 
         <button onClick={() => imgRef.current?.click()} className="abtn" data-tip="插入图片">{I.image}</button>
@@ -304,33 +245,8 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
 
         <div className="tb-sep" />
 
-        <button ref={exportBtnRef} onClick={() => {
-          if (!showExport && exportBtnRef.current) { const r = exportBtnRef.current.getBoundingClientRect(); setExportPos({ top: r.bottom + 8, right: window.innerWidth - r.right }) }
-          setShowExport(!showExport)
-        }} className="pill-btn primary">
-          {I.download}
-          <span>导出</span>
-        </button>
+        <ExportMenu />
       </div>
-
-      {showExport && (
-        <div className="panel" style={{ position: 'fixed', top: exportPos.top, right: exportPos.right, minWidth: '200px', padding: '5px', zIndex: 100, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
-          {EXPORTS.map((item) => (
-            <button key={item.label} onClick={() => { item.action(); setShowExport(false) }} className="ditem">
-              <span className="di" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</span>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span className="dl">{item.label}</span>
-                <span className="dd">{item.desc}</span>
-              </div>
-            </button>
-          ))}
-          <div className="dsep" />
-          <button onClick={() => { fileRef.current?.click(); setShowExport(false) }} className="ditem">
-            <span className="di" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{I.file}</span>
-            <span className="dl">导入 JSON</span>
-          </button>
-        </div>
-      )}
 
       {showBrush && (
         <div className="panel" style={{ position: 'fixed', top: brushPos.top, left: brushPos.left, minWidth: '200px', padding: '5px', zIndex: 100, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
@@ -348,14 +264,13 @@ export default function Toolbar({ onToggleDocs }: { onToggleDocs?: () => void })
         </div>
       )}
 
-      {showExport && <div className="fixed inset-0" style={{ zIndex: 5 }} onClick={() => setShowExport(false)} />}
       {showBrush && <div className="fixed inset-0" style={{ zIndex: 5 }} onClick={() => setShowBrush(false)} />}
 
-      <input ref={fileRef} type="file" accept=".json" onChange={importJSON}
-        style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }} />
       <input ref={imgRef} type="file" accept="image/*" onChange={importImage}
         style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }} />
       <input ref={colorRef} type="color" value={color} onChange={(e) => setColor(e.target.value)}
+        style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }} />
+      <input ref={fillColorRef} type="color" value={fillColor === 'transparent' ? '#ffffff' : fillColor} onChange={(e) => setFillColor(e.target.value)}
         style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }} />
       <input ref={bgRef} type="color" value={canvasBg} onChange={(e) => setCanvasBg(e.target.value)}
         style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }} />

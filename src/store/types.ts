@@ -22,6 +22,7 @@ export interface ShapeElement {
   h: number
   color: string
   size: number
+  fillColor?: string
 }
 
 export interface TextElement {

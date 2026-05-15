@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAppStore } from '../store/appStore'
+import CanvasPreview from './CanvasPreview'
 import type { CanvasDoc, CanvasFolder } from '../store/types'
 
 const sidebarBtnStyle: React.CSSProperties = {
@@ -13,6 +14,7 @@ const sidebarBtnStyle: React.CSSProperties = {
 
 export default function Sidebar() {
   const docs = useAppStore((s) => s.docs)
+  const liveElements = useAppStore((s) => s.elements)
   const folders = useAppStore((s) => s.folders)
   const currentDocId = useAppStore((s) => s.currentDocId)
   const sidebarOpen = useAppStore((s) => s.sidebarOpen)
@@ -55,9 +57,7 @@ export default function Sidebar() {
 
   const renderDoc = (doc: CanvasDoc) => {
     const isActive = doc.id === currentDocId
-    const elCount = doc.elements.length
-    const dotColors = ['var(--monet-lavender)', 'var(--monet-rose)', 'var(--monet-sage)', 'var(--monet-sky)', 'var(--monet-gold)']
-    const dotColor = dotColors[Math.abs(hashCode(doc.id)) % dotColors.length]
+    const previewElements = isActive ? liveElements : doc.elements
     return (
       <div key={doc.id} onClick={() => openDoc(doc.id)} onContextMenu={(e) => handleContext(e, 'doc', doc.id)}
         style={{
@@ -69,15 +69,7 @@ export default function Sidebar() {
         }}
         onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--primary-bg)' }}
         onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = '' }}>
-        <div style={{
-          width: 28, height: 28, borderRadius: 8,
-          background: isActive ? 'var(--primary)' : dotColor,
-          opacity: isActive ? 1 : 0.2,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: isActive ? '#fff' : 'var(--text-3)',
-          fontSize: 11, fontWeight: 700, flexShrink: 0,
-          transition: 'all 0.18s ease',
-        }}>{elCount || '—'}</div>
+        <CanvasPreview elements={previewElements} width={40} height={28} bgColor={isActive ? 'var(--primary-bg)' : 'var(--canvas)'} />
         {renamingId === doc.id ? (
           <input autoFocus value={renameVal} onChange={(e) => setRenameVal(e.target.value)} onBlur={() => handleRename(doc.id, 'doc')} onKeyDown={(e) => { if (e.key === 'Enter') handleRename(doc.id, 'doc'); if (e.key === 'Escape') setRenamingId(null) }} onClick={(e) => e.stopPropagation()} style={{ flex: 1, border: '1px solid var(--primary)', borderRadius: 6, padding: '2px 6px', fontSize: 12, background: 'var(--card)', color: 'var(--text)', outline: 'none' }} />
         ) : (
@@ -191,12 +183,6 @@ export default function Sidebar() {
       )}
     </>
   )
-}
-
-function hashCode(s: string): number {
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
-  return h
 }
 
 const ctxStyle: React.CSSProperties = {
