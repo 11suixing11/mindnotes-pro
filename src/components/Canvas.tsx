@@ -146,7 +146,7 @@ export default function Canvas() {
   }
 
   function eraseAt(x: number, y: number) {
-    const r = size * 2 + 10
+    const r = sizeRef.current * 2 + 10
     const r2 = r * r
     const state = useAppStore.getState()
     for (const el of state.elements) {
