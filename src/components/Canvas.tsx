@@ -623,8 +623,13 @@ export default function Canvas() {
 
   const handleStart = useCallback((e: MouseEvent | TouchEvent) => {
     e.preventDefault(); const pos = getPos(e)
-    if (tool === 'pan') { const cx = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX; const cy = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY; startPan(cx, cy); return }
-    if (tool === 'select') {
+    const curTool = toolRef.current
+    const curColor = colorRef2.current
+    const curSize = sizeRef.current
+    const curFillColor = fillColorRef2.current
+    const curViewBox = viewBoxRef.current
+    if (curTool === 'pan') { const cx = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX; const cy = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY; startPan(cx, cy); return }
+    if (curTool === 'select') {
       const h = hitHandle(pos.x, pos.y)
       if (h) {
         const el = useAppStore.getState().elements.find((e) => e.id === h.id)
@@ -635,41 +640,39 @@ export default function Canvas() {
       if (hit) {
         const st = useAppStore.getState()
         if (st.selectedIds.includes(hit)) {
-          // clicked on already-selected element: start dragging all selected
           dragRef.current = { x: pos.x, y: pos.y, id: hit }
         } else {
-          // clicked on unselected element: select only it
           setSelectedIds([hit])
           dragRef.current = { x: pos.x, y: pos.y, id: hit }
         }
         scheduleRedraw(); return
       }
-      // clicked on empty space: start marquee selection
       marqueeRef.current = { startX: pos.x, startY: pos.y, endX: pos.x, endY: pos.y }
       setSelectedIds([])
       scheduleRedraw(); return
     }
-    if (tool === 'text') {
+    if (curTool === 'text') {
       const rect = canvasRef.current?.getBoundingClientRect()
       if (rect) {
-        const screenX = (pos.x - viewBox.x) * viewBox.zoom + rect.left
-        const screenY = (pos.y - viewBox.y) * viewBox.zoom + rect.top
+        const screenX = (pos.x - curViewBox.x) * curViewBox.zoom + rect.left
+        const screenY = (pos.y - curViewBox.y) * curViewBox.zoom + rect.top
         const hitEl = hitTest(pos.x, pos.y)
-        const existing = hitEl ? elements.find((e) => e.id === hitEl && e.type === 'text') as TextElement | undefined : undefined
-        if (existing) { setEditingText({ id: existing.id, x: existing.x, y: existing.y, screenX: (existing.x - viewBox.x) * viewBox.zoom + rect.left, screenY: (existing.y - viewBox.y) * viewBox.zoom + rect.top, content: existing.content, fontSize: existing.fontSize, color: existing.color }); setTimeout(() => textRef.current?.focus(), 50) }
-        else { setEditingText({ id: `new-${Date.now()}`, x: pos.x, y: pos.y, screenX, screenY, content: '', fontSize: 16, color }); setTimeout(() => textRef.current?.focus(), 50) }
+        const existing = hitEl ? useAppStore.getState().elements.find((e) => e.id === hitEl && e.type === 'text') as TextElement | undefined : undefined
+        if (existing) { setEditingText({ id: existing.id, x: existing.x, y: existing.y, screenX: (existing.x - curViewBox.x) * curViewBox.zoom + rect.left, screenY: (existing.y - curViewBox.y) * curViewBox.zoom + rect.top, content: existing.content, fontSize: existing.fontSize, color: existing.color }); setTimeout(() => textRef.current?.focus(), 50) }
+        else { setEditingText({ id: `new-${Date.now()}`, x: pos.x, y: pos.y, screenX, screenY, content: '', fontSize: 16, color: curColor }); setTimeout(() => textRef.current?.focus(), 50) }
       }
       return
     }
     drawingRef.current = true; erasedRef.current = new Set()
-    if (tool === 'pen') currentPtsRef.current = [[pos.x, pos.y]]
-    else if (tool === 'eraser') eraseAt(pos.x, pos.y)
-    else { shapeStartRef.current = pos; currentShapeRef.current = { type: 'shape', id: `shape-${Date.now()}`, kind: tool as ShapeKind, x: pos.x, y: pos.y, w: 0, h: 0, color, size, fillColor: fillColor !== 'transparent' ? fillColor : undefined } }
-  }, [tool, color, size, getPos, startPan, setSelectedIds, scheduleRedraw, viewBox, elements])
+    if (curTool === 'pen') currentPtsRef.current = [[pos.x, pos.y]]
+    else if (curTool === 'eraser') eraseAt(pos.x, pos.y)
+    else { shapeStartRef.current = pos; currentShapeRef.current = { type: 'shape', id: `shape-${Date.now()}`, kind: curTool as ShapeKind, x: pos.x, y: pos.y, w: 0, h: 0, color: curColor, size: curSize, fillColor: curFillColor !== 'transparent' ? curFillColor : undefined } }
+  }, [getPos, startPan, setSelectedIds, scheduleRedraw])
 
   const handleMove = useCallback((e: MouseEvent | TouchEvent) => {
     e.preventDefault(); const pos = getPos(e); mouseRef.current = pos
-    if (tool === 'select' && resizeRef.current) {
+    const curTool = toolRef.current
+    if (curTool === 'select' && resizeRef.current) {
       const { handle, id, startX, startY, origBounds } = resizeRef.current
       const ob = origBounds
       const anchors: [number, number][] = [[ob.x + ob.w, ob.y + ob.h], [ob.x, ob.y + ob.h], [ob.x + ob.w, ob.y], [ob.x, ob.y]]
@@ -684,11 +687,11 @@ export default function Canvas() {
       resizeElementById(id, ax, ay, nsx, nsy)
       scheduleRedraw(); return
     }
-    if (tool === 'select' && marqueeRef.current) {
+    if (curTool === 'select' && marqueeRef.current) {
       marqueeRef.current = { ...marqueeRef.current, endX: pos.x, endY: pos.y }
       scheduleRedraw(); return
     }
-    if (tool === 'select' && dragRef.current) {
+    if (curTool === 'select' && dragRef.current) {
       let dx = pos.x - dragRef.current.x, dy = pos.y - dragRef.current.y
       const st = useAppStore.getState()
       const ids = st.selectedIds.length > 0 ? st.selectedIds : [dragRef.current.id]
@@ -714,10 +717,10 @@ export default function Canvas() {
       dragRef.current = { x: pos.x + snap.dx, y: pos.y + snap.dy, id: dragRef.current.id }
       scheduleRedraw(); return
     }
-    if (tool === 'pan' && isPanning) { const cx = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX; const cy = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY; updatePan(cx, cy); scheduleRedraw(); return }
-    if (tool === 'eraser') { if (drawingRef.current) eraseAt(pos.x, pos.y); scheduleRedraw(); return }
+    if (curTool === 'pan' && isPanning) { const cx = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX; const cy = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY; updatePan(cx, cy); scheduleRedraw(); return }
+    if (curTool === 'eraser') { if (drawingRef.current) eraseAt(pos.x, pos.y); scheduleRedraw(); return }
     if (!drawingRef.current) return
-    if (tool === 'pen') currentPtsRef.current.push([pos.x, pos.y])
+    if (curTool === 'pen') currentPtsRef.current.push([pos.x, pos.y])
     else if (shapeStartRef.current && currentShapeRef.current) {
       let w = pos.x - shapeStartRef.current.x, h = pos.y - shapeStartRef.current.y
       const shift = 'shiftKey' in e && (e as MouseEvent).shiftKey
@@ -729,11 +732,15 @@ export default function Canvas() {
       currentShapeRef.current = { ...currentShapeRef.current, w, h }
     }
     scheduleRedraw()
-  }, [tool, isPanning, getPos, updatePan, scheduleRedraw, moveElementById, resizeElementById])
+  }, [getPos, isPanning, updatePan, scheduleRedraw, moveElementById, resizeElementById])
 
   const handleEnd = useCallback((e: MouseEvent | TouchEvent) => {
     e.preventDefault()
-    if (tool === 'select') {
+    const curTool = toolRef.current
+    const curColor = colorRef2.current
+    const curSize = sizeRef.current
+    const curBrush = brushRef.current
+    if (curTool === 'select') {
       if (marqueeRef.current) {
         const m = marqueeRef.current
         const x1 = Math.min(m.startX, m.endX), y1 = Math.min(m.startY, m.endY)
@@ -753,13 +760,13 @@ export default function Canvas() {
       }
       dragRef.current = null; resizeRef.current = null; snapLinesRef.current = { x: [], y: [] }; scheduleRedraw(); return
     }
-    if (tool === 'pan') { endPan(); return }
+    if (curTool === 'pan') { endPan(); return }
     if (!drawingRef.current) return; drawingRef.current = false
-    if (tool === 'pen') { if (currentPtsRef.current.length > 1) addElement({ type: 'stroke', id: `stroke-${Date.now()}`, points: simplifyPts(currentPtsRef.current, 2), color, size, brush }); currentPtsRef.current = [] }
-    else if (tool === 'eraser') currentPtsRef.current = []
+    if (curTool === 'pen') { if (currentPtsRef.current.length > 1) addElement({ type: 'stroke', id: `stroke-${Date.now()}`, points: simplifyPts(currentPtsRef.current, 2), color: curColor, size: curSize, brush: curBrush }); currentPtsRef.current = [] }
+    else if (curTool === 'eraser') currentPtsRef.current = []
     else if (currentShapeRef.current) { if (Math.abs(currentShapeRef.current.w) > 2 || Math.abs(currentShapeRef.current.h) > 2) addElement(currentShapeRef.current); currentShapeRef.current = null; shapeStartRef.current = null }
     scheduleRedraw()
-  }, [tool, color, size, brush, addElement, endPan, scheduleRedraw])
+  }, [addElement, endPan, setSelectedIds, scheduleRedraw])
 
   useEffect(() => {
     const handleResize = () => setCanvasSize({ w: window.innerWidth, h: window.innerHeight })
