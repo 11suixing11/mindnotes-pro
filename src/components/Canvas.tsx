@@ -664,9 +664,9 @@ export default function Canvas() {
       return
     }
     drawingRef.current = true; erasedRef.current = new Set()
-    if (curTool === 'pen') currentPtsRef.current = [[pos.x, pos.y]]
+    if (curTool === 'pen') { currentPtsRef.current = [[pos.x, pos.y]]; console.log('[draw] pen start', pos) }
     else if (curTool === 'eraser') eraseAt(pos.x, pos.y)
-    else { shapeStartRef.current = pos; currentShapeRef.current = { type: 'shape', id: `shape-${Date.now()}`, kind: curTool as ShapeKind, x: pos.x, y: pos.y, w: 0, h: 0, color: curColor, size: curSize, fillColor: curFillColor !== 'transparent' ? curFillColor : undefined } }
+    else { shapeStartRef.current = pos; currentShapeRef.current = { type: 'shape', id: `shape-${Date.now()}`, kind: curTool as ShapeKind, x: pos.x, y: pos.y, w: 0, h: 0, color: curColor, size: curSize, fillColor: curFillColor !== 'transparent' ? curFillColor : undefined }; console.log('[draw] shape start', curTool) }
   }, [getPos, startPan, setSelectedIds, scheduleRedraw])
 
   const handleMove = useCallback((e: MouseEvent | TouchEvent) => {
@@ -736,10 +736,18 @@ export default function Canvas() {
 
   const handleEnd = useCallback((e: MouseEvent | TouchEvent) => {
     e.preventDefault()
-    const curTool = toolRef.current
     const curColor = colorRef2.current
     const curSize = sizeRef.current
     const curBrush = brushRef.current
+    if (drawingRef.current) {
+      drawingRef.current = false
+      const curTool = toolRef.current
+      if (curTool === 'pen') { if (currentPtsRef.current.length > 1) { addElement({ type: 'stroke', id: `stroke-${Date.now()}`, points: simplifyPts(currentPtsRef.current, 2), color: curColor, size: curSize, brush: curBrush }); console.log('[draw] pen saved', currentPtsRef.current.length, 'points') } else { console.log('[draw] pen too short', currentPtsRef.current.length) } currentPtsRef.current = [] }
+      else if (curTool === 'eraser') currentPtsRef.current = []
+      else if (currentShapeRef.current) { if (Math.abs(currentShapeRef.current.w) > 2 || Math.abs(currentShapeRef.current.h) > 2) addElement(currentShapeRef.current); currentShapeRef.current = null; shapeStartRef.current = null }
+      scheduleRedraw(); return
+    }
+    const curTool = toolRef.current
     if (curTool === 'select') {
       if (marqueeRef.current) {
         const m = marqueeRef.current
@@ -761,11 +769,6 @@ export default function Canvas() {
       dragRef.current = null; resizeRef.current = null; snapLinesRef.current = { x: [], y: [] }; scheduleRedraw(); return
     }
     if (curTool === 'pan') { endPan(); return }
-    if (!drawingRef.current) return; drawingRef.current = false
-    if (curTool === 'pen') { if (currentPtsRef.current.length > 1) addElement({ type: 'stroke', id: `stroke-${Date.now()}`, points: simplifyPts(currentPtsRef.current, 2), color: curColor, size: curSize, brush: curBrush }); currentPtsRef.current = [] }
-    else if (curTool === 'eraser') currentPtsRef.current = []
-    else if (currentShapeRef.current) { if (Math.abs(currentShapeRef.current.w) > 2 || Math.abs(currentShapeRef.current.h) > 2) addElement(currentShapeRef.current); currentShapeRef.current = null; shapeStartRef.current = null }
-    scheduleRedraw()
   }, [addElement, endPan, setSelectedIds, scheduleRedraw])
 
   useEffect(() => {

@@ -182,6 +182,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     const snap = snapshot(state.elements)
     const next = [...state.elements, el]
     set({ elements: next, undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [] })
+    console.log('[store] addElement', el.type, el.id, 'total:', next.length)
     scheduleSave()
   },
 
@@ -354,7 +355,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
 async function saveDocNow() {
   const { currentDocId, elements, bgColor } = useAppStore.getState()
-  if (!currentDocId) return
+  console.log('[save] saveDocNow called, docId:', currentDocId, 'elements:', elements.length)
+  if (!currentDocId) { console.warn('[save] no currentDocId, skipping'); return }
   const existing = await storage.get<CanvasDoc>('docs', currentDocId)
   const now = Date.now()
   await storage.put('docs', {
@@ -366,6 +368,7 @@ async function saveDocNow() {
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   })
+  console.log('[save] saved to IndexedDB, elements:', elements.length)
   const docs = (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt)
   useAppStore.setState({ docs })
 }
