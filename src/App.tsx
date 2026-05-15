@@ -25,6 +25,12 @@ export default function App() {
 
   useEffect(() => { initTheme(); init() }, [initTheme, init])
 
+  useEffect(() => {
+    const handleBeforeUnload = () => { useAppStore.getState().saveNow() }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
+
   if (!loaded) {
     return (
       <div className="loading-screen">

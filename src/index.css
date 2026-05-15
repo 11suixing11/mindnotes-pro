@@ -187,6 +187,9 @@ body::after {
   animation: slideRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.1);
   border: 1px solid rgba(255,255,255,0.08);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .sidebar .sb-group {
