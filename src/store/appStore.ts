@@ -16,9 +16,11 @@ interface AppState {
   tool: ToolType
   brush: BrushType
   color: string
+  fillColor: string
   size: number
   bgColor: string
-  selectedId: string | null
+  selectedIds: string[]
+  clipboard: CanvasElement[]
   undoStack: Snapshot[]
   redoStack: Snapshot[]
 
@@ -38,20 +40,25 @@ interface AppActions {
   setTool: (t: ToolType) => void
   setBrush: (b: BrushType) => void
   setColor: (c: string) => void
+  setFillColor: (c: string) => void
   setSize: (s: number) => void
   setBgColor: (c: string) => void
-  setSelectedId: (id: string | null) => void
+  setSelectedIds: (ids: string[]) => void
 
   // Elements
   addElement: (el: CanvasElement) => void
   addElements: (els: CanvasElement[]) => void
   updateElement: (id: string, update: (el: CanvasElement) => CanvasElement) => void
   removeElement: (id: string) => void
+  removeElements: (ids: string[]) => void
   moveElementById: (id: string, dx: number, dy: number) => void
+  moveElementsById: (ids: string[], dx: number, dy: number) => void
   resizeElementById: (id: string, ax: number, ay: number, sx: number, sy: number) => void
   clearAll: () => void
   undo: () => void
   redo: () => void
+  copySelected: () => void
+  paste: () => void
 
   // Docs
   createDoc: (title?: string, folderId?: string | null) => Promise<string>
@@ -110,9 +117,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   tool: 'pen',
   brush: 'pen',
   color: '#2c2416',
+  fillColor: 'transparent',
   size: 4,
   bgColor: '#ffffff',
-  selectedId: null,
+  selectedIds: [],
+  clipboard: [],
   undoStack: [],
   redoStack: [],
   docs: [],
@@ -160,12 +169,13 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     localStorage.removeItem(MIGRATE_KEY)
   },
 
-  setTool: (t) => set({ tool: t, selectedId: null }),
+  setTool: (t) => set({ tool: t, selectedIds: [] }),
   setBrush: (b) => set({ brush: b }),
   setColor: (c) => set({ color: c }),
+  setFillColor: (c) => set({ fillColor: c }),
   setSize: (s) => set({ size: s }),
   setBgColor: (c) => set({ bgColor: c }),
-  setSelectedId: (id) => set({ selectedId: id }),
+  setSelectedIds: (ids) => set({ selectedIds: ids }),
 
   addElement: (el) => {
     const state = get()
@@ -190,12 +200,26 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   removeElement: (id) => {
     const state = get()
     const snap = snapshot(state.elements)
-    set({ elements: state.elements.filter((e) => e.id !== id), undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [], selectedId: state.selectedId === id ? null : state.selectedId })
+    set({ elements: state.elements.filter((e) => e.id !== id), undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [], selectedIds: state.selectedIds.filter((i) => i !== id) })
+    scheduleSave()
+  },
+
+  removeElements: (ids) => {
+    const state = get()
+    const snap = snapshot(state.elements)
+    const idSet = new Set(ids)
+    set({ elements: state.elements.filter((e) => !idSet.has(e.id)), undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [], selectedIds: [] })
     scheduleSave()
   },
 
   moveElementById: (id, dx, dy) => {
     set((s) => ({ elements: s.elements.map((e) => e.id === id ? moveElement(e, dx, dy) : e) }))
+    scheduleSave()
+  },
+
+  moveElementsById: (ids, dx, dy) => {
+    const idSet = new Set(ids)
+    set((s) => ({ elements: s.elements.map((e) => idSet.has(e.id) ? moveElement(e, dx, dy) : e) }))
     scheduleSave()
   },
 
@@ -207,7 +231,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   clearAll: () => {
     const state = get()
     const snap = snapshot(state.elements)
-    set({ elements: [], undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [], selectedId: null })
+    set({ elements: [], undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [], selectedIds: [] })
     scheduleSave()
   },
 
@@ -215,7 +239,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     const { undoStack, elements, redoStack } = get()
     if (undoStack.length === 0) return
     const prev = undoStack[undoStack.length - 1]
-    set({ elements: prev, undoStack: undoStack.slice(0, -1), redoStack: [...redoStack, snapshot(elements)], selectedId: null })
+    set({ elements: prev, undoStack: undoStack.slice(0, -1), redoStack: [...redoStack, snapshot(elements)], selectedIds: [] })
     scheduleSave()
   },
 
@@ -223,7 +247,37 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     const { redoStack, elements, undoStack } = get()
     if (redoStack.length === 0) return
     const next = redoStack[redoStack.length - 1]
-    set({ elements: next, redoStack: redoStack.slice(0, -1), undoStack: [...undoStack, snapshot(elements)], selectedId: null })
+    set({ elements: next, redoStack: redoStack.slice(0, -1), undoStack: [...undoStack, snapshot(elements)], selectedIds: [] })
+    scheduleSave()
+  },
+
+  copySelected: () => {
+    const { elements, selectedIds } = get()
+    if (selectedIds.length === 0) return
+    const selSet = new Set(selectedIds)
+    const copied = elements.filter((e) => selSet.has(e.id)).map((e) => snapshot([e])[0])
+    set({ clipboard: copied })
+  },
+
+  paste: () => {
+    const { clipboard, elements } = get()
+    if (clipboard.length === 0) return
+    const now = Date.now()
+    const newIds: string[] = []
+    const pasted = clipboard.map((el, i) => {
+      const newId = `${el.type}-${now}-${i}`
+      newIds.push(newId)
+      return moveElement({ ...el, id: newId }, 20, 20)
+    })
+    const state = get()
+    const snap = snapshot(state.elements)
+    set({
+      elements: [...elements, ...pasted],
+      selectedIds: newIds,
+      clipboard: pasted.map((e) => snapshot([e])[0]),
+      undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap],
+      redoStack: [],
+    })
     scheduleSave()
   },
 
@@ -233,7 +287,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     const doc: CanvasDoc = { id, title, elements: [], bgColor: '#ffffff', folderId, createdAt: now, updatedAt: now }
     await storage.put('docs', doc)
     const docs = (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt)
-    set({ docs, currentDocId: id, elements: [], bgColor: '#ffffff', undoStack: [], redoStack: [], selectedId: null })
+    set({ docs, currentDocId: id, elements: [], bgColor: '#ffffff', undoStack: [], redoStack: [], selectedIds: [] })
     return id
   },
 
@@ -243,7 +297,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     if (state.currentDocId) await saveDocNow()
     const doc = await storage.get<CanvasDoc>('docs', id)
     if (doc) {
-      set({ currentDocId: id, elements: doc.elements, bgColor: doc.bgColor, undoStack: [], redoStack: [], selectedId: null })
+      set({ currentDocId: id, elements: doc.elements, bgColor: doc.bgColor, undoStack: [], redoStack: [], selectedIds: [] })
       useViewStore.getState().resetView()
     }
   },
@@ -308,6 +362,7 @@ async function saveDocNow() {
     title: existing?.title ?? '未命名画布',
     elements,
     bgColor,
+    folderId: existing?.folderId ?? null,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   })

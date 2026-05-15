@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import Canvas from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import Sidebar from './components/Sidebar'
+import ToastContainer from './components/Toast'
 import { useAppStore } from './store/appStore'
 import { useViewStore } from './store/useViewStore'
 import { useThemeStore } from './store/useThemeStore'
@@ -45,6 +46,7 @@ export default function App() {
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         <Canvas />
         <Toolbar />
+        <ToastContainer />
 
         <div className="status panel">
           <span className="dot" />
@@ -58,7 +60,7 @@ export default function App() {
         </div>
 
         <div className="hints panel">
-          <kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销 · 滚轮缩放 · <kbd>0</kbd>-<kbd>8</kbd> 工具 · <kbd>Del</kbd> 删除选中
+          <kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销 · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> 复制粘贴 · <kbd>Ctrl</kbd>+<kbd>A</kbd> 全选 · 滚轮缩放 · <kbd>Del</kbd> 删除
         </div>
       </div>
     </div>

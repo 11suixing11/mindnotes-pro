@@ -11,7 +11,7 @@ describe('useAppStore', () => {
       color: '#2c2416',
       size: 4,
       bgColor: '#ffffff',
-      selectedId: null,
+      selectedIds: [],
       undoStack: [],
       redoStack: [],
     })

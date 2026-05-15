@@ -637,3 +637,8 @@ body::after {
 .kb-content a:hover { text-decoration: underline; }
 .kb-content strong { font-weight: 700; color: var(--text); }
 .kb-content img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(20px) scale(0.95); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
