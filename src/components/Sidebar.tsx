@@ -2,6 +2,15 @@ import { useState } from 'react'
 import { useAppStore } from '../store/appStore'
 import type { CanvasDoc, CanvasFolder } from '../store/types'
 
+const sidebarBtnStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  width: 28, height: 48, borderRadius: '0 10px 10px 0',
+  border: '1px solid var(--border)', borderLeft: 'none',
+  background: 'var(--card)', backdropFilter: 'var(--glass)', WebkitBackdropFilter: 'var(--glass)',
+  color: 'var(--text-3)', cursor: 'pointer', fontSize: 14,
+  boxShadow: 'var(--shadow-sm)',
+}
+
 export default function Sidebar() {
   const docs = useAppStore((s) => s.docs)
   const folders = useAppStore((s) => s.folders)
@@ -24,7 +33,7 @@ export default function Sidebar() {
 
   if (!sidebarOpen) {
     return (
-      <button onClick={() => setSidebarOpen(true)} style={{ position: 'fixed', left: 8, top: '50%', transform: 'translateY(-50%)', zIndex: 25, width: 28, height: 48, borderRadius: '0 8px 8px 0', border: '1px solid var(--border)', borderLeft: 'none', background: 'var(--card)', color: 'var(--text-3)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>☰</button>
+      <button onClick={() => setSidebarOpen(true)} style={{ position: 'fixed', left: 8, top: '50%', transform: 'translateY(-50%)', zIndex: 25, ...sidebarBtnStyle }}>☰</button>
     )
   }
 
@@ -47,14 +56,30 @@ export default function Sidebar() {
   const renderDoc = (doc: CanvasDoc) => {
     const isActive = doc.id === currentDocId
     const elCount = doc.elements.length
+    const dotColors = ['var(--monet-lavender)', 'var(--monet-rose)', 'var(--monet-sage)', 'var(--monet-sky)', 'var(--monet-gold)']
+    const dotColor = dotColors[Math.abs(hashCode(doc.id)) % dotColors.length]
     return (
       <div key={doc.id} onClick={() => openDoc(doc.id)} onContextMenu={(e) => handleContext(e, 'doc', doc.id)}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', paddingLeft: 28, cursor: 'pointer', borderRadius: 8, margin: '1px 4px', background: isActive ? 'var(--primary-bg)' : 'transparent', transition: 'background 0.12s' }}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', paddingLeft: 28,
+          cursor: 'pointer', borderRadius: 10, margin: '1px 4px',
+          background: isActive ? 'var(--primary-bg)' : 'transparent',
+          transition: 'all 0.18s ease',
+          borderLeft: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+        }}
         onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--primary-bg)' }}
         onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = '' }}>
-        <div style={{ width: 28, height: 28, borderRadius: 6, background: isActive ? 'var(--primary)' : 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isActive ? '#fff' : 'var(--text-3)', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{elCount || '—'}</div>
+        <div style={{
+          width: 28, height: 28, borderRadius: 8,
+          background: isActive ? 'var(--primary)' : dotColor,
+          opacity: isActive ? 1 : 0.2,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: isActive ? '#fff' : 'var(--text-3)',
+          fontSize: 11, fontWeight: 700, flexShrink: 0,
+          transition: 'all 0.18s ease',
+        }}>{elCount || '—'}</div>
         {renamingId === doc.id ? (
-          <input autoFocus value={renameVal} onChange={(e) => setRenameVal(e.target.value)} onBlur={() => handleRename(doc.id, 'doc')} onKeyDown={(e) => { if (e.key === 'Enter') handleRename(doc.id, 'doc'); if (e.key === 'Escape') setRenamingId(null) }} onClick={(e) => e.stopPropagation()} style={{ flex: 1, border: '1px solid var(--primary)', borderRadius: 5, padding: '2px 6px', fontSize: 12, background: 'var(--card)', color: 'var(--text)', outline: 'none' }} />
+          <input autoFocus value={renameVal} onChange={(e) => setRenameVal(e.target.value)} onBlur={() => handleRename(doc.id, 'doc')} onKeyDown={(e) => { if (e.key === 'Enter') handleRename(doc.id, 'doc'); if (e.key === 'Escape') setRenamingId(null) }} onClick={(e) => e.stopPropagation()} style={{ flex: 1, border: '1px solid var(--primary)', borderRadius: 6, padding: '2px 6px', fontSize: 12, background: 'var(--card)', color: 'var(--text)', outline: 'none' }} />
         ) : (
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: isActive ? 600 : 400, color: isActive ? 'var(--primary)' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.title}</div>
@@ -71,19 +96,23 @@ export default function Sidebar() {
     return (
       <div key={folder.id}>
         <div onClick={() => toggleFolder(folder.id)} onContextMenu={(e) => handleContext(e, 'folder', folder.id)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', paddingLeft: 8 + depth * 14, cursor: 'pointer', borderRadius: 8, margin: '1px 4px', transition: 'background 0.12s' }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px',
+            paddingLeft: 8 + depth * 14, cursor: 'pointer', borderRadius: 8,
+            margin: '1px 4px', transition: 'all 0.15s ease',
+          }}
           onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--primary-bg)')}
           onMouseLeave={(e) => (e.currentTarget.style.background = '')}>
-          <span style={{ fontSize: 9, color: 'var(--text-4)', width: 12, textAlign: 'center', transition: 'transform 0.15s', transform: folder.expanded ? 'rotate(90deg)' : '' }}>▶</span>
+          <span style={{ fontSize: 9, color: 'var(--text-4)', width: 12, textAlign: 'center', transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1)', transform: folder.expanded ? 'rotate(90deg)' : '' }}>▶</span>
           {renamingId === folder.id ? (
-            <input autoFocus value={renameVal} onChange={(e) => setRenameVal(e.target.value)} onBlur={() => handleRename(folder.id, 'folder')} onKeyDown={(e) => { if (e.key === 'Enter') handleRename(folder.id, 'folder'); if (e.key === 'Escape') setRenamingId(null) }} onClick={(e) => e.stopPropagation()} style={{ flex: 1, border: '1px solid var(--primary)', borderRadius: 4, padding: '1px 4px', fontSize: 12, background: 'var(--card)', color: 'var(--text)', outline: 'none' }} />
+            <input autoFocus value={renameVal} onChange={(e) => setRenameVal(e.target.value)} onBlur={() => handleRename(folder.id, 'folder')} onKeyDown={(e) => { if (e.key === 'Enter') handleRename(folder.id, 'folder'); if (e.key === 'Escape') setRenamingId(null) }} onClick={(e) => e.stopPropagation()} style={{ flex: 1, border: '1px solid var(--primary)', borderRadius: 5, padding: '1px 4px', fontSize: 12, background: 'var(--card)', color: 'var(--text)', outline: 'none' }} />
           ) : (
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folder.name}</span>
           )}
-          <span style={{ fontSize: 10, color: 'var(--text-4)' }}>{docsInFolder.length}</span>
+          <span style={{ fontSize: 10, color: 'var(--text-4)', minWidth: 16, textAlign: 'center' }}>{docsInFolder.length}</span>
         </div>
         {folder.expanded && (
-          <div>
+          <div style={{ animation: 'fadeIn 0.2s ease' }}>
             {children.map((c) => renderFolder(c, depth + 1))}
             {docsInFolder.map((d) => renderDoc(d))}
           </div>
@@ -94,18 +123,41 @@ export default function Sidebar() {
 
   return (
     <>
-      <div style={{ width: 240, height: '100%', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', background: 'var(--card-solid)', flexShrink: 0, zIndex: 20, position: 'relative' }}>
+      <div style={{
+        width: 240, height: '100%', borderRight: '1px solid var(--border)',
+        display: 'flex', flexDirection: 'column',
+        background: 'var(--card-solid)', flexShrink: 0, zIndex: 20, position: 'relative',
+      }}>
         <div style={{ padding: '12px 12px 8px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700 }}>M</div>
+              <div style={{
+                width: 26, height: 26, borderRadius: 8,
+                background: 'linear-gradient(135deg, #B8A0D0, #D49898, #90B4D0, #90B888)',
+                backgroundSize: '300% 300%',
+                animation: 'gradientFlow 10s ease infinite',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontSize: 12, fontWeight: 800,
+                boxShadow: '0 3px 12px rgba(184,160,208,0.35)',
+                textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+              }}>M</div>
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>MindNotes</span>
             </div>
-            <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: 16, padding: '0 4px' }}>×</button>
+            <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: 16, padding: '0 4px', transition: 'color 0.15s' }}>×</button>
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
-            <button onClick={() => createDoc()} style={{ flex: 1, padding: '6px 0', borderRadius: 8, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+ 新画布</button>
-            <button onClick={() => createFolder('新文件夹')} style={{ flex: 1, padding: '6px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+ 文件夹</button>
+            <button onClick={() => createDoc()} style={{
+              flex: 1, padding: '6px 0', borderRadius: 8, border: 'none',
+              background: 'var(--primary)', color: '#fff', fontSize: 11, fontWeight: 600,
+              cursor: 'pointer', transition: 'all 0.18s ease',
+              boxShadow: '0 2px 8px var(--glow)',
+            }}>+ 新画布</button>
+            <button onClick={() => createFolder('新文件夹')} style={{
+              flex: 1, padding: '6px 0', borderRadius: 8,
+              border: '1px solid var(--border)', background: 'transparent',
+              color: 'var(--text-2)', fontSize: 11, fontWeight: 600,
+              cursor: 'pointer', transition: 'all 0.18s ease',
+            }}>+ 文件夹</button>
           </div>
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: '6px 0' }}>
@@ -118,7 +170,7 @@ export default function Sidebar() {
       {ctx && (
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setCtx(null)} />
-          <div className="panel" style={{ position: 'fixed', left: ctx.x, top: ctx.y, minWidth: 130, padding: 4, zIndex: 101, animation: 'popIn 0.15s ease' }}>
+          <div className="panel" style={{ position: 'fixed', left: ctx.x, top: ctx.y, minWidth: 130, padding: 4, zIndex: 101, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
             {ctx.type === 'folder' ? (
               <>
                 <button onClick={() => { createDoc('未命名画布', ctx.id); setCtx(null) }} style={ctxStyle}>新建画布</button>
@@ -141,4 +193,14 @@ export default function Sidebar() {
   )
 }
 
-const ctxStyle: React.CSSProperties = { display: 'block', width: '100%', padding: '7px 10px', border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', borderRadius: 6 }
+function hashCode(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
+  return h
+}
+
+const ctxStyle: React.CSSProperties = {
+  display: 'block', width: '100%', padding: '7px 10px', border: 'none',
+  background: 'transparent', color: 'var(--text)', fontSize: 12,
+  cursor: 'pointer', textAlign: 'left', borderRadius: 8, transition: 'background 0.12s',
+}

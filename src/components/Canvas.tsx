@@ -123,40 +123,103 @@ export default function Canvas() {
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, canvasSize.w, canvasSize.h)
+
+    drawCanvasBackground(ctx)
+
     ctx.save(); ctx.scale(viewBox.zoom, viewBox.zoom); ctx.translate(-viewBox.x, -viewBox.y)
 
-    // Grid
-    if (viewBox.zoom > 0.3) {
-      const gs = 40, sx = Math.floor(viewBox.x / gs) * gs, sy = Math.floor(viewBox.y / gs) * gs
-      ctx.strokeStyle = isDarkMode ? 'rgba(200,180,140,0.06)' : 'rgba(120,100,70,0.06)'; ctx.lineWidth = 0.5 / viewBox.zoom; ctx.beginPath()
-      for (let x = sx; x <= viewBox.x + canvasSize.w / viewBox.zoom; x += gs) { ctx.moveTo(x, sy); ctx.lineTo(x, viewBox.y + canvasSize.h / viewBox.zoom) }
-      for (let y = sy; y <= viewBox.y + canvasSize.h / viewBox.zoom; y += gs) { ctx.moveTo(sx, y); ctx.lineTo(viewBox.x + canvasSize.w / viewBox.zoom, y) }
-      ctx.stroke()
-    }
+    drawMonetGrid(ctx)
 
-    // Elements
     for (const el of els) {
       drawElement(ctx, el)
       if (el.id === selId) drawSelBox(ctx, elementBounds(el))
     }
 
-    // Current stroke preview
     if (drawingRef.current && curTool === 'pen' && currentPtsRef.current.length > 1) {
       drawStrokeRaw(ctx, currentPtsRef.current, curColor, curSize, curBrush)
     }
-    // Current shape preview
     if (currentShapeRef.current) drawElement(ctx, currentShapeRef.current)
 
-    // Eraser cursor
     if (curTool === 'eraser' && mouseRef.current) {
       const mx = mouseRef.current.x, my = mouseRef.current.y, r = curSize * 2 + 10
-      ctx.save(); ctx.strokeStyle = isDarkMode ? 'rgba(212,138,106,0.4)' : 'rgba(196,122,90,0.3)'; ctx.lineWidth = 1.5 / viewBox.zoom; ctx.setLineDash([4 / viewBox.zoom, 4 / viewBox.zoom]); ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.restore()
+      ctx.save()
+      ctx.strokeStyle = isDarkMode ? 'rgba(200,160,176,0.5)' : 'rgba(176,125,110,0.35)'
+      ctx.lineWidth = 1.5 / viewBox.zoom
+      ctx.setLineDash([5 / viewBox.zoom, 5 / viewBox.zoom])
+      ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI * 2); ctx.stroke()
+      ctx.setLineDash([])
+      ctx.fillStyle = isDarkMode ? 'rgba(200,160,176,0.04)' : 'rgba(176,125,110,0.04)'
+      ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI * 2); ctx.fill()
+      ctx.restore()
     }
 
     ctx.restore()
     drawMinimap(ctx, canvas)
     drawZoomLevel(ctx, canvas)
   }, [viewBox, bgColor, isDarkMode, dpr, canvasSize])
+
+  function drawCanvasBackground(ctx: CanvasRenderingContext2D) {
+    ctx.fillStyle = bgColor
+    ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+
+    if (isDarkMode) {
+      const g1 = ctx.createRadialGradient(canvasSize.w * 0.12, canvasSize.h * 0.18, 0, canvasSize.w * 0.12, canvasSize.h * 0.18, canvasSize.w * 0.55)
+      g1.addColorStop(0, 'rgba(122,104,144,0.10)'); g1.addColorStop(0.6, 'rgba(122,104,144,0.03)'); g1.addColorStop(1, 'transparent')
+      ctx.fillStyle = g1; ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+
+      const g2 = ctx.createRadialGradient(canvasSize.w * 0.82, canvasSize.h * 0.72, 0, canvasSize.w * 0.82, canvasSize.h * 0.72, canvasSize.w * 0.45)
+      g2.addColorStop(0, 'rgba(88,112,128,0.08)'); g2.addColorStop(0.6, 'rgba(88,112,128,0.02)'); g2.addColorStop(1, 'transparent')
+      ctx.fillStyle = g2; ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+
+      const g3 = ctx.createRadialGradient(canvasSize.w * 0.5, canvasSize.h * 0.45, 0, canvasSize.w * 0.5, canvasSize.h * 0.45, canvasSize.w * 0.5)
+      g3.addColorStop(0, 'rgba(152,128,88,0.06)'); g3.addColorStop(1, 'transparent')
+      ctx.fillStyle = g3; ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+    } else {
+      const g1 = ctx.createRadialGradient(canvasSize.w * 0.12, canvasSize.h * 0.18, 0, canvasSize.w * 0.12, canvasSize.h * 0.18, canvasSize.w * 0.55)
+      g1.addColorStop(0, 'rgba(184,160,208,0.16)'); g1.addColorStop(0.5, 'rgba(184,160,208,0.05)'); g1.addColorStop(1, 'transparent')
+      ctx.fillStyle = g1; ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+
+      const g2 = ctx.createRadialGradient(canvasSize.w * 0.82, canvasSize.h * 0.72, 0, canvasSize.w * 0.82, canvasSize.h * 0.72, canvasSize.w * 0.45)
+      g2.addColorStop(0, 'rgba(144,180,208,0.14)'); g2.addColorStop(0.5, 'rgba(144,180,208,0.04)'); g2.addColorStop(1, 'transparent')
+      ctx.fillStyle = g2; ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+
+      const g3 = ctx.createRadialGradient(canvasSize.w * 0.55, canvasSize.h * 0.4, 0, canvasSize.w * 0.55, canvasSize.h * 0.4, canvasSize.w * 0.4)
+      g3.addColorStop(0, 'rgba(208,184,136,0.10)'); g3.addColorStop(0.5, 'rgba(208,184,136,0.03)'); g3.addColorStop(1, 'transparent')
+      ctx.fillStyle = g3; ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+
+      const g4 = ctx.createRadialGradient(canvasSize.w * 0.7, canvasSize.h * 0.2, 0, canvasSize.w * 0.7, canvasSize.h * 0.2, canvasSize.w * 0.35)
+      g4.addColorStop(0, 'rgba(212,152,152,0.10)'); g4.addColorStop(0.5, 'rgba(212,152,152,0.03)'); g4.addColorStop(1, 'transparent')
+      ctx.fillStyle = g4; ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+    }
+  }
+
+  function drawMonetGrid(ctx: CanvasRenderingContext2D) {
+    if (viewBox.zoom <= 0.3) return
+    const gs = 40
+    const sx = Math.floor(viewBox.x / gs) * gs
+    const sy = Math.floor(viewBox.y / gs) * gs
+    const ex = viewBox.x + canvasSize.w / viewBox.zoom
+    const ey = viewBox.y + canvasSize.h / viewBox.zoom
+
+    const dotSize = Math.max(0.8, 1.2 / viewBox.zoom)
+    const alpha = Math.min(0.12, 0.06 + (viewBox.zoom - 0.3) * 0.03)
+
+    ctx.save()
+    if (isDarkMode) {
+      ctx.fillStyle = `rgba(160,150,180,${alpha})`
+    } else {
+      ctx.fillStyle = `rgba(155,142,127,${alpha})`
+    }
+
+    for (let x = sx; x <= ex; x += gs) {
+      for (let y = sy; y <= ey; y += gs) {
+        ctx.beginPath()
+        ctx.arc(x, y, dotSize, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+    ctx.restore()
+  }
 
   function drawElement(ctx: CanvasRenderingContext2D, el: CanvasElement) {
     if (el.type === 'stroke') drawStrokeEl(ctx, el)
@@ -168,12 +231,50 @@ export default function Canvas() {
   function drawStrokeEl(ctx: CanvasRenderingContext2D, el: StrokeElement) {
     if (el.points.length < 2) return
     const b = el.brush, pts = el.points
-    if (b === 'pen') { ctx.beginPath(); ctx.strokeStyle = el.color; ctx.lineWidth = el.size; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = 1; ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], c = pts[i]; ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2) }; ctx.stroke(); ctx.globalAlpha = 1 }
-    else if (b === 'highlighter') { ctx.save(); ctx.globalAlpha = 0.35; ctx.strokeStyle = el.color; ctx.lineWidth = el.size * 4; ctx.lineCap = 'square'; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.stroke(); ctx.restore() }
-    else if (b === 'pencil') { ctx.save(); ctx.globalAlpha = 0.7; ctx.strokeStyle = el.color; ctx.lineWidth = el.size * 0.6; ctx.lineCap = 'round'; for (let i = 1; i < pts.length; i++) { ctx.beginPath(); const seed = (i * 7919) % 100 / 100; ctx.moveTo(pts[i - 1][0] + (seed - 0.5) * el.size * 0.3, pts[i - 1][1] + ((seed * 1.3) % 1 - 0.5) * el.size * 0.3); ctx.lineTo(pts[i][0], pts[i][1]); ctx.stroke() }; ctx.restore() }
-    else if (b === 'calligraphy') { ctx.strokeStyle = el.color; ctx.lineCap = 'round'; for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], c = pts[i]; const wf = 0.3 + 0.7 * Math.abs(Math.sin(Math.atan2(c[1] - p[1], c[0] - p[0]) - Math.PI / 4)); ctx.beginPath(); ctx.lineWidth = el.size * wf; ctx.moveTo(p[0], p[1]); ctx.lineTo(c[0], c[1]); ctx.stroke() } }
-    else if (b === 'dashed') { ctx.beginPath(); ctx.strokeStyle = el.color; ctx.lineWidth = el.size; ctx.lineCap = 'round'; ctx.setLineDash([el.size * 2, el.size * 1.5]); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], c = pts[i]; ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2) }; ctx.stroke(); ctx.setLineDash([]) }
-    else if (b === 'glow') { ctx.save(); ctx.lineCap = 'round'; ctx.shadowColor = el.color; ctx.shadowBlur = el.size * 3; ctx.strokeStyle = el.color; ctx.lineWidth = el.size * 0.5; ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], c = pts[i]; ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2) }; ctx.stroke(); ctx.restore() }
+    if (b === 'pen') {
+      ctx.beginPath(); ctx.strokeStyle = el.color; ctx.lineWidth = el.size; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = 1
+      ctx.moveTo(pts[0][0], pts[0][1])
+      for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], c = pts[i]; ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2) }
+      ctx.stroke(); ctx.globalAlpha = 1
+    } else if (b === 'highlighter') {
+      ctx.save(); ctx.globalAlpha = 0.3; ctx.strokeStyle = el.color; ctx.lineWidth = el.size * 4; ctx.lineCap = 'square'
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1])
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
+      ctx.stroke(); ctx.restore()
+    } else if (b === 'pencil') {
+      ctx.save(); ctx.globalAlpha = 0.65; ctx.strokeStyle = el.color; ctx.lineWidth = el.size * 0.6; ctx.lineCap = 'round'
+      for (let i = 1; i < pts.length; i++) {
+        ctx.beginPath()
+        const seed = (i * 7919) % 100 / 100
+        ctx.moveTo(pts[i - 1][0] + (seed - 0.5) * el.size * 0.3, pts[i - 1][1] + ((seed * 1.3) % 1 - 0.5) * el.size * 0.3)
+        ctx.lineTo(pts[i][0], pts[i][1]); ctx.stroke()
+      }
+      ctx.restore()
+    } else if (b === 'calligraphy') {
+      ctx.strokeStyle = el.color; ctx.lineCap = 'round'
+      for (let i = 1; i < pts.length; i++) {
+        const p = pts[i - 1], c = pts[i]
+        const wf = 0.3 + 0.7 * Math.abs(Math.sin(Math.atan2(c[1] - p[1], c[0] - p[0]) - Math.PI / 4))
+        ctx.beginPath(); ctx.lineWidth = el.size * wf; ctx.moveTo(p[0], p[1]); ctx.lineTo(c[0], c[1]); ctx.stroke()
+      }
+    } else if (b === 'dashed') {
+      ctx.beginPath(); ctx.strokeStyle = el.color; ctx.lineWidth = el.size; ctx.lineCap = 'round'
+      ctx.setLineDash([el.size * 2, el.size * 1.5])
+      ctx.moveTo(pts[0][0], pts[0][1])
+      for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], c = pts[i]; ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2) }
+      ctx.stroke(); ctx.setLineDash([])
+    } else if (b === 'glow') {
+      ctx.save(); ctx.lineCap = 'round'
+      ctx.shadowColor = el.color; ctx.shadowBlur = el.size * 4
+      ctx.strokeStyle = el.color; ctx.lineWidth = el.size * 0.4; ctx.globalAlpha = 0.85
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1])
+      for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], c = pts[i]; ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2) }
+      ctx.stroke()
+      ctx.shadowBlur = el.size * 2; ctx.lineWidth = el.size * 0.7; ctx.globalAlpha = 0.5
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1])
+      for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], c = pts[i]; ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2) }
+      ctx.stroke(); ctx.restore()
+    }
   }
 
   function drawStrokeRaw(ctx: CanvasRenderingContext2D, pts: number[][], c: string, s: number, b: string) {
@@ -184,10 +285,25 @@ export default function Canvas() {
     ctx.strokeStyle = el.color; ctx.lineWidth = el.size; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
     const { x, y, w, h } = el
     switch (el.kind) {
-      case 'rectangle': ctx.strokeRect(x, y, w, h); break
+      case 'rectangle': {
+        const rx = Math.min(6, Math.abs(w) * 0.05, Math.abs(h) * 0.05)
+        ctx.beginPath()
+        ctx.moveTo(x + rx, y); ctx.lineTo(x + w - rx, y); ctx.quadraticCurveTo(x + w, y, x + w, y + rx)
+        ctx.lineTo(x + w, y + h - rx); ctx.quadraticCurveTo(x + w, y + h, x + w - rx, y + h)
+        ctx.lineTo(x + rx, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - rx)
+        ctx.lineTo(x, y + rx); ctx.quadraticCurveTo(x, y, x + rx, y)
+        ctx.closePath(); ctx.stroke(); break
+      }
       case 'circle': ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, Math.abs(w) / 2, Math.abs(h) / 2, 0, 0, Math.PI * 2); ctx.stroke(); break
       case 'line': ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y + h); ctx.stroke(); break
-      case 'arrow': ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y + h); ctx.stroke(); const a = Math.atan2(h, w), hl = 15; ctx.beginPath(); ctx.moveTo(x + w, y + h); ctx.lineTo(x + w - hl * Math.cos(a - Math.PI / 6), y + h - hl * Math.sin(a - Math.PI / 6)); ctx.moveTo(x + w, y + h); ctx.lineTo(x + w - hl * Math.cos(a + Math.PI / 6), y + h - hl * Math.sin(a + Math.PI / 6)); ctx.stroke(); break
+      case 'arrow': {
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y + h); ctx.stroke()
+        const a = Math.atan2(h, w), hl = 15
+        ctx.beginPath()
+        ctx.moveTo(x + w, y + h); ctx.lineTo(x + w - hl * Math.cos(a - Math.PI / 6), y + h - hl * Math.sin(a - Math.PI / 6))
+        ctx.moveTo(x + w, y + h); ctx.lineTo(x + w - hl * Math.cos(a + Math.PI / 6), y + h - hl * Math.sin(a + Math.PI / 6))
+        ctx.stroke(); break
+      }
     }
   }
 
@@ -207,12 +323,41 @@ export default function Canvas() {
 
   function drawImageEl(ctx: CanvasRenderingContext2D, el: ImageElement) {
     const img = getImage(el.dataUrl)
-    if (img?.complete) { ctx.save(); ctx.globalAlpha = el.opacity ?? 1; ctx.drawImage(img, el.x, el.y, el.width, el.height); ctx.restore() }
+    if (img?.complete) {
+      ctx.save(); ctx.globalAlpha = el.opacity ?? 1
+      const r = 6
+      ctx.beginPath()
+      ctx.moveTo(el.x + r, el.y); ctx.lineTo(el.x + el.width - r, el.y); ctx.quadraticCurveTo(el.x + el.width, el.y, el.x + el.width, el.y + r)
+      ctx.lineTo(el.x + el.width, el.y + el.height - r); ctx.quadraticCurveTo(el.x + el.width, el.y + el.height, el.x + el.width - r, el.y + el.height)
+      ctx.lineTo(el.x + r, el.y + el.height); ctx.quadraticCurveTo(el.x, el.y + el.height, el.x, el.y + el.height - r)
+      ctx.lineTo(el.x, el.y + r); ctx.quadraticCurveTo(el.x, el.y, el.x + r, el.y)
+      ctx.closePath(); ctx.clip()
+      ctx.drawImage(img, el.x, el.y, el.width, el.height)
+      ctx.restore()
+    }
   }
 
   function drawSelBox(ctx: CanvasRenderingContext2D, b: { x: number; y: number; w: number; h: number }) {
-    ctx.strokeStyle = '#c47a5a'; ctx.lineWidth = 1.5 / viewBox.zoom; ctx.setLineDash([4 / viewBox.zoom, 4 / viewBox.zoom]); ctx.strokeRect(b.x, b.y, b.w, b.h); ctx.setLineDash([]); ctx.fillStyle = '#c47a5a'
-    for (const [cx, cy] of [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]) ctx.fillRect(cx - 4 / viewBox.zoom, cy - 4 / viewBox.zoom, 8 / viewBox.zoom, 8 / viewBox.zoom)
+    const primary = isDarkMode ? '#C8A0B0' : '#B07D6E'
+    const primaryLight = isDarkMode ? 'rgba(200,160,176,0.12)' : 'rgba(176,125,110,0.1)'
+
+    ctx.save()
+    ctx.strokeStyle = primary; ctx.lineWidth = 1.5 / viewBox.zoom; ctx.setLineDash([5 / viewBox.zoom, 5 / viewBox.zoom])
+    ctx.strokeRect(b.x, b.y, b.w, b.h); ctx.setLineDash([])
+
+    ctx.fillStyle = primaryLight
+    ctx.fillRect(b.x, b.y, b.w, b.h)
+
+    const cornerR = 4 / viewBox.zoom
+    ctx.fillStyle = primary
+    ctx.shadowColor = isDarkMode ? 'rgba(200,160,176,0.3)' : 'rgba(176,125,110,0.3)'
+    ctx.shadowBlur = 4 / viewBox.zoom
+    for (const [cx, cy] of [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]) {
+      ctx.beginPath()
+      ctx.arc(cx, cy, cornerR, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    ctx.restore()
   }
 
   function drawMinimap(ctx: CanvasRenderingContext2D, _canvas: HTMLCanvasElement) {
@@ -227,21 +372,38 @@ export default function Canvas() {
     if (!isFinite(minX)) return
     const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1
     const scale = Math.min(mmW / rangeX, mmH / rangeY) * 0.8
-    ctx.save(); ctx.globalAlpha = 0.65
-    ctx.fillStyle = isDarkMode ? '#2a2418' : '#ece5d8'; ctx.strokeStyle = isDarkMode ? 'rgba(200,180,140,0.12)' : 'rgba(120,100,70,0.12)'; ctx.lineWidth = 1
-    ctx.beginPath(); ctx.roundRect(mmX - 2, mmY - 2, mmW + 4, mmH + 4, 8); ctx.fill(); ctx.stroke()
-    ctx.fillStyle = isDarkMode ? '#7a6e5c' : '#9c8e7a'
+    ctx.save(); ctx.globalAlpha = 0.6
+
+    ctx.fillStyle = isDarkMode ? 'rgba(34,32,44,0.85)' : 'rgba(251,246,238,0.85)'
+    ctx.strokeStyle = isDarkMode ? 'rgba(160,150,180,0.15)' : 'rgba(155,142,127,0.15)'
+    ctx.lineWidth = 1
+    ctx.beginPath(); ctx.roundRect(mmX - 2, mmY - 2, mmW + 4, mmH + 4, 10); ctx.fill(); ctx.stroke()
+
+    const minimapColors = isDarkMode
+      ? ['rgba(200,160,176,0.5)', 'rgba(106,90,128,0.5)', 'rgba(80,104,120,0.5)', 'rgba(138,120,80,0.5)']
+      : ['rgba(176,125,110,0.5)', 'rgba(196,181,216,0.5)', 'rgba(160,188,212,0.5)', 'rgba(212,192,152,0.5)']
+    let ci = 0
     for (const el of elements) {
       const b = elementBounds(el)
+      ctx.fillStyle = minimapColors[ci % minimapColors.length]; ci++
       ctx.fillRect(mmX + (b.x - minX) * scale + (mmW - rangeX * scale) / 2, mmY + (b.y - minY) * scale + (mmH - rangeY * scale) / 2, Math.max(1, b.w * scale), Math.max(1, b.h * scale))
     }
     const vx = (viewBox.x - minX) * scale + (mmW - rangeX * scale) / 2, vy = (viewBox.y - minY) * scale + (mmH - rangeY * scale) / 2
-    ctx.strokeStyle = '#c47a5a'; ctx.lineWidth = 1.5; ctx.strokeRect(mmX + vx, mmY + vy, canvasSize.w / viewBox.zoom * scale, canvasSize.h / viewBox.zoom * scale)
+    const vpColor = isDarkMode ? '#C8A0B0' : '#B07D6E'
+    ctx.strokeStyle = vpColor; ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.roundRect(mmX + vx, mmY + vy, canvasSize.w / viewBox.zoom * scale, canvasSize.h / viewBox.zoom * scale, 3)
+    ctx.stroke()
     ctx.restore()
   }
 
   function drawZoomLevel(ctx: CanvasRenderingContext2D, _canvas: HTMLCanvasElement) {
-    ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.font = '12px sans-serif'; ctx.fillStyle = isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'; ctx.textAlign = 'right'; ctx.fillText(`${Math.round(viewBox.zoom * 100)}%`, canvasSize.w - 145, canvasSize.h - 50); ctx.restore()
+    ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.font = '500 11px "Noto Sans SC", sans-serif'
+    ctx.fillStyle = isDarkMode ? 'rgba(200,160,176,0.5)' : 'rgba(176,125,110,0.4)'
+    ctx.textAlign = 'right'
+    ctx.fillText(`${Math.round(viewBox.zoom * 100)}%`, canvasSize.w - 145, canvasSize.h - 50)
+    ctx.restore()
   }
 
   const handleStart = useCallback((e: MouseEvent | TouchEvent) => {
@@ -318,11 +480,8 @@ export default function Canvas() {
 
   useEffect(() => { redraw() }, [redraw, canvasSize])
 
-  // Trigger redraw when elements change (e.g. switching canvases)
   useEffect(() => {
-    const unsub = useAppStore.subscribe(() => {
-      redraw()
-    })
+    const unsub = useAppStore.subscribe(() => { redraw() })
     return unsub
   }, [redraw])
   useEffect(() => { const h = () => redraw(); window.addEventListener('image-loaded', h); return () => window.removeEventListener('image-loaded', h) }, [redraw])
@@ -379,7 +538,17 @@ export default function Canvas() {
         <textarea ref={textRef} autoFocus value={editingText.content} onChange={(e) => setEditingText({ ...editingText, content: e.target.value })}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitTextEdit(editingText.content) }; if (e.key === 'Escape') setEditingText(null) }}
           onBlur={() => commitTextEdit(editingText.content)}
-          style={{ position: 'fixed', left: editingText.screenX, top: editingText.screenY - 8, minWidth: 200, maxWidth: 500, minHeight: 40, padding: '8px 12px', fontSize: 16, lineHeight: 1.6, color, background: 'rgba(250,247,240,0.95)', border: '1.5px solid rgba(196,122,90,0.3)', borderRadius: 10, outline: 'none', zIndex: 100, boxShadow: '0 4px 16px rgba(80,60,30,0.08)', fontFamily: "'Noto Sans SC', 'PingFang SC', sans-serif", resize: 'both' }} />
+          style={{
+            position: 'fixed', left: editingText.screenX, top: editingText.screenY - 8,
+            minWidth: 200, maxWidth: 500, minHeight: 40, padding: '10px 14px',
+            fontSize: 16, lineHeight: 1.6, color,
+            background: isDarkMode ? 'rgba(34,32,44,0.95)' : 'rgba(251,246,238,0.95)',
+            border: `1.5px solid ${isDarkMode ? 'rgba(200,160,176,0.3)' : 'rgba(176,125,110,0.3)'}`,
+            borderRadius: 12, outline: 'none', zIndex: 100,
+            boxShadow: isDarkMode ? '0 4px 20px rgba(0,0,0,0.3)' : '0 4px 20px rgba(100,80,60,0.08)',
+            fontFamily: "'Noto Sans SC', 'PingFang SC', sans-serif",
+            resize: 'both',
+          }} />
       )}
     </>
   )

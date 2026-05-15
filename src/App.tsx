@@ -24,7 +24,19 @@ export default function App() {
 
   useEffect(() => { initTheme(); init() }, [initTheme, init])
 
-  if (!loaded) return <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f0e8', color: '#9c8e7a' }}>加载中...</div>
+  if (!loaded) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-logo">M</div>
+        <div className="loading-text">MindNotes</div>
+        <div className="loading-dots">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', overflow: 'hidden', background: bgColor }}>
