@@ -51,6 +51,7 @@ export default function Canvas() {
   const elementsCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const elementsDirtyRef = useRef(true)
   const rafRef = useRef<number>(0)
+  const redrawRef = useRef<() => void>(() => {})
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
   const [canvasSize, setCanvasSize] = useState({ w: window.innerWidth, h: window.innerHeight })
 
@@ -90,18 +91,32 @@ export default function Canvas() {
   const marqueeRef = useRef<{ startX: number; startY: number; endX: number; endY: number } | null>(null)
   const snapLinesRef = useRef<{ x: number[]; y: number[] }>({ x: [], y: [] })
   const mouseRef = useRef<{ x: number; y: number } | null>(null)
+  const toolRef = useRef(tool)
+  const colorRef2 = useRef(color)
+  const sizeRef = useRef(size)
+  const brushRef = useRef(brush)
+  const fillColorRef2 = useRef(fillColor)
+  const viewBoxRef = useRef(viewBox)
+
+  useEffect(() => { toolRef.current = tool }, [tool])
+  useEffect(() => { colorRef2.current = color }, [color])
+  useEffect(() => { sizeRef.current = size }, [size])
+  useEffect(() => { brushRef.current = brush }, [brush])
+  useEffect(() => { fillColorRef2.current = fillColor }, [fillColor])
+  useEffect(() => { viewBoxRef.current = viewBox }, [viewBox])
   const [editingText, setEditingText] = useState<{ id: string; x: number; y: number; screenX: number; screenY: number; content: string; fontSize: number; color: string } | null>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
 
   const getPos = useCallback((e: MouseEvent | TouchEvent) => {
     const canvas = canvasRef.current; if (!canvas) return { x: 0, y: 0 }
     const rect = canvas.getBoundingClientRect()
+    const vb = viewBoxRef.current
     let cx: number, cy: number
     if ('touches' in e && e.touches.length > 0) { cx = e.touches[0].clientX; cy = e.touches[0].clientY }
     else if ('changedTouches' in e && e.changedTouches.length > 0) { cx = e.changedTouches[0].clientX; cy = e.changedTouches[0].clientY }
     else { cx = (e as MouseEvent).clientX; cy = (e as MouseEvent).clientY }
-    return { x: (cx - rect.left) / viewBox.zoom + viewBox.x, y: (cy - rect.top) / viewBox.zoom + viewBox.y }
-  }, [viewBox])
+    return { x: (cx - rect.left) / vb.zoom + vb.x, y: (cy - rect.top) / vb.zoom + vb.y }
+  }, [])
 
   function hitTest(px: number, py: number): string | null {
     const r = 12
@@ -558,8 +573,10 @@ export default function Canvas() {
 
   const scheduleRedraw = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => redraw())
-  }, [redraw])
+    rafRef.current = requestAnimationFrame(() => redrawRef.current())
+  }, [])
+
+  useEffect(() => { redrawRef.current = redraw }, [redraw])
 
   const SNAP_THRESHOLD = 6
   function findSnaps(movingBounds: { x: number; y: number; w: number; h: number }, excludeIds: Set<string>): { dx: number; dy: number; linesX: number[]; linesY: number[] } {
@@ -759,18 +776,28 @@ export default function Canvas() {
         prevElements = state.elements
       }
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
-      rafRef.current = requestAnimationFrame(() => redraw())
+      rafRef.current = requestAnimationFrame(() => redrawRef.current())
     })
     return () => { unsub(); if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [redraw])
+  }, [])
   useEffect(() => { const h = () => { elementsDirtyRef.current = true; redraw() }; window.addEventListener('image-loaded', h); return () => window.removeEventListener('image-loaded', h) }, [redraw])
+
+  const handleStartRef = useRef<(e: MouseEvent | TouchEvent) => void>(() => {})
+  const handleMoveRef = useRef<(e: MouseEvent | TouchEvent) => void>(() => {})
+  const handleEndRef = useRef<(e: MouseEvent | TouchEvent) => void>(() => {})
+  useEffect(() => { handleStartRef.current = (e: MouseEvent | TouchEvent) => handleStart(e) }, [handleStart])
+  useEffect(() => { handleMoveRef.current = (e: MouseEvent | TouchEvent) => handleMove(e) }, [handleMove])
+  useEffect(() => { handleEndRef.current = (e: MouseEvent | TouchEvent) => handleEnd(e) }, [handleEnd])
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return
-    canvas.addEventListener('mousedown', handleStart); canvas.addEventListener('mousemove', handleMove); canvas.addEventListener('mouseup', handleEnd); canvas.addEventListener('mouseleave', handleEnd)
-    canvas.addEventListener('touchstart', handleStart, { passive: false }); canvas.addEventListener('touchmove', handleMove, { passive: false }); canvas.addEventListener('touchend', handleEnd, { passive: false })
-    return () => { canvas.removeEventListener('mousedown', handleStart); canvas.removeEventListener('mousemove', handleMove); canvas.removeEventListener('mouseup', handleEnd); canvas.removeEventListener('mouseleave', handleEnd); canvas.removeEventListener('touchstart', handleStart); canvas.removeEventListener('touchmove', handleMove); canvas.removeEventListener('touchend', handleEnd) }
-  }, [handleStart, handleMove, handleEnd])
+    const onStart = (e: MouseEvent | TouchEvent) => handleStartRef.current(e)
+    const onMove = (e: MouseEvent | TouchEvent) => handleMoveRef.current(e)
+    const onEnd = (e: MouseEvent | TouchEvent) => handleEndRef.current(e)
+    canvas.addEventListener('mousedown', onStart); canvas.addEventListener('mousemove', onMove); canvas.addEventListener('mouseup', onEnd); canvas.addEventListener('mouseleave', onEnd)
+    canvas.addEventListener('touchstart', onStart, { passive: false }); canvas.addEventListener('touchmove', onMove, { passive: false }); canvas.addEventListener('touchend', onEnd, { passive: false })
+    return () => { canvas.removeEventListener('mousedown', onStart); canvas.removeEventListener('mousemove', onMove); canvas.removeEventListener('mouseup', onEnd); canvas.removeEventListener('mouseleave', onEnd); canvas.removeEventListener('touchstart', onStart); canvas.removeEventListener('touchmove', onMove); canvas.removeEventListener('touchend', onEnd) }
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return
