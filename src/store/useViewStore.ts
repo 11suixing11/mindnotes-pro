@@ -58,5 +58,3 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
 
   endPan: () => set({ isPanning: false, lastPanPosition: null }),
 }))
-
-export default useViewStore

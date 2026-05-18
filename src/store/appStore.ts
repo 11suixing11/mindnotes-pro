@@ -8,7 +8,28 @@ const SAVE_DELAY = 1500
 const MAX_HISTORY = 50
 const MIGRATE_KEY = 'mindnotes-drawing-data'
 
-type Snapshot = CanvasElement[]
+type UndoAction =
+  | { type: 'add'; ids: string[] }
+  | { type: 'remove'; items: { el: CanvasElement; index: number }[] }
+  | { type: 'clear'; snapshot: CanvasElement[] }
+  | { type: 'move'; deltas: { id: string; dx: number; dy: number }[] }
+
+function shallowClone(el: CanvasElement): CanvasElement {
+  if (el.type === 'stroke') return { ...el, points: el.points.map((p) => [...p]) }
+  return { ...el } as CanvasElement
+}
+
+function snapshot(els: CanvasElement[]): CanvasElement[] {
+  return els.map(shallowClone)
+}
+
+function applyMoveDelta(el: CanvasElement, dx: number, dy: number): CanvasElement {
+  return moveElement(el, dx, dy)
+}
+
+function reverseMoveDelta(el: CanvasElement, dx: number, dy: number): CanvasElement {
+  return moveElement(el, -dx, -dy)
+}
 
 interface AppState {
   // Canvas
@@ -21,8 +42,8 @@ interface AppState {
   bgColor: string
   selectedIds: string[]
   clipboard: CanvasElement[]
-  undoStack: Snapshot[]
-  redoStack: Snapshot[]
+  undoStack: UndoAction[]
+  redoStack: UndoAction[]
 
   // Docs
   docs: CanvasDoc[]
@@ -57,6 +78,7 @@ interface AppActions {
   clearAll: () => void
   undo: () => void
   redo: () => void
+  pushUndo: (action: UndoAction) => void
   copySelected: () => void
   paste: () => void
 
@@ -78,10 +100,6 @@ interface AppActions {
 
   // Save
   saveNow: () => Promise<void>
-}
-
-function snapshot(els: CanvasElement[]): Snapshot {
-  return els.map((e) => ({ ...e, ...(e.type === 'stroke' ? { points: [...e.points.map((p) => [...p])] } : {}) }))
 }
 
 function migrateOld(): CanvasDoc | null {
@@ -179,17 +197,15 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   addElement: (el) => {
     const state = get()
-    const snap = snapshot(state.elements)
-    const next = [...state.elements, el]
-    set({ elements: next, undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [] })
-    console.log('[store] addElement', el.type, el.id, 'total:', next.length)
+    const action: UndoAction = { type: 'add', ids: [el.id] }
+    set({ elements: [...state.elements, el], undoStack: [...state.undoStack.slice(-MAX_HISTORY), action], redoStack: [] })
     scheduleSave()
   },
 
   addElements: (els) => {
     const state = get()
-    const snap = snapshot(state.elements)
-    set({ elements: [...state.elements, ...els], undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [] })
+    const action: UndoAction = { type: 'add', ids: els.map((e) => e.id) }
+    set({ elements: [...state.elements, ...els], undoStack: [...state.undoStack.slice(-MAX_HISTORY), action], redoStack: [] })
     scheduleSave()
   },
 
@@ -200,16 +216,26 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   removeElement: (id) => {
     const state = get()
-    const snap = snapshot(state.elements)
-    set({ elements: state.elements.filter((e) => e.id !== id), undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [], selectedIds: state.selectedIds.filter((i) => i !== id) })
+    const idx = state.elements.findIndex((e) => e.id === id)
+    if (idx === -1) return
+    const action: UndoAction = { type: 'remove', items: [{ el: state.elements[idx], index: idx }] }
+    const next = [...state.elements.slice(0, idx), ...state.elements.slice(idx + 1)]
+    set({ elements: next, undoStack: [...state.undoStack.slice(-MAX_HISTORY), action], redoStack: [], selectedIds: state.selectedIds.filter((i) => i !== id) })
     scheduleSave()
   },
 
   removeElements: (ids) => {
     const state = get()
-    const snap = snapshot(state.elements)
     const idSet = new Set(ids)
-    set({ elements: state.elements.filter((e) => !idSet.has(e.id)), undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [], selectedIds: [] })
+    const items: { el: CanvasElement; index: number }[] = []
+    const remaining: CanvasElement[] = []
+    state.elements.forEach((el, i) => {
+      if (idSet.has(el.id)) items.push({ el, index: i })
+      else remaining.push(el)
+    })
+    if (items.length === 0) return
+    const action: UndoAction = { type: 'remove', items }
+    set({ elements: remaining, undoStack: [...state.undoStack.slice(-MAX_HISTORY), action], redoStack: [], selectedIds: [] })
     scheduleSave()
   },
 
@@ -231,32 +257,73 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   clearAll: () => {
     const state = get()
-    const snap = snapshot(state.elements)
-    set({ elements: [], undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap], redoStack: [], selectedIds: [] })
+    const action: UndoAction = { type: 'clear', snapshot: snapshot(state.elements) }
+    set({ elements: [], undoStack: [...state.undoStack.slice(-MAX_HISTORY), action], redoStack: [], selectedIds: [] })
     scheduleSave()
   },
 
   undo: () => {
     const { undoStack, elements, redoStack } = get()
     if (undoStack.length === 0) return
-    const prev = undoStack[undoStack.length - 1]
-    set({ elements: prev, undoStack: undoStack.slice(0, -1), redoStack: [...redoStack, snapshot(elements)], selectedIds: [] })
+    const action = undoStack[undoStack.length - 1]
+    let next: CanvasElement[]
+    let redoAction: UndoAction
+    if (action.type === 'add') {
+      const removeSet = new Set(action.ids)
+      next = elements.filter((e) => !removeSet.has(e.id))
+      redoAction = { type: 'remove', items: elements.filter((e) => removeSet.has(e.id)).map((el, i) => ({ el, index: i })) }
+    } else if (action.type === 'remove') {
+      next = [...elements]
+      for (const item of action.items) next.splice(item.index, 0, shallowClone(item.el))
+      redoAction = { type: 'add', ids: action.items.map((i) => i.el.id) }
+    } else if (action.type === 'move') {
+      const deltaMap = new Map(action.deltas.map((d) => [d.id, d]))
+      next = elements.map((e) => { const d = deltaMap.get(e.id); return d ? reverseMoveDelta(e, d.dx, d.dy) : e })
+      redoAction = action
+    } else {
+      next = action.snapshot
+      redoAction = { type: 'clear', snapshot: snapshot(elements) }
+    }
+    set({ elements: next, undoStack: undoStack.slice(0, -1), redoStack: [...redoStack, redoAction], selectedIds: [] })
     scheduleSave()
   },
 
   redo: () => {
     const { redoStack, elements, undoStack } = get()
     if (redoStack.length === 0) return
-    const next = redoStack[redoStack.length - 1]
-    set({ elements: next, redoStack: redoStack.slice(0, -1), undoStack: [...undoStack, snapshot(elements)], selectedIds: [] })
+    const action = redoStack[redoStack.length - 1]
+    let next: CanvasElement[]
+    let undoAction: UndoAction
+    if (action.type === 'add') {
+      const removeSet = new Set(action.ids)
+      next = elements.filter((e) => !removeSet.has(e.id))
+      undoAction = { type: 'remove', items: elements.filter((e) => removeSet.has(e.id)).map((el, i) => ({ el, index: i })) }
+    } else if (action.type === 'remove') {
+      next = [...elements]
+      for (const item of action.items) next.splice(item.index, 0, shallowClone(item.el))
+      undoAction = { type: 'add', ids: action.items.map((i) => i.el.id) }
+    } else if (action.type === 'move') {
+      const deltaMap = new Map(action.deltas.map((d) => [d.id, d]))
+      next = elements.map((e) => { const d = deltaMap.get(e.id); return d ? applyMoveDelta(e, d.dx, d.dy) : e })
+      undoAction = action
+    } else {
+      next = action.snapshot
+      undoAction = { type: 'clear', snapshot: snapshot(elements) }
+    }
+    set({ elements: next, redoStack: redoStack.slice(0, -1), undoStack: [...undoStack, undoAction], selectedIds: [] })
     scheduleSave()
+  },
+
+  pushUndo: (action) => {
+    const state = get()
+    set({ undoStack: [...state.undoStack.slice(-MAX_HISTORY), action], redoStack: [] })
   },
 
   copySelected: () => {
     const { elements, selectedIds } = get()
     if (selectedIds.length === 0) return
     const selSet = new Set(selectedIds)
-    const copied = elements.filter((e) => selSet.has(e.id)).map((e) => snapshot([e])[0])
+    const copied = elements.filter((e) => selSet.has(e.id)).map(shallowClone)
     set({ clipboard: copied })
   },
 
@@ -270,13 +337,12 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       newIds.push(newId)
       return moveElement({ ...el, id: newId }, 20, 20)
     })
-    const state = get()
-    const snap = snapshot(state.elements)
+    const action: UndoAction = { type: 'add', ids: newIds }
     set({
       elements: [...elements, ...pasted],
       selectedIds: newIds,
-      clipboard: pasted.map((e) => snapshot([e])[0]),
-      undoStack: [...state.undoStack.slice(-MAX_HISTORY), snap],
+      clipboard: pasted.map(shallowClone),
+      undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
       redoStack: [],
     })
     scheduleSave()
@@ -355,8 +421,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
 async function saveDocNow() {
   const { currentDocId, elements, bgColor } = useAppStore.getState()
-  console.log('[save] saveDocNow called, docId:', currentDocId, 'elements:', elements.length)
-  if (!currentDocId) { console.warn('[save] no currentDocId, skipping'); return }
+  if (!currentDocId) return
   const existing = await storage.get<CanvasDoc>('docs', currentDocId)
   const now = Date.now()
   await storage.put('docs', {
@@ -368,7 +433,6 @@ async function saveDocNow() {
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   })
-  console.log('[save] saved to IndexedDB, elements:', elements.length)
   const docs = (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt)
   useAppStore.setState({ docs })
 }

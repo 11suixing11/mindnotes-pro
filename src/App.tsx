@@ -3,6 +3,7 @@ import Canvas from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import Sidebar from './components/Sidebar'
 import ToastContainer from './components/Toast'
+import ConfirmModal from './components/ConfirmModal'
 import { useAppStore } from './store/appStore'
 import { useViewStore } from './store/useViewStore'
 import { useThemeStore } from './store/useThemeStore'
@@ -53,6 +54,7 @@ export default function App() {
         <Canvas />
         <Toolbar />
         <ToastContainer />
+        <ConfirmModal />
 
         <div className="status panel">
           <span className="dot" />

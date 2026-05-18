@@ -26,10 +26,9 @@ function withBg(c: HTMLCanvasElement, bg: string) {
   const t = document.createElement('canvas'); t.width = w; t.height = h
   const ctx = t.getContext('2d')!; ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h); ctx.drawImage(c, 0, 0, c.width, c.height, 0, 0, w, h); return t
 }
-function exportBlob(c: HTMLCanvasElement, bg: string, mime: string, quality?: number): Promise<Blob | null> {
-  return new Promise((resolve) => {
-    try { withBg(c, bg).toBlob(b => resolve(b), mime, quality) } catch { resolve(null) }
-  })
+
+function escapeXml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 function buildSVG(elements: CanvasElement[], isDarkMode: boolean): string {
@@ -50,13 +49,71 @@ function buildSVG(elements: CanvasElement[], isDarkMode: boolean): string {
       else if (el.kind === 'circle') s += `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" stroke="${el.color}" stroke-width="${el.size}" fill="${fill}"/>\n`
       else s += `<line x1="${el.x}" y1="${el.y}" x2="${el.x + el.w}" y2="${el.y + el.h}" stroke="${el.color}" stroke-width="${el.size}"/>\n`
     } else if (el.type === 'text') {
-      s += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${el.color}" font-size="${el.fontSize}" font-family="sans-serif">${el.content.replace(/\n/g, ' ')}</text>\n`
+      const lines = el.content.split('\n')
+      const lineHeight = el.fontSize * 1.4
+      if (lines.length === 1) {
+        s += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${el.color}" font-size="${el.fontSize}" font-family="sans-serif">${escapeXml(lines[0])}</text>\n`
+      } else {
+        s += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${el.color}" font-size="${el.fontSize}" font-family="sans-serif">\n`
+        for (let i = 0; i < lines.length; i++) {
+          s += `  <tspan x="${el.x}" dy="${i === 0 ? 0 : lineHeight}">${escapeXml(lines[i])}</tspan>\n`
+        }
+        s += `</text>\n`
+      }
     } else if (el.type === 'image') {
-      s += `<image x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" href="${el.dataUrl}"${el.opacity != null ? ` opacity="${el.opacity}"` : ''} preserveAspectRatio="none"/>\n`
+      s += `<image x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" href="${el.dataUrl}" preserveAspectRatio="none"/>\n`
     }
   }
   s += '</svg>'
   return s
+}
+
+function getContentBounds(elements: CanvasElement[]): { x: number; y: number; w: number; h: number } | null {
+  if (elements.length === 0) return null
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const el of elements) {
+    if (el.type === 'stroke') {
+      for (const p of el.points) { minX = Math.min(minX, p[0]); minY = Math.min(minY, p[1]); maxX = Math.max(maxX, p[0]); maxY = Math.max(maxY, p[1]) }
+    } else if (el.type === 'text' || el.type === 'image') {
+      minX = Math.min(minX, el.x); minY = Math.min(minY, el.y); maxX = Math.max(maxX, el.x + el.width); maxY = Math.max(maxY, el.y + el.height)
+    } else if (el.type === 'shape') {
+      minX = Math.min(minX, el.x); minY = Math.min(minY, el.y); maxX = Math.max(maxX, el.x + el.w); maxY = Math.max(maxY, el.y + el.h)
+    }
+  }
+  const pad = 20
+  return { x: minX - pad, y: minY - pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 }
+}
+
+function exportContentToCanvas(elements: CanvasElement[], bg: string): HTMLCanvasElement | null {
+  const bounds = getContentBounds(elements)
+  if (!bounds) return null
+  const scale = 2
+  const t = document.createElement('canvas'); t.width = bounds.w * scale; t.height = bounds.h * scale
+  const ctx = t.getContext('2d')!; ctx.scale(scale, scale)
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, bounds.w, bounds.h)
+  ctx.translate(-bounds.x, -bounds.y)
+  for (const el of elements) {
+    if (el.type === 'stroke' && el.points.length >= 2) {
+      ctx.beginPath(); ctx.strokeStyle = el.color; ctx.lineWidth = el.size; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+      if (el.brush === 'highlighter') ctx.globalAlpha = el.opacity ?? 0.3
+      ctx.moveTo(el.points[0][0], el.points[0][1])
+      for (let i = 1; i < el.points.length; i++) ctx.lineTo(el.points[i][0], el.points[i][1])
+      ctx.stroke(); ctx.globalAlpha = 1
+    } else if (el.type === 'shape') {
+      ctx.strokeStyle = el.color; ctx.lineWidth = el.size
+      const fill = el.fillColor && el.fillColor !== 'transparent' ? el.fillColor : null
+      if (el.kind === 'rectangle') { if (fill) { ctx.fillStyle = fill; ctx.fillRect(el.x, el.y, el.w, el.h) } ctx.strokeRect(el.x, el.y, el.w, el.h) }
+      else if (el.kind === 'circle') { ctx.beginPath(); ctx.ellipse(el.x + el.w / 2, el.y + el.h / 2, Math.abs(el.w) / 2, Math.abs(el.h) / 2, 0, 0, Math.PI * 2); if (fill) { ctx.fillStyle = fill; ctx.fill() } ctx.stroke() }
+      else { ctx.beginPath(); ctx.moveTo(el.x, el.y); ctx.lineTo(el.x + el.w, el.y + el.h); ctx.stroke() }
+    } else if (el.type === 'text') {
+      ctx.fillStyle = el.color; ctx.font = `${el.fontSize}px 'Noto Sans SC', sans-serif`
+      const lines = el.content.split('\n')
+      for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], el.x, el.y + el.fontSize + i * el.fontSize * 1.4)
+    } else if (el.type === 'image') {
+      try { const img = new Image(); img.src = el.dataUrl; ctx.drawImage(img, el.x, el.y, el.width, el.height) } catch { /* skip */ }
+    }
+  }
+  return t
 }
 
 export default function ExportMenu() {
@@ -68,27 +125,31 @@ export default function ExportMenu() {
   const [showExport, setShowExport] = useState(false)
   const [exportPos, setExportPos] = useState({ top: 0, right: 0 })
 
-  const exportPNG = async () => {
-    const c = getCanvas(); if (!c) return toast('画布未就绪', 'warning')
-    const b = await exportBlob(c, isDarkMode ? '#1C1A24' : '#fff', 'image/png')
-    if (b) { download(b, `mindnotes-${ts()}.png`); toast('PNG 导出成功', 'success') } else toast('PNG 导出失败', 'error')
+  const exportPNG = () => {
+    if (elements.length === 0) return toast('画布为空', 'warning')
+    const t = exportContentToCanvas(elements, 'transparent')
+    if (!t) return toast('导出失败', 'error')
+    t.toBlob((b) => { if (b) { download(b, `mindnotes-${ts()}.png`); toast('PNG 导出成功（透明背景）', 'success') } else toast('PNG 导出失败', 'error') }, 'image/png')
   }
-  const exportJPG = async () => {
-    const c = getCanvas(); if (!c) return toast('画布未就绪', 'warning')
-    const b = await exportBlob(c, '#fff', 'image/jpeg', 0.92)
-    if (b) { download(b, `mindnotes-${ts()}.jpg`); toast('JPG 导出成功', 'success') } else toast('JPG 导出失败', 'error')
+  const exportJPG = () => {
+    if (elements.length === 0) return toast('画布为空', 'warning')
+    const t = exportContentToCanvas(elements, '#ffffff')
+    if (!t) return toast('导出失败', 'error')
+    t.toBlob((b) => { if (b) { download(b, `mindnotes-${ts()}.jpg`); toast('JPG 导出成功', 'success') } else toast('JPG 导出失败', 'error') }, 'image/jpeg', 0.92)
   }
   const exportPDF = async () => {
     const c = getCanvas(); if (!c) return toast('画布未就绪', 'warning')
     const t = withBg(c, isDarkMode ? '#1C1A24' : '#fff')
     const { jsPDF } = await import('jspdf')
-    const p = new jsPDF({ orientation: t.width > t.height ? 'landscape' : 'portrait', unit: 'px', format: [t.width, t.height] })
-    p.addImage(t.toDataURL('image/png'), 'PNG', 0, 0, t.width, t.height); p.save(`mindnotes-${ts()}.pdf`)
+    const DPI = 96; const MM_PER_INCH = 25.4
+    const wMM = (t.width / DPI) * MM_PER_INCH; const hMM = (t.height / DPI) * MM_PER_INCH
+    const p = new jsPDF({ orientation: t.width > t.height ? 'landscape' : 'portrait', unit: 'mm', format: [wMM, hMM] })
+    p.addImage(t.toDataURL('image/png'), 'PNG', 0, 0, wMM, hMM); p.save(`mindnotes-${ts()}.pdf`)
     toast('PDF 导出成功', 'success')
   }
   const exportSVG = () => {
-    const c = getCanvas(); if (!c) return toast('画布未就绪', 'warning')
     const svgStr = buildSVG(elements, isDarkMode)
+    if (!svgStr) return toast('画布为空', 'warning')
     download(new Blob([svgStr], { type: 'image/svg+xml' }), `mindnotes-${ts()}.svg`)
     toast('SVG 导出成功', 'success')
   }
@@ -121,8 +182,8 @@ export default function ExportMenu() {
   const EXPORTS = [
     { icon: I.image, label: 'PNG 图片', desc: '透明背景', action: exportPNG },
     { icon: I.image, label: 'JPG 图片', desc: '白色背景', action: exportJPG },
-    { icon: I.file, label: 'PDF 文档', desc: '自适应版式', action: exportPDF },
-    { icon: I.image, label: 'SVG 矢量', desc: '无损缩放', action: exportSVG },
+    { icon: I.file, label: 'PDF 文档', desc: 'mm 单位自适应', action: exportPDF },
+    { icon: I.image, label: 'SVG 矢量', desc: '含图片+多行文字', action: exportSVG },
     { icon: I.file, label: 'Word 文档', desc: '嵌入截图', action: exportWord },
     { icon: I.download, label: 'JSON 数据', desc: '完整备份', action: exportJSON },
   ]

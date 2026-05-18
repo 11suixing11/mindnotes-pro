@@ -1,84 +1,67 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { useAppStore } from '../store/appStore'
 import { useViewStore } from '../store/useViewStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useThemeStore } from '../store/useThemeStore'
-import type { CanvasElement, StrokeElement, ShapeElement, TextElement, ImageElement, ShapeKind } from '../store/types'
-import { elementBounds } from '../store/types'
-
-const IMAGE_CACHE_MAX = 50
-const imageCache = new Map<string, HTMLImageElement>()
-function getImage(src: string): HTMLImageElement | null {
-  if (imageCache.has(src)) {
-    const img = imageCache.get(src)!
-    imageCache.delete(src)
-    imageCache.set(src, img)
-    return img
-  }
-  const img = new Image(); img.src = src
-  if (img.complete) {
-    if (imageCache.size >= IMAGE_CACHE_MAX) {
-      const firstKey = imageCache.keys().next().value
-      if (firstKey) imageCache.delete(firstKey)
-    }
-    imageCache.set(src, img); return img
-  }
-  img.onload = () => {
-    if (imageCache.size >= IMAGE_CACHE_MAX) {
-      const firstKey = imageCache.keys().next().value
-      if (firstKey) imageCache.delete(firstKey)
-    }
-    imageCache.set(src, img); window.dispatchEvent(new Event('image-loaded'))
-  }
-  return null
-}
-
-function simplifyPts(pts: number[][], t: number): number[][] {
-  if (pts.length <= 2) return pts
-  const r = [pts[0]]; let prev = pts[0]
-  for (let i = 1; i < pts.length; i++) { const dx = pts[i][0] - prev[0], dy = pts[i][1] - prev[1]; if (dx * dx + dy * dy >= t * t) { r.push(pts[i]); prev = pts[i] } }
-  if (r[r.length - 1] !== pts[pts.length - 1]) r.push(pts[pts.length - 1])
-  return r
-}
-
-function distToSeg(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
-  const dx = bx - ax, dy = by - ay, lenSq = dx * dx + dy * dy
-  let t = lenSq === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / lenSq; t = Math.max(0, Math.min(1, t))
-  return Math.sqrt((ax + t * dx - px) ** 2 + (ay + t * dy - py) ** 2)
-}
+import type { CanvasElement, ShapeElement, TextElement, ShapeKind, ToolType } from '../store/types'
+import { simplifyPts, distToSeg, isVisibleInView, elementBounds } from '../canvas/canvasUtils'
+import { drawElement, drawStrokeRaw, drawSelBox, drawMonetGrid, drawCanvasBackground, drawMinimap, drawZoomLevel } from '../canvas/canvasDrawing'
 
 export default function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const elementsCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const elementsDirtyRef = useRef(true)
+  const boundsCacheRef = useRef<Map<string, { x: number; y: number; w: number; h: number }>>(new Map())
   const rafRef = useRef<number>(0)
   const redrawRef = useRef<() => void>(() => {})
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
   const [canvasSize, setCanvasSize] = useState({ w: window.innerWidth, h: window.innerHeight })
 
-  const elements = useAppStore((s) => s.elements)
-  const tool = useAppStore((s) => s.tool)
-  const brush = useAppStore((s) => s.brush)
-  const color = useAppStore((s) => s.color)
-  const fillColor = useAppStore((s) => s.fillColor)
-  const size = useAppStore((s) => s.size)
-  const bgColor = useAppStore((s) => s.bgColor)
-  const addElement = useAppStore((s) => s.addElement)
-  const removeElement = useAppStore((s) => s.removeElement)
-  const removeElements = useAppStore((s) => s.removeElements)
-  const moveElementById = useAppStore((s) => s.moveElementById)
-  const moveElementsById = useAppStore((s) => s.moveElementsById)
-  const resizeElementById = useAppStore((s) => s.resizeElementById)
-  const setSelectedIds = useAppStore((s) => s.setSelectedIds)
-  const undo = useAppStore((s) => s.undo)
-  const redo = useAppStore((s) => s.redo)
+  function cachedBounds(el: CanvasElement): { x: number; y: number; w: number; h: number } {
+    const cache = boundsCacheRef.current
+    let b = cache.get(el.id)
+    if (!b) {
+      b = elementBounds(el)
+      cache.set(el.id, b)
+    }
+    return b
+  }
 
-  const viewBox = useViewStore((s) => s.viewBox)
-  const startPan = useViewStore((s) => s.startPan)
-  const updatePan = useViewStore((s) => s.updatePan)
-  const endPan = useViewStore((s) => s.endPan)
-  const isPanning = useViewStore((s) => s.isPanning)
-  const zoomIn = useViewStore((s) => s.zoomIn)
-  const zoomOut = useViewStore((s) => s.zoomOut)
+  const {
+    elements, tool, brush, color, fillColor, size, bgColor,
+    addElement, removeElement, removeElements,
+    moveElementById, moveElementsById, resizeElementById,
+    setSelectedIds, undo, redo,
+  } = useAppStore(useShallow((s) => ({
+    elements: s.elements,
+    tool: s.tool,
+    brush: s.brush,
+    color: s.color,
+    fillColor: s.fillColor,
+    size: s.size,
+    bgColor: s.bgColor,
+    addElement: s.addElement,
+    removeElement: s.removeElement,
+    removeElements: s.removeElements,
+    moveElementById: s.moveElementById,
+    moveElementsById: s.moveElementsById,
+    resizeElementById: s.resizeElementById,
+    setSelectedIds: s.setSelectedIds,
+    undo: s.undo,
+    redo: s.redo,
+  })))
+
+  const {
+    viewBox, startPan, updatePan, endPan, isPanning, zoomIn, zoomOut,
+  } = useViewStore(useShallow((s) => ({
+    viewBox: s.viewBox,
+    startPan: s.startPan,
+    updatePan: s.updatePan,
+    endPan: s.endPan,
+    isPanning: s.isPanning,
+    zoomIn: s.zoomIn,
+    zoomOut: s.zoomOut,
+  })))
   const { isDarkMode } = useThemeStore()
 
   const drawingRef = useRef(false)
@@ -86,7 +69,7 @@ export default function Canvas() {
   const shapeStartRef = useRef<{ x: number; y: number } | null>(null)
   const currentShapeRef = useRef<ShapeElement | null>(null)
   const erasedRef = useRef<Set<string>>(new Set())
-  const dragRef = useRef<{ x: number; y: number; id: string } | null>(null)
+  const dragRef = useRef<{ x: number; y: number; id: string; startPositions?: Map<string, { x: number; y: number }> } | null>(null)
   const resizeRef = useRef<{ handle: number; id: string; startX: number; startY: number; origBounds: { x: number; y: number; w: number; h: number } } | null>(null)
   const marqueeRef = useRef<{ startX: number; startY: number; endX: number; endY: number } | null>(null)
   const snapLinesRef = useRef<{ x: number[]; y: number[] }>({ x: [], y: [] })
@@ -119,13 +102,13 @@ export default function Canvas() {
   }, [])
 
   function hitTest(px: number, py: number): string | null {
-    const r = 12
+    const r = 12 / (viewBox.zoom || 1)
     const els = useAppStore.getState().elements
     for (let i = els.length - 1; i >= 0; i--) {
       const el = els[i]
       if (el.type === 'image') { if (px >= el.x - r && px <= el.x + el.width + r && py >= el.y - r && py <= el.y + el.height + r) return el.id }
       else if (el.type === 'text') { if (px >= el.x - r && px <= el.x + el.width + r && py >= el.y - r && py <= el.y + el.height + r) return el.id }
-      else if (el.type === 'shape') { const b = elementBounds(el); if (px >= b.x - r && px <= b.x + b.w + r && py >= b.y - r && py <= b.y + b.h + r) return el.id }
+      else if (el.type === 'shape') { const b = cachedBounds(el); if (px >= b.x - r && px <= b.x + b.w + r && py >= b.y - r && py <= b.y + b.h + r) return el.id }
       else if (el.type === 'stroke') { for (let j = 0; j < el.points.length - 1; j++) { if (distToSeg(px, py, el.points[j][0], el.points[j][1], el.points[j + 1][0], el.points[j + 1][1]) < r + el.size / 2) return el.id } }
     }
     return null
@@ -134,11 +117,11 @@ export default function Canvas() {
   function hitHandle(px: number, py: number): { handle: number; id: string; bounds: { x: number; y: number; w: number; h: number } } | null {
     const selIds = useAppStore.getState().selectedIds
     if (selIds.length === 0) return null
-    const hr = 10
+    const hr = 10 / (viewBox.zoom || 1)
     const els = useAppStore.getState().elements
     for (const selId of selIds) {
       const el = els.find((e) => e.id === selId); if (!el) continue
-      const b = elementBounds(el)
+      const b = cachedBounds(el)
       const corners: [number, number][] = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]
       for (let i = 0; i < 4; i++) { if (Math.abs(px - corners[i][0]) < hr && Math.abs(py - corners[i][1]) < hr) return { handle: i, id: selId, bounds: b } }
     }
@@ -172,7 +155,7 @@ export default function Canvas() {
           addElement({ ...el, id: `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, points: seg })
         }
       } else {
-        const b = elementBounds(el)
+        const b = cachedBounds(el)
         if (x >= b.x - r && x <= b.x + b.w + r && y >= b.y - r && y <= b.y + b.h + r) {
           erasedRef.current.add(el.id); removeElement(el.id)
         }
@@ -208,11 +191,17 @@ export default function Canvas() {
     ctx.scale(viewBox.zoom, viewBox.zoom)
     ctx.translate(-viewBox.x, -viewBox.y)
 
-    drawMonetGrid(ctx)
+    drawMonetGridInner(ctx)
+
+    const viewLeft = viewBox.x
+    const viewTop = viewBox.y
+    const viewWidth = canvasSize.w / viewBox.zoom
+    const viewHeight = canvasSize.h / viewBox.zoom
 
     for (const el of els) {
-      drawElement(ctx, el)
-      if (selSet.has(el.id)) drawSelBox(ctx, elementBounds(el))
+      if (!isVisibleInView(el, viewLeft, viewTop, viewWidth, viewHeight)) continue
+      drawElementInner(ctx, el)
+      if (selSet.has(el.id)) drawSelBoxInner(ctx, cachedBounds(el))
     }
 
     ctx.restore()
@@ -230,7 +219,7 @@ export default function Canvas() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, canvasSize.w, canvasSize.h)
 
-    drawCanvasBackground(ctx)
+    drawCanvasBackgroundInner(ctx)
 
     if (elementsDirtyRef.current) {
       renderElementsToCache()
@@ -243,9 +232,9 @@ export default function Canvas() {
     ctx.translate(-viewBox.x, -viewBox.y)
 
     if (drawingRef.current && curTool === 'pen' && currentPtsRef.current.length > 1) {
-      drawStrokeRaw(ctx, currentPtsRef.current, curColor, curSize, curBrush)
+      drawStrokeRaw(ctx, currentPtsRef.current, curColor, curSize, curBrush, isDarkMode)
     }
-    if (currentShapeRef.current) drawElement(ctx, currentShapeRef.current)
+    if (currentShapeRef.current) drawElementInner(ctx, currentShapeRef.current)
 
     if (curTool === 'eraser' && mouseRef.current) {
       const mx = mouseRef.current.x, my = mouseRef.current.y, r = curSize * 2 + 10
@@ -298,277 +287,24 @@ export default function Canvas() {
       ctx.restore()
     }
 
-    drawMinimap(ctx, canvas)
-    drawZoomLevel(ctx, canvas)
+    drawMinimap(ctx, elements, cachedBounds, viewBox, canvasSize, isDarkMode)
+    drawZoomLevel(ctx, viewBox, canvasSize, isDarkMode, dpr)
   }, [viewBox, bgColor, isDarkMode, dpr, canvasSize, getOrCreateElementsCanvas, renderElementsToCache])
 
-  function drawCanvasBackground(ctx: CanvasRenderingContext2D) {
-    ctx.fillStyle = bgColor
-    ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-
-    if (isDarkMode) {
-      const g1 = ctx.createRadialGradient(canvasSize.w * 0.12, canvasSize.h * 0.18, 0, canvasSize.w * 0.12, canvasSize.h * 0.18, canvasSize.w * 0.55)
-      g1.addColorStop(0, 'rgba(122,104,144,0.10)'); g1.addColorStop(0.6, 'rgba(122,104,144,0.03)'); g1.addColorStop(1, 'transparent')
-      ctx.fillStyle = g1; ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-
-      const g2 = ctx.createRadialGradient(canvasSize.w * 0.82, canvasSize.h * 0.72, 0, canvasSize.w * 0.82, canvasSize.h * 0.72, canvasSize.w * 0.45)
-      g2.addColorStop(0, 'rgba(88,112,128,0.08)'); g2.addColorStop(0.6, 'rgba(88,112,128,0.02)'); g2.addColorStop(1, 'transparent')
-      ctx.fillStyle = g2; ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-
-      const g3 = ctx.createRadialGradient(canvasSize.w * 0.5, canvasSize.h * 0.45, 0, canvasSize.w * 0.5, canvasSize.h * 0.45, canvasSize.w * 0.5)
-      g3.addColorStop(0, 'rgba(152,128,88,0.06)'); g3.addColorStop(1, 'transparent')
-      ctx.fillStyle = g3; ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-    } else {
-      const g1 = ctx.createRadialGradient(canvasSize.w * 0.12, canvasSize.h * 0.18, 0, canvasSize.w * 0.12, canvasSize.h * 0.18, canvasSize.w * 0.55)
-      g1.addColorStop(0, 'rgba(184,160,208,0.16)'); g1.addColorStop(0.5, 'rgba(184,160,208,0.05)'); g1.addColorStop(1, 'transparent')
-      ctx.fillStyle = g1; ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-
-      const g2 = ctx.createRadialGradient(canvasSize.w * 0.82, canvasSize.h * 0.72, 0, canvasSize.w * 0.82, canvasSize.h * 0.72, canvasSize.w * 0.45)
-      g2.addColorStop(0, 'rgba(144,180,208,0.14)'); g2.addColorStop(0.5, 'rgba(144,180,208,0.04)'); g2.addColorStop(1, 'transparent')
-      ctx.fillStyle = g2; ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-
-      const g3 = ctx.createRadialGradient(canvasSize.w * 0.55, canvasSize.h * 0.4, 0, canvasSize.w * 0.55, canvasSize.h * 0.4, canvasSize.w * 0.4)
-      g3.addColorStop(0, 'rgba(208,184,136,0.10)'); g3.addColorStop(0.5, 'rgba(208,184,136,0.03)'); g3.addColorStop(1, 'transparent')
-      ctx.fillStyle = g3; ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-
-      const g4 = ctx.createRadialGradient(canvasSize.w * 0.7, canvasSize.h * 0.2, 0, canvasSize.w * 0.7, canvasSize.h * 0.2, canvasSize.w * 0.35)
-      g4.addColorStop(0, 'rgba(212,152,152,0.10)'); g4.addColorStop(0.5, 'rgba(212,152,152,0.03)'); g4.addColorStop(1, 'transparent')
-      ctx.fillStyle = g4; ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-    }
+  function drawCanvasBackgroundInner(ctx: CanvasRenderingContext2D) {
+    drawCanvasBackground(ctx, canvasSize, bgColor, isDarkMode)
   }
 
-  function drawMonetGrid(ctx: CanvasRenderingContext2D) {
-    if (viewBox.zoom <= 0.3) return
-    const gs = 40
-    const sx = Math.floor(viewBox.x / gs) * gs
-    const sy = Math.floor(viewBox.y / gs) * gs
-    const ex = viewBox.x + canvasSize.w / viewBox.zoom
-    const ey = viewBox.y + canvasSize.h / viewBox.zoom
-
-    const dotSize = Math.max(0.8, 1.2 / viewBox.zoom)
-    const alpha = Math.min(0.12, 0.06 + (viewBox.zoom - 0.3) * 0.03)
-
-    ctx.save()
-    if (isDarkMode) {
-      ctx.fillStyle = `rgba(160,150,180,${alpha})`
-    } else {
-      ctx.fillStyle = `rgba(155,142,127,${alpha})`
-    }
-
-    for (let x = sx; x <= ex; x += gs) {
-      for (let y = sy; y <= ey; y += gs) {
-        ctx.beginPath()
-        ctx.arc(x, y, dotSize, 0, Math.PI * 2)
-        ctx.fill()
-      }
-    }
-    ctx.restore()
+  function drawMonetGridInner(ctx: CanvasRenderingContext2D) {
+    drawMonetGrid(ctx, viewBox, canvasSize, isDarkMode)
   }
 
-  function drawElement(ctx: CanvasRenderingContext2D, el: CanvasElement) {
-    if (el.type === 'stroke') drawStrokeEl(ctx, el)
-    else if (el.type === 'shape') drawShapeEl(ctx, el)
-    else if (el.type === 'text') drawTextEl(ctx, el)
-    else if (el.type === 'image') drawImageEl(ctx, el)
+  function drawElementInner(ctx: CanvasRenderingContext2D, el: CanvasElement) {
+    drawElement(ctx, el, isDarkMode, editingText?.id)
   }
 
-  function drawStrokeEl(ctx: CanvasRenderingContext2D, el: StrokeElement) {
-    if (el.points.length < 2) return
-    const b = el.brush, pts = el.points
-    if (b === 'pen') {
-      ctx.beginPath(); ctx.strokeStyle = el.color; ctx.lineWidth = el.size; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = 1
-      ctx.moveTo(pts[0][0], pts[0][1])
-      for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], c = pts[i]; ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2) }
-      ctx.stroke(); ctx.globalAlpha = 1
-    } else if (b === 'highlighter') {
-      ctx.save(); ctx.globalAlpha = 0.3; ctx.strokeStyle = el.color; ctx.lineWidth = el.size * 4; ctx.lineCap = 'square'
-      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1])
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
-      ctx.stroke(); ctx.restore()
-    } else if (b === 'pencil') {
-      ctx.save(); ctx.globalAlpha = 0.65; ctx.strokeStyle = el.color; ctx.lineWidth = el.size * 0.6; ctx.lineCap = 'round'
-      for (let i = 1; i < pts.length; i++) {
-        ctx.beginPath()
-        const seed = (i * 7919) % 100 / 100
-        ctx.moveTo(pts[i - 1][0] + (seed - 0.5) * el.size * 0.3, pts[i - 1][1] + ((seed * 1.3) % 1 - 0.5) * el.size * 0.3)
-        ctx.lineTo(pts[i][0], pts[i][1]); ctx.stroke()
-      }
-      ctx.restore()
-    } else if (b === 'calligraphy') {
-      ctx.strokeStyle = el.color; ctx.lineCap = 'round'
-      for (let i = 1; i < pts.length; i++) {
-        const p = pts[i - 1], c = pts[i]
-        const wf = 0.3 + 0.7 * Math.abs(Math.sin(Math.atan2(c[1] - p[1], c[0] - p[0]) - Math.PI / 4))
-        ctx.beginPath(); ctx.lineWidth = el.size * wf; ctx.moveTo(p[0], p[1]); ctx.lineTo(c[0], c[1]); ctx.stroke()
-      }
-    } else if (b === 'dashed') {
-      ctx.beginPath(); ctx.strokeStyle = el.color; ctx.lineWidth = el.size; ctx.lineCap = 'round'
-      ctx.setLineDash([el.size * 2, el.size * 1.5])
-      ctx.moveTo(pts[0][0], pts[0][1])
-      for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], c = pts[i]; ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2) }
-      ctx.stroke(); ctx.setLineDash([])
-    } else if (b === 'glow') {
-      ctx.save(); ctx.lineCap = 'round'
-      ctx.shadowColor = el.color; ctx.shadowBlur = el.size * 4
-      ctx.strokeStyle = el.color; ctx.lineWidth = el.size * 0.4; ctx.globalAlpha = 0.85
-      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1])
-      for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], c = pts[i]; ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2) }
-      ctx.stroke()
-      ctx.shadowBlur = el.size * 2; ctx.lineWidth = el.size * 0.7; ctx.globalAlpha = 0.5
-      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1])
-      for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], c = pts[i]; ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2) }
-      ctx.stroke(); ctx.restore()
-    }
-  }
-
-  function drawStrokeRaw(ctx: CanvasRenderingContext2D, pts: number[][], c: string, s: number, b: string) {
-    drawStrokeEl(ctx, { type: 'stroke', id: '', points: pts, color: c, size: s, brush: b as any })
-  }
-
-  function drawShapeEl(ctx: CanvasRenderingContext2D, el: ShapeElement) {
-    ctx.strokeStyle = el.color; ctx.lineWidth = el.size; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-    const { x, y, w, h } = el
-    const hasFill = el.fillColor && el.fillColor !== 'transparent'
-    switch (el.kind) {
-      case 'rectangle': {
-        const rx = Math.min(6, Math.abs(w) * 0.05, Math.abs(h) * 0.05)
-        ctx.beginPath()
-        ctx.moveTo(x + rx, y); ctx.lineTo(x + w - rx, y); ctx.quadraticCurveTo(x + w, y, x + w, y + rx)
-        ctx.lineTo(x + w, y + h - rx); ctx.quadraticCurveTo(x + w, y + h, x + w - rx, y + h)
-        ctx.lineTo(x + rx, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - rx)
-        ctx.lineTo(x, y + rx); ctx.quadraticCurveTo(x, y, x + rx, y)
-        ctx.closePath()
-        if (hasFill) { ctx.fillStyle = el.fillColor!; ctx.fill() }
-        ctx.stroke(); break
-      }
-      case 'circle':
-        ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, Math.abs(w) / 2, Math.abs(h) / 2, 0, 0, Math.PI * 2)
-        if (hasFill) { ctx.fillStyle = el.fillColor!; ctx.fill() }
-        ctx.stroke(); break
-      case 'line': ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y + h); ctx.stroke(); break
-      case 'arrow': {
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y + h); ctx.stroke()
-        const a = Math.atan2(h, w), hl = Math.max(15, el.size * 3)
-        ctx.beginPath()
-        ctx.moveTo(x + w, y + h); ctx.lineTo(x + w - hl * Math.cos(a - Math.PI / 6), y + h - hl * Math.sin(a - Math.PI / 6))
-        ctx.moveTo(x + w, y + h); ctx.lineTo(x + w - hl * Math.cos(a + Math.PI / 6), y + h - hl * Math.sin(a + Math.PI / 6))
-        ctx.stroke(); break
-      }
-    }
-  }
-
-  function drawTextEl(ctx: CanvasRenderingContext2D, el: TextElement) {
-    if (el.id === editingText?.id) return
-    ctx.save()
-    ctx.font = `${el.fontSize}px 'Noto Sans SC', 'PingFang SC', sans-serif`
-    ctx.fillStyle = el.color
-    ctx.textBaseline = 'top'
-    const lineHeight = el.fontSize * 1.6
-    const rawLines = el.content.split('\n')
-    const wrappedLines: string[] = []
-    for (const line of rawLines) {
-      if (line === '') { wrappedLines.push(''); continue }
-      let current = ''
-      for (const char of line) {
-        const test = current + char
-        if (ctx.measureText(test).width > el.width && current.length > 0) {
-          wrappedLines.push(current)
-          current = char
-        } else {
-          current = test
-        }
-      }
-      wrappedLines.push(current)
-    }
-    for (let i = 0; i < wrappedLines.length; i++) {
-      ctx.fillText(wrappedLines[i], el.x, el.y + i * lineHeight)
-    }
-    ctx.restore()
-  }
-
-  function drawImageEl(ctx: CanvasRenderingContext2D, el: ImageElement) {
-    const img = getImage(el.dataUrl)
-    if (img?.complete) {
-      ctx.save(); ctx.globalAlpha = el.opacity ?? 1
-      const r = 6
-      ctx.beginPath()
-      ctx.moveTo(el.x + r, el.y); ctx.lineTo(el.x + el.width - r, el.y); ctx.quadraticCurveTo(el.x + el.width, el.y, el.x + el.width, el.y + r)
-      ctx.lineTo(el.x + el.width, el.y + el.height - r); ctx.quadraticCurveTo(el.x + el.width, el.y + el.height, el.x + el.width - r, el.y + el.height)
-      ctx.lineTo(el.x + r, el.y + el.height); ctx.quadraticCurveTo(el.x, el.y + el.height, el.x, el.y + el.height - r)
-      ctx.lineTo(el.x, el.y + r); ctx.quadraticCurveTo(el.x, el.y, el.x + r, el.y)
-      ctx.closePath(); ctx.clip()
-      ctx.drawImage(img, el.x, el.y, el.width, el.height)
-      ctx.restore()
-    }
-  }
-
-  function drawSelBox(ctx: CanvasRenderingContext2D, b: { x: number; y: number; w: number; h: number }) {
-    const primary = isDarkMode ? '#C8A0B0' : '#B07D6E'
-    const primaryLight = isDarkMode ? 'rgba(200,160,176,0.12)' : 'rgba(176,125,110,0.1)'
-
-    ctx.save()
-    ctx.strokeStyle = primary; ctx.lineWidth = 1.5 / viewBox.zoom; ctx.setLineDash([5 / viewBox.zoom, 5 / viewBox.zoom])
-    ctx.strokeRect(b.x, b.y, b.w, b.h); ctx.setLineDash([])
-
-    ctx.fillStyle = primaryLight
-    ctx.fillRect(b.x, b.y, b.w, b.h)
-
-    const cornerR = 4 / viewBox.zoom
-    ctx.fillStyle = primary
-    ctx.shadowColor = isDarkMode ? 'rgba(200,160,176,0.3)' : 'rgba(176,125,110,0.3)'
-    ctx.shadowBlur = 4 / viewBox.zoom
-    for (const [cx, cy] of [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]) {
-      ctx.beginPath()
-      ctx.arc(cx, cy, cornerR, 0, Math.PI * 2)
-      ctx.fill()
-    }
-    ctx.restore()
-  }
-
-  function drawMinimap(ctx: CanvasRenderingContext2D, _canvas: HTMLCanvasElement) {
-    if (elements.length === 0) return
-    const mmW = 120, mmH = 80, pad = 12
-    const mmX = canvasSize.w - mmW - pad, mmY = canvasSize.h - mmH - pad - 40
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const el of elements) {
-      const b = elementBounds(el)
-      minX = Math.min(minX, b.x); minY = Math.min(minY, b.y); maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h)
-    }
-    if (!isFinite(minX)) return
-    const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1
-    const scale = Math.min(mmW / rangeX, mmH / rangeY) * 0.8
-    ctx.save(); ctx.globalAlpha = 0.6
-
-    ctx.fillStyle = isDarkMode ? 'rgba(34,32,44,0.85)' : 'rgba(251,246,238,0.85)'
-    ctx.strokeStyle = isDarkMode ? 'rgba(160,150,180,0.15)' : 'rgba(155,142,127,0.15)'
-    ctx.lineWidth = 1
-    ctx.beginPath(); ctx.roundRect(mmX - 2, mmY - 2, mmW + 4, mmH + 4, 10); ctx.fill(); ctx.stroke()
-
-    const minimapColors = isDarkMode
-      ? ['rgba(200,160,176,0.5)', 'rgba(106,90,128,0.5)', 'rgba(80,104,120,0.5)', 'rgba(138,120,80,0.5)']
-      : ['rgba(176,125,110,0.5)', 'rgba(196,181,216,0.5)', 'rgba(160,188,212,0.5)', 'rgba(212,192,152,0.5)']
-    let ci = 0
-    for (const el of elements) {
-      const b = elementBounds(el)
-      ctx.fillStyle = minimapColors[ci % minimapColors.length]; ci++
-      ctx.fillRect(mmX + (b.x - minX) * scale + (mmW - rangeX * scale) / 2, mmY + (b.y - minY) * scale + (mmH - rangeY * scale) / 2, Math.max(1, b.w * scale), Math.max(1, b.h * scale))
-    }
-    const vx = (viewBox.x - minX) * scale + (mmW - rangeX * scale) / 2, vy = (viewBox.y - minY) * scale + (mmH - rangeY * scale) / 2
-    const vpColor = isDarkMode ? '#C8A0B0' : '#B07D6E'
-    ctx.strokeStyle = vpColor; ctx.lineWidth = 1.5
-    ctx.beginPath()
-    ctx.roundRect(mmX + vx, mmY + vy, canvasSize.w / viewBox.zoom * scale, canvasSize.h / viewBox.zoom * scale, 3)
-    ctx.stroke()
-    ctx.restore()
-  }
-
-  function drawZoomLevel(ctx: CanvasRenderingContext2D, _canvas: HTMLCanvasElement) {
-    ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.font = '500 11px "Noto Sans SC", sans-serif'
-    ctx.fillStyle = isDarkMode ? 'rgba(200,160,176,0.5)' : 'rgba(176,125,110,0.4)'
-    ctx.textAlign = 'right'
-    ctx.fillText(`${Math.round(viewBox.zoom * 100)}%`, canvasSize.w - 145, canvasSize.h - 50)
-    ctx.restore()
+  function drawSelBoxInner(ctx: CanvasRenderingContext2D, b: { x: number; y: number; w: number; h: number }) {
+    drawSelBox(ctx, b, isDarkMode, viewBox.zoom)
   }
 
   const scheduleRedraw = useCallback(() => {
@@ -578,7 +314,7 @@ export default function Canvas() {
 
   useEffect(() => { redrawRef.current = redraw }, [redraw])
 
-  const SNAP_THRESHOLD = 6
+  const SNAP_THRESHOLD = 6 / (viewBox.zoom || 1)
   function findSnaps(movingBounds: { x: number; y: number; w: number; h: number }, excludeIds: Set<string>): { dx: number; dy: number; linesX: number[]; linesY: number[] } {
     const els = useAppStore.getState().elements
     const movingCX = movingBounds.x + movingBounds.w / 2
@@ -591,7 +327,7 @@ export default function Canvas() {
 
     for (const el of els) {
       if (excludeIds.has(el.id)) continue
-      const b = elementBounds(el)
+      const b = cachedBounds(el)
       const otherEdges = { left: b.x, right: b.x + b.w, top: b.y, bottom: b.y + b.h, cx: b.x + b.w / 2, cy: b.y + b.h / 2 }
 
       for (const mv of [movingEdges.left, movingEdges.right, movingEdges.cx]) {
@@ -633,18 +369,22 @@ export default function Canvas() {
       const h = hitHandle(pos.x, pos.y)
       if (h) {
         const el = useAppStore.getState().elements.find((e) => e.id === h.id)
-        if (el) resizeRef.current = { ...h, startX: pos.x, startY: pos.y, origBounds: elementBounds(el) }
+        if (el) resizeRef.current = { ...h, startX: pos.x, startY: pos.y, origBounds: cachedBounds(el) }
         scheduleRedraw(); return
       }
       const hit = hitTest(pos.x, pos.y)
       if (hit) {
         const st = useAppStore.getState()
-        if (st.selectedIds.includes(hit)) {
-          dragRef.current = { x: pos.x, y: pos.y, id: hit }
-        } else {
-          setSelectedIds([hit])
-          dragRef.current = { x: pos.x, y: pos.y, id: hit }
+        const ids = st.selectedIds.includes(hit) ? st.selectedIds : [hit]
+        if (!st.selectedIds.includes(hit)) setSelectedIds([hit])
+        const startPositions = new Map<string, { x: number; y: number }>()
+        for (const el of st.elements) {
+          if (ids.includes(el.id)) {
+            if (el.type === 'stroke') startPositions.set(el.id, { x: el.points[0]?.[0] ?? 0, y: el.points[0]?.[1] ?? 0 })
+            else startPositions.set(el.id, { x: (el as any).x ?? 0, y: (el as any).y ?? 0 })
+          }
         }
+        dragRef.current = { x: pos.x, y: pos.y, id: hit, startPositions }
         scheduleRedraw(); return
       }
       marqueeRef.current = { startX: pos.x, startY: pos.y, endX: pos.x, endY: pos.y }
@@ -664,9 +404,9 @@ export default function Canvas() {
       return
     }
     drawingRef.current = true; erasedRef.current = new Set()
-    if (curTool === 'pen') { currentPtsRef.current = [[pos.x, pos.y]]; console.log('[draw] pen start', pos) }
+    if (curTool === 'pen') { currentPtsRef.current = [[pos.x, pos.y]] }
     else if (curTool === 'eraser') eraseAt(pos.x, pos.y)
-    else { shapeStartRef.current = pos; currentShapeRef.current = { type: 'shape', id: `shape-${Date.now()}`, kind: curTool as ShapeKind, x: pos.x, y: pos.y, w: 0, h: 0, color: curColor, size: curSize, fillColor: curFillColor !== 'transparent' ? curFillColor : undefined }; console.log('[draw] shape start', curTool) }
+    else { shapeStartRef.current = pos; currentShapeRef.current = { type: 'shape', id: `shape-${Date.now()}`, kind: curTool as ShapeKind, x: pos.x, y: pos.y, w: 0, h: 0, color: curColor, size: curSize, fillColor: curFillColor !== 'transparent' ? curFillColor : undefined } }
   }, [getPos, startPan, setSelectedIds, scheduleRedraw])
 
   const handleMove = useCallback((e: MouseEvent | TouchEvent) => {
@@ -700,7 +440,7 @@ export default function Canvas() {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
       for (const el of st.elements) {
         if (!idSet.has(el.id)) continue
-        const b = elementBounds(el)
+        const b = cachedBounds(el)
         minX = Math.min(minX, b.x); minY = Math.min(minY, b.y)
         maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h)
       }
@@ -732,7 +472,7 @@ export default function Canvas() {
       currentShapeRef.current = { ...currentShapeRef.current, w, h }
     }
     scheduleRedraw()
-  }, [getPos, isPanning, updatePan, scheduleRedraw, moveElementById, resizeElementById])
+  }, [getPos, isPanning, updatePan, scheduleRedraw, moveElementById, moveElementsById, resizeElementById])
 
   const handleEnd = useCallback((e: MouseEvent | TouchEvent) => {
     e.preventDefault()
@@ -742,7 +482,14 @@ export default function Canvas() {
     if (drawingRef.current) {
       drawingRef.current = false
       const curTool = toolRef.current
-      if (curTool === 'pen') { if (currentPtsRef.current.length > 1) { addElement({ type: 'stroke', id: `stroke-${Date.now()}`, points: simplifyPts(currentPtsRef.current, 2), color: curColor, size: curSize, brush: curBrush }); console.log('[draw] pen saved', currentPtsRef.current.length, 'points') } else { console.log('[draw] pen too short', currentPtsRef.current.length) } currentPtsRef.current = [] }
+      if (curTool === 'pen') {
+        if (currentPtsRef.current.length > 1) {
+          const el: any = { type: 'stroke', id: `stroke-${Date.now()}`, points: simplifyPts(currentPtsRef.current, 1), color: curColor, size: curSize, brush: curBrush }
+          if (curBrush === 'highlighter') el.opacity = 0.3
+          addElement(el)
+        }
+        currentPtsRef.current = []
+      }
       else if (curTool === 'eraser') currentPtsRef.current = []
       else if (currentShapeRef.current) { if (Math.abs(currentShapeRef.current.w) > 2 || Math.abs(currentShapeRef.current.h) > 2) addElement(currentShapeRef.current); currentShapeRef.current = null; shapeStartRef.current = null }
       scheduleRedraw(); return
@@ -757,7 +504,7 @@ export default function Canvas() {
           const els = useAppStore.getState().elements
           const hits: string[] = []
           for (const el of els) {
-            const b = elementBounds(el)
+            const b = cachedBounds(el)
             if (b.x + b.w >= x1 && b.x <= x2 && b.y + b.h >= y1 && b.y <= y2) {
               hits.push(el.id)
             }
@@ -765,6 +512,21 @@ export default function Canvas() {
           setSelectedIds(hits)
         }
         marqueeRef.current = null
+      }
+      if (dragRef.current?.startPositions) {
+        const st = useAppStore.getState()
+        const sp = dragRef.current.startPositions
+        const deltas: { id: string; dx: number; dy: number }[] = []
+        for (const el of st.elements) {
+          const startPos = sp.get(el.id)
+          if (!startPos) continue
+          let cx: number, cy: number
+          if (el.type === 'stroke') { cx = el.points[0]?.[0] ?? 0; cy = el.points[0]?.[1] ?? 0 }
+          else { cx = (el as any).x ?? 0; cy = (el as any).y ?? 0 }
+          const dx = cx - startPos.x, dy = cy - startPos.y
+          if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) deltas.push({ id: el.id, dx, dy })
+        }
+        if (deltas.length > 0) useAppStore.getState().pushUndo({ type: 'move', deltas })
       }
       dragRef.current = null; resizeRef.current = null; snapLinesRef.current = { x: [], y: [] }; scheduleRedraw(); return
     }
@@ -783,6 +545,7 @@ export default function Canvas() {
     const unsub = useAppStore.subscribe((state) => {
       if (state.elements !== prevElements) {
         elementsDirtyRef.current = true
+        boundsCacheRef.current.clear()
         prevElements = state.elements
       }
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
@@ -815,6 +578,76 @@ export default function Canvas() {
     canvas.addEventListener('wheel', handleWheel, { passive: false }); return () => canvas.removeEventListener('wheel', handleWheel)
   }, [zoomIn, zoomOut, scheduleRedraw])
 
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return
+    let pinchDist = 0
+    let pinchMid = { x: 0, y: 0 }
+    let pinching = false
+
+    function getTouchDist(e: TouchEvent): number {
+      const dx = e.touches[0].clientX - e.touches[1].clientX
+      const dy = e.touches[0].clientY - e.touches[1].clientY
+      return Math.sqrt(dx * dx + dy * dy)
+    }
+
+    function getTouchMid(e: TouchEvent): { x: number; y: number } {
+      return {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+      }
+    }
+
+    function onTouchStart(e: TouchEvent) {
+      if (e.touches.length === 2) {
+        pinching = true
+        pinchDist = getTouchDist(e)
+        pinchMid = getTouchMid(e)
+        e.preventDefault()
+      }
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      if (!pinching || e.touches.length < 2) return
+      e.preventDefault()
+      const newDist = getTouchDist(e)
+      const newMid = getTouchMid(e)
+      const scale = newDist / pinchDist
+      const vb = useViewStore.getState().viewBox
+
+      if (Math.abs(scale - 1) > 0.005) {
+        const newZoom = Math.max(0.2, Math.min(5, vb.zoom * scale))
+        useViewStore.setState({
+          viewBox: { ...vb, zoom: newZoom },
+        })
+        pinchDist = newDist
+      }
+
+      const dx = (newMid.x - pinchMid.x) / vb.zoom
+      const dy = (newMid.y - pinchMid.y) / vb.zoom
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+        useViewStore.setState({
+          viewBox: { ...useViewStore.getState().viewBox, x: useViewStore.getState().viewBox.x - dx, y: useViewStore.getState().viewBox.y - dy },
+        })
+        pinchMid = newMid
+      }
+
+      scheduleRedraw()
+    }
+
+    function onTouchEnd(e: TouchEvent) {
+      if (e.touches.length < 2) pinching = false
+    }
+
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false })
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false })
+    canvas.addEventListener('touchend', onTouchEnd, { passive: false })
+    return () => {
+      canvas.removeEventListener('touchstart', onTouchStart)
+      canvas.removeEventListener('touchmove', onTouchMove)
+      canvas.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [scheduleRedraw])
+
   const copySelectedToSystemClipboard = useCallback(() => {
     const st = useAppStore.getState()
     if (st.selectedIds.length === 0) return
@@ -824,7 +657,7 @@ export default function Canvas() {
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const el of selectedEls) {
-      const b = elementBounds(el)
+      const b = cachedBounds(el)
       minX = Math.min(minX, b.x); minY = Math.min(minY, b.y)
       maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h)
     }
@@ -876,7 +709,7 @@ export default function Canvas() {
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (st.selectedIds.length > 0) { removeElements(st.selectedIds); return }
       }
-      const toolMap: Record<string, any> = { '1': 'pen', '2': 'eraser', '3': 'pan', '4': 'rectangle', '5': 'circle', '6': 'text', '7': 'line', '8': 'arrow', '0': 'select' }
+      const toolMap: Record<string, ToolType> = { '1': 'pen', '2': 'eraser', '3': 'pan', '4': 'rectangle', '5': 'circle', '6': 'text', '7': 'line', '8': 'arrow', '0': 'select' }
       if (toolMap[e.key]) { st.setTool(toolMap[e.key]); return }
       if (e.key === '+' || e.key === '=') { zoomIn(); return }
       if (e.key === '-') { zoomOut(); return }
@@ -891,12 +724,35 @@ export default function Canvas() {
     return cursorMap[tool] ?? 'crosshair'
   }
 
+  function measureTextWidth(content: string, fontSize: number): number {
+    const canvas = canvasRef.current; if (!canvas) return Math.max(200, content.length * fontSize * 0.6)
+    const ctx = canvas.getContext('2d'); if (!ctx) return Math.max(200, content.length * fontSize * 0.6)
+    ctx.font = `${fontSize}px 'Noto Sans SC', 'PingFang SC', sans-serif`
+    const lines = content.split('\n')
+    let maxW = 0
+    for (const line of lines) maxW = Math.max(maxW, ctx.measureText(line).width)
+    return Math.max(40, maxW + 8)
+  }
+
   function commitTextEdit(content: string) {
     if (!editingText) return
     if (editingText.id.startsWith('new-')) {
-      if (content.trim()) addElement({ type: 'text', id: `text-${Date.now()}`, x: editingText.x, y: editingText.y, width: Math.max(200, content.length * editingText.fontSize * 0.6), height: editingText.fontSize * 1.6, content: content.trim(), fontSize: editingText.fontSize, color: editingText.color })
+      if (content.trim()) {
+        const lines = content.trim().split('\n')
+        const w = measureTextWidth(content.trim(), editingText.fontSize)
+        const h = editingText.fontSize * 1.6 * lines.length
+        addElement({ type: 'text', id: `text-${Date.now()}`, x: editingText.x, y: editingText.y, width: w, height: h, content: content.trim(), fontSize: editingText.fontSize, color: editingText.color })
+      }
     } else {
-      useAppStore.getState().updateElement(editingText.id, (el) => el.type === 'text' ? { ...el, content } : el)
+      const el = useAppStore.getState().elements.find((e) => e.id === editingText.id)
+      if (el && el.type === 'text') {
+        const w = measureTextWidth(content, el.fontSize)
+        const lines = content.split('\n')
+        const h = el.fontSize * 1.6 * lines.length
+        useAppStore.getState().updateElement(editingText.id, () => ({ ...el, content, width: Math.max(40, w), height: Math.max(el.fontSize * 1.6, h) }))
+      } else {
+        useAppStore.getState().updateElement(editingText.id, (e) => e.type === 'text' ? { ...e, content } : e)
+      }
     }
     setEditingText(null)
   }
@@ -904,28 +760,36 @@ export default function Canvas() {
   return (
     <>
       <canvas ref={canvasRef} width={canvasSize.w * dpr} height={canvasSize.h * dpr} className="w-full h-full touch-none" style={{ touchAction: 'none', cursor: getCursor(), backgroundColor: bgColor, width: canvasSize.w, height: canvasSize.h }} />
-      {editingText && (
-        <textarea ref={textRef} autoFocus value={editingText.content} onChange={(e) => setEditingText({ ...editingText, content: e.target.value })}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitTextEdit(editingText.content) }; if (e.key === 'Escape') setEditingText(null) }}
-          onBlur={() => commitTextEdit(editingText.content)}
-          style={{
-            position: 'fixed', left: editingText.screenX - 2, top: editingText.screenY,
-            minWidth: 40, maxWidth: 800, minHeight: editingText.fontSize * viewBox.zoom * 1.6,
-            padding: 0,
-            fontSize: editingText.fontSize * viewBox.zoom,
-            lineHeight: 1.6,
-            color: editingText.color,
-            background: 'transparent',
-            border: 'none',
-            borderLeft: `2px solid ${isDarkMode ? 'rgba(200,160,176,0.6)' : 'rgba(176,125,110,0.6)'}`,
-            outline: 'none', zIndex: 100,
-            boxShadow: 'none',
-            fontFamily: "'Noto Sans SC', 'PingFang SC', sans-serif",
-            resize: 'none',
-            overflow: 'hidden',
-            caretColor: editingText.color,
-          }} />
-      )}
+      {editingText && (() => {
+        const rect = canvasRef.current?.getBoundingClientRect()
+        if (!rect) return null
+        const screenX = (editingText.x - viewBox.x) * viewBox.zoom + rect.left
+        const screenY = (editingText.y - viewBox.y) * viewBox.zoom + rect.top
+        return (
+          <textarea ref={textRef} autoFocus value={editingText.content} onChange={(e) => setEditingText({ ...editingText, content: e.target.value })}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitTextEdit(editingText.content) }; if (e.key === 'Escape') setEditingText(null) }}
+            onBlur={() => commitTextEdit(editingText.content)}
+            style={{
+              position: 'fixed', left: screenX - 2, top: screenY,
+              minWidth: 40, maxWidth: 800, minHeight: editingText.fontSize * 1.6,
+              padding: 0,
+              fontSize: editingText.fontSize,
+              lineHeight: 1.6,
+              color: editingText.color,
+              background: 'transparent',
+              border: 'none',
+              borderLeft: `2px solid ${isDarkMode ? 'rgba(200,160,176,0.6)' : 'rgba(176,125,110,0.6)'}`,
+              outline: 'none', zIndex: 100,
+              boxShadow: 'none',
+              fontFamily: "'Noto Sans SC', 'PingFang SC', sans-serif",
+              resize: 'none',
+              overflow: 'hidden',
+              caretColor: editingText.color,
+              transform: `scale(${viewBox.zoom})`,
+              transformOrigin: 'top left',
+            }} />
+        )
+      })()}
     </>
   )
 }
