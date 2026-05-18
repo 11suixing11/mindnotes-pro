@@ -28,12 +28,11 @@ export default function Canvas() {
   }
 
   const {
-    elements, tool, brush, color, fillColor, size, bgColor,
+    tool, brush, color, fillColor, size, bgColor,
     addElement, removeElement, removeElements,
     moveElementById, moveElementsById, resizeElementById,
     setSelectedIds, undo, redo,
   } = useAppStore(useShallow((s) => ({
-    elements: s.elements,
     tool: s.tool,
     brush: s.brush,
     color: s.color,
@@ -184,42 +183,48 @@ export default function Canvas() {
     const els = useAppStore.getState().elements
     const selIds = useAppStore.getState().selectedIds
     const selSet = new Set(selIds)
+    const dark = useThemeStore.getState().isDarkMode
+    const vb = useViewStore.getState().viewBox
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, canvasSize.w, canvasSize.h)
     ctx.save()
-    ctx.scale(viewBox.zoom, viewBox.zoom)
-    ctx.translate(-viewBox.x, -viewBox.y)
+    ctx.scale(vb.zoom, vb.zoom)
+    ctx.translate(-vb.x, -vb.y)
 
-    drawMonetGridInner(ctx)
+    drawMonetGrid(ctx, vb, canvasSize, dark)
 
-    const viewLeft = viewBox.x
-    const viewTop = viewBox.y
-    const viewWidth = canvasSize.w / viewBox.zoom
-    const viewHeight = canvasSize.h / viewBox.zoom
+    const viewLeft = vb.x
+    const viewTop = vb.y
+    const viewWidth = canvasSize.w / vb.zoom
+    const viewHeight = canvasSize.h / vb.zoom
 
     for (const el of els) {
       if (!isVisibleInView(el, viewLeft, viewTop, viewWidth, viewHeight)) continue
-      drawElementInner(ctx, el)
-      if (selSet.has(el.id)) drawSelBoxInner(ctx, cachedBounds(el))
+      drawElement(ctx, el, dark)
+      if (selSet.has(el.id)) drawSelBox(ctx, cachedBounds(el), dark, vb.zoom)
     }
 
     ctx.restore()
     elementsDirtyRef.current = false
-  }, [viewBox, dpr, canvasSize, getOrCreateElementsCanvas])
+  }, [dpr, canvasSize, getOrCreateElementsCanvas])
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current; if (!canvas) return
     const ctx = canvas.getContext('2d'); if (!ctx) return
-    const curTool = useAppStore.getState().tool
-    const curColor = useAppStore.getState().color
-    const curSize = useAppStore.getState().size
-    const curBrush = useAppStore.getState().brush
+    const st = useAppStore.getState()
+    const curTool = st.tool
+    const curColor = st.color
+    const curSize = st.size
+    const curBrush = st.brush
+    const curBg = st.bgColor
+    const dark = useThemeStore.getState().isDarkMode
+    const vb = useViewStore.getState().viewBox
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, canvasSize.w, canvasSize.h)
 
-    drawCanvasBackgroundInner(ctx)
+    drawCanvasBackground(ctx, canvasSize, curBg, dark)
 
     if (elementsDirtyRef.current) {
       renderElementsToCache()
@@ -228,23 +233,23 @@ export default function Canvas() {
     ctx.drawImage(ec, 0, 0, ec.width, ec.height, 0, 0, canvasSize.w, canvasSize.h)
 
     ctx.save()
-    ctx.scale(viewBox.zoom, viewBox.zoom)
-    ctx.translate(-viewBox.x, -viewBox.y)
+    ctx.scale(vb.zoom, vb.zoom)
+    ctx.translate(-vb.x, -vb.y)
 
     if (drawingRef.current && curTool === 'pen' && currentPtsRef.current.length > 1) {
-      drawStrokeRaw(ctx, currentPtsRef.current, curColor, curSize, curBrush, isDarkMode)
+      drawStrokeRaw(ctx, currentPtsRef.current, curColor, curSize, curBrush, dark)
     }
-    if (currentShapeRef.current) drawElementInner(ctx, currentShapeRef.current)
+    if (currentShapeRef.current) drawElement(ctx, currentShapeRef.current, dark)
 
     if (curTool === 'eraser' && mouseRef.current) {
       const mx = mouseRef.current.x, my = mouseRef.current.y, r = curSize * 2 + 10
       ctx.save()
-      ctx.strokeStyle = isDarkMode ? 'rgba(200,160,176,0.5)' : 'rgba(176,125,110,0.35)'
-      ctx.lineWidth = 1.5 / viewBox.zoom
-      ctx.setLineDash([5 / viewBox.zoom, 5 / viewBox.zoom])
+      ctx.strokeStyle = dark ? 'rgba(200,160,176,0.5)' : 'rgba(176,125,110,0.35)'
+      ctx.lineWidth = 1.5 / vb.zoom
+      ctx.setLineDash([5 / vb.zoom, 5 / vb.zoom])
       ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI * 2); ctx.stroke()
       ctx.setLineDash([])
-      ctx.fillStyle = isDarkMode ? 'rgba(200,160,176,0.04)' : 'rgba(176,125,110,0.04)'
+      ctx.fillStyle = dark ? 'rgba(200,160,176,0.04)' : 'rgba(176,125,110,0.04)'
       ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI * 2); ctx.fill()
       ctx.restore()
     }
@@ -255,16 +260,16 @@ export default function Canvas() {
       const m = marqueeRef.current
       const x = Math.min(m.startX, m.endX), y = Math.min(m.startY, m.endY)
       const w = Math.abs(m.endX - m.startX), h = Math.abs(m.endY - m.startY)
-      const sx = (x - viewBox.x) * viewBox.zoom
-      const sy = (y - viewBox.y) * viewBox.zoom
-      const sw = w * viewBox.zoom, sh = h * viewBox.zoom
+      const sx = (x - vb.x) * vb.zoom
+      const sy = (y - vb.y) * vb.zoom
+      const sw = w * vb.zoom, sh = h * vb.zoom
       ctx.save()
-      ctx.strokeStyle = isDarkMode ? 'rgba(200,160,176,0.7)' : 'rgba(176,125,110,0.7)'
+      ctx.strokeStyle = dark ? 'rgba(200,160,176,0.7)' : 'rgba(176,125,110,0.7)'
       ctx.lineWidth = 1.5
       ctx.setLineDash([5, 5])
       ctx.strokeRect(sx, sy, sw, sh)
       ctx.setLineDash([])
-      ctx.fillStyle = isDarkMode ? 'rgba(200,160,176,0.06)' : 'rgba(176,125,110,0.06)'
+      ctx.fillStyle = dark ? 'rgba(200,160,176,0.06)' : 'rgba(176,125,110,0.06)'
       ctx.fillRect(sx, sy, sw, sh)
       ctx.restore()
     }
@@ -272,40 +277,24 @@ export default function Canvas() {
     const snaps = snapLinesRef.current
     if (snaps.x.length > 0 || snaps.y.length > 0) {
       ctx.save()
-      ctx.strokeStyle = isDarkMode ? 'rgba(200,160,176,0.5)' : 'rgba(176,125,110,0.5)'
+      ctx.strokeStyle = dark ? 'rgba(200,160,176,0.5)' : 'rgba(176,125,110,0.5)'
       ctx.lineWidth = 1
       ctx.setLineDash([4, 4])
       for (const lx of snaps.x) {
-        const sx = (lx - viewBox.x) * viewBox.zoom
+        const sx = (lx - vb.x) * vb.zoom
         ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, canvasSize.h); ctx.stroke()
       }
       for (const ly of snaps.y) {
-        const sy = (ly - viewBox.y) * viewBox.zoom
+        const sy = (ly - vb.y) * vb.zoom
         ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(canvasSize.w, sy); ctx.stroke()
       }
       ctx.setLineDash([])
       ctx.restore()
     }
 
-    drawMinimap(ctx, elements, cachedBounds, viewBox, canvasSize, isDarkMode)
-    drawZoomLevel(ctx, viewBox, canvasSize, isDarkMode, dpr)
-  }, [viewBox, bgColor, isDarkMode, dpr, canvasSize, getOrCreateElementsCanvas, renderElementsToCache])
-
-  function drawCanvasBackgroundInner(ctx: CanvasRenderingContext2D) {
-    drawCanvasBackground(ctx, canvasSize, bgColor, isDarkMode)
-  }
-
-  function drawMonetGridInner(ctx: CanvasRenderingContext2D) {
-    drawMonetGrid(ctx, viewBox, canvasSize, isDarkMode)
-  }
-
-  function drawElementInner(ctx: CanvasRenderingContext2D, el: CanvasElement) {
-    drawElement(ctx, el, isDarkMode, editingText?.id)
-  }
-
-  function drawSelBoxInner(ctx: CanvasRenderingContext2D, b: { x: number; y: number; w: number; h: number }) {
-    drawSelBox(ctx, b, isDarkMode, viewBox.zoom)
-  }
+    drawMinimap(ctx, st.elements, cachedBounds, vb, canvasSize, dark)
+    drawZoomLevel(ctx, vb, canvasSize, dark, dpr)
+  }, [dpr, canvasSize, getOrCreateElementsCanvas, renderElementsToCache])
 
   const scheduleRedraw = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
