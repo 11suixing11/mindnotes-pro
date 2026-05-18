@@ -14,13 +14,20 @@ export function drawStrokeEl(ctx: CanvasRenderingContext2D, el: StrokeElement, i
   const b = el.brush, pts = el.points
   if (b === 'pen') {
     if (pts.length < 2) return
-    const outline = getStroke(pts, { size: el.size, thinning: 0.5, smoothing: 0.5, streamline: 0.5 })
-    if (outline.length === 0) return
-    ctx.fillStyle = el.color; ctx.globalAlpha = 1
-    ctx.beginPath()
-    ctx.moveTo(outline[0][0], outline[0][1])
-    for (let i = 1; i < outline.length; i++) ctx.lineTo(outline[i][0], outline[i][1])
-    ctx.closePath(); ctx.fill()
+    ctx.beginPath(); ctx.strokeStyle = el.color; ctx.lineWidth = el.size; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = 1
+    ctx.moveTo(pts[0][0], pts[0][1])
+    for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], c = pts[i]; ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2) }
+    ctx.stroke()
+    try {
+      const outline = getStroke(pts, { size: el.size, thinning: 0.5, smoothing: 0.5, streamline: 0.5 })
+      if (outline.length > 2) {
+        ctx.globalAlpha = 0.15; ctx.fillStyle = el.color; ctx.beginPath()
+        ctx.moveTo(outline[0][0], outline[0][1])
+        for (let i = 1; i < outline.length; i++) ctx.lineTo(outline[i][0], outline[i][1])
+        ctx.closePath(); ctx.fill()
+      }
+    } catch { /* perfect-freehand fallback - main stroke already drawn */ }
+    ctx.globalAlpha = 1
   } else if (b === 'highlighter') {
     ctx.save(); ctx.globalAlpha = el.opacity ?? 0.3; ctx.strokeStyle = el.color; ctx.lineWidth = el.size * 4; ctx.lineCap = 'square'
     ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1])
