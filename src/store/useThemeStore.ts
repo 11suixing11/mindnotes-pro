@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useAppStore } from './appStore'
 
 const THEME_MEDIA_QUERY = '(prefers-color-scheme: dark)'
 
@@ -35,15 +36,19 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     const newMode = !get().isDarkMode
     set({ isDarkMode: newMode })
 
-    // 应用到 document
     if (newMode) {
       document.documentElement.classList.add('dark')
     } else {
       document.documentElement.classList.remove('dark')
     }
 
-    // 存储偏好
     localStorage.setItem('mindnotes-theme', newMode ? 'dark' : 'light')
+
+    const cur = useAppStore.getState().bgColor
+    const isLight = cur === '#ffffff' || cur === '#FFFFFF' || cur === '#fff' || cur === '#FFF'
+    const isDark = cur === '#1A1820' || cur === '#1a1820'
+    if (newMode && isLight) useAppStore.getState().setBgColor('#1A1820')
+    else if (!newMode && isDark) useAppStore.getState().setBgColor('#ffffff')
   },
 
   // 设置主题

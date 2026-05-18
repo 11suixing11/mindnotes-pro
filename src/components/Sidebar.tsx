@@ -1,7 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAppStore } from '../store/appStore'
 import CanvasPreview from './CanvasPreview'
+import { useConfirm } from './ConfirmModal'
 import type { CanvasDoc, CanvasFolder } from '../store/types'
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
+}
 
 const sidebarBtnStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -13,6 +24,7 @@ const sidebarBtnStyle: React.CSSProperties = {
 }
 
 export default function Sidebar() {
+  const isMobile = useIsMobile()
   const docs = useAppStore((s) => s.docs)
   const liveElements = useAppStore((s) => s.elements)
   const folders = useAppStore((s) => s.folders)
@@ -32,6 +44,12 @@ export default function Sidebar() {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameVal, setRenameVal] = useState('')
   const [ctx, setCtx] = useState<{ x: number; y: number; type: 'doc' | 'folder'; id: string } | null>(null)
+  const confirm = useConfirm()
+
+  const openDocAndClose = useCallback((id: string) => {
+    openDoc(id)
+    if (isMobile) setSidebarOpen(false)
+  }, [openDoc, isMobile, setSidebarOpen])
 
   if (!sidebarOpen) {
     return (
@@ -55,11 +73,30 @@ export default function Sidebar() {
 
   const handleContext = (e: React.MouseEvent, type: 'doc' | 'folder', id: string) => { e.preventDefault(); e.stopPropagation(); setCtx({ x: e.clientX, y: e.clientY, type, id }) }
 
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressPosRef = useRef<{ x: number; y: number } | null>(null)
+  const handleLongPressStart = (e: React.TouchEvent, type: 'doc' | 'folder', id: string) => {
+    const touch = e.touches[0]
+    longPressPosRef.current = { x: touch.clientX, y: touch.clientY }
+    longPressRef.current = setTimeout(() => {
+      setCtx({ x: touch.clientX, y: touch.clientY, type, id })
+    }, 500)
+  }
+  const handleLongPressMove = (e: React.TouchEvent) => {
+    if (!longPressRef.current || !longPressPosRef.current) return
+    const touch = e.touches[0]
+    const dx = Math.abs(touch.clientX - longPressPosRef.current.x)
+    const dy = Math.abs(touch.clientY - longPressPosRef.current.y)
+    if (dx > 10 || dy > 10) { clearTimeout(longPressRef.current); longPressRef.current = null }
+  }
+  const handleLongPressEnd = () => { if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null }; longPressPosRef.current = null }
+
   const renderDoc = (doc: CanvasDoc) => {
     const isActive = doc.id === currentDocId
     const previewElements = isActive ? liveElements : doc.elements
     return (
-      <div key={doc.id} onClick={() => openDoc(doc.id)} onContextMenu={(e) => handleContext(e, 'doc', doc.id)}
+      <div key={doc.id} onClick={() => openDocAndClose(doc.id)} onContextMenu={(e) => handleContext(e, 'doc', doc.id)}
+        onTouchStart={(e) => handleLongPressStart(e, 'doc', doc.id)} onTouchEnd={handleLongPressEnd} onTouchMove={handleLongPressMove}
         style={{
           display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', paddingLeft: 28,
           cursor: 'pointer', borderRadius: 10, margin: '1px 4px',
@@ -88,6 +125,7 @@ export default function Sidebar() {
     return (
       <div key={folder.id}>
         <div onClick={() => toggleFolder(folder.id)} onContextMenu={(e) => handleContext(e, 'folder', folder.id)}
+          onTouchStart={(e) => handleLongPressStart(e, 'folder', folder.id)} onTouchEnd={handleLongPressEnd} onTouchMove={handleLongPressMove}
           style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px',
             paddingLeft: 8 + depth * 14, cursor: 'pointer', borderRadius: 8,
@@ -115,10 +153,20 @@ export default function Sidebar() {
 
   return (
     <>
+      {isMobile && sidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
+      )}
       <div style={{
-        width: 240, height: '100%', borderRight: '1px solid var(--border)',
+        width: isMobile ? 260 : 240, height: '100%', borderRight: '1px solid var(--border)',
         display: 'flex', flexDirection: 'column',
-        background: 'var(--card-solid)', flexShrink: 0, zIndex: 20, position: 'relative',
+        background: 'var(--card-solid)', flexShrink: 0,
+        zIndex: isMobile ? 30 : 20,
+        position: isMobile ? 'fixed' : 'relative',
+        left: isMobile ? 0 : undefined,
+        top: isMobile ? 0 : undefined,
+        bottom: isMobile ? 0 : undefined,
+        boxShadow: isMobile ? '4px 0 24px rgba(0,0,0,0.15)' : undefined,
+        animation: isMobile ? 'slideRight 0.25s cubic-bezier(0.16,1,0.3,1)' : undefined,
       }}>
         <div style={{ padding: '12px 12px 8px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -168,14 +216,14 @@ export default function Sidebar() {
                 <button onClick={() => { createDoc('未命名画布', ctx.id); setCtx(null) }} style={ctxStyle}>新建画布</button>
                 <button onClick={() => { const f = folders.find((x) => x.id === ctx.id); if (f) { setRenamingId(f.id); setRenameVal(f.name) }; setCtx(null) }} style={ctxStyle}>重命名</button>
                 <div style={{ height: 1, background: 'var(--border)', margin: '3px 6px' }} />
-                <button onClick={() => { if (confirm('删除文件夹？')) deleteFolder(ctx.id); setCtx(null) }} style={{ ...ctxStyle, color: 'var(--danger)' }}>删除</button>
+                <button onClick={async () => { if (await confirm('删除文件夹？')) deleteFolder(ctx.id); setCtx(null) }} style={{ ...ctxStyle, color: 'var(--danger)' }}>删除</button>
               </>
             ) : (
               <>
                 <button onClick={() => { duplicateDoc(ctx.id); setCtx(null) }} style={ctxStyle}>复制</button>
                 <button onClick={() => { const d = docs.find((x) => x.id === ctx.id); if (d) { setRenamingId(d.id); setRenameVal(d.title) }; setCtx(null) }} style={ctxStyle}>重命名</button>
                 <div style={{ height: 1, background: 'var(--border)', margin: '3px 6px' }} />
-                <button onClick={() => { if (confirm('删除此画布？')) deleteDoc(ctx.id); setCtx(null) }} style={{ ...ctxStyle, color: 'var(--danger)' }}>删除</button>
+                <button onClick={async () => { if (await confirm('删除此画布？')) deleteDoc(ctx.id); setCtx(null) }} style={{ ...ctxStyle, color: 'var(--danger)' }}>删除</button>
               </>
             )}
           </div>
