@@ -84,7 +84,16 @@ function getContentBounds(elements: CanvasElement[]): { x: number; y: number; w:
   return { x: minX - pad, y: minY - pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 }
 }
 
-function exportContentToCanvas(elements: CanvasElement[], bg: string): HTMLCanvasElement | null {
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('image load failed'))
+    img.src = src
+  })
+}
+
+export async function exportContentToCanvas(elements: CanvasElement[], bg: string): Promise<HTMLCanvasElement | null> {
   const bounds = getContentBounds(elements)
   if (!bounds) return null
   const scale = 2
@@ -92,6 +101,16 @@ function exportContentToCanvas(elements: CanvasElement[], bg: string): HTMLCanva
   const ctx = t.getContext('2d')!; ctx.scale(scale, scale)
   ctx.fillStyle = bg; ctx.fillRect(0, 0, bounds.w, bounds.h)
   ctx.translate(-bounds.x, -bounds.y)
+  const imageElements = elements.filter((el) => el.type === 'image')
+  const imageMap = new Map<string, HTMLImageElement>()
+  await Promise.all(imageElements.map(async (el) => {
+    try {
+      const img = await loadImage(el.dataUrl)
+      imageMap.set(el.id, img)
+    } catch {
+      // ignore failed image loads
+    }
+  }))
   for (const el of elements) {
     if (el.type === 'stroke' && el.points.length >= 2) {
       ctx.beginPath(); ctx.strokeStyle = el.color; ctx.lineWidth = el.size; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
@@ -110,7 +129,12 @@ function exportContentToCanvas(elements: CanvasElement[], bg: string): HTMLCanva
       const lines = el.content.split('\n')
       for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], el.x, el.y + el.fontSize + i * el.fontSize * 1.4)
     } else if (el.type === 'image') {
-      try { const img = new Image(); img.src = el.dataUrl; ctx.drawImage(img, el.x, el.y, el.width, el.height) } catch { /* skip */ }
+      const img = imageMap.get(el.id)
+      if (!img) continue
+      const prevAlpha = ctx.globalAlpha
+      if (typeof el.opacity === 'number') ctx.globalAlpha = el.opacity
+      ctx.drawImage(img, el.x, el.y, el.width, el.height)
+      ctx.globalAlpha = prevAlpha
     }
   }
   return t
@@ -125,15 +149,15 @@ export default function ExportMenu() {
   const [showExport, setShowExport] = useState(false)
   const [exportPos, setExportPos] = useState({ top: 0, right: 0 })
 
-  const exportPNG = () => {
+  const exportPNG = async () => {
     if (elements.length === 0) return toast('画布为空', 'warning')
-    const t = exportContentToCanvas(elements, 'transparent')
+    const t = await exportContentToCanvas(elements, 'transparent')
     if (!t) return toast('导出失败', 'error')
     t.toBlob((b) => { if (b) { download(b, `mindnotes-${ts()}.png`); toast('PNG 导出成功（透明背景）', 'success') } else toast('PNG 导出失败', 'error') }, 'image/png')
   }
-  const exportJPG = () => {
+  const exportJPG = async () => {
     if (elements.length === 0) return toast('画布为空', 'warning')
-    const t = exportContentToCanvas(elements, '#ffffff')
+    const t = await exportContentToCanvas(elements, '#ffffff')
     if (!t) return toast('导出失败', 'error')
     t.toBlob((b) => { if (b) { download(b, `mindnotes-${ts()}.jpg`); toast('JPG 导出成功', 'success') } else toast('JPG 导出失败', 'error') }, 'image/jpeg', 0.92)
   }
