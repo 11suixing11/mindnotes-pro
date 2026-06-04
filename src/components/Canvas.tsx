@@ -15,6 +15,7 @@ export default function Canvas() {
   const rafRef = useRef<number>(0)
   const redrawRef = useRef<() => void>(() => {})
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+  const containerRef = useRef<HTMLDivElement>(null)
   const [canvasSize, setCanvasSize] = useState({ w: window.innerWidth, h: window.innerHeight })
 
   function cachedBounds(el: CanvasElement): { x: number; y: number; w: number; h: number } {
@@ -29,9 +30,9 @@ export default function Canvas() {
 
   const {
     tool, brush, color, fillColor, size, bgColor,
-    addElement, removeElement, removeElements,
+    addElement, removeElement,
     moveElementById, moveElementsById, resizeElementById,
-    setSelectedIds, undo, redo,
+    setSelectedIds,
   } = useAppStore(useShallow((s) => ({
     tool: s.tool,
     brush: s.brush,
@@ -41,13 +42,12 @@ export default function Canvas() {
     bgColor: s.bgColor,
     addElement: s.addElement,
     removeElement: s.removeElement,
-    removeElements: s.removeElements,
+
     moveElementById: s.moveElementById,
     moveElementsById: s.moveElementsById,
     resizeElementById: s.resizeElementById,
     setSelectedIds: s.setSelectedIds,
-    undo: s.undo,
-    redo: s.redo,
+
   })))
 
   const {
@@ -101,7 +101,7 @@ export default function Canvas() {
   }, [])
 
   function hitTest(px: number, py: number): string | null {
-    const r = 12 / (viewBox.zoom || 1)
+    const r = 12 / (viewBoxRef.current.zoom || 1)
     const els = useAppStore.getState().elements
     for (let i = els.length - 1; i >= 0; i--) {
       const el = els[i]
@@ -116,7 +116,7 @@ export default function Canvas() {
   function hitHandle(px: number, py: number): { handle: number; id: string; bounds: { x: number; y: number; w: number; h: number } } | null {
     const selIds = useAppStore.getState().selectedIds
     if (selIds.length === 0) return null
-    const hr = 10 / (viewBox.zoom || 1)
+    const hr = 10 / (viewBoxRef.current.zoom || 1)
     const els = useAppStore.getState().elements
     for (const selId of selIds) {
       const el = els.find((e) => e.id === selId); if (!el) continue
@@ -523,8 +523,16 @@ export default function Canvas() {
   }, [addElement, endPan, setSelectedIds, scheduleRedraw])
 
   useEffect(() => {
-    const handleResize = () => setCanvasSize({ w: window.innerWidth, h: window.innerHeight })
-    window.addEventListener('resize', handleResize); return () => window.removeEventListener('resize', handleResize)
+    const el = containerRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect
+        if (width > 0 && height > 0) setCanvasSize({ w: Math.round(width), h: Math.round(height) })
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
   }, [])
 
   useEffect(() => { redraw() }, [redraw, canvasSize])
@@ -686,25 +694,26 @@ export default function Canvas() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       const st = useAppStore.getState()
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return }
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); st.undo(); return }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); st.redo(); return }
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         e.preventDefault(); st.copySelected()
         copySelectedToSystemClipboard()
         return
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') { e.preventDefault(); st.paste(); return }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'a') { e.preventDefault(); setSelectedIds(st.elements.map((e) => e.id)); return }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') { e.preventDefault(); st.setSelectedIds(st.elements.map((el) => el.id)); return }
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (st.selectedIds.length > 0) { removeElements(st.selectedIds); return }
+        if (st.selectedIds.length > 0) { st.removeElements(st.selectedIds); return }
       }
+      const vs = useViewStore.getState()
       const toolMap: Record<string, ToolType> = { '1': 'pen', '2': 'eraser', '3': 'pan', '4': 'rectangle', '5': 'circle', '6': 'text', '7': 'line', '8': 'arrow', '0': 'select' }
       if (toolMap[e.key]) { st.setTool(toolMap[e.key]); return }
-      if (e.key === '+' || e.key === '=') { zoomIn(); return }
-      if (e.key === '-') { zoomOut(); return }
+      if (e.key === '+' || e.key === '=') { vs.zoomIn(); return }
+      if (e.key === '-') { vs.zoomOut(); return }
     }
     window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [undo, redo, zoomIn, zoomOut, removeElements])
+  }, [])
 
   const cursorMap: Record<string, string> = { select: 'default', pen: 'crosshair', eraser: 'none', pan: 'grab', text: 'text', rectangle: 'crosshair', circle: 'crosshair', arrow: 'crosshair', line: 'crosshair' }
   function getCursor() {
@@ -748,7 +757,8 @@ export default function Canvas() {
 
   return (
     <>
-      <canvas ref={canvasRef} width={canvasSize.w * dpr} height={canvasSize.h * dpr} className="w-full h-full touch-none" style={{ touchAction: 'none', cursor: getCursor(), backgroundColor: bgColor, width: canvasSize.w, height: canvasSize.h }} />
+      <div ref={containerRef} style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+      <canvas ref={canvasRef} width={canvasSize.w * dpr} height={canvasSize.h * dpr} className="w-full h-full touch-none" style={{ touchAction: 'none', cursor: getCursor(), backgroundColor: bgColor, width: '100%', height: '100%' }} />
       {editingText && (() => {
         const rect = canvasRef.current?.getBoundingClientRect()
         if (!rect) return null
@@ -779,6 +789,7 @@ export default function Canvas() {
             }} />
         )
       })()}
+      </div>
     </>
   )
 }
