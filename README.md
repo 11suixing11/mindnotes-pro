@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 
 <br />
 
@@ -187,7 +187,12 @@ React 18  ·  TypeScript 5  ·  Vite 5  ·  Zustand 4  ·  Canvas API
 
 <br />
 
-<div align="center">
+
+---
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=11suixing11/mindnotes-pro&type=Date)](https://star-history.com/#11suixing11/mindnotes-pro&Date)<div align="center">
 
 **如果这个项目帮你省了 5 分钟，一个 ⭐ 就是它应得的。**
 
