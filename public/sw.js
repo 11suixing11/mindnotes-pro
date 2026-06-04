@@ -26,10 +26,14 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return
   if (event.request.url.includes('chrome-extension')) return
 
+  // Skip non-basic requests (CDN, cross-origin, etc.)
+  if (event.request.cache === 'only-if-cached' && event.request.mode !== 'same-origin') return
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const networkFetch = fetch(event.request)
         .then((response) => {
+          // Only cache successful same-origin responses
           if (response && response.status === 200 && response.type === 'basic') {
             const clone = response.clone()
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone))
