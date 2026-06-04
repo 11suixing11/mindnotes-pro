@@ -1,0 +1,50 @@
+name: Bug Report
+description: 提交一个 bug 报告
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 描述
+      description: 请清晰地描述你遇到的问题
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请列出复现此问题的步骤
+      placeholder: |
+        1. 打开 '...'
+        2. 点击 '...'
+        3. 滚动到 '...'
+        4. 看到错误
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+      description: 请描述你期望发生的行为
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: 浏览器/操作系统
+      description: 请提供你的浏览器和操作系统信息
+      placeholder: "Chrome 126 / Windows 11"
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图
+      description: 如果有截图能帮助说明问题，请在此处附上
+    validations:
+      required: false
