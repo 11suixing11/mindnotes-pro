@@ -26,10 +26,19 @@ const sidebarBtnStyle: React.CSSProperties = {
 export default function Sidebar() {
   const isMobile = useIsMobile()
   const docs = useAppStore((s) => s.docs)
-  const liveElements = useAppStore((s) => s.elements)
   const folders = useAppStore((s) => s.folders)
   const currentDocId = useAppStore((s) => s.currentDocId)
   const sidebarOpen = useAppStore((s) => s.sidebarOpen)
+  const [liveElements, setLiveElements] = useState(() => useAppStore.getState().elements)
+  useEffect(() => {
+    if (!sidebarOpen) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const unsub = useAppStore.subscribe((state) => {
+      clearTimeout(timer)
+      timer = setTimeout(() => setLiveElements(state.elements), 300)
+    })
+    return () => { clearTimeout(timer); unsub() }
+  }, [sidebarOpen])
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen)
   const createDoc = useAppStore((s) => s.createDoc)
   const openDoc = useAppStore((s) => s.openDoc)

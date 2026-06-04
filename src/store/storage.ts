@@ -16,30 +16,57 @@ export function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('folders')) db.createObjectStore('folders', { keyPath: 'id' })
     }
     req.onsuccess = () => { _db = req.result; resolve(_db) }
-    req.onerror = () => reject(req.error)
+    req.onerror = () => {
+      console.error('[storage] Failed to open IndexedDB:', req.error)
+      reject(req.error)
+    }
   })
 }
 
 function txReq<T>(r: IDBRequest<T>): Promise<T> {
-  return new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error) })
+  return new Promise((res, rej) => {
+    r.onsuccess = () => res(r.result)
+    r.onerror = () => {
+      console.error('[storage] Transaction error:', r.error)
+      rej(r.error)
+    }
+  })
 }
 
 export async function getAll<T>(store: string): Promise<T[]> {
-  const db = await openDB()
-  return txReq(db.transaction(store, 'readonly').objectStore(store).getAll())
+  try {
+    const db = await openDB()
+    return txReq(db.transaction(store, 'readonly').objectStore(store).getAll())
+  } catch (e) {
+    console.error('[storage] getAll failed for store:', store, e)
+    return []
+  }
 }
 
 export async function get<T>(store: string, id: string): Promise<T | undefined> {
-  const db = await openDB()
-  return txReq(db.transaction(store, 'readonly').objectStore(store).get(id))
+  try {
+    const db = await openDB()
+    return txReq(db.transaction(store, 'readonly').objectStore(store).get(id))
+  } catch (e) {
+    console.error('[storage] get failed for store:', store, 'id:', id, e)
+    return undefined
+  }
 }
 
 export async function put<T>(store: string, record: T): Promise<void> {
-  const db = await openDB()
-  await txReq(db.transaction(store, 'readwrite').objectStore(store).put(record))
+  try {
+    const db = await openDB()
+    await txReq(db.transaction(store, 'readwrite').objectStore(store).put(record))
+  } catch (e) {
+    console.error('[storage] put failed for store:', store, e)
+  }
 }
 
 export async function del(store: string, id: string): Promise<void> {
-  const db = await openDB()
-  await txReq(db.transaction(store, 'readwrite').objectStore(store).delete(id))
+  try {
+    const db = await openDB()
+    await txReq(db.transaction(store, 'readwrite').objectStore(store).delete(id))
+  } catch (e) {
+    console.error('[storage] delete failed for store:', store, 'id:', id, e)
+  }
 }

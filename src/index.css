@@ -291,8 +291,10 @@ body::after {
   z-index: 20;
   animation: slideDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
   flex-wrap: wrap;
-  max-height: 56px;
-  overflow: hidden;
+  max-height: 120px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
   box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.1);
   border: 1px solid rgba(255,255,255,0.06);
 }
