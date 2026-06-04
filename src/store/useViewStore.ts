@@ -39,7 +39,7 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
       viewBox: { ...state.viewBox, zoom: Math.max(state.viewBox.zoom / 1.2, 0.2) },
     })),
 
-  resetView: () => set({ viewBox: DEFAULT_VIEWBOX }),
+  resetView: () => set({ viewBox: { ...DEFAULT_VIEWBOX }, isPanning: false, lastPanPosition: null }),
 
   startPan: (x, y) => set({ isPanning: true, lastPanPosition: { x, y } }),
 

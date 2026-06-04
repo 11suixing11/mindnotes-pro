@@ -9,14 +9,23 @@ interface ConfirmOptions {
 
 type ConfirmFn = (message: string, options?: Partial<ConfirmOptions>) => Promise<boolean>
 
-const queue: ((v: boolean) => void)[] = []
+interface QueueEntry {
+  resolve: (v: boolean) => void
+  options: ConfirmOptions
+}
+
+const queue: QueueEntry[] = []
 
 export function useConfirm(): ConfirmFn {
   return useCallback((message: string, options?: Partial<ConfirmOptions>) => {
     return new Promise<boolean>((resolve) => {
-      queue.push(resolve)
+      const entry: QueueEntry = {
+        resolve,
+        options: { message, confirmLabel: options?.confirmLabel, cancelLabel: options?.cancelLabel, danger: options?.danger },
+      }
+      queue.push(entry)
       if (queue.length === 1) {
-        window.dispatchEvent(new CustomEvent('app-confirm', { detail: { message, ...options } }))
+        window.dispatchEvent(new CustomEvent('app-confirm', { detail: entry.options }))
       }
     })
   }, [])
@@ -35,11 +44,12 @@ export default function ConfirmModal() {
   }, [])
 
   const close = (result: boolean) => {
-    setOpts(null)
-    const resolve = queue.shift()
-    if (resolve) resolve(result)
+    const entry = queue.shift()
+    if (entry) entry.resolve(result)
     if (queue.length > 0) {
-      window.dispatchEvent(new CustomEvent('app-confirm', { detail: { message: '' } }))
+      setOpts(queue[0].options)
+    } else {
+      setOpts(null)
     }
   }
 

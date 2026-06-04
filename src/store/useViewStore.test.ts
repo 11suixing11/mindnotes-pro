@@ -94,6 +94,17 @@ describe('useViewStore', () => {
     expect(state.lastPanPosition).toBeNull()
   })
 
+  it('should reset view and clear panning state', () => {
+    useViewStore.getState().startPan(100, 200)
+    useViewStore.getState().updatePan(150, 250)
+    useViewStore.getState().resetView()
+
+    const state = useViewStore.getState()
+    expect(state.viewBox).toEqual({ x: 0, y: 0, zoom: 1 })
+    expect(state.isPanning).toBe(false)
+    expect(state.lastPanPosition).toBeNull()
+  })
+
   it('should set viewBox directly', () => {
     useViewStore.getState().setViewBox({ x: 50, y: 50, zoom: 1.5 })
 
