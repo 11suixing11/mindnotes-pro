@@ -1,38 +1,15 @@
 import { create } from 'zustand'
-import type { CanvasElement, CanvasDoc, CanvasFolder, ToolType, BrushType } from './types'
+import type { CanvasElement, CanvasDoc, CanvasFolder, ToolType, BrushType, UndoAction } from './types'
 import { moveElement, resizeElement } from './types'
 import * as storage from './storage'
 import { useViewStore } from './useViewStore'
+import { shallowClone, snapshot, applyMoveDelta, reverseMoveDelta } from './helpers'
+import { migrateOld, removeMigratedData } from './migration'
+import { initSaveManager, scheduleSave, saveDocNow, clearSaveTimer } from './saveManager'
 
-const SAVE_DELAY = 1500
 const MAX_HISTORY = 50
-const MIGRATE_KEY = 'mindnotes-drawing-data'
-
-type UndoAction =
-  | { type: 'add'; ids: string[] }
-  | { type: 'remove'; items: { el: CanvasElement; index: number }[] }
-  | { type: 'clear'; snapshot: CanvasElement[] }
-  | { type: 'move'; deltas: { id: string; dx: number; dy: number }[] }
-
-function shallowClone(el: CanvasElement): CanvasElement {
-  if (el.type === 'stroke') return { ...el, points: el.points.map((p) => [...p]) }
-  return { ...el } as CanvasElement
-}
-
-function snapshot(els: CanvasElement[]): CanvasElement[] {
-  return els.map(shallowClone)
-}
-
-function applyMoveDelta(el: CanvasElement, dx: number, dy: number): CanvasElement {
-  return moveElement(el, dx, dy)
-}
-
-function reverseMoveDelta(el: CanvasElement, dx: number, dy: number): CanvasElement {
-  return moveElement(el, -dx, -dy)
-}
 
 interface AppState {
-  // Canvas
   elements: CanvasElement[]
   tool: ToolType
   brush: BrushType
@@ -45,19 +22,16 @@ interface AppState {
   undoStack: UndoAction[]
   redoStack: UndoAction[]
 
-  // Docs
   docs: CanvasDoc[]
   folders: CanvasFolder[]
   currentDocId: string | null
   loaded: boolean
   sidebarOpen: boolean
+  saveStatus: 'idle' | 'saving' | 'saved'
 }
 
 interface AppActions {
-  // Init
   init: () => Promise<void>
-
-  // Tools
   setTool: (t: ToolType) => void
   setBrush: (b: BrushType) => void
   setColor: (c: string) => void
@@ -65,8 +39,6 @@ interface AppActions {
   setSize: (s: number) => void
   setBgColor: (c: string) => void
   setSelectedIds: (ids: string[]) => void
-
-  // Elements
   addElement: (el: CanvasElement) => void
   addElements: (els: CanvasElement[]) => void
   updateElement: (id: string, update: (el: CanvasElement) => CanvasElement) => void
@@ -81,363 +53,475 @@ interface AppActions {
   pushUndo: (action: UndoAction) => void
   copySelected: () => void
   paste: () => void
-
-  // Docs
   createDoc: (title?: string, folderId?: string | null) => Promise<string>
   openDoc: (id: string) => Promise<void>
   renameDoc: (id: string, title: string) => Promise<void>
   deleteDoc: (id: string) => Promise<void>
   duplicateDoc: (id: string) => Promise<void>
-
-  // Folders
   createFolder: (name: string, parentId?: string | null) => Promise<string>
   renameFolder: (id: string, name: string) => Promise<void>
   deleteFolder: (id: string) => Promise<void>
   toggleFolder: (id: string) => void
-
-  // Sidebar
   setSidebarOpen: (open: boolean) => void
-
-  // Save
+  batchErase: (beforeSnap: CanvasElement[], added: CanvasElement[]) => void
   saveNow: () => Promise<void>
 }
 
-function migrateOld(): CanvasDoc | null {
-  try {
-    const raw = localStorage.getItem(MIGRATE_KEY)
-    if (!raw) return null
-    const data = JSON.parse(raw)
-    const elements: CanvasElement[] = []
-    for (const s of data.strokes ?? []) {
-      if (s.imageData) {
-        elements.push({ type: 'image', id: s.id, x: s.points[0][0], y: s.points[0][1], width: s.imageWidth ?? 200, height: s.imageHeight ?? 200, dataUrl: s.imageData, opacity: s.opacity })
-      } else if (s.name) {
-        elements.push({ type: 'text', id: s.id, x: s.points[0][0], y: s.points[0][1], width: 200, height: 30, content: s.name, fontSize: Math.max(s.size * 4, 16), color: s.color })
-      } else {
-        elements.push({ type: 'stroke', id: s.id, points: s.points, color: s.color, size: s.size, brush: s.brush ?? 'pen', opacity: s.opacity })
-      }
-    }
-    for (const s of data.shapes ?? []) {
-      const sx = s.startX ?? s.x, sy = s.startY ?? s.y, ex = s.endX ?? s.x + s.width, ey = s.endY ?? s.y + s.height
-      if (s.type === 'text') continue
-      elements.push({ type: 'shape', id: s.id, kind: s.type, x: Math.min(sx, ex), y: Math.min(sy, ey), w: Math.abs(ex - sx), h: Math.abs(ey - sy), color: s.color, size: s.size })
-    }
-    if (elements.length === 0) return null
-    const now = Date.now()
-    return { id: `doc-${now}`, title: '我的画布', elements, bgColor: data.canvasBg ?? '#ffffff', folderId: null, createdAt: now, updatedAt: now }
-  } catch { return null }
-}
+export const useAppStore = create<AppState & AppActions>((set, get) => {
+  // Initialize save manager with store reference
+  const storeApi = { getState: get, setState: set }
+  initSaveManager(storeApi)
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
+  return {
+    elements: [],
+    tool: 'pen',
+    brush: 'pen',
+    color: '#2c2416',
+    fillColor: 'transparent',
+    size: 4,
+    bgColor: '#ffffff',
+    selectedIds: [],
+    clipboard: [],
+    undoStack: [],
+    redoStack: [],
+    docs: [],
+    folders: [],
+    currentDocId: null,
+    loaded: false,
+    sidebarOpen: true,
+    saveStatus: 'idle',
 
-export const useAppStore = create<AppState & AppActions>((set, get) => ({
-  elements: [],
-  tool: 'pen',
-  brush: 'pen',
-  color: '#2c2416',
-  fillColor: 'transparent',
-  size: 4,
-  bgColor: '#ffffff',
-  selectedIds: [],
-  clipboard: [],
-  undoStack: [],
-  redoStack: [],
-  docs: [],
-  folders: [],
-  currentDocId: null,
-  loaded: false,
-  sidebarOpen: true,
+    init: async () => {
+      let docs = await storage.getAll<CanvasDoc>('docs')
+      let folders = await storage.getAll<CanvasFolder>('folders')
 
-  init: async () => {
-    let docs = await storage.getAll<CanvasDoc>('docs')
-    let folders = await storage.getAll<CanvasFolder>('folders')
-
-    if (docs.length === 0) {
-      const migrated = migrateOld()
-      if (migrated) {
-        await storage.put('docs', migrated)
-        docs = [migrated]
-      } else {
-        const now = Date.now()
-        const welcome: CanvasDoc = {
-          id: `doc-${now}`,
-          title: '欢迎使用 MindNotes',
-          elements: [
-            { type: 'text', id: `txt-${now}`, x: 80, y: 60, width: 500, height: 120, content: '# 欢迎使用 MindNotes\n\n暖色纸纹画布笔记本。在这里你可以自由绘图、书写、记录。\n\n左侧边栏管理画布，右侧工具栏切换工具。', fontSize: 16, color: '#2c2416' },
-          ],
-          bgColor: '#ffffff',
-          folderId: null,
-          createdAt: now,
-          updatedAt: now,
+      if (docs.length === 0) {
+        const migrated = migrateOld()
+        if (migrated) {
+          await storage.put('docs', migrated)
+          docs = [migrated]
+        } else {
+          const now = Date.now()
+          const welcome: CanvasDoc = {
+            id: `doc-${now}`,
+            title: '欢迎使用 MindNotes',
+            elements: [
+              {
+                type: 'text',
+                id: `txt-${now}`,
+                x: 80,
+                y: 60,
+                width: 500,
+                height: 120,
+                content: '# 欢迎使用 MindNotes\n\n温暖纸笔化风格笔记本，支持自由绘图、形状绘制和文字记录。\n\n点击左上角按钮探索更多功能。',
+                fontSize: 16,
+                color: '#2c2416',
+              },
+            ],
+            bgColor: '#ffffff',
+            folderId: null,
+            createdAt: now,
+            updatedAt: now,
+          }
+          await storage.put('docs', welcome)
+          docs = [welcome]
         }
-        await storage.put('docs', welcome)
-        docs = [welcome]
       }
-    }
 
-    if (folders.length === 0) {
-      await storage.put('folders', { id: 'folder-default', name: '我的笔记', parentId: null, order: 0, expanded: true } as CanvasFolder)
-      folders = await storage.getAll<CanvasFolder>('folders')
-    }
+      if (folders.length === 0) {
+        await storage.put('folders', {
+          id: 'folder-default',
+          name: '我的笔记',
+          parentId: null,
+          order: 0,
+          expanded: true,
+        } as CanvasFolder)
+        folders = await storage.getAll<CanvasFolder>('folders')
+      }
 
-    docs.sort((a, b) => b.updatedAt - a.updatedAt)
-    const current = docs[0]
-    set({ docs, folders, currentDocId: current?.id ?? null, elements: current?.elements ?? [], bgColor: current?.bgColor ?? '#ffffff', loaded: true })
+      docs.sort((a, b) => b.updatedAt - a.updatedAt)
+      const current = docs[0]
 
-    localStorage.removeItem(MIGRATE_KEY)
-  },
+      set({
+        docs,
+        folders,
+        currentDocId: current?.id ?? null,
+        elements: current?.elements ?? [],
+        bgColor: current?.bgColor ?? '#ffffff',
+        undoStack: current?.undoStack ?? [],
+        redoStack: current?.redoStack ?? [],
+        loaded: true,
+      })
 
-  setTool: (t) => set({ tool: t, selectedIds: [] }),
-  setBrush: (b) => set({ brush: b }),
-  setColor: (c) => set({ color: c }),
-  setFillColor: (c) => set({ fillColor: c }),
-  setSize: (s) => set({ size: s }),
-  setBgColor: (c) => set({ bgColor: c }),
-  setSelectedIds: (ids) => set({ selectedIds: ids }),
+      removeMigratedData()
+    },
 
-  addElement: (el) => {
-    const state = get()
-    const action: UndoAction = { type: 'add', ids: [el.id] }
-    set({ elements: [...state.elements, el], undoStack: [...state.undoStack.slice(-MAX_HISTORY), action], redoStack: [] })
-    scheduleSave()
-  },
+    setTool: (t) => set({ tool: t }),
+    setBrush: (b) => set({ brush: b }),
+    setColor: (c) => set({ color: c }),
+    setFillColor: (c) => set({ fillColor: c }),
+    setSize: (s) => set({ size: s }),
+    setBgColor: (c) => {
+      set({ bgColor: c })
+      scheduleSave()
+    },
+    setSelectedIds: (ids) => set({ selectedIds: ids }),
 
-  addElements: (els) => {
-    const state = get()
-    const action: UndoAction = { type: 'add', ids: els.map((e) => e.id) }
-    set({ elements: [...state.elements, ...els], undoStack: [...state.undoStack.slice(-MAX_HISTORY), action], redoStack: [] })
-    scheduleSave()
-  },
+    addElement: (el) => {
+      const st = get()
+      const action: UndoAction = { type: 'add', ids: [el.id], els: [shallowClone(el)] }
+      set({
+        elements: [...st.elements, el],
+        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
+        redoStack: [],
+      })
+      scheduleSave()
+    },
 
-  updateElement: (id, update) => {
-    set((s) => ({ elements: s.elements.map((e) => e.id === id ? update(e) : e) }))
-    scheduleSave()
-  },
+    addElements: (els) => {
+      const st = get()
+      const action: UndoAction = {
+        type: 'add',
+        ids: els.map((e) => e.id),
+        els: els.map(shallowClone),
+      }
+      set({
+        elements: [...st.elements, ...els],
+        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
+        redoStack: [],
+      })
+      scheduleSave()
+    },
 
-  removeElement: (id) => {
-    const state = get()
-    const idx = state.elements.findIndex((e) => e.id === id)
-    if (idx === -1) return
-    const action: UndoAction = { type: 'remove', items: [{ el: state.elements[idx], index: idx }] }
-    const next = [...state.elements.slice(0, idx), ...state.elements.slice(idx + 1)]
-    set({ elements: next, undoStack: [...state.undoStack.slice(-MAX_HISTORY), action], redoStack: [], selectedIds: state.selectedIds.filter((i) => i !== id) })
-    scheduleSave()
-  },
+    updateElement: (id, update) => {
+      set((s) => ({
+        elements: s.elements.map((el) => (el.id === id ? update(el) : el)),
+      }))
+      scheduleSave()
+    },
 
-  removeElements: (ids) => {
-    const state = get()
-    const idSet = new Set(ids)
-    const items: { el: CanvasElement; index: number }[] = []
-    const remaining: CanvasElement[] = []
-    state.elements.forEach((el, i) => {
-      if (idSet.has(el.id)) items.push({ el, index: i })
-      else remaining.push(el)
-    })
-    if (items.length === 0) return
-    const action: UndoAction = { type: 'remove', items }
-    set({ elements: remaining, undoStack: [...state.undoStack.slice(-MAX_HISTORY), action], redoStack: [], selectedIds: [] })
-    scheduleSave()
-  },
+    removeElement: (id) => {
+      const st = get()
+      const idx = st.elements.findIndex((e) => e.id === id)
+      if (idx < 0) return
+      const el = st.elements[idx]
+      const action: UndoAction = {
+        type: 'remove',
+        items: [{ el: shallowClone(el), index: idx }],
+      }
+      const next = [...st.elements]
+      next.splice(idx, 1)
+      set({
+        elements: next,
+        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
+        redoStack: [],
+        selectedIds: st.selectedIds.filter((i) => i !== id),
+      })
+      scheduleSave()
+    },
 
-  moveElementById: (id, dx, dy) => {
-    set((s) => ({ elements: s.elements.map((e) => e.id === id ? moveElement(e, dx, dy) : e) }))
-    scheduleSave()
-  },
+    removeElements: (ids) => {
+      const st = get()
+      const idSet = new Set(ids)
+      const items: { el: CanvasElement; index: number }[] = []
+      st.elements.forEach((el, i) => {
+        if (idSet.has(el.id)) items.push({ el: shallowClone(el), index: i })
+      })
+      const action: UndoAction = { type: 'remove', items }
+      set({
+        elements: st.elements.filter((e) => !idSet.has(e.id)),
+        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
+        redoStack: [],
+        selectedIds: [],
+      })
+      scheduleSave()
+    },
 
-  moveElementsById: (ids, dx, dy) => {
-    const idSet = new Set(ids)
-    set((s) => ({ elements: s.elements.map((e) => idSet.has(e.id) ? moveElement(e, dx, dy) : e) }))
-    scheduleSave()
-  },
+    moveElementById: (id, dx, dy) => {
+      set((s) => ({
+        elements: s.elements.map((el) => (el.id === id ? moveElement(el, dx, dy) : el)),
+      }))
+      scheduleSave()
+    },
 
-  resizeElementById: (id, ax, ay, sx, sy) => {
-    set((s) => ({ elements: s.elements.map((e) => e.id === id ? resizeElement(e, ax, ay, sx, sy) : e) }))
-    scheduleSave()
-  },
+    moveElementsById: (ids, dx, dy) => {
+      const idSet = new Set(ids)
+      set((s) => ({
+        elements: s.elements.map((el) => (idSet.has(el.id) ? moveElement(el, dx, dy) : el)),
+      }))
+      scheduleSave()
+    },
 
-  clearAll: () => {
-    const state = get()
-    const action: UndoAction = { type: 'clear', snapshot: snapshot(state.elements) }
-    set({ elements: [], undoStack: [...state.undoStack.slice(-MAX_HISTORY), action], redoStack: [], selectedIds: [] })
-    scheduleSave()
-  },
+    resizeElementById: (id, ax, ay, sx, sy) => {
+      set((s) => ({
+        elements: s.elements.map((el) => (el.id === id ? resizeElement(el, ax, ay, sx, sy) : el)),
+      }))
+      scheduleSave()
+    },
 
-  undo: () => {
-    const { undoStack, elements, redoStack } = get()
-    if (undoStack.length === 0) return
-    const action = undoStack[undoStack.length - 1]
-    let next: CanvasElement[]
-    let redoAction: UndoAction
-    if (action.type === 'add') {
-      const removeSet = new Set(action.ids)
-      next = elements.filter((e) => !removeSet.has(e.id))
-      redoAction = { type: 'remove', items: elements.filter((e) => removeSet.has(e.id)).map((el, i) => ({ el, index: i })) }
-    } else if (action.type === 'remove') {
-      next = [...elements]
-      for (const item of action.items) next.splice(item.index, 0, shallowClone(item.el))
-      redoAction = { type: 'add', ids: action.items.map((i) => i.el.id) }
-    } else if (action.type === 'move') {
-      const deltaMap = new Map(action.deltas.map((d) => [d.id, d]))
-      next = elements.map((e) => { const d = deltaMap.get(e.id); return d ? reverseMoveDelta(e, d.dx, d.dy) : e })
-      redoAction = action
-    } else {
-      next = action.snapshot
-      redoAction = { type: 'clear', snapshot: snapshot(elements) }
-    }
-    set({ elements: next, undoStack: undoStack.slice(0, -1), redoStack: [...redoStack, redoAction], selectedIds: [] })
-    scheduleSave()
-  },
+    clearAll: () => {
+      const st = get()
+      const action: UndoAction = { type: 'clear', snapshot: snapshot(st.elements) }
+      set({
+        elements: [],
+        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
+        redoStack: [],
+        selectedIds: [],
+      })
+      scheduleSave()
+    },
 
-  redo: () => {
-    const { redoStack, elements, undoStack } = get()
-    if (redoStack.length === 0) return
-    const action = redoStack[redoStack.length - 1]
-    let next: CanvasElement[]
-    let undoAction: UndoAction
-    if (action.type === 'add') {
-      const removeSet = new Set(action.ids)
-      next = elements.filter((e) => !removeSet.has(e.id))
-      undoAction = { type: 'remove', items: elements.filter((e) => removeSet.has(e.id)).map((el, i) => ({ el, index: i })) }
-    } else if (action.type === 'remove') {
-      next = [...elements]
-      for (const item of action.items) next.splice(item.index, 0, shallowClone(item.el))
-      undoAction = { type: 'add', ids: action.items.map((i) => i.el.id) }
-    } else if (action.type === 'move') {
-      const deltaMap = new Map(action.deltas.map((d) => [d.id, d]))
-      next = elements.map((e) => { const d = deltaMap.get(e.id); return d ? applyMoveDelta(e, d.dx, d.dy) : e })
-      undoAction = action
-    } else {
-      next = action.snapshot
-      undoAction = { type: 'clear', snapshot: snapshot(elements) }
-    }
-    set({ elements: next, redoStack: redoStack.slice(0, -1), undoStack: [...undoStack, undoAction], selectedIds: [] })
-    scheduleSave()
-  },
+    undo: () => {
+      const { undoStack, redoStack, elements } = get()
+      if (undoStack.length === 0) return
+      const action = undoStack[undoStack.length - 1]
+      let next: CanvasElement[]
+      let redoAction: UndoAction
 
-  pushUndo: (action) => {
-    const state = get()
-    set({ undoStack: [...state.undoStack.slice(-MAX_HISTORY), action], redoStack: [] })
-  },
+      if (action.type === 'add') {
+        const idSet = new Set((action.els ?? []).map((e) => e.id))
+        next = elements.filter((e) => !idSet.has(e.id))
+        redoAction = { type: 'add', ids: action.ids, els: (action.els ?? []).map(shallowClone) }
+      } else if (action.type === 'remove') {
+        next = [...elements]
+        for (const { el, index } of [...action.items].sort((a, b) => a.index - b.index)) {
+          next.splice(index, 0, el)
+        }
+        redoAction = {
+          type: 'remove',
+          items: action.items.map((i) => ({ el: shallowClone(i.el), index: i.index })),
+        }
+      } else if (action.type === 'move') {
+        const deltaMap = new Map(action.deltas.map((d) => [d.id, d]))
+        next = elements.map((e) => {
+          const d = deltaMap.get(e.id)
+          return d ? reverseMoveDelta(e, d.dx, d.dy) : e
+        })
+        redoAction = action
+      } else if (action.type === 'erase') {
+        next = action.before
+        redoAction = action
+      } else {
+        next = action.snapshot
+        redoAction = { type: 'clear', snapshot: snapshot(elements) }
+      }
 
-  copySelected: () => {
-    const { elements, selectedIds } = get()
-    if (selectedIds.length === 0) return
-    const selSet = new Set(selectedIds)
-    const copied = elements.filter((e) => selSet.has(e.id)).map(shallowClone)
-    set({ clipboard: copied })
-  },
+      set({
+        elements: next,
+        redoStack: [...redoStack, redoAction],
+        undoStack: undoStack.slice(0, -1),
+        selectedIds: [],
+      })
+      scheduleSave()
+    },
 
-  paste: () => {
-    const { clipboard, elements } = get()
-    if (clipboard.length === 0) return
-    const now = Date.now()
-    const newIds: string[] = []
-    const pasted = clipboard.map((el, i) => {
-      const newId = `${el.type}-${now}-${i}`
-      newIds.push(newId)
-      return moveElement({ ...el, id: newId }, 20, 20)
-    })
-    const action: UndoAction = { type: 'add', ids: newIds }
-    set({
-      elements: [...elements, ...pasted],
-      selectedIds: newIds,
-      clipboard: pasted.map(shallowClone),
-      undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
-      redoStack: [],
-    })
-    scheduleSave()
-  },
+    redo: () => {
+      const { redoStack, elements, undoStack } = get()
+      if (redoStack.length === 0) return
+      const action = redoStack[redoStack.length - 1]
+      let next: CanvasElement[]
+      let undoAction: UndoAction
 
-  createDoc: async (title = '未命名画布', folderId = null) => {
-    const id = `doc-${Date.now()}`
-    const now = Date.now()
-    const doc: CanvasDoc = { id, title, elements: [], bgColor: '#ffffff', folderId, createdAt: now, updatedAt: now }
-    await storage.put('docs', doc)
-    const docs = (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt)
-    set({ docs, currentDocId: id, elements: [], bgColor: '#ffffff', undoStack: [], redoStack: [], selectedIds: [] })
-    return id
-  },
+      if (action.type === 'add') {
+        next = [...elements, ...(action.els ?? []).map(shallowClone)]
+        undoAction = { type: 'add', ids: action.ids, els: (action.els ?? []).map(shallowClone) }
+      } else if (action.type === 'remove') {
+        const idSet = new Set(action.items.map((i) => i.el.id))
+        next = elements.filter((e) => !idSet.has(e.id))
+        undoAction = {
+          type: 'remove',
+          items: action.items.map((i) => ({ el: shallowClone(i.el), index: i.index })),
+        }
+      } else if (action.type === 'move') {
+        const deltaMap = new Map(action.deltas.map((d) => [d.id, d]))
+        next = elements.map((e) => {
+          const d = deltaMap.get(e.id)
+          return d ? applyMoveDelta(e, d.dx, d.dy) : e
+        })
+        undoAction = action
+      } else if (action.type === 'erase') {
+        next = action.after
+        undoAction = action
+      } else {
+        next = action.snapshot
+        undoAction = { type: 'clear', snapshot: snapshot(elements) }
+      }
 
-  openDoc: async (id) => {
-    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
-    const state = get()
-    if (state.currentDocId) await saveDocNow()
-    const doc = await storage.get<CanvasDoc>('docs', id)
-    if (doc) {
-      set({ currentDocId: id, elements: doc.elements, bgColor: doc.bgColor, undoStack: [], redoStack: [], selectedIds: [] })
-      useViewStore.getState().resetView()
-    }
-  },
+      set({
+        elements: next,
+        redoStack: redoStack.slice(0, -1),
+        undoStack: [...undoStack, undoAction],
+        selectedIds: [],
+      })
+      scheduleSave()
+    },
 
-  renameDoc: async (id, title) => {
-    const doc = await storage.get<CanvasDoc>('docs', id)
-    if (doc) { await storage.put('docs', { ...doc, title, updatedAt: Date.now() }); set({ docs: (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt) }) }
-  },
+    pushUndo: (action) => {
+      const state = get()
+      set({ undoStack: [...state.undoStack.slice(-MAX_HISTORY), action], redoStack: [] })
+    },
 
-  deleteDoc: async (id) => {
-    await storage.del('docs', id)
-    const { currentDocId } = get()
-    const docs = (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt)
-    if (currentDocId === id) {
-      const first = docs[0]
-      set({ docs, currentDocId: first?.id ?? null, elements: first?.elements ?? [], bgColor: first?.bgColor ?? '#ffffff', undoStack: [], redoStack: [] })
-    } else { set({ docs }) }
-  },
+    copySelected: () => {
+      const { elements, selectedIds } = get()
+      if (selectedIds.length === 0) return
+      const selSet = new Set(selectedIds)
+      const copied = elements.filter((e) => selSet.has(e.id)).map(shallowClone)
+      set({ clipboard: copied })
+    },
 
-  duplicateDoc: async (id) => {
-    const doc = await storage.get<CanvasDoc>('docs', id)
-    if (!doc) return
-    const now = Date.now()
-    const dup: CanvasDoc = { ...doc, id: `doc-${now}`, title: `${doc.title} (副本)`, createdAt: now, updatedAt: now }
-    await storage.put('docs', dup)
-    set({ docs: (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt) })
-  },
+    paste: () => {
+      const { clipboard, elements } = get()
+      if (clipboard.length === 0) return
+      const now = Date.now()
+      const newIds: string[] = []
+      const pasted = clipboard.map((el, i) => {
+        const newId = `${el.type}-${now}-${i}`
+        newIds.push(newId)
+        return moveElement({ ...el, id: newId }, 20, 20)
+      })
+      const action: UndoAction = { type: 'add', ids: newIds, els: pasted.map(shallowClone) }
+      set({
+        elements: [...elements, ...pasted],
+        selectedIds: newIds,
+        clipboard: pasted.map(shallowClone),
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        redoStack: [],
+      })
+      scheduleSave()
+    },
 
-  createFolder: async (name, parentId = null) => {
-    const id = `folder-${Date.now()}`
-    await storage.put('folders', { id, name, parentId, order: 0, expanded: true })
-    set({ folders: await storage.getAll<CanvasFolder>('folders') })
-    return id
-  },
+    createDoc: async (title = '未命名画布', folderId = null) => {
+      const id = `doc-${Date.now()}`
+      const now = Date.now()
+      const doc: CanvasDoc = {
+        id,
+        title,
+        elements: [],
+        bgColor: '#ffffff',
+        folderId,
+        createdAt: now,
+        updatedAt: now,
+      }
+      await storage.put('docs', doc)
+      const docs = (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt)
+      set({
+        docs,
+        currentDocId: id,
+        elements: [],
+        bgColor: '#ffffff',
+        undoStack: [],
+        redoStack: [],
+        selectedIds: [],
+      })
+      return id
+    },
 
-  renameFolder: async (id, name) => {
-    const folder = await storage.get<CanvasFolder>('folders', id)
-    if (folder) { await storage.put('folders', { ...folder, name }); set({ folders: await storage.getAll<CanvasFolder>('folders') }) }
-  },
+    openDoc: async (id) => {
+      clearSaveTimer()
+      const state = get()
+      if (state.currentDocId) await saveDocNow()
+      const doc = await storage.get<CanvasDoc>('docs', id)
+      if (doc) {
+        set({
+          currentDocId: id,
+          elements: doc.elements,
+          bgColor: doc.bgColor,
+          undoStack: doc.undoStack ?? [],
+          redoStack: doc.redoStack ?? [],
+          selectedIds: [],
+        })
+        useViewStore.getState().resetView()
+      }
+    },
 
-  deleteFolder: async (id) => {
-    await storage.del('folders', id)
-    set({ folders: await storage.getAll<CanvasFolder>('folders') })
-  },
+    renameDoc: async (id, title) => {
+      const doc = await storage.get<CanvasDoc>('docs', id)
+      if (doc) {
+        await storage.put('docs', { ...doc, title, updatedAt: Date.now() })
+        set({ docs: (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt) })
+      }
+    },
 
-  toggleFolder: (id) => {
-    set((s) => ({ folders: s.folders.map((f) => f.id === id ? { ...f, expanded: !f.expanded } : f) }))
-  },
+    deleteDoc: async (id) => {
+      await storage.del('docs', id)
+      const { currentDocId } = get()
+      const docs = (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt)
+      if (currentDocId === id) {
+        const first = docs[0]
+        set({
+          docs,
+          currentDocId: first?.id ?? null,
+          elements: first?.elements ?? [],
+          bgColor: first?.bgColor ?? '#ffffff',
+          undoStack: [],
+          redoStack: [],
+        })
+      } else {
+        set({ docs })
+      }
+    },
 
-  setSidebarOpen: (open) => set({ sidebarOpen: open }),
+    duplicateDoc: async (id) => {
+      const doc = await storage.get<CanvasDoc>('docs', id)
+      if (!doc) return
+      const now = Date.now()
+      const dup: CanvasDoc = {
+        ...doc,
+        id: `doc-${now}`,
+        title: `${doc.title} (副本)`,
+        createdAt: now,
+        updatedAt: now,
+      }
+      await storage.put('docs', dup)
+      set({ docs: (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt) })
+    },
 
-  saveNow: async () => { await saveDocNow() },
-}))
+    createFolder: async (name, parentId = null) => {
+      const id = `folder-${Date.now()}`
+      await storage.put('folders', { id, name, parentId, order: 0, expanded: true })
+      set({ folders: await storage.getAll<CanvasFolder>('folders') })
+      return id
+    },
 
-async function saveDocNow() {
-  const { currentDocId, elements, bgColor } = useAppStore.getState()
-  if (!currentDocId) return
-  const existing = await storage.get<CanvasDoc>('docs', currentDocId)
-  const now = Date.now()
-  await storage.put('docs', {
-    id: currentDocId,
-    title: existing?.title ?? '未命名画布',
-    elements,
-    bgColor,
-    folderId: existing?.folderId ?? null,
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
-  })
-  const docs = (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt)
-  useAppStore.setState({ docs })
-}
+    renameFolder: async (id, name) => {
+      const folder = await storage.get<CanvasFolder>('folders', id)
+      if (folder) {
+        await storage.put('folders', { ...folder, name })
+        set({ folders: await storage.getAll<CanvasFolder>('folders') })
+      }
+    },
 
-function scheduleSave() {
-  if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => { saveDocNow() }, SAVE_DELAY)
-}
+    deleteFolder: async (id) => {
+      await storage.del('folders', id)
+      set({ folders: await storage.getAll<CanvasFolder>('folders') })
+    },
+
+    toggleFolder: (id) => {
+      set((s) => ({
+        folders: s.folders.map((f) => (f.id === id ? { ...f, expanded: !f.expanded } : f)),
+      }))
+    },
+
+    setSidebarOpen: (open) => set({ sidebarOpen: open }),
+
+    batchErase: (beforeSnap, _added) => {
+      const action: UndoAction = {
+        type: 'erase',
+        before: beforeSnap.map(shallowClone),
+        after: get().elements.map(shallowClone),
+      }
+      set({
+        elements: get().elements,
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        redoStack: [],
+        selectedIds: [],
+      })
+      scheduleSave()
+    },
+
+    setSaveStatus: (s: 'idle' | 'saving' | 'saved') => set({ saveStatus: s }),
+    saveNow: async () => {
+      await saveDocNow()
+    },
+  }
+})

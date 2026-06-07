@@ -1,4 +1,4 @@
-export type BrushType = 'pen' | 'highlighter' | 'pencil' | 'calligraphy' | 'dashed' | 'glow'
+﻿export type BrushType = 'pen' | 'highlighter' | 'pencil' | 'calligraphy' | 'dashed' | 'glow'
 export type ShapeKind = 'rectangle' | 'circle' | 'line' | 'arrow'
 export type ToolType = 'select' | 'pen' | 'eraser' | 'pan' | 'text' | ShapeKind
 
@@ -50,6 +50,13 @@ export interface ImageElement {
 
 export type CanvasElement = StrokeElement | ShapeElement | TextElement | ImageElement
 
+
+export type UndoAction =
+  | { type: 'add'; ids: string[]; els?: CanvasElement[] }
+  | { type: 'remove'; items: { el: CanvasElement; index: number }[] }
+  | { type: 'clear'; snapshot: CanvasElement[] }
+  | { type: 'move'; deltas: { id: string; dx: number; dy: number }[] }
+  | { type: 'erase'; before: CanvasElement[]; after: CanvasElement[] }
 export interface CanvasDoc {
   id: string
   title: string
@@ -58,6 +65,8 @@ export interface CanvasDoc {
   folderId: string | null
   createdAt: number
   updatedAt: number
+  undoStack?: UndoAction[]
+  redoStack?: UndoAction[]
 }
 
 export interface CanvasFolder {

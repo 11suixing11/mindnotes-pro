@@ -1,0 +1,31 @@
+﻿{
+    "configVersion":  1,
+    "taskRunner":  {
+                       "project":  {
+                                       "name":  "mindnotes-pro",
+                                       "description":  ""
+                                   },
+                       "paths":  {
+                                     "tasks":  "taskplane-tasks"
+                                 },
+                       "testing":  {
+                                       "commands":  {
+                                                        "unit":  "npm test",
+                                                        "build":  "npm run build"
+                                                    }
+                                   },
+                       "taskAreas":  {
+                                         "general":  {
+                                                         "path":  "taskplane-tasks",
+                                                         "prefix":  "TP",
+                                                         "context":  "taskplane-tasks/CONTEXT.md"
+                                                     }
+                                     },
+                       "worker":  {
+                                      "model":  "mimo-v2.5-pro"
+                                  },
+                       "context":  {
+                                       "noProgressLimit":  5
+                                   }
+                   }
+}

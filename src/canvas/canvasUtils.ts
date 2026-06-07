@@ -54,3 +54,16 @@ export function isVisibleInView(el: CanvasElement, vx: number, vy: number, vw: n
 }
 
 export { elementBounds }
+
+export function getContentBounds(elements: CanvasElement[], padding = 0): { x: number; y: number; w: number; h: number } | null {
+  if (elements.length === 0) return null
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const el of elements) {
+    const b = elementBounds(el)
+    minX = Math.min(minX, b.x)
+    minY = Math.min(minY, b.y)
+    maxX = Math.max(maxX, b.x + b.w)
+    maxY = Math.max(maxY, b.y + b.h)
+  }
+  return { x: minX - padding, y: minY - padding, w: maxX - minX + padding * 2, h: maxY - minY + padding * 2 }
+}

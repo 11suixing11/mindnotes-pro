@@ -1,4 +1,4 @@
-import { useToastStore } from '../store/toastStore'
+﻿import { useToastStore } from '../store/toastStore'
 import type { ToastType } from '../store/toastStore'
 
 const icons: Record<ToastType, string> = {
@@ -22,7 +22,7 @@ export default function ToastContainer() {
   if (toasts.length === 0) return null
 
   return (
-    <div style={{
+    <div role="alert" aria-live="polite" aria-label="通知" style={{
       position: 'fixed', top: 60, right: 16, zIndex: 200,
       display: 'flex', flexDirection: 'column', gap: 8,
       pointerEvents: 'none',
@@ -30,7 +30,7 @@ export default function ToastContainer() {
       {toasts.map((t) => {
         const c = typeColors[t.type]
         return (
-          <div key={t.id} onClick={() => dismiss(t.id)} style={{
+          <div key={t.id} role="status" aria-label={`${t.type}通知: ${t.message}`} onClick={() => dismiss(t.id)} style={{
             pointerEvents: 'auto',
             display: 'flex', alignItems: 'center', gap: 10,
             padding: '10px 16px', borderRadius: 12,

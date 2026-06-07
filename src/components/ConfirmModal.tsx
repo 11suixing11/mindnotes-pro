@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+﻿import { useState, useCallback, useEffect } from 'react'
 
 interface ConfirmOptions {
   message: string
@@ -56,13 +56,13 @@ export default function ConfirmModal() {
   if (!opts) return null
 
   return (
-    <div className="confirm-modal">
+    <div className="confirm-modal" role="presentation">
       <div className="confirm-modal-bg" onClick={() => close(false)} />
-      <div className="confirm-modal-box">
+      <div className="confirm-modal-box" role="dialog" aria-modal="true" aria-label="确认操作">
         <p>{opts.message}</p>
         <div className="confirm-modal-actions">
-          <button className="btn-cancel" onClick={() => close(false)}>{opts.cancelLabel ?? '取消'}</button>
-          <button className={opts.danger !== false ? 'btn-danger' : 'btn-cancel'} onClick={() => close(true)}>{opts.confirmLabel ?? '确定'}</button>
+          <button className="btn-cancel" aria-label="取消" onClick={() => close(false)}>{opts.cancelLabel ?? '取消'}</button>
+          <button className={opts.danger !== false ? 'btn-danger' : 'btn-cancel'} aria-label="确认" onClick={() => close(true)}>{opts.confirmLabel ?? '确定'}</button>
         </div>
       </div>
     </div>
