@@ -1,4 +1,4 @@
 ﻿**Current Step:** 0
 **Status:** not started
-**Task:** TEST-002-utility-module-tests
+**Task:** TEST-003-integration-tests
 **Last Updated:** 2026-06-07
