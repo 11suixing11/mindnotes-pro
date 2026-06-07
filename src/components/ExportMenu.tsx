@@ -4,6 +4,8 @@ import { useThemeStore } from '../store/useThemeStore'
 import { useToastStore } from '../store/toastStore'
 import type { CanvasElement } from '../store/types'
 
+const DARK_BG = '#1C1A24'
+
 const I = {
   download: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
   image: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
@@ -36,7 +38,7 @@ function buildSVG(elements: CanvasElement[], isDarkMode: boolean): string {
   if (!c) return ''
   const dpr = window.devicePixelRatio || 1
   const lw = Math.round(c.width / dpr), lh = Math.round(c.height / dpr)
-  const bg = isDarkMode ? '#1C1A24' : '#fff'
+  const bg = isDarkMode ? DARK_BG : '#fff'
   let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${lw}" height="${lh}"><rect width="100%" height="100%" fill="${bg}"/>\n`
   for (const el of elements) {
     if (el.type === 'stroke' && el.points.length >= 2) {
@@ -68,113 +70,83 @@ function buildSVG(elements: CanvasElement[], isDarkMode: boolean): string {
   return s
 }
 
-function getContentBounds(elements: CanvasElement[]): { x: number; y: number; w: number; h: number } | null {
-  if (elements.length === 0) return null
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  for (const el of elements) {
-    if (el.type === 'stroke') {
-      for (const p of el.points) { minX = Math.min(minX, p[0]); minY = Math.min(minY, p[1]); maxX = Math.max(maxX, p[0]); maxY = Math.max(maxY, p[1]) }
-    } else if (el.type === 'text' || el.type === 'image') {
-      minX = Math.min(minX, el.x); minY = Math.min(minY, el.y); maxX = Math.max(maxX, el.x + el.width); maxY = Math.max(maxY, el.y + el.height)
-    } else if (el.type === 'shape') {
-      minX = Math.min(minX, el.x); minY = Math.min(minY, el.y); maxX = Math.max(maxX, el.x + el.w); maxY = Math.max(maxY, el.y + el.h)
-    }
-  }
-  const pad = 20
-  return { x: minX - pad, y: minY - pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 }
-}
-
-function exportContentToCanvas(elements: CanvasElement[], bg: string): HTMLCanvasElement | null {
-  const bounds = getContentBounds(elements)
-  if (!bounds) return null
-  const scale = 2
-  const t = document.createElement('canvas'); t.width = bounds.w * scale; t.height = bounds.h * scale
-  const ctx = t.getContext('2d')!; ctx.scale(scale, scale)
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, bounds.w, bounds.h)
-  ctx.translate(-bounds.x, -bounds.y)
-  for (const el of elements) {
-    if (el.type === 'stroke' && el.points.length >= 2) {
-      ctx.beginPath(); ctx.strokeStyle = el.color; ctx.lineWidth = el.size; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-      if (el.brush === 'highlighter') ctx.globalAlpha = el.opacity ?? 0.3
-      ctx.moveTo(el.points[0][0], el.points[0][1])
-      for (let i = 1; i < el.points.length; i++) ctx.lineTo(el.points[i][0], el.points[i][1])
-      ctx.stroke(); ctx.globalAlpha = 1
-    } else if (el.type === 'shape') {
-      ctx.strokeStyle = el.color; ctx.lineWidth = el.size
-      const fill = el.fillColor && el.fillColor !== 'transparent' ? el.fillColor : null
-      if (el.kind === 'rectangle') { if (fill) { ctx.fillStyle = fill; ctx.fillRect(el.x, el.y, el.w, el.h) } ctx.strokeRect(el.x, el.y, el.w, el.h) }
-      else if (el.kind === 'circle') { ctx.beginPath(); ctx.ellipse(el.x + el.w / 2, el.y + el.h / 2, Math.abs(el.w) / 2, Math.abs(el.h) / 2, 0, 0, Math.PI * 2); if (fill) { ctx.fillStyle = fill; ctx.fill() } ctx.stroke() }
-      else { ctx.beginPath(); ctx.moveTo(el.x, el.y); ctx.lineTo(el.x + el.w, el.y + el.h); ctx.stroke() }
-    } else if (el.type === 'text') {
-      ctx.fillStyle = el.color; ctx.font = `${el.fontSize}px 'Noto Sans SC', sans-serif`
-      const lines = el.content.split('\n')
-      for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], el.x, el.y + el.fontSize + i * el.fontSize * 1.4)
-    } else if (el.type === 'image') {
-      try { const img = new Image(); img.src = el.dataUrl; ctx.drawImage(img, el.x, el.y, el.width, el.height) } catch { /* skip */ }
-    }
-  }
-  return t
-}
-
 export default function ExportMenu() {
-  const toast = useToastStore((s) => s.show)
-  const elements = useAppStore((s) => s.elements)
-  const { isDarkMode } = useThemeStore()
-  const fileRef = useRef<HTMLInputElement>(null)
   const exportBtnRef = useRef<HTMLButtonElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
   const [showExport, setShowExport] = useState(false)
   const [exportPos, setExportPos] = useState({ top: 0, right: 0 })
+  const elements = useAppStore((s) => s.elements)
+  const isDarkMode = useThemeStore((s) => s.isDarkMode)
+  const showToast = useToastStore((s) => s.show)
+
+  const requireCanvas = () => {
+    const c = getCanvas()
+    if (!c) { showToast('画布未就绪', 'warning'); return null }
+    return c
+  }
 
   const exportPNG = () => {
-    if (elements.length === 0) return toast('画布为空', 'warning')
-    const t = exportContentToCanvas(elements, 'transparent')
-    if (!t) return toast('导出失败', 'error')
-    t.toBlob((b) => { if (b) { download(b, `mindnotes-${ts()}.png`); toast('PNG 导出成功（透明背景）', 'success') } else toast('PNG 导出失败', 'error') }, 'image/png')
+    const c = requireCanvas(); if (!c) return
+    const t = withBg(c, 'transparent')
+    t.toBlob((b) => { if (b) download(b, `mindnotes-${ts()}.png`) })
+    showToast('PNG 导出成功', 'success')
   }
   const exportJPG = () => {
-    if (elements.length === 0) return toast('画布为空', 'warning')
-    const t = exportContentToCanvas(elements, '#ffffff')
-    if (!t) return toast('导出失败', 'error')
-    t.toBlob((b) => { if (b) { download(b, `mindnotes-${ts()}.jpg`); toast('JPG 导出成功', 'success') } else toast('JPG 导出失败', 'error') }, 'image/jpeg', 0.92)
+    const c = requireCanvas(); if (!c) return
+    const t = withBg(c, '#fff')
+    t.toBlob((b) => { if (b) download(b, `mindnotes-${ts()}.jpg`) }, 'image/jpeg', 0.92)
+    showToast('JPG 导出成功', 'success')
   }
   const exportPDF = async () => {
-    const c = getCanvas(); if (!c) return toast('画布未就绪', 'warning')
-    const t = withBg(c, isDarkMode ? '#1C1A24' : '#fff')
+    const c = requireCanvas(); if (!c) return
+    const t = withBg(c, isDarkMode ? DARK_BG : '#fff')
     const { jsPDF } = await import('jspdf')
-    const DPI = 96; const MM_PER_INCH = 25.4
-    const wMM = (t.width / DPI) * MM_PER_INCH; const hMM = (t.height / DPI) * MM_PER_INCH
-    const p = new jsPDF({ orientation: t.width > t.height ? 'landscape' : 'portrait', unit: 'mm', format: [wMM, hMM] })
-    p.addImage(t.toDataURL('image/png'), 'PNG', 0, 0, wMM, hMM); p.save(`mindnotes-${ts()}.pdf`)
-    toast('PDF 导出成功', 'success')
+    const imgData = t.toDataURL('image/png')
+    const pw = t.width * 0.264583, ph = t.height * 0.264583
+    const p = new jsPDF({ orientation: pw > ph ? 'landscape' : 'portrait', unit: 'mm', format: [pw, ph] })
+    p.addImage(imgData, 'PNG', 0, 0, pw, ph); p.save(`mindnotes-${ts()}.pdf`)
+    showToast('PDF 导出成功', 'success')
   }
   const exportSVG = () => {
     const svgStr = buildSVG(elements, isDarkMode)
-    if (!svgStr) return toast('画布为空', 'warning')
+    if (!svgStr) return showToast('画布为空', 'warning')
     download(new Blob([svgStr], { type: 'image/svg+xml' }), `mindnotes-${ts()}.svg`)
-    toast('SVG 导出成功', 'success')
+    showToast('SVG 导出成功', 'success')
   }
-  const exportWord = async () => {
-    const c = getCanvas(); if (!c) return toast('画布未就绪', 'warning')
-    const t = withBg(c, isDarkMode ? '#1C1A24' : '#fff')
+  const exportWord = () => {
+    const c = requireCanvas(); if (!c) return
+    const t = withBg(c, isDarkMode ? DARK_BG : '#fff')
     const d = t.toDataURL('image/png')
     const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset="utf-8"><style>body{font-family:sans-serif}img{max-width:100%}</style></head><body><h1>MindNotes Pro</h1><p>导出时间：${new Date().toLocaleString('zh-CN')}</p><p><img src="${d}" width="${t.width}" height="${t.height}"/></p></body></html>`
     download(new Blob([h], { type: 'application/msword' }), `mindnotes-${ts()}.doc`)
   }
   const exportJSON = () => download(new Blob([JSON.stringify({ elements, version: 2 }, null, 2)], { type: 'application/json' }), `mindnotes-${ts()}.json`)
+
   const importJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return
     const r = new FileReader()
     r.onload = () => {
       try {
         const d = JSON.parse(r.result as string)
-        if (d.elements) { useAppStore.getState().addElements(d.elements) }
-        else if (d.strokes || d.shapes) {
+        if (d.elements) {
+          useAppStore.getState().addElements(d.elements)
+        } else if (d.strokes || d.shapes) {
           const els: any[] = []
-          for (const s of d.strokes ?? []) { if (s.imageData) els.push({ type: 'image', id: s.id, x: s.points[0][0], y: s.points[0][1], width: s.imageWidth ?? 200, height: s.imageHeight ?? 200, dataUrl: s.imageData }); else if (s.name) els.push({ type: 'text', id: s.id, x: s.points[0][0], y: s.points[0][1], width: 200, height: 30, content: s.name, fontSize: 16, color: s.color }); else els.push({ type: 'stroke', id: s.id, points: s.points, color: s.color, size: s.size, brush: s.brush ?? 'pen' }) }
-          for (const s of d.shapes ?? []) { if (s.type === 'text') continue; const sx = s.startX ?? s.x, sy = s.startY ?? s.y, ex = s.endX ?? s.x + s.width, ey = s.endY ?? s.y + s.height; els.push({ type: 'shape', id: s.id, kind: s.type, x: Math.min(sx, ex), y: Math.min(sy, ey), w: Math.abs(ex - sx), h: Math.abs(ey - sy), color: s.color, size: s.size }) }
+          for (const s of d.strokes ?? []) {
+            if (s.imageData) els.push({ type: 'image', id: s.id, x: s.points[0][0], y: s.points[0][1], width: s.imageWidth ?? 200, height: s.imageHeight ?? 200, dataUrl: s.imageData })
+            else if (s.name) els.push({ type: 'text', id: s.id, x: s.points[0][0], y: s.points[0][1], width: 200, height: 30, content: s.name, fontSize: 16, color: s.color })
+            else els.push({ type: 'stroke', id: s.id, points: s.points, color: s.color, size: s.size, brush: s.brush ?? 'pen' })
+          }
+          for (const s of d.shapes ?? []) {
+            if (s.type === 'text') continue
+            const sx = s.startX ?? s.x, sy = s.startY ?? s.y, ex = s.endX ?? s.x + s.width, ey = s.endY ?? s.y + s.height
+            els.push({ type: 'shape', id: s.id, kind: s.type, x: Math.min(sx, ex), y: Math.min(sy, ey), w: Math.abs(ex - sx), h: Math.abs(ey - sy), color: s.color, size: s.size })
+          }
           useAppStore.getState().addElements(els)
-        } else { toast('文件格式不正确', 'error') }
-      } catch { toast('无法解析文件', 'error') }
+        } else {
+          showToast('文件格式不正确', 'error')
+        }
+      } catch { showToast('无法解析文件', 'error') }
     }
     r.readAsText(f); e.target.value = ''
   }
@@ -188,22 +160,27 @@ export default function ExportMenu() {
     { icon: I.download, label: 'JSON 数据', desc: '完整备份', action: exportJSON },
   ]
 
+  const handleToggle = () => {
+    if (!showExport && exportBtnRef.current) {
+      const r = exportBtnRef.current.getBoundingClientRect()
+      setExportPos({ top: r.bottom + 8, right: window.innerWidth - r.right })
+    }
+    setShowExport(!showExport)
+  }
+
   return (
     <>
-      <button ref={exportBtnRef} onClick={() => {
-        if (!showExport && exportBtnRef.current) { const r = exportBtnRef.current.getBoundingClientRect(); setExportPos({ top: r.bottom + 8, right: window.innerWidth - r.right }) }
-        setShowExport(!showExport)
-      }} className="pill-btn primary">
+      <button ref={exportBtnRef} onClick={handleToggle} className="pill-btn primary">
         {I.download}
         <span>导出</span>
       </button>
 
       {showExport && (
-        <div className="panel" style={{ position: 'fixed', top: exportPos.top, right: exportPos.right, minWidth: '200px', padding: '5px', zIndex: 100, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
+        <div className="panel em-menu" style={{ top: exportPos.top, right: exportPos.right }}>
           {EXPORTS.map((item) => (
             <button key={item.label} onClick={() => { item.action(); setShowExport(false) }} className="ditem">
-              <span className="di" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</span>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span className="di em-icon">{item.icon}</span>
+              <div className="em-labels">
                 <span className="dl">{item.label}</span>
                 <span className="dd">{item.desc}</span>
               </div>
@@ -211,16 +188,15 @@ export default function ExportMenu() {
           ))}
           <div className="dsep" />
           <button onClick={() => { fileRef.current?.click(); setShowExport(false) }} className="ditem">
-            <span className="di" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{I.file}</span>
+            <span className="di em-icon">{I.file}</span>
             <span className="dl">导入 JSON</span>
           </button>
         </div>
       )}
 
-      {showExport && <div className="fixed inset-0" style={{ zIndex: 5 }} onClick={() => setShowExport(false)} />}
+      {showExport && <div className="em-overlay" onClick={() => setShowExport(false)} />}
 
-      <input ref={fileRef} type="file" accept=".json" onChange={importJSON}
-        style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }} />
+      <input ref={fileRef} type="file" accept=".json" onChange={importJSON} className="em-hidden-input" />
     </>
   )
 }

@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from './appStore'
 
 describe('useAppStore', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     localStorage.clear()
     useAppStore.setState({
       elements: [],
@@ -15,6 +16,10 @@ describe('useAppStore', () => {
       undoStack: [],
       redoStack: [],
     })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('should initialize with correct default state', () => {
@@ -99,5 +104,30 @@ describe('useAppStore', () => {
     useAppStore.getState().undo()
     useAppStore.getState().redo()
     expect(useAppStore.getState().elements).toHaveLength(1)
+  })
+
+  describe('save scheduling', () => {
+    it('should set saveStatus to saving when element is added', () => {
+      useAppStore.getState().addElement({ type: 'stroke', id: 's1', points: [[0, 0]], color: '#000', size: 2, brush: 'pen' })
+      expect(useAppStore.getState().saveStatus).toBe('saving')
+    })
+
+    it('should reset saveStatus to idle after save completes', async () => {
+      // Initialize with a doc first
+      await useAppStore.getState().createDoc('Test Doc')
+      useAppStore.setState({ saveStatus: 'idle' })
+      
+      // Add element to trigger save
+      useAppStore.getState().addElement({ type: 'stroke', id: 's1', points: [[0, 0]], color: '#000', size: 2, brush: 'pen' })
+      expect(useAppStore.getState().saveStatus).toBe('saving')
+      
+      // Fast-forward timer to trigger save
+      await vi.advanceTimersByTimeAsync(1500)
+      expect(useAppStore.getState().saveStatus).toBe('saved')
+      
+      // Wait for saved->idle transition
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(useAppStore.getState().saveStatus).toBe('idle')
+    })
   })
 })

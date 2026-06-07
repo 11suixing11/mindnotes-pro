@@ -37,8 +37,9 @@ export default defineConfig({
             return 'vendor-react'
           }
 
+          // jspdf is dynamically imported — let Vite create an async chunk for it
           if (normalizedId.includes('/node_modules/jspdf')) {
-            return 'vendor-pdf'
+            return
           }
 
           if (normalizedId.includes('/node_modules/')) {

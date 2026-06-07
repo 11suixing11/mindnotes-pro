@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mindnotes-v2.1'
+const CACHE_NAME = 'mindnotes-v3.1'
 const PRECACHE = [
   './',
   './index.html',

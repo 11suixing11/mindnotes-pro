@@ -18,6 +18,7 @@ interface ViewActions {
   startPan: (x: number, y: number) => void
   updatePan: (x: number, y: number) => void
   endPan: () => void
+  zoomToFit: (bounds: { x: number; y: number; w: number; h: number } | null) => void
 }
 
 const DEFAULT_VIEWBOX = { x: 0, y: 0, zoom: 1 }
@@ -57,4 +58,17 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
   },
 
   endPan: () => set({ isPanning: false, lastPanPosition: null }),
+
+  zoomToFit: (bounds: { x: number; y: number; w: number; h: number } | null) => {
+    if (!bounds) return
+    const padding = 60
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const scaleX = (vw - padding * 2) / (bounds.w || 1)
+    const scaleY = (vh - padding * 2) / (bounds.h || 1)
+    const zoom = Math.min(scaleX, scaleY, 3)
+    const x = bounds.x - (vw / zoom - bounds.w) / 2
+    const y = bounds.y - (vh / zoom - bounds.h) / 2
+    set({ viewBox: { x, y, zoom } })
+  },
 }))

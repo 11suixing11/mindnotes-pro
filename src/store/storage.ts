@@ -1,19 +1,38 @@
 const DB_NAME = 'mindnotes-pro'
-const DB_VERSION = 1
+const DB_VERSION = 2
 let _db: IDBDatabase | null = null
+
+type Migration = (db: IDBDatabase, tx: IDBTransaction) => void
+
+const migrations: Record<number, Migration> = {
+  1: (db) => {
+    if (!db.objectStoreNames.contains('docs')) {
+      const s = db.createObjectStore('docs', { keyPath: 'id' })
+      s.createIndex('updatedAt', 'updatedAt')
+      s.createIndex('folderId', 'folderId')
+    }
+    if (!db.objectStoreNames.contains('folders')) db.createObjectStore('folders', { keyPath: 'id' })
+  },
+  2: (_db, tx) => {
+    // v2: add undo/redo persistence fields (already optional in schema)
+    // Future: add tags store, star index, etc.
+    // This migration is a no-op placeholder — existing docs keep working
+    // because undoStack/redoStack are optional fields.
+    void tx
+  },
+}
 
 export function openDB(): Promise<IDBDatabase> {
   if (_db) return Promise.resolve(_db)
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION)
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (e) => {
       const db = req.result
-      if (!db.objectStoreNames.contains('docs')) {
-        const s = db.createObjectStore('docs', { keyPath: 'id' })
-        s.createIndex('updatedAt', 'updatedAt')
-        s.createIndex('folderId', 'folderId')
+      const tx = req.transaction!
+      for (let v = (e as IDBVersionChangeEvent).oldVersion + 1; v <= DB_VERSION; v++) {
+        const migrate = migrations[v]
+        if (migrate) migrate(db, tx)
       }
-      if (!db.objectStoreNames.contains('folders')) db.createObjectStore('folders', { keyPath: 'id' })
     }
     req.onsuccess = () => { _db = req.result; resolve(_db) }
     req.onerror = () => {
