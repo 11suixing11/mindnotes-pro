@@ -1,19 +1,31 @@
-import type { CanvasDoc } from './types'
+import type { CanvasDoc, CanvasElement, UndoAction } from './types'
 import * as storage from './storage'
 
 const SAVE_DELAY = 1500
+
+interface StoreRef {
+  setState: (partial: Record<string, unknown>) => void
+  getState: () => {
+    currentDocId: string | null
+    elements: CanvasElement[]
+    bgColor: string
+    undoStack: UndoAction[]
+    redoStack: UndoAction[]
+    saveStatus: string
+  }
+}
 
 /**
  * Save manager encapsulates the save timer and save logic.
  * This keeps the timer state private and provides a clean API.
  */
 let _saveTimer: ReturnType<typeof setTimeout> | null = null
-let _storeRef: any = null
+let _storeRef: StoreRef | null = null
 
 /**
  * Initialize the save manager with a reference to the store.
  */
-export function initSaveManager(store: any): void {
+export function initSaveManager(store: StoreRef): void {
   _storeRef = store
 }
 
@@ -67,7 +79,7 @@ export async function saveDocNow(): Promise<void> {
 
   // Reset save status after 2 seconds
   setTimeout(() => {
-    if (_storeRef.getState().saveStatus === 'saved') {
+    if (_storeRef?.getState().saveStatus === 'saved') {
       _storeRef.setState({ saveStatus: 'idle' })
     }
   }, 2000)

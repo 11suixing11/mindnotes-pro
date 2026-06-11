@@ -1,0 +1,198 @@
+import type { CanvasDoc, CanvasFolder } from '../types'
+import * as storage from '../storage'
+import { useViewStore } from '../useViewStore'
+import { migrateOld, removeMigratedData } from '../migration'
+import { saveDocNow, clearSaveTimer } from '../saveManager'
+
+export interface DocManagementState {
+  docs: CanvasDoc[]
+  currentDocId: string | null
+  loaded: boolean
+}
+
+export interface DocManagementActions {
+  init: () => Promise<void>
+  createDoc: (title?: string, folderId?: string | null) => Promise<string>
+  openDoc: (id: string) => Promise<void>
+  renameDoc: (id: string, title: string) => Promise<void>
+  deleteDoc: (id: string) => Promise<void>
+  duplicateDoc: (id: string) => Promise<void>
+  saveNow: () => Promise<void>
+}
+
+export function createDocManagementSlice(
+  set: any,
+  get: any
+): DocManagementState & DocManagementActions {
+  return {
+    // State
+    docs: [],
+    currentDocId: null,
+    loaded: false,
+
+    // Actions
+    init: async () => {
+      let docs = await storage.getAll<CanvasDoc>('docs')
+      let folders = await storage.getAll<CanvasFolder>('folders')
+
+      if (docs.length === 0) {
+        const migrated = migrateOld()
+        if (migrated) {
+          await storage.put('docs', migrated)
+          docs = [migrated]
+        } else {
+          const now = Date.now()
+          const welcome: CanvasDoc = {
+            id: `doc-${now}`,
+            title: '欢迎使用 MindNotes',
+            elements: [
+              {
+                type: 'text',
+                id: `txt-${now}`,
+                x: 80,
+                y: 60,
+                width: 500,
+                height: 120,
+                content:
+                  '# 欢迎使用 MindNotes\n\n温暖纸笔化风格笔记本，支持自由绘图、形状绘制和文字记录。\n\n点击左上角按钮探索更多功能。',
+                fontSize: 16,
+                color: '#2c2416',
+              },
+            ],
+            bgColor: '#ffffff',
+            folderId: null,
+            createdAt: now,
+            updatedAt: now,
+          }
+          await storage.put('docs', welcome)
+          docs = [welcome]
+        }
+      }
+
+      if (folders.length === 0) {
+        await storage.put('folders', {
+          id: 'folder-default',
+          name: '我的笔记',
+          parentId: null,
+          order: 0,
+          expanded: true,
+        } as CanvasFolder)
+        folders = await storage.getAll<CanvasFolder>('folders')
+      }
+
+      docs.sort((a, b) => b.updatedAt - a.updatedAt)
+      const current = docs[0]
+
+      set({
+        docs,
+        folders,
+        currentDocId: current?.id ?? null,
+        elements: current?.elements ?? [],
+        bgColor: current?.bgColor ?? '#ffffff',
+        undoStack: current?.undoStack ?? [],
+        redoStack: current?.redoStack ?? [],
+        loaded: true,
+      })
+
+      removeMigratedData()
+    },
+
+    createDoc: async (title = '未命名画布', folderId = null) => {
+      const id = `doc-${Date.now()}`
+      const now = Date.now()
+      const doc: CanvasDoc = {
+        id,
+        title,
+        elements: [],
+        bgColor: '#ffffff',
+        folderId,
+        createdAt: now,
+        updatedAt: now,
+      }
+      await storage.put('docs', doc)
+      const docs = (await storage.getAll<CanvasDoc>('docs')).sort(
+        (a, b) => b.updatedAt - a.updatedAt
+      )
+      set({
+        docs,
+        currentDocId: id,
+        elements: [],
+        bgColor: '#ffffff',
+        undoStack: [],
+        redoStack: [],
+        selectedIds: [],
+      })
+      return id
+    },
+
+    openDoc: async (id) => {
+      clearSaveTimer()
+      const state = get()
+      if (state.currentDocId) await saveDocNow()
+      const doc = await storage.get<CanvasDoc>('docs', id)
+      if (doc) {
+        set({
+          currentDocId: id,
+          elements: doc.elements,
+          bgColor: doc.bgColor,
+          undoStack: doc.undoStack ?? [],
+          redoStack: doc.redoStack ?? [],
+          selectedIds: [],
+        })
+        useViewStore.getState().resetView()
+      }
+    },
+
+    renameDoc: async (id, title) => {
+      const doc = await storage.get<CanvasDoc>('docs', id)
+      if (doc) {
+        await storage.put('docs', { ...doc, title, updatedAt: Date.now() })
+        set({
+          docs: (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt),
+        })
+      }
+    },
+
+    deleteDoc: async (id) => {
+      await storage.del('docs', id)
+      const { currentDocId } = get()
+      const docs = (await storage.getAll<CanvasDoc>('docs')).sort(
+        (a, b) => b.updatedAt - a.updatedAt
+      )
+      if (currentDocId === id) {
+        const first = docs[0]
+        set({
+          docs,
+          currentDocId: first?.id ?? null,
+          elements: first?.elements ?? [],
+          bgColor: first?.bgColor ?? '#ffffff',
+          undoStack: [],
+          redoStack: [],
+        })
+      } else {
+        set({ docs })
+      }
+    },
+
+    duplicateDoc: async (id) => {
+      const doc = await storage.get<CanvasDoc>('docs', id)
+      if (!doc) return
+      const now = Date.now()
+      const dup: CanvasDoc = {
+        ...doc,
+        id: `doc-${now}`,
+        title: `${doc.title} (副本)`,
+        createdAt: now,
+        updatedAt: now,
+      }
+      await storage.put('docs', dup)
+      set({
+        docs: (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt),
+      })
+    },
+
+    saveNow: async () => {
+      await saveDocNow()
+    },
+  }
+}

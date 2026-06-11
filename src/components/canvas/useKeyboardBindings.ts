@@ -1,4 +1,4 @@
-﻿import { useEffect } from 'react'
+import { useEffect } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import type { ToolType } from '../../store/types'
@@ -49,8 +49,15 @@ export function useKeyboardBindings(options: Options = {}) {
       }
 
       const toolMap: Record<string, ToolType> = {
-        '1': 'pen', '2': 'eraser', '3': 'pan', '4': 'rectangle',
-        '5': 'circle', '6': 'text', '7': 'line', '8': 'arrow', '0': 'select',
+        '1': 'pen',
+        '2': 'eraser',
+        '3': 'pan',
+        '4': 'rectangle',
+        '5': 'circle',
+        '6': 'text',
+        '7': 'line',
+        '8': 'arrow',
+        '0': 'select',
       }
 
       if (toolMap[e.key]) {

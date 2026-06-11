@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { BrushType, ToolType } from '../../store/types'
 
 const BRUSHES: { id: BrushType; label: string; desc: string }[] = [
@@ -25,35 +25,59 @@ export default function BrushSelector({ brush, setBrush, tool }: BrushSelectorPr
     <>
       {tool === 'pen' && (
         <>
-          <button ref={brushBtnRef} onClick={() => {
-            if (!showBrush && brushBtnRef.current) { const r = brushBtnRef.current.getBoundingClientRect(); setBrushPos({ top: r.bottom + 8, left: r.left }) }
-            setShowBrush(!showBrush)
-          }} className="pill-btn ghost">
-            <span>{BRUSHES.find(b => b.id === brush)?.label}</span>
-            <span style={{ fontSize: '9px', opacity: 0.5 }}>▾</span>
+          <button
+            ref={brushBtnRef}
+            onClick={() => {
+              if (!showBrush && brushBtnRef.current) {
+                const r = brushBtnRef.current.getBoundingClientRect()
+                setBrushPos({ top: r.bottom + 8, left: r.left })
+              }
+              setShowBrush(!showBrush)
+            }}
+            className="pill-btn ghost"
+          >
+            <span>{BRUSHES.find((b) => b.id === brush)?.label}</span>
+            <span className="text-[9px] opacity-50">▾</span>
           </button>
           <div className="tb-sep" />
         </>
       )}
 
       {showBrush && (
-        <div className="panel" role="menu" style={{ position: 'fixed', top: brushPos.top, left: brushPos.left, minWidth: '200px', padding: '5px', zIndex: 100, animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)' }}>
+        <div
+          className="panel fixed min-w-[200px] p-[5px] z-[100]"
+          role="menu"
+          style={{
+            top: brushPos.top,
+            left: brushPos.left,
+            animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)',
+          }}
+        >
           {BRUSHES.map((b) => (
-            <button key={b.id} onClick={() => { setBrush(b.id); setShowBrush(false) }}
-              className="ditem" style={{ background: brush === b.id ? 'var(--primary-bg)' : undefined }}
-              role="menuitem" aria-label={`${b.label} - ${b.desc}`}>
+            <button
+              key={b.id}
+              onClick={() => {
+                setBrush(b.id)
+                setShowBrush(false)
+              }}
+              className={`ditem ${brush === b.id ? 'bg-[var(--primary-bg)]' : ''}`}
+              role="menuitem"
+              aria-label={`${b.label} - ${b.desc}`}
+            >
               <span className="di">{b.label.split(' ')[0]}</span>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div className="flex flex-col">
                 <span className="dl">{b.label.split(' ').slice(1).join(' ')}</span>
                 <span className="dd">{b.desc}</span>
               </div>
-              {brush === b.id && <span style={{ marginLeft: 'auto', color: 'var(--primary)', fontWeight: 700, fontSize: '14px' }}>✓</span>}
+              {brush === b.id && (
+                <span className="ml-auto text-[var(--primary)] font-bold text-[14px]">✓</span>
+              )}
             </button>
           ))}
         </div>
       )}
 
-      {showBrush && <div className="fixed inset-0" style={{ zIndex: 5 }} onClick={() => setShowBrush(false)} />}
+      {showBrush && <div className="fixed inset-0 z-[5]" onClick={() => setShowBrush(false)} />}
     </>
   )
 }
