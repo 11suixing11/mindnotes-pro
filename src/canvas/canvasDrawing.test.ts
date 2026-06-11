@@ -21,7 +21,7 @@ class MockPath2D {
 }
 
 if (typeof globalThis.Path2D === 'undefined') {
-  (globalThis as any).Path2D = MockPath2D
+  ;(globalThis as any).Path2D = MockPath2D
 }
 
 // Mock canvas context
@@ -79,7 +79,10 @@ describe('canvasDrawing', () => {
       const el: StrokeElement = {
         type: 'stroke',
         id: 's1',
-        points: [[0, 0], [10, 10]],
+        points: [
+          [0, 0],
+          [10, 10],
+        ],
         color: '#000',
         size: 2,
         brush: 'pen',
@@ -155,7 +158,11 @@ describe('canvasDrawing', () => {
       const el: StrokeElement = {
         type: 'stroke',
         id: 's1',
-        points: [[0, 0], [10, 10], [20, 5]],
+        points: [
+          [0, 0],
+          [10, 10],
+          [20, 5],
+        ],
         color: '#000',
         size: 2,
         brush: 'pen',
@@ -169,7 +176,10 @@ describe('canvasDrawing', () => {
       const el: StrokeElement = {
         type: 'stroke',
         id: 's1',
-        points: [[0, 0], [10, 10]],
+        points: [
+          [0, 0],
+          [10, 10],
+        ],
         color: '#000',
         size: 2,
         brush: 'highlighter',
@@ -183,7 +193,11 @@ describe('canvasDrawing', () => {
       const el: StrokeElement = {
         type: 'stroke',
         id: 's1',
-        points: [[0, 0], [10, 10], [20, 5]],
+        points: [
+          [0, 0],
+          [10, 10],
+          [20, 5],
+        ],
         color: '#000',
         size: 2,
         brush: 'pencil',
@@ -197,7 +211,11 @@ describe('canvasDrawing', () => {
       const el: StrokeElement = {
         type: 'stroke',
         id: 's1',
-        points: [[0, 0], [10, 10], [20, 5]],
+        points: [
+          [0, 0],
+          [10, 10],
+          [20, 5],
+        ],
         color: '#000',
         size: 2,
         brush: 'calligraphy',
@@ -210,7 +228,10 @@ describe('canvasDrawing', () => {
       const el: StrokeElement = {
         type: 'stroke',
         id: 's1',
-        points: [[0, 0], [10, 10]],
+        points: [
+          [0, 0],
+          [10, 10],
+        ],
         color: '#000',
         size: 2,
         brush: 'dashed',
@@ -223,7 +244,10 @@ describe('canvasDrawing', () => {
       const el: StrokeElement = {
         type: 'stroke',
         id: 's1',
-        points: [[0, 0], [10, 10]],
+        points: [
+          [0, 0],
+          [10, 10],
+        ],
         color: '#000',
         size: 2,
         brush: 'glow',
@@ -236,7 +260,17 @@ describe('canvasDrawing', () => {
 
   describe('drawStrokeRaw', () => {
     it('should draw raw stroke points', () => {
-      drawStrokeRaw(ctx, [[0, 0], [10, 10]], '#000', 2, 'pen', false)
+      drawStrokeRaw(
+        ctx,
+        [
+          [0, 0],
+          [10, 10],
+        ],
+        '#000',
+        2,
+        'pen',
+        false
+      )
       expect(ctx.beginPath).toHaveBeenCalled()
     })
   })

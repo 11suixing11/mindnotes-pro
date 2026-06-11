@@ -14,6 +14,26 @@ function cleanupSystemThemeListener() {
   themeMediaQueryHandler = null
 }
 
+const DARK_MODE_COLOR = '#e2dce6'
+const LIGHT_MODE_COLOR = '#2c2416'
+
+function isColorDark(hex: string): boolean {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.substring(0, 2), 16)
+  const g = parseInt(h.substring(2, 4), 16)
+  const b = parseInt(h.substring(4, 6), 16)
+  return (r * 299 + g * 587 + b * 114) / 1000 < 128
+}
+
+function adaptStrokeColor(toDark: boolean) {
+  const app = useAppStore.getState()
+  if (toDark && isColorDark(app.color)) {
+    app.setColor(DARK_MODE_COLOR)
+  } else if (!toDark && !isColorDark(app.color)) {
+    app.setColor(LIGHT_MODE_COLOR)
+  }
+}
+
 interface ThemeState {
   // 主题状态
   isDarkMode: boolean
@@ -44,11 +64,14 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
 
     localStorage.setItem('mindnotes-theme', newMode ? 'dark' : 'light')
 
-    const cur = useAppStore.getState().bgColor
+    const app = useAppStore.getState()
+    const cur = app.bgColor
     const isLight = cur === '#ffffff' || cur === '#FFFFFF' || cur === '#fff' || cur === '#FFF'
     const isDark = cur === '#1A1820' || cur === '#1a1820'
-    if (newMode && isLight) useAppStore.getState().setBgColor('#1A1820')
-    else if (!newMode && isDark) useAppStore.getState().setBgColor('#ffffff')
+    if (newMode && isLight) app.setBgColor('#1A1820')
+    else if (!newMode && isDark) app.setBgColor('#ffffff')
+
+    adaptStrokeColor(newMode)
   },
 
   // 设置主题
@@ -64,6 +87,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
 
     // 存储偏好
     localStorage.setItem('mindnotes-theme', isDark ? 'dark' : 'light')
+
+    adaptStrokeColor(isDark)
   },
 
   // 初始化主题
@@ -83,6 +108,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
       } else {
         document.documentElement.classList.remove('dark')
       }
+      adaptStrokeColor(isDark)
       return
     }
 
@@ -93,6 +119,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     if (prefersDark) {
       set({ isDarkMode: true })
       document.documentElement.classList.add('dark')
+      adaptStrokeColor(true)
     }
 
     // 3. 监听系统主题变化
@@ -106,6 +133,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
         } else {
           document.documentElement.classList.remove('dark')
         }
+        adaptStrokeColor(isDark)
       }
     }
 

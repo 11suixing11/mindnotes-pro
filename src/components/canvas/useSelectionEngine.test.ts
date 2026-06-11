@@ -7,8 +7,16 @@ import type { CanvasElement } from '../../store/types'
 
 function mockBounds(el: CanvasElement): { x: number; y: number; w: number; h: number } {
   if (el.type === 'stroke') {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const p of el.points) { minX = Math.min(minX, p[0]); minY = Math.min(minY, p[1]); maxX = Math.max(maxX, p[0]); maxY = Math.max(maxY, p[1]) }
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity
+    for (const p of el.points) {
+      minX = Math.min(minX, p[0])
+      minY = Math.min(minY, p[1])
+      maxX = Math.max(maxX, p[0])
+      maxY = Math.max(maxY, p[1])
+    }
     return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
   }
   if (el.type === 'shape') return { x: el.x, y: el.y, w: el.w, h: el.h }
@@ -47,7 +55,17 @@ describe('useSelectionEngine', () => {
     it('should return empty lines when elements are far away', () => {
       useAppStore.setState({
         elements: [
-          { type: 'shape', id: 's1', kind: 'rectangle', x: 500, y: 500, w: 100, h: 100, color: '#000', size: 2 },
+          {
+            type: 'shape',
+            id: 's1',
+            kind: 'rectangle',
+            x: 500,
+            y: 500,
+            w: 100,
+            h: 100,
+            color: '#000',
+            size: 2,
+          },
         ],
       })
       const { result } = renderHook(() => useSelectionEngine(mockBounds))
@@ -59,7 +77,17 @@ describe('useSelectionEngine', () => {
     it('should snap to aligned element edges', () => {
       useAppStore.setState({
         elements: [
-          { type: 'shape', id: 's1', kind: 'rectangle', x: 100, y: 100, w: 50, h: 50, color: '#000', size: 2 },
+          {
+            type: 'shape',
+            id: 's1',
+            kind: 'rectangle',
+            x: 100,
+            y: 100,
+            w: 50,
+            h: 50,
+            color: '#000',
+            size: 2,
+          },
         ],
       })
       const { result } = renderHook(() => useSelectionEngine(mockBounds))
@@ -72,7 +100,17 @@ describe('useSelectionEngine', () => {
     it('should snap to center alignment', () => {
       useAppStore.setState({
         elements: [
-          { type: 'shape', id: 's1', kind: 'rectangle', x: 100, y: 100, w: 50, h: 50, color: '#000', size: 2 },
+          {
+            type: 'shape',
+            id: 's1',
+            kind: 'rectangle',
+            x: 100,
+            y: 100,
+            w: 50,
+            h: 50,
+            color: '#000',
+            size: 2,
+          },
         ],
       })
       const { result } = renderHook(() => useSelectionEngine(mockBounds))
@@ -84,7 +122,17 @@ describe('useSelectionEngine', () => {
     it('should exclude specified element ids', () => {
       useAppStore.setState({
         elements: [
-          { type: 'shape', id: 's1', kind: 'rectangle', x: 100, y: 100, w: 50, h: 50, color: '#000', size: 2 },
+          {
+            type: 'shape',
+            id: 's1',
+            kind: 'rectangle',
+            x: 100,
+            y: 100,
+            w: 50,
+            h: 50,
+            color: '#000',
+            size: 2,
+          },
         ],
       })
       const { result } = renderHook(() => useSelectionEngine(mockBounds))
@@ -98,7 +146,17 @@ describe('useSelectionEngine', () => {
       useViewStore.setState({ viewBox: { x: 0, y: 0, zoom: 2 } })
       useAppStore.setState({
         elements: [
-          { type: 'shape', id: 's1', kind: 'rectangle', x: 100, y: 100, w: 50, h: 50, color: '#000', size: 2 },
+          {
+            type: 'shape',
+            id: 's1',
+            kind: 'rectangle',
+            x: 100,
+            y: 100,
+            w: 50,
+            h: 50,
+            color: '#000',
+            size: 2,
+          },
         ],
       })
       const { result } = renderHook(() => useSelectionEngine(mockBounds))
@@ -110,7 +168,17 @@ describe('useSelectionEngine', () => {
     it('should provide snap lines for drawing guides', () => {
       useAppStore.setState({
         elements: [
-          { type: 'shape', id: 's1', kind: 'rectangle', x: 100, y: 100, w: 50, h: 50, color: '#000', size: 2 },
+          {
+            type: 'shape',
+            id: 's1',
+            kind: 'rectangle',
+            x: 100,
+            y: 100,
+            w: 50,
+            h: 50,
+            color: '#000',
+            size: 2,
+          },
         ],
       })
       const { result } = renderHook(() => useSelectionEngine(mockBounds))

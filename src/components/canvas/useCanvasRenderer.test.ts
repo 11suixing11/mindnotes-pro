@@ -9,7 +9,9 @@ import type { DrawState } from './useCanvasRenderer'
 // Mock ResizeObserver
 class MockResizeObserver {
   callback: ResizeObserverCallback
-  constructor(callback: ResizeObserverCallback) { this.callback = callback }
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback
+  }
   observe() {}
   unobserve() {}
   disconnect() {}
@@ -51,6 +53,9 @@ function createDefaultDrawState(): DrawState {
     color: '#2c2416',
     size: 4,
     brush: 'pen',
+    showGrid: false,
+    showRulers: false,
+    gridSize: 20,
   }
 }
 
@@ -67,11 +72,9 @@ describe('useCanvasRenderer', () => {
   })
 
   it('should return all expected functions and refs', () => {
-    const { result } = renderHook(() => useCanvasRenderer(
-      createMockCanvasRef(),
-      createMockContainerRef(),
-      createDefaultDrawState,
-    ))
+    const { result } = renderHook(() =>
+      useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
+    )
     expect(result.current.redraw).toBeTypeOf('function')
     expect(result.current.scheduleRedraw).toBeTypeOf('function')
     expect(result.current.elementsDirtyRef).toBeDefined()
@@ -84,11 +87,9 @@ describe('useCanvasRenderer', () => {
   describe('scheduleRedraw', () => {
     it('should schedule a redraw via requestAnimationFrame', () => {
       const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1)
-      const { result } = renderHook(() => useCanvasRenderer(
-        createMockCanvasRef(),
-        createMockContainerRef(),
-        createDefaultDrawState,
-      ))
+      const { result } = renderHook(() =>
+        useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
+      )
       result.current.scheduleRedraw()
       expect(rafSpy).toHaveBeenCalled()
       rafSpy.mockRestore()
@@ -98,11 +99,9 @@ describe('useCanvasRenderer', () => {
       let frameId = 0
       const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => ++frameId)
       const cafSpy = vi.spyOn(window, 'cancelAnimationFrame')
-      const { result } = renderHook(() => useCanvasRenderer(
-        createMockCanvasRef(),
-        createMockContainerRef(),
-        createDefaultDrawState,
-      ))
+      const { result } = renderHook(() =>
+        useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
+      )
       result.current.scheduleRedraw()
       result.current.scheduleRedraw()
       expect(cafSpy).toHaveBeenCalled()
@@ -113,12 +112,20 @@ describe('useCanvasRenderer', () => {
 
   describe('cachedBounds', () => {
     it('should compute and cache bounds for elements', () => {
-      const { result } = renderHook(() => useCanvasRenderer(
-        createMockCanvasRef(),
-        createMockContainerRef(),
-        createDefaultDrawState,
-      ))
-      const el = { type: 'shape' as const, id: 's1', kind: 'rectangle' as const, x: 10, y: 20, w: 100, h: 50, color: '#000', size: 2 }
+      const { result } = renderHook(() =>
+        useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
+      )
+      const el = {
+        type: 'shape' as const,
+        id: 's1',
+        kind: 'rectangle' as const,
+        x: 10,
+        y: 20,
+        w: 100,
+        h: 50,
+        color: '#000',
+        size: 2,
+      }
       const b1 = result.current.cachedBounds(el)
       // elementBounds may include padding/stroke width adjustments
       expect(b1.x).toBeDefined()
@@ -131,12 +138,20 @@ describe('useCanvasRenderer', () => {
     })
 
     it('should clear cache when elements change', () => {
-      const { result } = renderHook(() => useCanvasRenderer(
-        createMockCanvasRef(),
-        createMockContainerRef(),
-        createDefaultDrawState,
-      ))
-      const el = { type: 'shape' as const, id: 's1', kind: 'rectangle' as const, x: 10, y: 20, w: 100, h: 50, color: '#000', size: 2 }
+      const { result } = renderHook(() =>
+        useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
+      )
+      const el = {
+        type: 'shape' as const,
+        id: 's1',
+        kind: 'rectangle' as const,
+        x: 10,
+        y: 20,
+        w: 100,
+        h: 50,
+        color: '#000',
+        size: 2,
+      }
       result.current.cachedBounds(el)
       expect(result.current.boundsCacheRef.current.size).toBe(1)
       // Trigger element change
@@ -150,11 +165,9 @@ describe('useCanvasRenderer', () => {
 
   describe('canvasSize', () => {
     it('should initialize with window dimensions', () => {
-      const { result } = renderHook(() => useCanvasRenderer(
-        createMockCanvasRef(),
-        createMockContainerRef(),
-        createDefaultDrawState,
-      ))
+      const { result } = renderHook(() =>
+        useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
+      )
       expect(result.current.canvasSize.w).toBeGreaterThan(0)
       expect(result.current.canvasSize.h).toBeGreaterThan(0)
     })
@@ -162,36 +175,40 @@ describe('useCanvasRenderer', () => {
 
   describe('dpr', () => {
     it('should return device pixel ratio', () => {
-      const { result } = renderHook(() => useCanvasRenderer(
-        createMockCanvasRef(),
-        createMockContainerRef(),
-        createDefaultDrawState,
-      ))
+      const { result } = renderHook(() =>
+        useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
+      )
       expect(result.current.dpr).toBeGreaterThan(0)
     })
   })
 
   describe('elementsDirtyRef', () => {
     it('should start as true', () => {
-      const { result } = renderHook(() => useCanvasRenderer(
-        createMockCanvasRef(),
-        createMockContainerRef(),
-        createDefaultDrawState,
-      ))
+      const { result } = renderHook(() =>
+        useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
+      )
       expect(result.current.elementsDirtyRef.current).toBe(true)
     })
 
     it('should be set to true when elements change', () => {
-      const { result } = renderHook(() => useCanvasRenderer(
-        createMockCanvasRef(),
-        createMockContainerRef(),
-        createDefaultDrawState,
-      ))
+      const { result } = renderHook(() =>
+        useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
+      )
       // After initial render, it might be false
       act(() => {
         useAppStore.setState({
           elements: [
-            { type: 'stroke', id: 's1', points: [[0, 0], [10, 10]], color: '#000', size: 2, brush: 'pen' },
+            {
+              type: 'stroke',
+              id: 's1',
+              points: [
+                [0, 0],
+                [10, 10],
+              ],
+              color: '#000',
+              size: 2,
+              brush: 'pen',
+            },
           ],
         })
       })
@@ -201,11 +218,9 @@ describe('useCanvasRenderer', () => {
 
   describe('redraw', () => {
     it('should handle null canvas ref gracefully', () => {
-      const { result } = renderHook(() => useCanvasRenderer(
-        { current: null },
-        createMockContainerRef(),
-        createDefaultDrawState,
-      ))
+      const { result } = renderHook(() =>
+        useCanvasRenderer({ current: null }, createMockContainerRef(), createDefaultDrawState)
+      )
       // Should not throw
       result.current.redraw()
     })
@@ -213,11 +228,9 @@ describe('useCanvasRenderer', () => {
     it('should handle canvas without context gracefully', () => {
       const canvas = document.createElement('canvas')
       vi.spyOn(canvas, 'getContext').mockReturnValue(null)
-      const { result } = renderHook(() => useCanvasRenderer(
-        { current: canvas },
-        createMockContainerRef(),
-        createDefaultDrawState,
-      ))
+      const { result } = renderHook(() =>
+        useCanvasRenderer({ current: canvas }, createMockContainerRef(), createDefaultDrawState)
+      )
       // Should not throw
       result.current.redraw()
     })
@@ -226,11 +239,9 @@ describe('useCanvasRenderer', () => {
   describe('resize observer', () => {
     it('should update canvas size when container resizes', () => {
       const containerRef = createMockContainerRef()
-      const { result } = renderHook(() => useCanvasRenderer(
-        createMockCanvasRef(),
-        containerRef,
-        createDefaultDrawState,
-      ))
+      const { result } = renderHook(() =>
+        useCanvasRenderer(createMockCanvasRef(), containerRef, createDefaultDrawState)
+      )
       const initialSize = { ...result.current.canvasSize }
       // Simulate resize by changing container dimensions
       // Note: ResizeObserver mock may not trigger in jsdom
@@ -241,11 +252,9 @@ describe('useCanvasRenderer', () => {
 
   describe('image-loaded event', () => {
     it('should mark elements dirty and redraw on image-loaded event', () => {
-      const { result } = renderHook(() => useCanvasRenderer(
-        createMockCanvasRef(),
-        createMockContainerRef(),
-        createDefaultDrawState,
-      ))
+      const { result } = renderHook(() =>
+        useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
+      )
       // Trigger image-loaded event
       act(() => {
         window.dispatchEvent(new Event('image-loaded'))

@@ -12,8 +12,14 @@ describe('useKeyboardBindings', () => {
   beforeEach(() => {
     localStorage.clear()
     useAppStore.setState({
-      elements: [], tool: 'pen', brush: 'pen', color: '#2c2416', size: 4,
-      selectedIds: [], undoStack: [], redoStack: [],
+      elements: [],
+      tool: 'pen',
+      brush: 'pen',
+      color: '#2c2416',
+      size: 4,
+      selectedIds: [],
+      undoStack: [],
+      redoStack: [],
     })
     useViewStore.setState({ viewBox: { x: 0, y: 0, zoom: 1 } })
   })
@@ -72,8 +78,22 @@ describe('useKeyboardBindings', () => {
     })
 
     it('Ctrl+A should select all elements', () => {
-      useAppStore.getState().addElement({ type: 'stroke', id: 's1', points: [[0, 0]], color: '#000', size: 2, brush: 'pen' })
-      useAppStore.getState().addElement({ type: 'stroke', id: 's2', points: [[10, 10]], color: '#000', size: 2, brush: 'pen' })
+      useAppStore.getState().addElement({
+        type: 'stroke',
+        id: 's1',
+        points: [[0, 0]],
+        color: '#000',
+        size: 2,
+        brush: 'pen',
+      })
+      useAppStore.getState().addElement({
+        type: 'stroke',
+        id: 's2',
+        points: [[10, 10]],
+        color: '#000',
+        size: 2,
+        brush: 'pen',
+      })
       renderHook(() => useKeyboardBindings())
       press('a', { ctrlKey: true })
       expect(useAppStore.getState().selectedIds).toEqual(['s1', 's2'])
@@ -82,8 +102,22 @@ describe('useKeyboardBindings', () => {
 
   describe('delete', () => {
     it('Delete key should remove selected elements', () => {
-      useAppStore.getState().addElement({ type: 'stroke', id: 's1', points: [[0, 0]], color: '#000', size: 2, brush: 'pen' })
-      useAppStore.getState().addElement({ type: 'stroke', id: 's2', points: [[10, 10]], color: '#000', size: 2, brush: 'pen' })
+      useAppStore.getState().addElement({
+        type: 'stroke',
+        id: 's1',
+        points: [[0, 0]],
+        color: '#000',
+        size: 2,
+        brush: 'pen',
+      })
+      useAppStore.getState().addElement({
+        type: 'stroke',
+        id: 's2',
+        points: [[10, 10]],
+        color: '#000',
+        size: 2,
+        brush: 'pen',
+      })
       useAppStore.setState({ selectedIds: ['s1'] })
       renderHook(() => useKeyboardBindings())
       press('Delete')
@@ -92,7 +126,14 @@ describe('useKeyboardBindings', () => {
     })
 
     it('Backspace should remove selected elements', () => {
-      useAppStore.getState().addElement({ type: 'stroke', id: 's1', points: [[0, 0]], color: '#000', size: 2, brush: 'pen' })
+      useAppStore.getState().addElement({
+        type: 'stroke',
+        id: 's1',
+        points: [[0, 0]],
+        color: '#000',
+        size: 2,
+        brush: 'pen',
+      })
       useAppStore.setState({ selectedIds: ['s1'] })
       renderHook(() => useKeyboardBindings())
       press('Backspace')
@@ -100,7 +141,14 @@ describe('useKeyboardBindings', () => {
     })
 
     it('Delete should not remove when nothing selected', () => {
-      useAppStore.getState().addElement({ type: 'stroke', id: 's1', points: [[0, 0]], color: '#000', size: 2, brush: 'pen' })
+      useAppStore.getState().addElement({
+        type: 'stroke',
+        id: 's1',
+        points: [[0, 0]],
+        color: '#000',
+        size: 2,
+        brush: 'pen',
+      })
       renderHook(() => useKeyboardBindings())
       press('Delete')
       expect(useAppStore.getState().elements).toHaveLength(1)
@@ -109,8 +157,15 @@ describe('useKeyboardBindings', () => {
 
   describe('tool shortcuts', () => {
     it.each([
-      ['1', 'pen'], ['2', 'eraser'], ['3', 'pan'], ['4', 'rectangle'],
-      ['5', 'circle'], ['6', 'text'], ['7', 'line'], ['8', 'arrow'], ['0', 'select'],
+      ['1', 'pen'],
+      ['2', 'eraser'],
+      ['3', 'pan'],
+      ['4', 'rectangle'],
+      ['5', 'circle'],
+      ['6', 'text'],
+      ['7', 'line'],
+      ['8', 'arrow'],
+      ['0', 'select'],
     ] as const)('key %s should set tool to %s', (key, expectedTool) => {
       renderHook(() => useKeyboardBindings())
       press(key)
