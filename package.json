@@ -1,47 +1,73 @@
 {
-  "name": "mindnotes-pro",
-  "version": "3.1.0",
-  "type": "module",
-  "description": "Local-first whiteboard drawing app",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "lint": "eslint src --ext .ts,.tsx",
-    "test": "vitest",
-    "test:run": "vitest run"
-  },
-  "author": "11suixing11",
-  "license": "MIT",
-  "dependencies": {
-    "jspdf": "^4.2.1",
-    "perfect-freehand": "^1.2.3",
-    "playwright": "^1.60.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "zustand": "^4.5.0"
-  },
-  "devDependencies": {
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@types/react": "^18.2.64",
-    "@types/react-dom": "^18.2.21",
-    "@typescript-eslint/eslint-plugin": "^8.57.2",
-    "@typescript-eslint/parser": "^8.57.2",
-    "@vitejs/plugin-react": "^4.2.1",
-    "@vitest/coverage-v8": "^4.1.1",
-    "@vitest/ui": "^4.1.0",
-    "autoprefixer": "^10.4.18",
-    "eslint": "^8.57.0",
-    "eslint-plugin-prettier": "^5.5.5",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.5",
-    "jsdom": "^29.0.1",
-    "postcss": "^8.4.35",
-    "prettier": "^3.8.1",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5.2.2",
-    "vite": "^5.1.6",
-    "vitest": "^4.1.0"
-  }
+    "name":  "mindnotes-pro",
+    "version":  "3.1.0",
+    "type":  "module",
+    "description":  "Local-first whiteboard drawing app",
+    "scripts":  {
+                    "dev":  "vite",
+                    "build":  "tsc \u0026\u0026 vite build",
+                    "preview":  "vite preview",
+                    "lint":  "eslint src --ext .ts,.tsx",
+                    "test":  "vitest",
+                    "test:run":  "vitest run",
+                    "build:analyze":  "vite build --mode analyze",
+                    "test:e2e":  "npx playwright test",
+                    "test:e2e:ui":  "npx playwright test --ui"
+                },
+    "author":  "11suixing11",
+    "license":  "MIT",
+    "dependencies":  {
+                         "jspdf":  "^4.2.1",
+                         "perfect-freehand":  "^1.2.3",
+                         "react":  "^18.2.0",
+                         "react-dom":  "^18.2.0",
+                         "zustand":  "^4.5.0"
+                     },
+    "devDependencies":  {
+                            "@testing-library/jest-dom":  "^6.9.1",
+                            "@testing-library/react":  "^16.3.2",
+                            "@types/react":  "^18.2.64",
+                            "@types/react-dom":  "^18.2.21",
+                            "@typescript-eslint/eslint-plugin":  "^8.57.2",
+                            "@typescript-eslint/parser":  "^8.57.2",
+                            "@vitejs/plugin-react":  "^4.2.1",
+                            "@vitest/coverage-v8":  "^4.1.1",
+                            "@vitest/ui":  "^4.1.0",
+                            "autoprefixer":  "^10.4.18",
+                            "eslint":  "^8.57.0",
+                            "eslint-plugin-prettier":  "^5.5.5",
+                            "eslint-plugin-react-hooks":  "^4.6.0",
+                            "eslint-plugin-react-refresh":  "^0.4.5",
+                            "jsdom":  "^29.0.1",
+                            "postcss":  "^8.4.35",
+                            "prettier":  "^3.8.1",
+                            "tailwindcss":  "^3.4.1",
+                            "typescript":  "^5.2.2",
+                            "vite":  "^5.1.6",
+                            "vitest":  "^4.1.0",
+                            "playwright":  "^1.60.0",
+                            "rollup-plugin-visualizer":  "^5.12.0"
+                        },
+    "repository":  {
+                       "type":  "git",
+                       "url":  "https://github.com/11suixing11/mindnotes-pro.git"
+                   },
+    "bugs":  {
+                 "url":  "https://github.com/11suixing11/mindnotes-pro/issues"
+             },
+    "homepage":  "https://11suixing11.github.io/mindnotes-pro",
+    "keywords":  [
+                     "whiteboard",
+                     "drawing",
+                     "note-taking",
+                     "canvas",
+                     "react",
+                     "typescript",
+                     "local-first",
+                     "pwa"
+                 ],
+    "engines":  {
+                    "node":  "\u003e=18.0.0",
+                    "npm":  "\u003e=9.0.0"
+                }
 }

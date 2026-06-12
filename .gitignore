@@ -13,6 +13,7 @@ dist-ssr
 .vscode
 .idea
 .DS_Store
+Thumbs.db
 
 # Environment
 .env
@@ -33,10 +34,18 @@ temp/
 *.swp
 *~
 
-# Kilo config
-.kilo/
+# Debug scripts
+debug-*.cjs
+debug-*.js
 
-# Taskplane runtime artifacts (machine-specific, do not commit)
+# Test screenshots & PDFs (root level)
+*.pdf
+!docs/**/*.pdf
+
+# OS files
+Desktop.ini
+
+# Taskplane runtime artifacts
 .pi/batch-state.json
 .pi/batch-history.json
 .pi/lane-state-*
@@ -49,5 +58,5 @@ temp/
 .worktrees/
 .taskplane-tasks/
 
-# Pi project-local packages (if using pi install -l)
+# Pi project-local packages
 .pi/npm/

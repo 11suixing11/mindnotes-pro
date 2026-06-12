@@ -103,6 +103,7 @@ export function usePointerEngine(opts: {
   const shapeStartRef = useRef<{ x: number; y: number } | null>(null)
   const currentShapeRef = useRef<ShapeElement | null>(null)
   const erasedRef = useRef<Set<string>>(new Set())
+  const preEraseSnapshotRef = useRef<CanvasElement[] | null>(null)
   const dragRef = useRef<{
     x: number
     y: number
@@ -115,6 +116,7 @@ export function usePointerEngine(opts: {
     startX: number
     startY: number
     origBounds: { x: number; y: number; w: number; h: number }
+    origElement: CanvasElement | null
   } | null>(null)
   const marqueeRef = useRef<{ startX: number; startY: number; endX: number; endY: number } | null>(
     null
@@ -271,7 +273,7 @@ export function usePointerEngine(opts: {
         if (h) {
           const el = useAppStore.getState().elements.find((e) => e.id === h.id)
           if (el)
-            resizeRef.current = { ...h, startX: pos.x, startY: pos.y, origBounds: cachedBounds(el) }
+            resizeRef.current = { ...h, startX: pos.x, startY: pos.y, origBounds: cachedBounds(el), origElement: { ...el } as CanvasElement }
           scheduleRedraw()
           return
         }
@@ -325,7 +327,10 @@ export function usePointerEngine(opts: {
       drawingRef.current = true
       erasedRef.current = new Set()
       if (curTool === 'pen') currentPtsRef.current = [[pos.x, pos.y]]
-      else if (curTool === 'eraser') eraseAt(pos.x, pos.y)
+      else if (curTool === 'eraser') {
+        preEraseSnapshotRef.current = useAppStore.getState().elements.map((el) => ({ ...el } as CanvasElement))
+        eraseAt(pos.x, pos.y)
+      }
       else {
         shapeStartRef.current = pos
         currentShapeRef.current = {
@@ -503,11 +508,15 @@ export function usePointerEngine(opts: {
         drawingRef.current = false
         const curTool = toolRef.current
         if (curTool === 'pen') {
-          if (currentPtsRef.current.length > 1) {
+          if (currentPtsRef.current.length >= 1) {
+            let pts = currentPtsRef.current
+            if (pts.length === 1) {
+              pts = [pts[0], [pts[0][0] + 0.1, pts[0][1] + 0.1]]
+            }
             const el: any = {
               type: 'stroke',
               id: `stroke-${Date.now()}`,
-              points: simplifyPts(currentPtsRef.current, 1),
+              points: simplifyPts(pts, 1),
               color: curColor,
               size: curSize,
               brush: curBrush,
@@ -516,7 +525,13 @@ export function usePointerEngine(opts: {
             addElement(el)
           }
           currentPtsRef.current = []
-        } else if (curTool === 'eraser') currentPtsRef.current = []
+        } else if (curTool === 'eraser') {
+          if (preEraseSnapshotRef.current && erasedRef.current.size > 0) {
+            useAppStore.getState().batchErase(preEraseSnapshotRef.current, [])
+          }
+          preEraseSnapshotRef.current = null
+          currentPtsRef.current = []
+        }
         else if (currentShapeRef.current) {
           if (Math.abs(currentShapeRef.current.w) > 2 || Math.abs(currentShapeRef.current.h) > 2)
             addElement(currentShapeRef.current)
@@ -566,6 +581,17 @@ export function usePointerEngine(opts: {
           }
           if (deltas.length > 0) useAppStore.getState().pushUndo({ type: 'move', deltas })
         }
+        if (resizeRef.current?.origElement) {
+          const afterEl = useAppStore.getState().elements.find((e) => e.id === resizeRef.current!.id)
+          if (afterEl) {
+            useAppStore.getState().pushUndo({
+              type: 'clear',
+              snapshot: useAppStore.getState().elements.map((e) =>
+                e.id === resizeRef.current!.id ? resizeRef.current!.origElement! : e
+              ),
+            })
+          }
+        }
         dragRef.current = null
         resizeRef.current = null
         snapLinesRef.current = { x: [], y: [] }
@@ -600,10 +626,26 @@ export function usePointerEngine(opts: {
     const onStart = (e: MouseEvent | TouchEvent) => handleStartRef.current(e)
     const onMove = (e: MouseEvent | TouchEvent) => handleMoveRef.current(e)
     const onEnd = (e: MouseEvent | TouchEvent) => handleEndRef.current(e)
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const rect = canvas.getBoundingClientRect()
+      const mouseX = e.clientX - rect.left
+      const mouseY = e.clientY - rect.top
+      const vb = useViewStore.getState().viewBox
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1
+      const newZoom = Math.max(0.2, Math.min(5, vb.zoom * zoomFactor))
+      const worldX = mouseX / vb.zoom + vb.x
+      const worldY = mouseY / vb.zoom + vb.y
+      const newX = worldX - mouseX / newZoom
+      const newY = worldY - mouseY / newZoom
+      useViewStore.getState().setViewBox({ x: newX, y: newY, zoom: newZoom })
+      scheduleRedraw()
+    }
     canvas.addEventListener('mousedown', onStart)
     canvas.addEventListener('mousemove', onMove)
     canvas.addEventListener('mouseup', onEnd)
     canvas.addEventListener('mouseleave', onEnd)
+    canvas.addEventListener('wheel', onWheel, { passive: false })
     canvas.addEventListener('touchstart', onStart, { passive: false })
     canvas.addEventListener('touchmove', onMove, { passive: false })
     canvas.addEventListener('touchend', onEnd, { passive: false })
@@ -612,6 +654,7 @@ export function usePointerEngine(opts: {
       canvas.removeEventListener('mousemove', onMove)
       canvas.removeEventListener('mouseup', onEnd)
       canvas.removeEventListener('mouseleave', onEnd)
+      canvas.removeEventListener('wheel', onWheel)
       canvas.removeEventListener('touchstart', onStart)
       canvas.removeEventListener('touchmove', onMove)
       canvas.removeEventListener('touchend', onEnd)
@@ -651,10 +694,14 @@ export function usePointerEngine(opts: {
         newMid = getTouchMid(e),
         scale = newDist / pinchDist
       const vb = useViewStore.getState().viewBox
-      useViewStore.getState().setViewBox({ x: vb.x, y: vb.y, zoom: vb.zoom * scale })
-      const dx = (newMid.x - pinchMid.x) / vb.zoom,
-        dy = (newMid.y - pinchMid.y) / vb.zoom
-      useViewStore.getState().setViewBox({ ...vb, x: vb.x - dx, y: vb.y - dy })
+      const newZoom = vb.zoom * scale
+      const dx = (newMid.x - pinchMid.x) / newZoom,
+        dy = (newMid.y - pinchMid.y) / newZoom
+      useViewStore.getState().setViewBox({
+        x: vb.x - dx,
+        y: vb.y - dy,
+        zoom: newZoom,
+      })
       pinchDist = newDist
       pinchMid = newMid
       scheduleRedraw()

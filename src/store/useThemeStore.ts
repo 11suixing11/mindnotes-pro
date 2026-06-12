@@ -34,6 +34,29 @@ function adaptStrokeColor(toDark: boolean) {
   }
 }
 
+function adaptExistingElements(toDark: boolean) {
+  const app = useAppStore.getState()
+  const elements = app.elements
+  let hasChanges = false
+  const updatedElements = elements.map((el) => {
+    if (el.type === 'stroke' || el.type === 'text' || el.type === 'shape') {
+      const color = el.color
+      if (toDark && isColorDark(color)) {
+        hasChanges = true
+        return { ...el, color: DARK_MODE_COLOR }
+      } else if (!toDark && !isColorDark(color)) {
+        hasChanges = true
+        return { ...el, color: LIGHT_MODE_COLOR }
+      }
+    }
+    return el
+  })
+  if (hasChanges) {
+    useAppStore.setState({ elements: updatedElements })
+    app.saveNow()
+  }
+}
+
 interface ThemeState {
   // 主题状态
   isDarkMode: boolean
@@ -72,6 +95,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     else if (!newMode && isDark) app.setBgColor('#ffffff')
 
     adaptStrokeColor(newMode)
+    adaptExistingElements(newMode)
   },
 
   // 设置主题
@@ -88,7 +112,15 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     // 存储偏好
     localStorage.setItem('mindnotes-theme', isDark ? 'dark' : 'light')
 
+    const app = useAppStore.getState()
+    const cur = app.bgColor
+    const isLight = cur === '#ffffff' || cur === '#FFFFFF' || cur === '#fff' || cur === '#FFF'
+    const isDarkBg = cur === '#1A1820' || cur === '#1a1820'
+    if (isDark && isLight) app.setBgColor('#1A1820')
+    else if (!isDark && isDarkBg) app.setBgColor('#ffffff')
+
     adaptStrokeColor(isDark)
+    adaptExistingElements(isDark)
   },
 
   // 初始化主题

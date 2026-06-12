@@ -69,6 +69,7 @@ export default function Canvas() {
     <>
       <div ref={containerRef} className="absolute inset-0 overflow-hidden">
         <canvas
+          id="main-canvas"
           ref={canvasRef}
           width={canvasSize.w * dpr}
           height={canvasSize.h * dpr}
