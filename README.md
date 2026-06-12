@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 <img src=".github/hero.svg" alt="MindNotes Pro" width="100%" />
 
@@ -208,12 +208,6 @@ We'd love your help — whether it's a bug report, a feature idea, or a pull req
 Look for [`good first issue`](https://github.com/11suixing11/mindnotes-pro/labels/good%20first%20issue) labels if you're new here.
 
 ---
-
-## Architecture
-
-<div align="center">
-  <img src=".github/architecture.svg" alt="Architecture" width="600" />
-</div>
 
 ---
 

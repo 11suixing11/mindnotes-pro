@@ -86,3 +86,11 @@ docs/screenshots/
 
 # Duplicate assets
 .github/hero.png
+# Internal docs and dev scripts (not needed to run the project)
+docs/
+scripts/
+vercel.json
+.github/architecture.svg
+.github/demo.svg
+.github/features.svg
+.github/metrics.svg
