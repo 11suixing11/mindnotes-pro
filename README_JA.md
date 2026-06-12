@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 <img src=".github/hero.svg" alt="MindNotes Pro" width="100%" />
 
@@ -208,12 +208,6 @@ npm run dev
 初心者の方は [`good first issue`](https://github.com/11suixing11/mindnotes-pro/labels/good%20first%20issue) ラベルをご覧ください。
 
 ---
-
-## アーキテクチャ
-
-<div align="center">
-  <img src=".github/architecture.svg" alt="アーキテクチャ" width="600" />
-</div>
 
 ---
 
