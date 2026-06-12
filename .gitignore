@@ -60,3 +60,29 @@ Desktop.ini
 
 # Pi project-local packages
 .pi/npm/
+
+# Debug and test scripts (root level)
+get-page-content.cjs
+test-user-experience.cjs
+fix-brush.cjs
+
+# Test screenshots and temp outputs (root level)
+after-draw.png
+dark-mode-test.png
+full-page.png
+screenshot.png
+test-screenshot.png
+page-content.pdf
+
+# AI assistant config
+CLAUDE.md
+
+# Internal docs (not for distribution)
+docs/POSTING_CHECKLIST.md
+docs/SOCIAL_MEDIA_TEMPLATES.md
+docs/GROWTH_STRATEGY.md
+docs/showcase.html
+docs/screenshots/
+
+# Duplicate assets
+.github/hero.png
