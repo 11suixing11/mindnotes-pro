@@ -3,6 +3,11 @@ description: 提交一个 bug 报告
 title: "[Bug] "
 labels: ["bug"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你提交 Bug 报告！请尽量填写以下信息以帮助我们更快定位问题。
+
   - type: textarea
     id: description
     attributes:
@@ -32,12 +37,29 @@ body:
     validations:
       required: true
 
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 请描述实际发生了什么
+    validations:
+      required: true
+
   - type: input
     id: environment
     attributes:
-      label: 浏览器/操作系统
+      label: 浏览器 / 操作系统
       description: 请提供你的浏览器和操作系统信息
       placeholder: "Chrome 126 / Windows 11"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: MindNotes Pro 版本
+      description: 你使用的 MindNotes Pro 版本号
+      placeholder: "3.1.0"
     validations:
       required: true
 
@@ -46,5 +68,14 @@ body:
     attributes:
       label: 截图
       description: 如果有截图能帮助说明问题，请在此处附上
+    validations:
+      required: false
+
+  - type: textarea
+    id: console
+    attributes:
+      label: 控制台错误信息
+      description: 如果浏览器控制台有错误信息，请粘贴在此处
+      render: shell
     validations:
       required: false

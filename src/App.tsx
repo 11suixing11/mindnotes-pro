@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Canvas } from './components/canvas'
 import { Toolbar } from './components/toolbar'
+import { Sidebar } from './components/sidebar'
 import { ToastContainer } from './components/toast'
 import { ConfirmModal } from './components/confirm-modal'
 import { useAppStore } from './store/appStore'
@@ -8,6 +9,9 @@ import { useViewStore } from './store/useViewStore'
 import { useThemeStore } from './store/useThemeStore'
 import { getContentBounds } from './canvas/canvasUtils'
 import { FirstRunGuide } from './components/first-run-guide'
+import { KeyboardShortcutsHelp } from './components/keyboard-shortcuts-help'
+import { LoadingScreen } from './components/loading-screen'
+import { EmptyCanvasHint } from './components/empty-canvas-hint'
 
 const TOOL_LABELS: Record<string, string> = {
   select: '选择',
@@ -30,6 +34,7 @@ export default function App() {
   const bgColor = useAppStore((s) => s.bgColor)
   const docs = useAppStore((s) => s.docs)
   const [hintsVisible, setHintsVisible] = useState(() => !localStorage.getItem('mn-hints-seen'))
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const saveStatus = useAppStore((s) => s.saveStatus)
   const zoom = useViewStore((s) => s.viewBox.zoom)
   const zoomToFit = useViewStore((s) => s.zoomToFit)
@@ -60,6 +65,10 @@ export default function App() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === '?' && !e.ctrlKey && !e.metaKey) setHintsVisible((v) => !v)
+      if (e.key === 'F1') {
+        e.preventDefault()
+        setShortcutsOpen((v) => !v)
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -75,18 +84,10 @@ export default function App() {
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
+  const handleShortcutsClose = useCallback(() => setShortcutsOpen(false), [])
+
   if (!loaded) {
-    return (
-      <div className="loading-screen">
-        <div className="loading-logo">M</div>
-        <div className="loading-text">MindNotes</div>
-        <div className="loading-dots">
-          <span />
-          <span />
-          <span />
-        </div>
-      </div>
-    )
+    return <LoadingScreen />
   }
 
   return (
@@ -99,6 +100,7 @@ export default function App() {
         background: bgColor,
       }}
     >
+      <Sidebar />
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         <Canvas />
         <Toolbar />
@@ -147,7 +149,19 @@ export default function App() {
           </div>
         )}
 
+        <EmptyCanvasHint />
         <FirstRunGuide />
+        <KeyboardShortcutsHelp open={shortcutsOpen} onClose={handleShortcutsClose} />
+
+        {/* Shortcuts help trigger button */}
+        <button
+          onClick={() => setShortcutsOpen(true)}
+          className="fixed bottom-[48px] left-[16px] z-[100] w-[32px] h-[32px] rounded-[10px] border border-[var(--border)] bg-[var(--card-solid)] text-[var(--text-3)] text-[14px] font-bold cursor-pointer shadow-[var(--shadow-md)] flex items-center justify-center hover:bg-[var(--primary-bg)] hover:text-[var(--primary)] transition-colors"
+          aria-label="键盘快捷键"
+          title="键盘快捷键 (?)"
+        >
+          ?
+        </button>
 
         {deferredPrompt && (
           <button

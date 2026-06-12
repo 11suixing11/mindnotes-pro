@@ -1,5 +1,6 @@
 import type { ToolType } from '../../store/types'
 import { icons } from './icons'
+import Tooltip from './Tooltip'
 
 const TOOLS: {
   id: ToolType
@@ -38,31 +39,31 @@ export default function ToolButtons({ tool, setTool }: ToolButtonsProps) {
     <>
       <div className="sb-group">
         {TOOLS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTool(t.id)}
-            className={`tbtn ${tool === t.id ? 'on' : ''}`}
-            data-tip={`${t.tip} (${t.key})`}
-            aria-label={t.ariaLabel}
-          >
-            {t.icon}
-            <span className="k">{t.key}</span>
-          </button>
+          <Tooltip key={t.id} content={t.tip} shortcut={t.key}>
+            <button
+              onClick={() => setTool(t.id)}
+              className={`tbtn ${tool === t.id ? 'on' : ''}`}
+              aria-label={t.ariaLabel}
+            >
+              {t.icon}
+              <span className="k">{t.key}</span>
+            </button>
+          </Tooltip>
         ))}
       </div>
       <div className="sb-sep" />
       <div className="sb-group">
         {SHAPES.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTool(t.id)}
-            className={`tbtn ${tool === t.id ? 'on' : ''}`}
-            data-tip={`${t.tip} (${t.key})`}
-            aria-label={t.ariaLabel}
-          >
-            {t.icon}
-            <span className="k">{t.key}</span>
-          </button>
+          <Tooltip key={t.id} content={t.tip} shortcut={t.key}>
+            <button
+              onClick={() => setTool(t.id)}
+              className={`tbtn ${tool === t.id ? 'on' : ''}`}
+              aria-label={t.ariaLabel}
+            >
+              {t.icon}
+              <span className="k">{t.key}</span>
+            </button>
+          </Tooltip>
         ))}
       </div>
     </>

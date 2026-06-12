@@ -24,6 +24,7 @@ export function useKeyboardBindings(options: Options = {}) {
       }
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        e.preventDefault()
         st.copySelected()
         options.copySelectedToSystemClipboard?.()
         return
@@ -66,12 +67,15 @@ export function useKeyboardBindings(options: Options = {}) {
       }
 
       if (e.key === '+' || e.key === '=') {
+        e.preventDefault()
         vs.zoomIn()
         return
       }
 
       if (e.key === '-') {
+        e.preventDefault()
         vs.zoomOut()
+        return
       }
     }
 

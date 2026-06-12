@@ -75,7 +75,7 @@ function ts() {
   return new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')
 }
 function getCanvas() {
-  return document.querySelector('canvas')
+  return document.getElementById('main-canvas') as HTMLCanvasElement | null
 }
 
 function withBg(c: HTMLCanvasElement, bg: string) {
@@ -107,7 +107,9 @@ function buildSVG(elements: CanvasElement[], isDarkMode: boolean): string {
   const lw = Math.round(c.width / dpr),
     lh = Math.round(c.height / dpr)
   const bg = isDarkMode ? DARK_BG : '#fff'
-  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${lw}" height="${lh}"><rect width="100%" height="100%" fill="${bg}"/>\n`
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${lw}" height="${lh}">\n`
+  s += `<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="context-stroke"/></marker></defs>\n`
+  s += `<rect width="100%" height="100%" fill="${bg}"/>\n`
   for (const el of elements) {
     if (el.type === 'stroke' && el.points.length >= 2) {
       let d = `M${el.points[0][0]} ${el.points[0][1]}`
@@ -119,6 +121,8 @@ function buildSVG(elements: CanvasElement[], isDarkMode: boolean): string {
         s += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" stroke="${el.color}" stroke-width="${el.size}" fill="${fill}" rx="3"/>\n`
       else if (el.kind === 'circle')
         s += `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" stroke="${el.color}" stroke-width="${el.size}" fill="${fill}"/>\n`
+      else if (el.kind === 'arrow')
+        s += `<line x1="${el.x}" y1="${el.y}" x2="${el.x + el.w}" y2="${el.y + el.h}" stroke="${el.color}" stroke-width="${el.size}" marker-end="url(#arrowhead)"/>\n`
       else
         s += `<line x1="${el.x}" y1="${el.y}" x2="${el.x + el.w}" y2="${el.y + el.h}" stroke="${el.color}" stroke-width="${el.size}"/>\n`
     } else if (el.type === 'text') {
@@ -164,9 +168,13 @@ export default function ExportMenu() {
     if (!c) return
     const t = withBg(c, 'transparent')
     t.toBlob((b) => {
-      if (b) download(b, `mindnotes-${ts()}.png`)
+      if (b) {
+        download(b, `mindnotes-${ts()}.png`)
+        showToast('PNG 导出成功', 'success')
+      } else {
+        showToast('PNG 导出失败', 'error')
+      }
     })
-    showToast('PNG 导出成功', 'success')
   }
   const exportJPG = () => {
     const c = requireCanvas()
@@ -174,12 +182,16 @@ export default function ExportMenu() {
     const t = withBg(c, '#fff')
     t.toBlob(
       (b) => {
-        if (b) download(b, `mindnotes-${ts()}.jpg`)
+        if (b) {
+          download(b, `mindnotes-${ts()}.jpg`)
+          showToast('JPG 导出成功', 'success')
+        } else {
+          showToast('JPG 导出失败', 'error')
+        }
       },
       'image/jpeg',
       0.92
     )
-    showToast('JPG 导出成功', 'success')
   }
   const exportPDF = async () => {
     const c = requireCanvas()
@@ -211,6 +223,7 @@ export default function ExportMenu() {
     const d = t.toDataURL('image/png')
     const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset="utf-8"><style>body{font-family:sans-serif}img{max-width:100%}</style></head><body><h1>MindNotes Pro</h1><p>导出时间：${new Date().toLocaleString('zh-CN')}</p><p><img src="${d}" width="${t.width}" height="${t.height}"/></p></body></html>`
     download(new Blob([h], { type: 'application/msword' }), `mindnotes-${ts()}.doc`)
+    showToast('Word 导出成功', 'success')
   }
   const exportJSON = () =>
     download(

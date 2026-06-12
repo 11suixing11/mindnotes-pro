@@ -1,4 +1,4 @@
-import type { CanvasFolder } from '../types'
+import type { CanvasFolder, CanvasDoc } from '../types'
 import * as storage from '../storage'
 
 export interface FolderManagementState {
@@ -37,16 +37,31 @@ export function createFolderManagementSlice(
     },
 
     deleteFolder: async (id) => {
+      // 将文件夹内的画布移到根目录（folderId 设为 null）
+      const docs = await storage.getAll<CanvasDoc>('docs')
+      for (const doc of docs) {
+        if (doc.folderId === id) {
+          await storage.put('docs', { ...doc, folderId: null })
+        }
+      }
       await storage.del('folders', id)
-      set({ folders: await storage.getAll<CanvasFolder>('folders') })
+      set({
+        folders: await storage.getAll<CanvasFolder>('folders'),
+        docs: (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt),
+      })
     },
 
-    toggleFolder: (id) => {
-      set((s: any) => ({
-        folders: s.folders.map((f: CanvasFolder) =>
-          f.id === id ? { ...f, expanded: !f.expanded } : f
-        ),
-      }))
+    toggleFolder: async (id) => {
+      const folder = (_get() as any).folders.find((f: CanvasFolder) => f.id === id)
+      if (folder) {
+        const updated = { ...folder, expanded: !folder.expanded }
+        await storage.put('folders', updated)
+        set((s: any) => ({
+          folders: s.folders.map((f: CanvasFolder) =>
+            f.id === id ? updated : f
+          ),
+        }))
+      }
     },
   }
 }

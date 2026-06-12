@@ -24,7 +24,7 @@ const SIZES = [
 ]
 
 function getCanvas() {
-  return document.querySelector('canvas')
+  return document.getElementById('main-canvas') as HTMLCanvasElement | null
 }
 
 export default function ColorPicker() {
@@ -41,6 +41,7 @@ export default function ColorPicker() {
     setCanvasBg,
     clearAll,
     addElement,
+    colorHistory,
   } = useAppStore(
     useShallow((s) => ({
       tool: s.tool,
@@ -54,6 +55,7 @@ export default function ColorPicker() {
       setCanvasBg: s.setBgColor,
       clearAll: s.clearAll,
       addElement: s.addElement,
+      colorHistory: s.colorHistory,
     }))
   )
   const confirm = useConfirm()
@@ -73,14 +75,17 @@ export default function ColorPicker() {
       img.onload = () => {
         const c = getCanvas()
         if (!c) return
-        const maxW = c.width * 0.6,
-          maxH = c.height * 0.6
+        const dpr = window.devicePixelRatio || 1
+        const cssW = c.width / dpr
+        const cssH = c.height / dpr
+        const maxW = cssW * 0.6,
+          maxH = cssH * 0.6
         const scale = Math.min(maxW / img.width, maxH / img.height, 1)
         const w = img.width * scale,
           h = img.height * scale
         const vb = useViewStore.getState().viewBox
-        const x = (c.width / 2 - w / 2) / vb.zoom + vb.x
-        const y = (c.height / 2 - h / 2) / vb.zoom + vb.y
+        const x = (cssW / 2 - w / 2) / vb.zoom + vb.x
+        const y = (cssH / 2 - h / 2) / vb.zoom + vb.y
         addElement({ type: 'image', id: `img-${Date.now()}`, x, y, width: w, height: h, dataUrl })
       }
       img.onerror = () => {
@@ -129,6 +134,23 @@ export default function ColorPicker() {
           +
         </button>
       </div>
+
+      {colorHistory.length > 0 && (
+        <>
+          <div className="tb-sep" role="separator" />
+          <div className="tb-group" aria-label="最近使用的颜色">
+            {colorHistory.map((hex) => (
+              <button
+                key={`history-${hex}`}
+                onClick={() => setColor(hex)}
+                className={`cdot ${color === hex ? 'on' : ''}`}
+                style={{ backgroundColor: hex }}
+                aria-label={`最近颜色 ${hex}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="tb-sep" role="separator" />
 

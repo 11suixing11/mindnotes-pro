@@ -1,6 +1,8 @@
 import type { ToolType, BrushType } from '../types'
 import { scheduleSave } from '../saveManager'
 
+const MAX_COLOR_HISTORY = 5
+
 export interface ToolSettingsState {
   tool: ToolType
   brush: BrushType
@@ -8,6 +10,7 @@ export interface ToolSettingsState {
   fillColor: string
   size: number
   bgColor: string
+  colorHistory: string[]
 }
 
 export interface ToolSettingsActions {
@@ -17,6 +20,7 @@ export interface ToolSettingsActions {
   setFillColor: (c: string) => void
   setSize: (s: number) => void
   setBgColor: (c: string) => void
+  addColorToHistory: (c: string) => void
 }
 
 export function createToolSettingsSlice(
@@ -31,16 +35,26 @@ export function createToolSettingsSlice(
     fillColor: 'transparent',
     size: 4,
     bgColor: '#ffffff',
+    colorHistory: [],
 
     // Actions
     setTool: (t) => set({ tool: t }),
     setBrush: (b) => set({ brush: b }),
-    setColor: (c) => set({ color: c }),
+    setColor: (c) => {
+      set({ color: c })
+      _get().addColorToHistory(c)
+    },
     setFillColor: (c) => set({ fillColor: c }),
     setSize: (s) => set({ size: s }),
     setBgColor: (c) => {
       set({ bgColor: c })
       scheduleSave()
+    },
+    addColorToHistory: (c: string) => {
+      const current = _get().colorHistory as string[]
+      const filtered = current.filter((h) => h !== c)
+      const next = [c, ...filtered].slice(0, MAX_COLOR_HISTORY)
+      set({ colorHistory: next })
     },
   }
 }
