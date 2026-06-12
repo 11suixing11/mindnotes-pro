@@ -1,9 +1,9 @@
-name: Release
+﻿name: Release
 
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 permissions:
   contents: write
@@ -54,27 +54,54 @@ jobs:
       - name: Package dist archive
         run: tar -czf mindnotes-pro-${{ github.ref_name }}.tar.gz -C dist .
 
-      - name: Generate changelog
+      - name: Extract release notes from CHANGELOG
         id: changelog
         run: |
-          PREV_TAG=$(git tag --sort=-creatordate | head -2 | tail -1)
-          if [ "$PREV_TAG" = "${{ github.ref_name }}" ]; then
-            echo "body=Initial release" >> "$GITHUB_OUTPUT"
-          else
-            CHANGES=$(git log "${{ github.ref_name }}...${PREV_TAG}" --pretty=format:"- %s (%h)" --no-merges 2>/dev/null || echo "No previous tag found")
-            {
-              echo "body<<EOF"
-              echo "$CHANGES"
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
+          VERSION="${{ github.ref_name }}"
+          # Strip leading 'v' for CHANGELOG matching
+          VERSION_NUM="${VERSION#v}"
+
+          # Extract the section for this version from CHANGELOG.md
+          NOTES=$(awk -v ver="$VERSION_NUM" '
+            /^## \[/ {
+              if (found) exit
+              gsub(/[\[\]]/, "")
+              if ($2 ~ "^"ver) found=1; next
+            }
+            found { print }
+          ' CHANGELOG.md)
+
+          if [ -z "$NOTES" ]; then
+            NOTES=$(git log "${{ github.ref_name }}~1..${{ github.ref_name }}" --pretty=format:"- %s" --no-merges 2>/dev/null || echo "See CHANGELOG for details.")
           fi
+
+          {
+            echo "body<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           body: |
-            ## Changes
+            ## What's New in ${{ github.ref_name }}
+
             ${{ steps.changelog.outputs.body }}
+
+            ---
+
+            **📦 Install**
+
+            ```bash
+            git clone https://github.com/${{ github.repository }}.git
+            cd ${{ github.event.repository.name }}
+            npm install && npm run dev
+            ```
+
+            Or try the **[Live Demo](https://11suixing11.github.io/mindnotes-pro)** ✨
+
+            **[Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)** · **[Report Issues](https://github.com/${{ github.repository }}/issues)**
           files: mindnotes-pro-${{ github.ref_name }}.tar.gz
           generate_release_notes: true
           draft: false
