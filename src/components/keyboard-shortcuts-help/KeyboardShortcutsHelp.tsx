@@ -1,24 +1,29 @@
 import { useState, useEffect } from 'react'
 
 const SHORTCUTS = [
-  { keys: ['Ctrl', 'Z'], label: '撤销' },
-  { keys: ['Ctrl', 'Shift', 'Z'], label: '重做' },
-  { keys: ['Ctrl', 'C'], label: '复制' },
-  { keys: ['Ctrl', 'V'], label: '粘贴' },
-  { keys: ['Ctrl', 'A'], label: '全选' },
-  { keys: ['Delete'], label: '删除选中' },
-  { keys: ['1'], label: '画笔' },
-  { keys: ['2'], label: '橡皮' },
-  { keys: ['3'], label: '平移' },
-  { keys: ['4'], label: '矩形' },
-  { keys: ['5'], label: '圆形' },
-  { keys: ['6'], label: '文字' },
-  { keys: ['7'], label: '直线' },
-  { keys: ['8'], label: '箭头' },
-  { keys: ['0'], label: '选择' },
-  { keys: ['+'], label: '放大' },
-  { keys: ['-'], label: '缩小' },
-  { keys: ['?'], label: '显示/隐藏快捷键' },
+  { keys: ['Ctrl', 'Z'], label: 'Undo' },
+  { keys: ['Ctrl', 'Shift', 'Z'], label: 'Redo' },
+  { keys: ['Ctrl', 'C'], label: 'Copy' },
+  { keys: ['Ctrl', 'V'], label: 'Paste (image/text)' },
+  { keys: ['Ctrl', 'A'], label: 'Select all' },
+  { keys: ['Delete'], label: 'Delete selected' },
+  { keys: ['1'], label: 'Pen' },
+  { keys: ['2'], label: 'Eraser' },
+  { keys: ['3'], label: 'Pan' },
+  { keys: ['4'], label: 'Rectangle' },
+  { keys: ['5'], label: 'Circle' },
+  { keys: ['6'], label: 'Text' },
+  { keys: ['7'], label: 'Line' },
+  { keys: ['8'], label: 'Arrow' },
+  { keys: ['0'], label: 'Select' },
+  { keys: ['+'], label: 'Zoom in' },
+  { keys: ['-'], label: 'Zoom out' },
+  { keys: ['G'], label: 'Toggle grid' },
+  { keys: ['Arrow Keys'], label: 'Move selected' },
+  { keys: ['Shift', 'Arrow'], label: 'Fast move (10px)' },
+  { keys: ['Shift', 'Click'], label: 'Multi-select' },
+  { keys: ['DblClick'], label: 'Edit text' },
+  { keys: ['?'], label: 'Toggle this panel' },
 ]
 
 interface KeyboardShortcutsHelpProps {
@@ -63,14 +68,14 @@ export default function KeyboardShortcutsHelp({ open, onClose }: KeyboardShortcu
         style={{ animation: 'popIn 0.2s cubic-bezier(0.16,1,0.3,1)' }}
       >
         <div className="flex items-center justify-between mb-[16px]">
-          <div className="text-[16px] font-bold text-[var(--text)]">键盘快捷键</div>
+          <div className="text-[16px] font-bold text-[var(--text)]">Keyboard Shortcuts</div>
           <button
             onClick={() => {
               setVisible(false)
               onClose()
             }}
             className="w-[28px] h-[28px] rounded-[8px] flex items-center justify-center text-[var(--text-3)] hover:bg-[var(--primary-bg)] transition-colors text-[16px]"
-            aria-label="关闭"
+            aria-label="Close"
           >
             &times;
           </button>
@@ -98,9 +103,15 @@ export default function KeyboardShortcutsHelp({ open, onClose }: KeyboardShortcu
           ))}
         </div>
         <div className="mt-[14px] text-center text-[11px] text-[var(--text-4)]">
-          按 <kbd className="inline-block px-[5px] py-[1px] text-[10px] font-semibold text-[var(--text-3)] bg-[var(--bg)] border border-[var(--border)] rounded-[4px]">?</kbd>{' '}
-          或 <kbd className="inline-block px-[5px] py-[1px] text-[10px] font-semibold text-[var(--text-3)] bg-[var(--bg)] border border-[var(--border)] rounded-[4px]">F1</kbd>{' '}
-          切换此面板
+          Press{' '}
+          <kbd className="inline-block px-[5px] py-[1px] text-[10px] font-semibold text-[var(--text-3)] bg-[var(--bg)] border border-[var(--border)] rounded-[4px]">
+            ?
+          </kbd>{' '}
+          or{' '}
+          <kbd className="inline-block px-[5px] py-[1px] text-[10px] font-semibold text-[var(--text-3)] bg-[var(--bg)] border border-[var(--border)] rounded-[4px]">
+            F1
+          </kbd>{' '}
+          to toggle
         </div>
       </div>
     </div>

@@ -9,7 +9,7 @@ import type {
 import { getImage } from './canvasUtils'
 import getStroke from 'perfect-freehand'
 
-// 缓存Path2D对象以减少垃圾回收压力
+// 缓存Path2D对象以减少垃圾回收压�?
 let cachedMonetGridPath: Path2D | null = null
 let cachedMonetGridParams: {
   startX: number
@@ -497,14 +497,33 @@ export function drawMinimap(
   cachedBounds: (el: CanvasElement) => { x: number; y: number; w: number; h: number },
   viewBox: { x: number; y: number; zoom: number },
   canvasSize: { w: number; h: number },
-  isDarkMode: boolean
+  isDarkMode: boolean,
+  bgColor?: string
 ) {
-  if (elements.length === 0) return
-  const mmW = 120,
-    mmH = 80,
+  const mmW = 140,
+    mmH = 90,
     pad = 12
   const mmX = canvasSize.w - mmW - pad,
-    mmY = canvasSize.h - mmH - pad - 40
+    mmY = canvasSize.h - mmH - pad
+
+  ctx.save()
+  ctx.globalAlpha = 0.8
+
+  // Background
+  ctx.fillStyle = isDarkMode ? 'rgba(34,32,44,0.9)' : 'rgba(251,246,238,0.9)'
+  ctx.strokeStyle = isDarkMode ? 'rgba(160,150,180,0.2)' : 'rgba(155,142,127,0.2)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.roundRect(mmX - 2, mmY - 2, mmW + 4, mmH + 4, 8)
+  ctx.fill()
+  ctx.stroke()
+
+  if (elements.length === 0) {
+    ctx.restore()
+    return
+  }
+
+  // Compute content bounds
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
@@ -516,63 +535,51 @@ export function drawMinimap(
     maxX = Math.max(maxX, b.x + b.w)
     maxY = Math.max(maxY, b.y + b.h)
   }
-  if (!isFinite(minX)) return
-  const rangeX = maxX - minX || 1,
-    rangeY = maxY - minY || 1
-  const scale = Math.min(mmW / rangeX, mmH / rangeY) * 0.8
-  ctx.save()
-  ctx.globalAlpha = 0.6
-
-  ctx.fillStyle = isDarkMode ? 'rgba(34,32,44,0.85)' : 'rgba(251,246,238,0.85)'
-  ctx.strokeStyle = isDarkMode ? 'rgba(160,150,180,0.15)' : 'rgba(155,142,127,0.15)'
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  ctx.roundRect(mmX - 2, mmY - 2, mmW + 4, mmH + 4, 10)
-  ctx.fill()
-  ctx.stroke()
-
-  const minimapColors = isDarkMode
-    ? [
-        'rgba(200,160,176,0.5)',
-        'rgba(106,90,128,0.5)',
-        'rgba(80,104,120,0.5)',
-        'rgba(138,120,80,0.5)',
-      ]
-    : [
-        'rgba(176,125,110,0.5)',
-        'rgba(196,181,216,0.5)',
-        'rgba(160,188,212,0.5)',
-        'rgba(212,192,152,0.5)',
-      ]
-  let ci = 0
-  for (const el of elements) {
-    const b = cachedBounds(el)
-    ctx.fillStyle = minimapColors[ci % minimapColors.length]
-    ci++
-    ctx.fillRect(
-      mmX + (b.x - minX) * scale + (mmW - rangeX * scale) / 2,
-      mmY + (b.y - minY) * scale + (mmH - rangeY * scale) / 2,
-      Math.max(1, b.w * scale),
-      Math.max(1, b.h * scale)
-    )
+  if (!isFinite(minX)) {
+    ctx.restore()
+    return
   }
-  const vx = (viewBox.x - minX) * scale + (mmW - rangeX * scale) / 2,
-    vy = (viewBox.y - minY) * scale + (mmH - rangeY * scale) / 2
+
+  const contentW = maxX - minX || 1
+  const contentH = maxY - minY || 1
+  const padding = 20
+  const availW = mmW - padding * 2
+  const availH = mmH - padding * 2
+  const scale = Math.min(availW / contentW, availH / contentH)
+  const offX = mmX + (mmW - contentW * scale) / 2 - minX * scale
+  const offY = mmY + (mmH - contentH * scale) / 2 - minY * scale
+
+  // Draw canvas background
+  ctx.save()
+  ctx.beginPath()
+  ctx.roundRect(mmX, mmY, mmW, mmH, 6)
+  ctx.clip()
+  ctx.fillStyle = bgColor || (isDarkMode ? '#1C1A24' : '#ffffff')
+  ctx.fillRect(mmX, mmY, mmW, mmH)
+  ctx.translate(offX, offY)
+  ctx.scale(scale, scale)
+
+  // Render each element
+  for (const el of elements) {
+    drawElement(ctx, el, isDarkMode)
+  }
+
+  ctx.restore()
+
+  // Draw viewport rectangle
+  const vpX = offX + viewBox.x * scale
+  const vpY = offY + viewBox.y * scale
+  const vpW = (canvasSize.w / viewBox.zoom) * scale
+  const vpH = (canvasSize.h / viewBox.zoom) * scale
   const vpColor = isDarkMode ? '#C8A0B0' : '#B07D6E'
   ctx.strokeStyle = vpColor
   ctx.lineWidth = 1.5
   ctx.beginPath()
-  ctx.roundRect(
-    mmX + vx,
-    mmY + vy,
-    (canvasSize.w / viewBox.zoom) * scale,
-    (canvasSize.h / viewBox.zoom) * scale,
-    3
-  )
+  ctx.roundRect(vpX, vpY, vpW, vpH, 2)
   ctx.stroke()
+
   ctx.restore()
 }
-
 export function drawZoomLevel(
   ctx: CanvasRenderingContext2D,
   viewBox: { zoom: number },
@@ -582,9 +589,40 @@ export function drawZoomLevel(
 ) {
   ctx.save()
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  // Top-right corner, inside the canvas area
+  const text = Math.round(viewBox.zoom * 100) + '%'
   ctx.font = '500 11px "Noto Sans SC", sans-serif'
-  ctx.fillStyle = isDarkMode ? 'rgba(200,160,176,0.5)' : 'rgba(176,125,110,0.4)'
+  ctx.fillStyle = isDarkMode ? 'rgba(200,160,176,0.4)' : 'rgba(176,125,110,0.35)'
   ctx.textAlign = 'right'
-  ctx.fillText(`${Math.round(viewBox.zoom * 100)}%`, canvasSize.w - 145, canvasSize.h - 50)
+  ctx.fillText(text, canvasSize.w - 16, 22)
+  ctx.restore()
+}
+
+export function drawGrid(
+  ctx: CanvasRenderingContext2D,
+  viewBox: { x: number; y: number; zoom: number },
+  canvasSize: { w: number; h: number },
+  isDarkMode: boolean,
+  gridSize: number = 20
+) {
+  const step = gridSize
+  const startX = Math.floor(viewBox.x / step) * step
+  const startY = Math.floor(viewBox.y / step) * step
+  const endX = viewBox.x + canvasSize.w / viewBox.zoom
+  const endY = viewBox.y + canvasSize.h / viewBox.zoom
+
+  ctx.save()
+  ctx.strokeStyle = isDarkMode ? 'rgba(200,160,176,0.08)' : 'rgba(176,125,110,0.08)'
+  ctx.lineWidth = 0.5 / viewBox.zoom
+  ctx.beginPath()
+  for (let x = startX; x <= endX; x += step) {
+    ctx.moveTo(x, startY)
+    ctx.lineTo(x, endY)
+  }
+  for (let y = startY; y <= endY; y += step) {
+    ctx.moveTo(startX, y)
+    ctx.lineTo(endX, y)
+  }
+  ctx.stroke()
   ctx.restore()
 }

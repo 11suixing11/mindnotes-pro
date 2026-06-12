@@ -1,81 +1,105 @@
-name: Bug Report
-description: 提交一个 bug 报告
-title: "[Bug] "
-labels: ["bug"]
+name: Bug Report / Bug ����
+description: Report a bug to help us improve / �ύ Bug ����������ǸĽ�
+title: '[Bug] '
+labels: ['bug', 'triage']
 body:
   - type: markdown
     attributes:
       value: |
-        感谢你提交 Bug 报告！请尽量填写以下信息以帮助我们更快定位问题。
+        Thank you for reporting a bug! Please fill in the information below to help us locate the issue.
+        ��л���ύ Bug ���棡�뾡����д������Ϣ�԰������Ǹ��춨λ���⡣
 
   - type: textarea
     id: description
     attributes:
-      label: 描述
-      description: 请清晰地描述你遇到的问题
+      label: Description / ����
+      description: Clearly describe the issue / ������������������������
     validations:
       required: true
 
   - type: textarea
     id: steps
     attributes:
-      label: 复现步骤
-      description: 请列出复现此问题的步骤
+      label: Steps to Reproduce / ���ֲ���
+      description: List steps to reproduce / ���г����ִ�����Ĳ���
       placeholder: |
-        1. 打开 '...'
-        2. 点击 '...'
-        3. 滚动到 '...'
-        4. 看到错误
+        1. Open '...'
+        2. Click on '...'
+        3. Scroll down to '...'
+        4. See error
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: 期望行为
-      description: 请描述你期望发生的行为
+      label: Expected Behavior / ������Ϊ
+      description: What should happen / ��������������������Ϊ
     validations:
       required: true
 
   - type: textarea
     id: actual
     attributes:
-      label: 实际行为
-      description: 请描述实际发生了什么
+      label: Actual Behavior / ʵ����Ϊ
+      description: What actually happened / ������ʵ�ʷ�����ʲô
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity / ���س̶�
+      description: How severely does this bug impact you? / �� Bug �����Ӱ��̶�
+      options:
+        - Low - Minor inconvenience / �� - ��΢����
+        - Medium - Feature partially broken / �� - ���ܲ��ֲ�����
+        - High - Feature completely broken / �� - ������ȫ������
+        - Critical - Data loss or security issue / ���� - ���ݶ�ʧ��ȫ����
     validations:
       required: true
 
   - type: input
     id: environment
     attributes:
-      label: 浏览器 / 操作系统
-      description: 请提供你的浏览器和操作系统信息
-      placeholder: "Chrome 126 / Windows 11"
+      label: Browser & OS / ����������ϵͳ
+      description: Provide browser and OS info / ���ṩ������Ͳ���ϵͳ��Ϣ
+      placeholder: 'Chrome 126 / Windows 11'
     validations:
       required: true
 
   - type: input
     id: version
     attributes:
-      label: MindNotes Pro 版本
-      description: 你使用的 MindNotes Pro 版本号
-      placeholder: "3.1.0"
+      label: MindNotes Pro Version / �汾��
+      description: Version you are using / ��ʹ�õ� MindNotes Pro �汾��
+      placeholder: '3.1.0'
     validations:
       required: true
 
   - type: textarea
     id: screenshots
     attributes:
-      label: 截图
-      description: 如果有截图能帮助说明问题，请在此处附上
+      label: Screenshots / ��ͼ
+      description: Attach screenshots if they help / ���н�ͼ�ܰ���˵�����⣬�븽��
     validations:
       required: false
 
   - type: textarea
     id: console
     attributes:
-      label: 控制台错误信息
-      description: 如果浏览器控制台有错误信息，请粘贴在此处
+      label: Console Errors / ����̨������Ϣ
+      description: Paste browser console errors here / ������������̨�д�����Ϣ����ճ���ڴ˴�
       render: shell
     validations:
       required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist / ȷ���嵥
+      options:
+        - label: I have searched existing issues / ������������ Issue ȷ�����ظ�
+          required: true
+        - label: I can reproduce this issue consistently / �ҿ����ȶ����ִ�����
+          required: false

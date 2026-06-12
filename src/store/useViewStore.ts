@@ -8,6 +8,7 @@ interface ViewState {
   }
   isPanning: boolean
   lastPanPosition: { x: number; y: number } | null
+  showGrid: boolean
 }
 
 interface ViewActions {
@@ -19,6 +20,7 @@ interface ViewActions {
   updatePan: (x: number, y: number) => void
   endPan: () => void
   zoomToFit: (bounds: { x: number; y: number; w: number; h: number } | null) => void
+  toggleGrid: () => void
 }
 
 const DEFAULT_VIEWBOX = { x: 0, y: 0, zoom: 1 }
@@ -27,6 +29,7 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
   viewBox: DEFAULT_VIEWBOX,
   isPanning: false,
   lastPanPosition: null,
+  showGrid: false,
 
   setViewBox: (viewBox) => set({ viewBox }),
 
@@ -72,4 +75,6 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
     const y = bounds.y - (vh / zoom - bounds.h) / 2
     set({ viewBox: { x, y, zoom } })
   },
+
+  toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
 }))

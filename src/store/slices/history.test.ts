@@ -5,7 +5,10 @@ import type { StrokeElement, ShapeElement } from '../types'
 const makeStroke = (id: string, overrides?: Partial<StrokeElement>): StrokeElement => ({
   type: 'stroke',
   id,
-  points: [[0, 0], [10, 10]],
+  points: [
+    [0, 0],
+    [10, 10],
+  ],
   color: '#000',
   size: 2,
   brush: 'pen',
@@ -136,9 +139,9 @@ describe('history slice', () => {
   })
 
   describe('undo/redo roundtrip', () => {
-    it('restores exact state after add ¡ú undo ¡ú redo', () => {
+    it('restores exact state after add ï¿½ï¿½ undo ï¿½ï¿½ redo', () => {
       useAppStore.getState().addElement(makeShape('sh1', { x: 42, y: 99 }))
-            useAppStore.getState().undo()
+      useAppStore.getState().undo()
       expect(useAppStore.getState().elements).toHaveLength(0)
       useAppStore.getState().redo()
       const after = useAppStore.getState().elements

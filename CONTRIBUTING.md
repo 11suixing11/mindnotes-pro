@@ -40,6 +40,8 @@ Feature requests are welcome. Please provide:
 8. **Commit** with a clear message (see [Commit Messages](#commit-messages))
 9. **Push** to your fork and submit a pull request
 
+> **Note:** Pre-commit hooks are configured via [husky](https://typicode.github.io/husky/) and [lint-staged](https://github.com/lint-staged/lint-staged). ESLint and Prettier will run automatically on staged files before each commit.
+
 ## Development Setup
 
 ```bash
@@ -50,31 +52,38 @@ cd mindnotes-pro
 # Install dependencies
 npm install
 
-# Start dev server
+# Start dev server (http://localhost:3000)
 npm run dev
 
 # Run tests in watch mode
 npm run test
+
+# Run tests once with coverage
+npm run test:run -- --coverage
+
+# Run E2E tests
+npm run test:e2e
 ```
 
 ## Coding Conventions
 
 ### TypeScript
 
-- **Strict mode** is enabled — all code must pass strict type checking
+- **Strict mode** is enabled �� all code must pass strict type checking
 - No unused locals or parameters (enforced by `tsc`)
 - Prefer explicit types over `any`
+- Use `type` imports for type-only imports: `import type { Foo } from './foo'`
 
 ### File Naming
 
-| Type | Convention | Example |
-|------|-----------|---------|
-| Component | PascalCase | `Canvas.tsx` |
-| Hook | camelCase with `use` prefix | `useCanvasRenderer.ts` |
-| Utility | camelCase | `canvasUtils.ts` |
-| Test | Co-located with source | `canvasUtils.test.ts` |
-| Store slice | camelCase in `slices/` | `canvasElements.ts` |
-| Barrel export | `index.ts` | `components/index.ts` |
+| Type          | Convention                  | Example                |
+| ------------- | --------------------------- | ---------------------- |
+| Component     | PascalCase                  | `Canvas.tsx`           |
+| Hook          | camelCase with `use` prefix | `useCanvasRenderer.ts` |
+| Utility       | camelCase                   | `canvasUtils.ts`       |
+| Test          | Co-located with source      | `canvasUtils.test.ts`  |
+| Store slice   | camelCase in `slices/`      | `canvasElements.ts`    |
+| Barrel export | `index.ts`                  | `components/index.ts`  |
 
 ### Styling
 
@@ -92,8 +101,9 @@ npm run test
 
 - Write tests for all new utilities and components
 - Use `@testing-library/react` for component tests
-- Maintain minimum **50% code coverage** (lines, functions, branches, statements)
+- Maintain minimum **60% code coverage** (lines, functions, branches, statements)
 - Run `npm run test:run` before submitting PRs
+- Place test files adjacent to the source file: `foo.ts` �� `foo.test.ts`
 
 ## Commit Messages
 
@@ -109,15 +119,17 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 **Types:**
 
-| Type | Description |
-|------|------------|
-| `feat` | New feature |
-| `fix` | Bug fix |
-| `docs` | Documentation changes |
-| `style` | Code style (formatting, no logic change) |
-| `refactor` | Code refactoring |
-| `test` | Adding or updating tests |
-| `chore` | Build process or tooling changes |
+| Type       | Description                              |
+| ---------- | ---------------------------------------- |
+| `feat`     | New feature                              |
+| `fix`      | Bug fix                                  |
+| `docs`     | Documentation changes                    |
+| `style`    | Code style (formatting, no logic change) |
+| `refactor` | Code refactoring                         |
+| `test`     | Adding or updating tests                 |
+| `chore`    | Build process or tooling changes         |
+| `perf`     | Performance improvement                  |
+| `ci`       | CI/CD configuration changes              |
 
 **Examples:**
 
@@ -137,6 +149,36 @@ feat/rectangle-tool
 fix/pdf-export-crash
 docs/api-reference
 ```
+
+## Code Review Process
+
+All pull requests require at least one approval before merging. During review:
+
+- **Reviewers** should provide constructive feedback and approve only when the code meets project standards
+- **Authors** should respond to all comments and mark resolved threads
+- **Automated checks** (lint, type-check, test, build) must pass before review begins
+- Use [Conventional Comments](https://conventionalcomments.org/) prefixes for clarity:
+  - `nit:` �� Minor, non-blocking suggestion
+  - `suggestion:` �� Idea for improvement
+  - `issue:` �� Problem that should be addressed
+  - `praise:` �� Highlight something done well
+
+## Branch Protection
+
+The `main` branch is protected with the following rules:
+
+- Require pull request reviews before merging
+- Require status checks to pass (lint, type-check, test, build)
+- Require branches to be up to date before merging
+- No force pushes or branch deletion
+
+## Release Process
+
+1. Update `CHANGELOG.md` with release notes
+2. Bump version in `package.json` following [Semantic Versioning](https://semver.org/)
+3. Create a git tag: `git tag v3.x.x`
+4. Push the tag: `git push origin v3.x.x`
+5. The CI will automatically create a GitHub Release with build artifacts
 
 ## Reporting Security Issues
 

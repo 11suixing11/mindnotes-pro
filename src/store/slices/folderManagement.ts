@@ -57,9 +57,7 @@ export function createFolderManagementSlice(
         const updated = { ...folder, expanded: !folder.expanded }
         await storage.put('folders', updated)
         set((s: any) => ({
-          folders: s.folders.map((f: CanvasFolder) =>
-            f.id === id ? updated : f
-          ),
+          folders: s.folders.map((f: CanvasFolder) => (f.id === id ? updated : f)),
         }))
       }
     },

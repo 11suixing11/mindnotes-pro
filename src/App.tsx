@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Canvas } from './components/canvas'
 import { Toolbar } from './components/toolbar'
-import { Sidebar } from './components/sidebar'
 import { ToastContainer } from './components/toast'
 import { ConfirmModal } from './components/confirm-modal'
 import { useAppStore } from './store/appStore'
@@ -14,15 +13,15 @@ import { LoadingScreen } from './components/loading-screen'
 import { EmptyCanvasHint } from './components/empty-canvas-hint'
 
 const TOOL_LABELS: Record<string, string> = {
-  select: '选择',
-  pen: '画笔',
-  eraser: '橡皮',
-  pan: '平移',
-  text: '文字',
-  rectangle: '矩形',
-  circle: '圆形',
-  line: '直线',
-  arrow: '箭头',
+  select: 'Select',
+  pen: 'Pen',
+  eraser: 'Eraser',
+  pan: 'Pan',
+  text: 'Text',
+  rectangle: 'Rectangle',
+  circle: 'Circle',
+  line: 'Line',
+  arrow: 'Arrow',
 }
 
 export default function App() {
@@ -100,7 +99,6 @@ export default function App() {
         background: bgColor,
       }}
     >
-      <Sidebar />
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         <Canvas />
         <Toolbar />
@@ -113,9 +111,9 @@ export default function App() {
             {TOOL_LABELS[tool] ?? tool}
           </span>
           <span className="vl" />
-          <span>{elements.length} 元素</span>
+          <span>{elements.length} elements</span>
           <span className="vl" />
-          <span>{docs.length} 画布</span>
+          <span>{docs.length} docs</span>
           <span className="vl" />
           <span
             style={{ cursor: 'pointer' }}
@@ -140,28 +138,40 @@ export default function App() {
                 ? '\u2713'
                 : ''}
           </span>
+          <span className="vl" />
+          <button
+            onClick={() => setShortcutsOpen(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-4)',
+              cursor: 'pointer',
+              fontSize: '12px',
+              padding: '0 2px',
+              lineHeight: 1,
+              borderRadius: '4px',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--primary)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-4)')}
+            title="Keyboard shortcuts (?)"
+            aria-label="Keyboard shortcuts"
+          >
+            ?
+          </button>
         </div>
 
         {hintsVisible && (
           <div className="hints panel">
-            <kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销 · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> 复制粘贴 ·{' '}
-            <kbd>Ctrl</kbd>+<kbd>A</kbd> 全选 · 滚轮缩放 · <kbd>Del</kbd> 删除
+            <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo \u00b7 <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
+            Copy/Paste \u00b7 <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all \u00b7 Scroll to zoom \u00b7{' '}
+            <kbd>Del</kbd> Delete
           </div>
         )}
 
         <EmptyCanvasHint />
         <FirstRunGuide />
         <KeyboardShortcutsHelp open={shortcutsOpen} onClose={handleShortcutsClose} />
-
-        {/* Shortcuts help trigger button */}
-        <button
-          onClick={() => setShortcutsOpen(true)}
-          className="fixed bottom-[48px] left-[16px] z-[100] w-[32px] h-[32px] rounded-[10px] border border-[var(--border)] bg-[var(--card-solid)] text-[var(--text-3)] text-[14px] font-bold cursor-pointer shadow-[var(--shadow-md)] flex items-center justify-center hover:bg-[var(--primary-bg)] hover:text-[var(--primary)] transition-colors"
-          aria-label="键盘快捷键"
-          title="键盘快捷键 (?)"
-        >
-          ?
-        </button>
 
         {deferredPrompt && (
           <button
@@ -172,7 +182,7 @@ export default function App() {
             }}
             style={{
               position: 'fixed',
-              bottom: 48,
+              bottom: 12,
               right: 16,
               zIndex: 100,
               padding: '8px 14px',
@@ -205,7 +215,7 @@ export default function App() {
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            安装到桌面
+            Install
           </button>
         )}
       </div>

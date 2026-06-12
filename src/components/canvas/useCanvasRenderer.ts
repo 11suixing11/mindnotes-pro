@@ -12,6 +12,7 @@ import {
   drawCanvasBackground,
   drawMinimap,
   drawZoomLevel,
+  drawGrid,
 } from '../../canvas/canvasDrawing'
 
 export interface DrawState {
@@ -107,6 +108,16 @@ export function useCanvasRenderer(
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, canvasSize.w, canvasSize.h)
     drawCanvasBackground(ctx, canvasSize, st.bgColor, dark)
+
+    // Draw grid overlay if enabled
+    if (ds.showGrid) {
+      ctx.save()
+      ctx.scale(vb.zoom, vb.zoom)
+      ctx.translate(-vb.x, -vb.y)
+      drawGrid(ctx, vb, canvasSize, dark, ds.gridSize)
+      ctx.restore()
+    }
+
     const ec = getOrCreateEC()
     if (elementsDirtyRef.current) renderElementsToCache()
     ctx.drawImage(ec, 0, 0, ec.width, ec.height, 0, 0, canvasSize.w, canvasSize.h)
@@ -176,7 +187,7 @@ export function useCanvasRenderer(
       ctx.setLineDash([])
       ctx.restore()
     }
-    drawMinimap(ctx, st.elements, cachedBounds, vb, canvasSize, dark)
+    drawMinimap(ctx, st.elements, cachedBounds, vb, canvasSize, dark, st.bgColor)
     drawZoomLevel(ctx, vb, canvasSize, dark, dpr)
   }, [dpr, canvasSize, getOrCreateEC, renderElementsToCache, canvasRef, getDrawState])
 
@@ -231,6 +242,14 @@ export function useCanvasRenderer(
     window.addEventListener('image-loaded', h)
     return () => window.removeEventListener('image-loaded', h)
   }, [redraw])
+
+  // Subscribe to showGrid changes to trigger redraw
+  useEffect(() => {
+    const unsub = useViewStore.subscribe(() => {
+      scheduleRedraw()
+    })
+    return unsub
+  }, [scheduleRedraw])
 
   return { redraw, scheduleRedraw, elementsDirtyRef, boundsCacheRef, cachedBounds, canvasSize, dpr }
 }

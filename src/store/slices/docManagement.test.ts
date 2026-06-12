@@ -24,7 +24,7 @@ vi.mock('../migration', () => ({
   removeMigratedData: vi.fn(),
 }))
 
-const storageMock = await import('../storage') as any
+const storageMock = (await import('../storage')) as any
 
 function clearMockStorage() {
   for (const key of Object.keys(storageMock.__store)) {
