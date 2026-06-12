@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react'
+﻿import { useRef, useEffect, useCallback } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useShallow } from 'zustand/react/shallow'
@@ -273,7 +273,13 @@ export function usePointerEngine(opts: {
         if (h) {
           const el = useAppStore.getState().elements.find((e) => e.id === h.id)
           if (el)
-            resizeRef.current = { ...h, startX: pos.x, startY: pos.y, origBounds: cachedBounds(el), origElement: { ...el } as CanvasElement }
+            resizeRef.current = {
+              ...h,
+              startX: pos.x,
+              startY: pos.y,
+              origBounds: cachedBounds(el),
+              origElement: { ...el } as CanvasElement,
+            }
           scheduleRedraw()
           return
         }
@@ -281,7 +287,16 @@ export function usePointerEngine(opts: {
         if (hit) {
           const st = useAppStore.getState()
           const ids = st.selectedIds.includes(hit) ? st.selectedIds : [hit]
-          if (!st.selectedIds.includes(hit)) setSelectedIds([hit])
+          if (e.shiftKey) {
+            // Shift+click: toggle in selection
+            if (st.selectedIds.includes(hit)) {
+              setSelectedIds(st.selectedIds.filter((id) => id !== hit))
+            } else {
+              setSelectedIds([...st.selectedIds, hit])
+            }
+          } else {
+            if (!st.selectedIds.includes(hit)) setSelectedIds([hit])
+          }
           const startPositions = new Map<string, { x: number; y: number }>()
           for (const el of st.elements) {
             if (ids.includes(el.id)) {
@@ -328,10 +343,11 @@ export function usePointerEngine(opts: {
       erasedRef.current = new Set()
       if (curTool === 'pen') currentPtsRef.current = [[pos.x, pos.y]]
       else if (curTool === 'eraser') {
-        preEraseSnapshotRef.current = useAppStore.getState().elements.map((el) => ({ ...el } as CanvasElement))
+        preEraseSnapshotRef.current = useAppStore
+          .getState()
+          .elements.map((el) => ({ ...el }) as CanvasElement)
         eraseAt(pos.x, pos.y)
-      }
-      else {
+      } else {
         shapeStartRef.current = pos
         currentShapeRef.current = {
           type: 'shape',
@@ -531,8 +547,7 @@ export function usePointerEngine(opts: {
           }
           preEraseSnapshotRef.current = null
           currentPtsRef.current = []
-        }
-        else if (currentShapeRef.current) {
+        } else if (currentShapeRef.current) {
           if (Math.abs(currentShapeRef.current.w) > 2 || Math.abs(currentShapeRef.current.h) > 2)
             addElement(currentShapeRef.current)
           currentShapeRef.current = null
@@ -582,13 +597,17 @@ export function usePointerEngine(opts: {
           if (deltas.length > 0) useAppStore.getState().pushUndo({ type: 'move', deltas })
         }
         if (resizeRef.current?.origElement) {
-          const afterEl = useAppStore.getState().elements.find((e) => e.id === resizeRef.current!.id)
+          const afterEl = useAppStore
+            .getState()
+            .elements.find((e) => e.id === resizeRef.current!.id)
           if (afterEl) {
             useAppStore.getState().pushUndo({
               type: 'clear',
-              snapshot: useAppStore.getState().elements.map((e) =>
-                e.id === resizeRef.current!.id ? resizeRef.current!.origElement! : e
-              ),
+              snapshot: useAppStore
+                .getState()
+                .elements.map((e) =>
+                  e.id === resizeRef.current!.id ? resizeRef.current!.origElement! : e
+                ),
             })
           }
         }
@@ -645,7 +664,30 @@ export function usePointerEngine(opts: {
     canvas.addEventListener('mousemove', onMove)
     canvas.addEventListener('mouseup', onEnd)
     canvas.addEventListener('mouseleave', onEnd)
+
+    // Double-click to edit text
+    const onDblClick = (e: MouseEvent) => {
+      if (toolRef.current !== 'select') return
+      const pos = getPos(e)
+      const hitId = hitTest(pos.x, pos.y)
+      if (!hitId) return
+      const el = useAppStore.getState().elements.find((el) => el.id === hitId)
+      if (el && el.type === 'text') {
+        const canvas = canvasRef.current
+        if (!canvas) return
+        const rect = canvas.getBoundingClientRect()
+        const vb = viewBoxRef.current
+        const screenX = (el.x - vb.x) * vb.zoom + rect.left
+        const screenY = (el.y - vb.y) * vb.zoom + rect.top
+        startEditText(el.x, el.y, screenX, screenY, el.color, {
+          id: el.id,
+          content: el.content,
+          fontSize: el.fontSize,
+        })
+      }
+    }
     canvas.addEventListener('wheel', onWheel, { passive: false })
+    canvas.addEventListener('dblclick', onDblClick)
     canvas.addEventListener('touchstart', onStart, { passive: false })
     canvas.addEventListener('touchmove', onMove, { passive: false })
     canvas.addEventListener('touchend', onEnd, { passive: false })
@@ -655,6 +697,7 @@ export function usePointerEngine(opts: {
       canvas.removeEventListener('mouseup', onEnd)
       canvas.removeEventListener('mouseleave', onEnd)
       canvas.removeEventListener('wheel', onWheel)
+      canvas.removeEventListener('dblclick', onDblClick)
       canvas.removeEventListener('touchstart', onStart)
       canvas.removeEventListener('touchmove', onMove)
       canvas.removeEventListener('touchend', onEnd)
@@ -774,7 +817,10 @@ export function usePointerEngine(opts: {
     try {
       const blob = await new Promise<Blob | null>((r) => offscreen.toBlob(r, 'image/png'))
       if (blob) await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-    } catch {}
+      // Clipboard API may be blocked by browser permissions
+    } catch {
+      /* Clipboard API may fail silently */
+    }
   }
 
   // getDrawState for renderer
@@ -790,7 +836,7 @@ export function usePointerEngine(opts: {
       color: colorRef.current,
       size: sizeRef.current,
       brush: brushRef.current,
-      showGrid: false,
+      showGrid: useViewStore.getState().showGrid ?? false,
       showRulers: false,
       gridSize: 20,
     }),

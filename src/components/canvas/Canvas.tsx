@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useCallback } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useShallow } from 'zustand/react/shallow'
@@ -61,20 +61,72 @@ export default function Canvas() {
   // b) useKeyboardBindings
   useKeyboardBindings({ copySelectedToSystemClipboard })
 
+  // Drag-and-drop image support
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const files = e.dataTransfer.files
+    if (!files || files.length === 0) return
+
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const vb = useViewStore.getState().viewBox
+
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith('image/')) continue
+      const reader = new FileReader()
+      reader.onload = () => {
+        const dataUrl = reader.result as string
+        const img = new Image()
+        img.onload = () => {
+          const maxDim = 500
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
+          const w = Math.round(img.width * scale)
+          const h = Math.round(img.height * scale)
+          // Position at drop location in canvas coordinates
+          const cx = (e.clientX - rect.left) / vb.zoom + vb.x
+          const cy = (e.clientY - rect.top) / vb.zoom + vb.y
+          useAppStore.getState().addElement({
+            type: 'image',
+            id: `img-${Date.now()}`,
+            x: cx - w / 2,
+            y: cy - h / 2,
+            width: w,
+            height: h,
+            dataUrl,
+          })
+        }
+        img.src = dataUrl
+      }
+      reader.readAsDataURL(file)
+    }
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
   const { isDarkMode } = useThemeStore()
   const { bgColor } = useAppStore(useShallow((s) => ({ bgColor: s.bgColor })))
   const { viewBox } = useViewStore(useShallow((s) => ({ viewBox: s.viewBox })))
 
   return (
     <>
-      <div ref={containerRef} className="absolute inset-0 overflow-hidden">
+      <div
+        ref={containerRef}
+        className="absolute inset-0 overflow-hidden"
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+      >
         <canvas
           id="main-canvas"
           ref={canvasRef}
           width={canvasSize.w * dpr}
           height={canvasSize.h * dpr}
           role="img"
-          aria-label="画布"
+          aria-label="����"
           className="w-full h-full touch-none"
           style={{
             touchAction: 'none',

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAppStore } from '../../store/appStore'
 import { useThemeStore } from '../../store/useThemeStore'
 import { useToastStore } from '../../store/toastStore'
@@ -336,48 +337,52 @@ export default function ExportMenu() {
         <span>导出</span>
       </button>
 
-      {showExport && (
-        <div
-          className="panel em-menu"
-          role="menu"
-          aria-label="导出选项"
-          style={{ top: exportPos.top, right: exportPos.right }}
-        >
-          {EXPORTS.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => {
-                item.action()
-                setShowExport(false)
-              }}
-              className="ditem"
-              role="menuitem"
-              aria-label={item.label}
+      {showExport &&
+        createPortal(
+          <>
+            <div
+              className="panel em-menu"
+              role="menu"
+              aria-label="导出选项"
+              style={{ top: exportPos.top, right: exportPos.right }}
             >
-              <span className="di em-icon">{item.icon}</span>
-              <div className="em-labels">
-                <span className="dl">{item.label}</span>
-                <span className="dd">{item.desc}</span>
-              </div>
-            </button>
-          ))}
-          <div className="dsep" />
-          <button
-            onClick={() => {
-              fileRef.current?.click()
-              setShowExport(false)
-            }}
-            className="ditem"
-            role="menuitem"
-            aria-label="导入 JSON"
-          >
-            <span className="di em-icon">{I.file}</span>
-            <span className="dl">导入 JSON</span>
-          </button>
-        </div>
-      )}
+              {EXPORTS.map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => {
+                    item.action()
+                    setShowExport(false)
+                  }}
+                  className="ditem"
+                  role="menuitem"
+                  aria-label={item.label}
+                >
+                  <span className="di em-icon">{item.icon}</span>
+                  <div className="em-labels">
+                    <span className="dl">{item.label}</span>
+                    <span className="dd">{item.desc}</span>
+                  </div>
+                </button>
+              ))}
+              <div className="dsep" />
+              <button
+                onClick={() => {
+                  fileRef.current?.click()
+                  setShowExport(false)
+                }}
+                className="ditem"
+                role="menuitem"
+                aria-label="导入 JSON"
+              >
+                <span className="di em-icon">{I.file}</span>
+                <span className="dl">导入 JSON</span>
+              </button>
+            </div>
 
-      {showExport && <div className="em-overlay" onClick={() => setShowExport(false)} />}
+            <div className="em-overlay" onClick={() => setShowExport(false)} />
+          </>,
+          document.body
+        )}
 
       <input
         ref={fileRef}

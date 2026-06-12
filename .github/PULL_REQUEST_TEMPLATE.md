@@ -1,32 +1,49 @@
-## 变动描述
+## Summary / ����
 
-<!-- 请简要描述本次 PR 的改动内容 -->
+<!-- Briefly describe what this PR does / ���Ҫ�������� PR �ı������ -->
 
-## 关联 Issue
+## Related Issues / ���� Issue
 
-<!-- 请关联相关的 issue，例如：Closes #123 -->
+<!-- Link related issues, e.g.: Closes #123, Fixes #456 / ������� Issue -->
 
-## 变动类型
+## Type of Change / �������
 
-- [ ] Bug 修复
-- [ ] 新功能
-- [ ] 文档更新
-- [ ] 代码重构
-- [ ] 测试更新
-- [ ] 构建/工具链变更
+- [ ] Bug fix / Bug �޸�
+- [ ] New feature / �¹���
+- [ ] Breaking change / �ƻ��Ա��
+- [ ] Documentation / �ĵ�����
+- [ ] Refactor / �����ع�
+- [ ] Tests / ���Ը���
+- [ ] Build / CI / Tooling / �����빤�������
+- [ ] Performance improvement / �����Ż�
 
-## 测试确认
+## Motivation & Context / �����뱳��
 
-- [ ] 本地测试通过 (`npm run test:run`)
-- [ ] Lint 检查通过 (`npm run lint`)
-- [ ] 构建成功 (`npm run build`)
-- [ ] 没有引入新的报错或警告
-- [ ] 已更新相关文档（如需要）
+<!-- Why is this change needed? What problem does it solve? / Ϊʲô��Ҫ����Ķ��������ʲô���⣿ -->
 
-## 截图/录屏
+## How Has This Been Tested? / ���Է�ʽ
 
-<!-- 如果是 UI 变更，请附上截图或录屏 -->
+<!-- Describe how you tested your changes / ��������β�������ĸĶ� -->
 
-## 备注
+- [ ] Unit tests pass (`npm run test:run`) / ��Ԫ����ͨ��
+- [ ] Lint passes (`npm run lint`) / Lint ���ͨ��
+- [ ] Build succeeds (`npm run build`) / �����ɹ�
+- [ ] Manual testing in browser / ������ֶ�����
+- [ ] E2E tests pass (`npm run test:e2e`) / E2E ����ͨ��
 
-<!-- 其他需要审阅者注意的信息 -->
+## Screenshots / ¼��
+
+<!-- If UI changes, please attach screenshots or recordings / ����� UI ������븽�Ͻ�ͼ��¼�� -->
+
+## Checklist / �Լ��嵥
+
+- [ ] My code follows the project's coding conventions / ������ѭ��Ŀ����淶
+- [ ] I have added/updated tests for my changes / �����ӻ������Ӧ����
+- [ ] I have updated documentation as needed / �Ѹ�������ĵ�
+- [ ] No new warnings or errors introduced / δ�����µľ�������
+- [ ] All existing tests still pass / �������в�����Ȼͨ��
+- [ ] Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) / �ύ��Ϣ��ѭԼ��ʽ�ύ�淶
+
+## Additional Notes / ��ע
+
+<!-- Any other information reviewers should know / ������Ҫ�����ע�����Ϣ -->

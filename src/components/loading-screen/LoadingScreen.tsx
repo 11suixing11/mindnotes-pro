@@ -3,7 +3,8 @@ export default function LoadingScreen() {
     <div
       className="fixed inset-0 z-[1000] flex flex-col items-center justify-center overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, #f6f0e6 0%, #e8dcc8 25%, #d4c8b0 50%, #c8bca4 75%, #f0e8d8 100%)',
+        background:
+          'linear-gradient(135deg, #f6f0e6 0%, #e8dcc8 25%, #d4c8b0 50%, #c8bca4 75%, #f0e8d8 100%)',
       }}
     >
       {/* Monet-style watercolor background blobs */}
@@ -67,9 +68,7 @@ export default function LoadingScreen() {
         <div className="text-[22px] font-bold text-[var(--text)] mb-[4px] tracking-wide">
           MindNotes
         </div>
-        <div className="text-[12px] text-[var(--text-3)] mb-[24px] tracking-wider">
-          Pro
-        </div>
+        <div className="text-[12px] text-[var(--text-3)] mb-[24px] tracking-wider">Pro</div>
 
         {/* Loading dots */}
         <div className="flex gap-[6px]">

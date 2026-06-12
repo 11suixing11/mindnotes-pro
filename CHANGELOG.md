@@ -1,13 +1,40 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-06-12
+
+### Added
+
+- ESLint recommended rules for TypeScript and React (consistent-type-imports, no-explicit-any, react-hooks)
+- Vitest coverage thresholds raised to 60% with lcov reporter
+- Husky + lint-staged pre-commit hooks (eslint --fix + prettier --write on commit)
+- CODEOWNERS for automatic code review assignment
+- Dependabot configuration (weekly npm + GitHub Actions dependency updates)
+- Bilingual PR template with detailed checklist (8 change types, 6 test items, 7 self-check items)
+- Enhanced issue templates with severity/priority dropdowns and confirmation checklists
+- Keyboard shortcuts section in README
+- "Who is this for?" section in README targeting students, designers, developers, note-takers
+
+### Changed
+
+- Rewrote README.md, README_CN.md, README_JA.md with compelling copy focused on emotional appeal
+- CONTRIBUTING.md expanded with code review process, branch protection policy, and release process
+- Upgraded coverage reporter to include lcov for Codecov integration
+- All source files formatted with Prettier (CRLF -> LF normalization)
+
+### Fixed
+
+- ESLint consistent-type-imports errors across source files
+- Empty catch block lint warning in usePointerEngine
+
 ## [3.1.0] - 2026-06-04
 
 ### Fixed
+
 - Canvas sizing and hit test accuracy
 - Critical bugs in canvas rendering pipeline
 - Stroke visibility with stale closure and pen fallback to `quadraticCurveTo`
@@ -16,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stroke loss, dark mode toggle disappearance, and event handler stability
 
 ### Changed
+
 - Restructured component directory layout
 - Added project documentation and architecture docs
 - Cleaned up taskplane runtime artifacts
@@ -23,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.0.0] - 2026-05-15
 
 ### Added
+
 - Frame selection (multi-select) with bounding box
 - Alignment guides / snapping
 - Copy & paste support
@@ -30,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Eraser partial stroke erasure
 
 ### Changed
+
 - Full Monet impressionist style UI rewrite
 - Watercolor gradient backgrounds with glassmorphism effects
 - Paper texture on canvas
@@ -37,56 +67,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.2.0] - 2026-05-08
 
 ### Added
+
 - Visual homepage with SVG banners and design philosophy
 - Project metrics dashboard
 
 ## [2.1.4] - 2026-05-06
 
 ### Fixed
+
 - Export dropdown clipped by `backdrop-filter` (moved outside topbar)
 
 ## [2.1.3] - 2026-05-06
 
 ### Fixed
+
 - Export download reliability (`toBlob` + `createObjectURL` + DOM mount)
 
 ## [2.1.0] - 2026-05-05
 
 ### Changed
+
 - Updated HTML meta tags to match warm-tone design
 
 ### Removed
+
 - Invalid manifest reference
 
 ## [2.0.0] - 2026-05-02
 
 ### Changed
+
 - UX overhaul: eraser cursor, text input, selection highlight improvements
 
 ## [1.3.1] - 2026-03-22
 
 ### Added
+
 - Toast notification system integration
 - Component lifecycle tests
 
 ## [1.3.0] - 2026-03-22
 
 ### Added
+
 - Release notes and version management
 
 ## [1.2.2] - 2026-03-21
 
 ### Changed
+
 - Version bump with stability improvements
 
 ## [1.2.1] - 2026-03-21
 
 ### Changed
+
 - Canvas background visual optimization
 
 ## [1.2.0] - 2026-03-20
 
 ### Changed
+
 - Full architecture refactoring and cleanup
 - Dead code removal
 - Project structure optimization
@@ -94,47 +135,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.6] - 2026-03-20
 
 ### Added
+
 - Release documentation
 
 ## [1.1.5] - 2026-03-20
 
 ### Changed
+
 - Simplified CI release workflow
 
 ## [1.1.4] - 2026-03-19
 
 ### Added
+
 - Keyboard shortcut system
 - Export functionality improvements
 
 ## [1.1.3] - 2026-03-19
 
 ### Fixed
+
 - Android APK build and upload pipeline
 
 ## [1.1.2] - 2026-03-19
 
 ### Added
+
 - Cross-platform packaging configuration
 
 ## [1.1.1] - 2026-03-19
 
 ### Added
+
 - Floating notes component (browser extension prototype)
 
 ## [1.1.0] - 2026-03-19
 
 ### Added
+
 - Project introduction and contact information
 
 ## [1.0.0] - 2026-03-18
 
 ### Added
+
 - Initial release of MindNotes Pro
 - Freehand drawing with perfect-freehand
 - Basic canvas with undo/redo
 - LocalStorage persistence
 
+[3.2.0]: https://github.com/11suixing11/mindnotes-pro/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/11suixing11/mindnotes-pro/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/11suixing11/mindnotes-pro/compare/v2.2.0...v3.0.0
 [2.2.0]: https://github.com/11suixing11/mindnotes-pro/compare/v2.1.4...v2.2.0

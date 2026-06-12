@@ -1,0 +1,27 @@
+# MindNotes Pro - Code Owners
+#
+# These owners will be automatically requested for review
+# when a pull request modifies matching files.
+#
+# Order matters: later rules take precedence over earlier ones.
+
+# Default owner for everything
+* @11suixing11
+
+# Source code
+/src/ @11suixing11
+
+# Store / state management (critical business logic)
+/src/store/ @11suixing11
+
+# Canvas drawing engine
+/src/canvas/ @11suixing11
+
+# CI/CD and GitHub configuration
+/.github/ @11suixing11
+
+# Build and tooling config
+vite.config.ts @11suixing11
+tsconfig.json @11suixing11
+tsconfig.node.json @11suixing11
+package.json @11suixing11

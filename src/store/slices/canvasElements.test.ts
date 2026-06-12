@@ -5,7 +5,10 @@ import type { ShapeElement, StrokeElement, TextElement, ImageElement } from '../
 const makeStroke = (id: string, overrides?: Partial<StrokeElement>): StrokeElement => ({
   type: 'stroke',
   id,
-  points: [[0, 0], [10, 10]],
+  points: [
+    [0, 0],
+    [10, 10],
+  ],
   color: '#000',
   size: 2,
   brush: 'pen',
@@ -170,13 +173,13 @@ describe('canvasElements slice', () => {
   describe('updateElement', () => {
     it('updates matching element via callback', () => {
       useAppStore.setState({ elements: [makeShape('sh1', { x: 10, y: 20 })] })
-      useAppStore.getState().updateElement('sh1', (el) => ({ ...el, x: 99 } as any))
+      useAppStore.getState().updateElement('sh1', (el) => ({ ...el, x: 99 }) as any)
       expect((useAppStore.getState().elements[0] as any).x).toBe(99)
     })
 
     it('does not affect other elements', () => {
       useAppStore.setState({ elements: [makeStroke('s1'), makeStroke('s2')] })
-      useAppStore.getState().updateElement('s1', (el) => ({ ...el, color: '#fff' } as any))
+      useAppStore.getState().updateElement('s1', (el) => ({ ...el, color: '#fff' }) as any)
       expect((useAppStore.getState().elements[1] as any).color).toBe('#000')
     })
   })
@@ -191,10 +194,22 @@ describe('canvasElements slice', () => {
     })
 
     it('translates stroke points', () => {
-      useAppStore.setState({ elements: [makeStroke('s1', { points: [[0, 0], [10, 10]] })] })
+      useAppStore.setState({
+        elements: [
+          makeStroke('s1', {
+            points: [
+              [0, 0],
+              [10, 10],
+            ],
+          }),
+        ],
+      })
       useAppStore.getState().moveElementById('s1', 5, 5)
       const el = useAppStore.getState().elements[0] as StrokeElement
-      expect(el.points).toEqual([[5, 5], [15, 15]])
+      expect(el.points).toEqual([
+        [5, 5],
+        [15, 15],
+      ])
     })
 
     it('translates a text element', () => {

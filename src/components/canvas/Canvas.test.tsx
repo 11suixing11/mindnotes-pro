@@ -41,7 +41,6 @@ function createMockCtx(): any {
       if (prop === 'createPattern') return () => null
       if (prop === 'measureText') return () => ({ width: 50 })
       if (prop === 'getImageData') return () => ({ data: new Uint8ClampedArray(0) })
-      // Return a no-op function for any other method call
       return typeof prop === 'string' ? () => {} : undefined
     },
     set(_target, _prop, _value) {
@@ -70,7 +69,6 @@ describe('Canvas', () => {
       docs: [],
       folders: [],
       currentDocId: null,
-      sidebarOpen: false,
     })
     useViewStore.setState({ viewBox: { x: 0, y: 0, zoom: 1 } })
   })
