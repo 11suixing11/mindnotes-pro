@@ -1,0 +1,56 @@
+# Label rules for actions/labeler
+# Docs: https://github.com/actions/labeler
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - 'docs/**'
+
+github-actions:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'package.json'
+          - 'package-lock.json'
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/components/**'
+          - 'src/App.tsx'
+          - 'src/AppWrapper.tsx'
+          - 'src/main.tsx'
+          - 'src/**/*.css'
+
+canvas:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/canvas/**'
+          - 'src/components/canvas/**'
+
+store:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/store/**'
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.test.ts'
+          - '**/*.test.tsx'
+          - '**/__tests__/**'
+
+config:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'vite.config.*'
+          - 'tsconfig*.json'
+          - 'tailwind.config.*'
+          - 'postcss.config.*'
+          - '.eslintrc*'
+          - 'eslint.config.*'
