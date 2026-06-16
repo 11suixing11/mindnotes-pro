@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="120" viewBox="0 0 800 120">
+  <rect width="800" height="120" fill="#f5f0e8" rx="12"/>
+  <g transform="translate(40, 20)">
+    <rect width="140" height="80" rx="12" fill="white" opacity="0.6"/>
+    <text x="70" y="35" font-family="system-ui" font-size="28" font-weight="800" fill="#c47a5a" text-anchor="middle">3</text>
+    <text x="70" y="58" font-family="system-ui" font-size="11" fill="#9c8e7a" text-anchor="middle">Dependencies</text>
+    <text x="70" y="72" font-family="system-ui" font-size="9" fill="#c8bba8" text-anchor="middle">依赖</text>
+  </g>
+  <g transform="translate(200, 20)">
+    <rect width="140" height="80" rx="12" fill="white" opacity="0.6"/>
+    <text x="70" y="35" font-family="system-ui" font-size="28" font-weight="800" fill="#6a9c5a" text-anchor="middle">0</text>
+    <text x="70" y="58" font-family="system-ui" font-size="11" fill="#9c8e7a" text-anchor="middle">External CDN</text>
+    <text x="70" y="72" font-family="system-ui" font-size="9" fill="#c8bba8" text-anchor="middle">外部 CDN</text>
+  </g>
+  <g transform="translate(360, 20)">
+    <rect width="140" height="80" rx="12" fill="white" opacity="0.6"/>
+    <text x="70" y="35" font-family="system-ui" font-size="28" font-weight="800" fill="#5a8a9c" text-anchor="middle">160KB</text>
+    <text x="70" y="58" font-family="system-ui" font-size="11" fill="#9c8e7a" text-anchor="middle">Gzipped Size</text>
+    <text x="70" y="72" font-family="system-ui" font-size="9" fill="#c8bba8" text-anchor="middle">压缩体积</text>
+  </g>
+  <g transform="translate(520, 20)">
+    <rect width="140" height="80" rx="12" fill="white" opacity="0.6"/>
+    <text x="70" y="35" font-family="system-ui" font-size="28" font-weight="800" fill="#8a6a9c" text-anchor="middle">6</text>
+    <text x="70" y="58" font-family="system-ui" font-size="11" fill="#9c8e7a" text-anchor="middle">Brush Types</text>
+    <text x="70" y="72" font-family="system-ui" font-size="9" fill="#c8bba8" text-anchor="middle">笔刷类型</text>
+  </g>
+  <g transform="translate(680, 20)">
+    <rect width="80" height="80" rx="12" fill="white" opacity="0.6"/>
+    <text x="40" y="35" font-family="system-ui" font-size="28" font-weight="800" fill="#c47a3a" text-anchor="middle">&#8734;</text>
+    <text x="40" y="58" font-family="system-ui" font-size="11" fill="#9c8e7a" text-anchor="middle">Canvases</text>
+    <text x="40" y="72" font-family="system-ui" font-size="9" fill="#c8bba8" text-anchor="middle">画布</text>
+  </g>
+</svg>
