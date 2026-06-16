@@ -126,7 +126,7 @@ export default function Canvas() {
           width={canvasSize.w * dpr}
           height={canvasSize.h * dpr}
           role="img"
-          aria-label="����"
+          aria-label="Drawing canvas - Use toolbar to select tools and draw"
           className="w-full h-full touch-none"
           style={{
             touchAction: 'none',

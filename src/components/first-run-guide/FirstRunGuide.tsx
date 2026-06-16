@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 
 const STEPS = [
   {
@@ -23,7 +23,7 @@ const STEPS = [
   },
 ]
 
-export default function FirstRunGuide() {
+export default memo(function FirstRunGuide() {
   const [step, setStep] = useState(0)
   const [visible, setVisible] = useState(() => !localStorage.getItem('mn-guide-seen'))
 
@@ -96,4 +96,4 @@ export default function FirstRunGuide() {
       </div>
     </div>
   )
-}
+})

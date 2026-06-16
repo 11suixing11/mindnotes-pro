@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 
 const SHORTCUTS = [
   { keys: ['Ctrl', 'Z'], label: 'Undo' },
@@ -31,7 +31,7 @@ interface KeyboardShortcutsHelpProps {
   onClose: () => void
 }
 
-export default function KeyboardShortcutsHelp({ open, onClose }: KeyboardShortcutsHelpProps) {
+export default memo(function KeyboardShortcutsHelp({ open, onClose }: KeyboardShortcutsHelpProps) {
   const [visible, setVisible] = useState(open)
 
   useEffect(() => {
@@ -116,4 +116,4 @@ export default function KeyboardShortcutsHelp({ open, onClose }: KeyboardShortcu
       </div>
     </div>
   )
-}
+})

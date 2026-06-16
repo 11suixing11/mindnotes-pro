@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { useToastStore } from '../../store/toastStore'
 import type { ToastType } from '../../store/toastStore'
 
@@ -15,7 +16,7 @@ const typeColors: Record<ToastType, { bg: string; border: string; icon: string }
   warning: { bg: 'rgba(208,184,136,0.15)', border: 'var(--monet-gold)', icon: 'var(--monet-gold)' },
 }
 
-export default function ToastContainer() {
+export default memo(function ToastContainer() {
   const toasts = useToastStore((s) => s.toasts)
   const dismiss = useToastStore((s) => s.dismiss)
 
@@ -58,4 +59,4 @@ export default function ToastContainer() {
       })}
     </div>
   )
-}
+})

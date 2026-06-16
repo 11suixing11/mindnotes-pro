@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { ToolType } from '../../store/types'
 import { icons } from './icons'
 import Tooltip from './Tooltip'
@@ -9,11 +10,11 @@ const TOOLS: {
   key: string
   ariaLabel: string
 }[] = [
-  { id: 'select', icon: icons.select, tip: '选择', key: '0', ariaLabel: '选择工具 (0)' },
-  { id: 'pen', icon: icons.pen, tip: '画笔', key: '1', ariaLabel: '画笔工具 (1)' },
-  { id: 'eraser', icon: icons.eraser, tip: '橡皮', key: '2', ariaLabel: '橡皮擦 (2)' },
-  { id: 'pan', icon: icons.pan, tip: '平移', key: '3', ariaLabel: '平移 (3)' },
-  { id: 'text', icon: icons.text, tip: '文字', key: '6', ariaLabel: '文字 (6)' },
+  { id: 'select', icon: icons.select, tip: 'Select', key: '0', ariaLabel: 'Select tool (0)' },
+  { id: 'pen', icon: icons.pen, tip: 'Pen', key: '1', ariaLabel: 'Pen tool (1)' },
+  { id: 'eraser', icon: icons.eraser, tip: 'Eraser', key: '2', ariaLabel: 'Eraser tool (2)' },
+  { id: 'pan', icon: icons.pan, tip: 'Pan', key: '3', ariaLabel: 'Pan tool (3)' },
+  { id: 'text', icon: icons.text, tip: 'Text', key: '6', ariaLabel: 'Text tool (6)' },
 ]
 
 const SHAPES: {
@@ -23,10 +24,16 @@ const SHAPES: {
   key: string
   ariaLabel: string
 }[] = [
-  { id: 'rectangle', icon: icons.rect, tip: '矩形', key: '4', ariaLabel: '矩形 (4)' },
-  { id: 'circle', icon: icons.circle, tip: '圆形', key: '5', ariaLabel: '圆形 (5)' },
-  { id: 'line', icon: icons.line, tip: '直线', key: '7', ariaLabel: '直线 (7)' },
-  { id: 'arrow', icon: icons.arrow, tip: '箭头', key: '8', ariaLabel: '箭头 (8)' },
+  {
+    id: 'rectangle',
+    icon: icons.rect,
+    tip: 'Rectangle',
+    key: '4',
+    ariaLabel: 'Rectangle tool (4)',
+  },
+  { id: 'circle', icon: icons.circle, tip: 'Circle', key: '5', ariaLabel: 'Circle tool (5)' },
+  { id: 'line', icon: icons.line, tip: 'Line', key: '7', ariaLabel: 'Line tool (7)' },
+  { id: 'arrow', icon: icons.arrow, tip: 'Arrow', key: '8', ariaLabel: 'Arrow tool (8)' },
 ]
 
 interface ToolButtonsProps {
@@ -34,38 +41,46 @@ interface ToolButtonsProps {
   setTool: (t: ToolType) => void
 }
 
-export default function ToolButtons({ tool, setTool }: ToolButtonsProps) {
+const ToolButtons = memo(function ToolButtons({ tool, setTool }: ToolButtonsProps) {
   return (
     <>
-      <div className="sb-group">
+      <div className="sb-group" role="group" aria-label="Basic tools">
         {TOOLS.map((t) => (
           <Tooltip key={t.id} content={t.tip} shortcut={t.key}>
             <button
               onClick={() => setTool(t.id)}
               className={`tbtn ${tool === t.id ? 'on' : ''}`}
               aria-label={t.ariaLabel}
+              aria-pressed={tool === t.id}
             >
               {t.icon}
-              <span className="k">{t.key}</span>
+              <span className="k" aria-hidden="true">
+                {t.key}
+              </span>
             </button>
           </Tooltip>
         ))}
       </div>
-      <div className="sb-sep" />
-      <div className="sb-group">
+      <div className="sb-sep" role="separator" />
+      <div className="sb-group" role="group" aria-label="Shape tools">
         {SHAPES.map((t) => (
           <Tooltip key={t.id} content={t.tip} shortcut={t.key}>
             <button
               onClick={() => setTool(t.id)}
               className={`tbtn ${tool === t.id ? 'on' : ''}`}
               aria-label={t.ariaLabel}
+              aria-pressed={tool === t.id}
             >
               {t.icon}
-              <span className="k">{t.key}</span>
+              <span className="k" aria-hidden="true">
+                {t.key}
+              </span>
             </button>
           </Tooltip>
         ))}
       </div>
     </>
   )
-}
+})
+
+export default ToolButtons

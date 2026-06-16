@@ -1,4 +1,6 @@
-export default function LoadingScreen() {
+import { memo } from 'react'
+
+export default memo(function LoadingScreen() {
   return (
     <div
       className="fixed inset-0 z-[1000] flex flex-col items-center justify-center overflow-hidden"
@@ -94,4 +96,4 @@ export default function LoadingScreen() {
       </div>
     </div>
   )
-}
+})
