@@ -222,31 +222,12 @@ export default function App() {
                 await deferredPrompt.userChoice
                 setDeferredPrompt(null)
               }}
-              style={{
-                position: 'fixed',
-                bottom: 12,
-                right: 16,
-                zIndex: 100,
-                padding: '8px 14px',
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                background: 'var(--card-solid)',
-                backdropFilter: 'var(--glass)',
-                color: 'var(--text)',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                boxShadow: 'var(--shadow-md)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                animation: 'popIn 0.3s cubic-bezier(0.16,1,0.3,1)',
-              }}
+              className="install-btn"
               aria-label="Install MindNotes Pro"
             >
               <svg
-                width="14"
-                height="14"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -254,11 +235,10 @@ export default function App() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
+                <path d="M12 3v12m0 0l-4-4m4 4l4-4" />
+                <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
               </svg>
-              Install
+              Install App
             </button>
           )}
         </div>

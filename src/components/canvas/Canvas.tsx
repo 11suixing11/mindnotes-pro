@@ -116,7 +116,8 @@ export default function Canvas() {
     <>
       <div
         ref={containerRef}
-        className="absolute inset-0 overflow-hidden"
+        className="absolute inset-0 overflow-hidden canvas-grid-bg"
+        style={{ zIndex: 10 }}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
       >
