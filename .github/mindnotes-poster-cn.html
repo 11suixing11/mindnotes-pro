@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1200, initial-scale=1.0">
+<title>MindNotes Pro - 中文推广海报</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500;600;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-deep: #0a0a12;
+    --bg-card: #12121e;
+    --bg-elevated: #1a1a2e;
+    --accent-primary: #7c6df0;
+    --accent-warm: #e8845c;
+    --accent-cool: #5cb8e8;
+    --accent-green: #5ce8a0;
+    --text-primary: #f0f0f5;
+    --text-secondary: #8888a0;
+    --text-muted: #555570;
+  }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: 'Noto Sans SC', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    width: 1200px;
+    margin: 0 auto;
+    overflow: hidden;
+  }
+
+  .poster {
+    width: 1200px;
+    min-height: 675px;
+    background: var(--bg-deep);
+    position: relative;
+    overflow: hidden;
+    padding: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .poster::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(124, 109, 240, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(232, 132, 92, 0.06) 0%, transparent 40%),
+      radial-gradient(ellipse at 60% 80%, rgba(92, 184, 232, 0.05) 0%, transparent 40%);
+    pointer-events: none;
+  }
+
+  .poster::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  .content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 40px;
+  }
+
+  .logo-area {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-warm));
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+  }
+
+  .logo-text {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text span {
+    color: var(--accent-primary);
+  }
+
+  .github-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-elevated);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .github-badge svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--text-secondary);
+  }
+
+  .main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: center;
+  }
+
+  .left {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .tagline {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent-primary);
+  }
+
+  h1 {
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--text-primary) 0%, rgba(240,240,245,0.8) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    font-size: 18px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    max-width: 440px;
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 32px;
+    margin-top: 8px;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent-warm);
+  }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .right {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .feature-card {
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .feature-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .feature-icon.purple { background: rgba(124, 109, 240, 0.15); }
+  .feature-icon.orange { background: rgba(232, 132, 92, 0.15); }
+  .feature-icon.blue { background: rgba(92, 184, 232, 0.15); }
+  .feature-icon.green { background: rgba(92, 232, 160, 0.15); }
+
+  .feature-text h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .feature-text p {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .tech-stack {
+    display: flex;
+    gap: 8px;
+  }
+
+  .tech-tag {
+    background: var(--bg-elevated);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .cta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent-primary);
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .cta svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+
+  .float-element {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .float-1 {
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(124, 109, 240, 0.1) 0%, transparent 70%);
+    top: -50px;
+    right: -50px;
+  }
+
+  .float-2 {
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(232, 132, 92, 0.08) 0%, transparent 70%);
+    bottom: -30px;
+    left: 30%;
+  }
+</style>
+</head>
+<body>
+<div class="poster">
+  <div class="float-element float-1"></div>
+  <div class="float-element float-2"></div>
+
+  <div class="content">
+    <div class="header">
+      <div class="logo-area">
+        <div class="logo-icon">🎨</div>
+        <div class="logo-text">Mind<span>Notes</span> Pro</div>
+      </div>
+      <div class="github-badge">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span>开源 · MIT 协议</span>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="left">
+        <div class="tagline">本地优先白板应用</div>
+        <h1>自由绘制<br>数据归你</h1>
+        <p class="subtitle">像在真实纸上绘画的精美白板。无云端、无追踪、无订阅，打开即画。</p>
+        <div class="stats-row">
+          <div class="stat">
+            <div class="stat-value">&lt;3</div>
+            <div class="stat-label">运行时依赖</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value">&lt;1秒</div>
+            <div class="stat-label">加载时间</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value">0 KB</div>
+            <div class="stat-label">服务器存储</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="feature-card">
+          <div class="feature-icon purple">✏️</div>
+          <div class="feature-text">
+            <h3>6种画笔</h3>
+            <p>钢笔、铅笔、荧光笔、书法笔、发光笔、橡皮擦</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon orange">🔒</div>
+          <div class="feature-text">
+            <h3>100% 隐私安全</h3>
+            <p>数据永不离开浏览器，PWA 离线可用</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon blue">⚡</div>
+          <div class="feature-text">
+            <h3>零臃肿</h3>
+            <p>仅3个运行时依赖，不到1秒加载完成</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon green">🎨</div>
+          <div class="feature-text">
+            <h3>莫奈美学</h3>
+            <p>水彩调色板、玻璃拟态、纸质纹理</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="tech-stack">
+        <span class="tech-tag">React 18</span>
+        <span class="tech-tag">TypeScript</span>
+        <span class="tech-tag">Zustand</span>
+        <span class="tech-tag">Vite 5</span>
+        <span class="tech-tag">PWA</span>
+      </div>
+      <div class="cta">
+        <span>github.com/11suixing11/mindnotes-pro</span>
+        <svg viewBox="0 0 16 16"><path d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/><path d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/></svg>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
