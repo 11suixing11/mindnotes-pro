@@ -4,7 +4,7 @@
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-If you discover a security vulnerability in MindNotes Pro, please report it responsibly by emailing [opencode@microsoft.com](mailto:opencode@microsoft.com). You should receive a response within 72 hours.
+If you discover a security vulnerability in MindNotes Pro, please report it responsibly by emailing [11suixing11@users.noreply.github.com](mailto:11suixing11@users.noreply.github.com). You should receive a response within 72 hours.
 
 Please include the following information:
 
@@ -17,10 +17,10 @@ Please include the following information:
 
 ## Supported Versions
 
-| Version | Supported |
-| ------- | --------- |
-| 3.x | ✅ Active |
-| < 3.0 | ❌ No longer supported |
+| Version | Supported              |
+| ------- | ---------------------- |
+| 3.x     | ✅ Active              |
+| < 3.0   | ❌ No longer supported |
 
 ## Security Best Practices for Contributors
 
