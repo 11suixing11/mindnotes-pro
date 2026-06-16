@@ -148,7 +148,7 @@ describe('docManagement slice', () => {
       expect(docs.length).toBe(2)
       const dup = docs.find((d) => d.id !== id)
       expect(dup).toBeTruthy()
-      expect(dup!.title).toContain('Original')
+      if (dup) expect(dup.title).toContain('Original')
     })
 
     it('does nothing for non-existent doc', async () => {

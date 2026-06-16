@@ -111,4 +111,62 @@ describe('useViewStore', () => {
     const state = useViewStore.getState()
     expect(state.viewBox).toEqual({ x: 50, y: 50, zoom: 1.5 })
   })
+
+  describe('zoomToFit', () => {
+    it('does nothing when bounds is null', () => {
+      const before = useViewStore.getState().viewBox
+      useViewStore.getState().zoomToFit(null)
+      expect(useViewStore.getState().viewBox).toEqual(before)
+    })
+
+    it('sets viewBox to fit given bounds', () => {
+      // Mock window dimensions
+      Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true })
+      Object.defineProperty(window, 'innerHeight', { value: 768, writable: true })
+      useViewStore.getState().zoomToFit({ x: 100, y: 100, w: 200, h: 200 })
+      const state = useViewStore.getState()
+      expect(state.viewBox.zoom).toBeGreaterThan(0)
+      expect(state.viewBox.zoom).toBeLessThanOrEqual(3)
+    })
+
+    it('clamps zoom to max 3', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true })
+      Object.defineProperty(window, 'innerHeight', { value: 768, writable: true })
+      useViewStore.getState().zoomToFit({ x: 0, y: 0, w: 10, h: 10 })
+      expect(useViewStore.getState().viewBox.zoom).toBeLessThanOrEqual(3)
+    })
+
+    it('handles zero-width bounds without error', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true })
+      Object.defineProperty(window, 'innerHeight', { value: 768, writable: true })
+      useViewStore.getState().zoomToFit({ x: 0, y: 0, w: 0, h: 100 })
+      expect(useViewStore.getState().viewBox.zoom).toBeGreaterThan(0)
+    })
+  })
+
+  describe('toggleGrid', () => {
+    it('toggles showGrid from false to true', () => {
+      expect(useViewStore.getState().showGrid).toBe(false)
+      useViewStore.getState().toggleGrid()
+      expect(useViewStore.getState().showGrid).toBe(true)
+    })
+
+    it('toggles showGrid from true to false', () => {
+      useViewStore.setState({ showGrid: true })
+      useViewStore.getState().toggleGrid()
+      expect(useViewStore.getState().showGrid).toBe(false)
+    })
+  })
+
+  describe('pan with zoom', () => {
+    it('accounts for zoom level when panning', () => {
+      useViewStore.getState().setViewBox({ x: 0, y: 0, zoom: 2 })
+      useViewStore.getState().startPan(100, 100)
+      useViewStore.getState().updatePan(120, 140)
+      const state = useViewStore.getState()
+      // dx = (120-100)/2 = 10, dy = (140-100)/2 = 20
+      expect(state.viewBox.x).toBeCloseTo(-10)
+      expect(state.viewBox.y).toBeCloseTo(-20)
+    })
+  })
 })
