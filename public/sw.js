@@ -1,63 +1,138 @@
-const CACHE_VERSION = 'v3.3'; // 更新版本以强制清除旧缓存，增强安全性
+const CACHE_VERSION = 'v4.0';
 const CACHE_NAME = `mindnotes-${CACHE_VERSION}`;
-const PRECACHE = [
+const STATIC_CACHE = `mindnotes-static-${CACHE_VERSION}`;
+const RUNTIME_CACHE = `mindnotes-runtime-${CACHE_VERSION}`;
+
+// Static assets to precache on install
+const PRECACHE_URLS = [
   './',
   './index.html',
-  // 可以添加其他静态资源，但基于当前任务保持原样
-]
+  './manifest.json',
+  './icons/icon-192.svg',
+  './icons/icon-512.svg',
+];
 
+// File extensions considered static assets (cache-first strategy)
+const STATIC_EXTENSIONS = [
+  '.js', '.css', '.html', '.json',
+  '.png', '.jpg', '.jpeg', '.svg', '.gif', '.ico', '.webp',
+  '.woff', '.woff2', '.ttf', '.eot', '.otf',
+];
+
+// Paths that are API/data requests (network-first strategy)
+const API_PATHS = ['/api/', '/graphql', '/auth/'];
+
+function isStaticAsset(url) {
+  const pathname = url.pathname.toLowerCase();
+  // Root and index.html
+  if (pathname === '/' || pathname === '/index.html') return true;
+  // Check extension
+  return STATIC_EXTENSIONS.some((ext) => pathname.endsWith(ext));
+}
+
+function isApiRequest(url) {
+  const pathname = url.pathname.toLowerCase();
+  return API_PATHS.some((p) => pathname.includes(p));
+}
+
+// ── Install: precache critical shell assets ──
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE))
+    caches
+      .open(STATIC_CACHE)
+      .then((cache) => cache.addAll(PRECACHE_URLS))
       .then(() => self.skipWaiting())
-  )
-})
+  );
+});
 
+// ── Activate: clean up old caches ──
 self.addEventListener('activate', (event) => {
+  const currentCaches = new Set([STATIC_CACHE, RUNTIME_CACHE]);
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys.filter((k) => !currentCaches.has(k)).map((k) => caches.delete(k))
+        )
       )
-    ).then(() => self.clients.claim())
-  )
-})
+      .then(() => self.clients.claim())
+      .then(() => {
+        // Notify all clients that a new SW version is active
+        return self.clients.matchAll().then((clients) => {
+          clients.forEach((client) =>
+            client.postMessage({ type: 'SW_UPDATED', version: CACHE_VERSION })
+          );
+        });
+      })
+  );
+});
 
+// ── Fetch handler with strategy routing ──
 self.addEventListener('fetch', (event) => {
-  // 只处理 GET 请求，避免缓存非安全操作
-  if (event.request.method !== 'GET') return
-  // 跳过 chrome-extension 请求，防止潜在冲突
-  if (event.request.url.includes('chrome-extension')) return
-  // 跳过非同源或特定缓存模式的请求，减少缓存投毒风险
-  if (event.request.cache === 'only-if-cached' && event.request.mode !== 'same-origin') return
+  // Only handle GET requests
+  if (event.request.method !== 'GET') return;
 
-  // 安全检查：只缓存静态资源，防止动态或敏感数据缓存
-  const staticAssetExtensions = ['.html', '.js', '.css', '.json', '.png', '.jpg', '.jpeg', '.svg', '.gif', '.woff', '.woff2', '.ttf', '.eot'];
+  // Skip chrome-extension and non-http(s) schemes
   const url = new URL(event.request.url);
-  const pathname = url.pathname.toLowerCase();
-  const isStaticAsset = staticAssetExtensions.some(ext => pathname.endsWith(ext)) || pathname === '/' || pathname === '/index.html';
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+  if (event.request.url.includes('chrome-extension')) return;
+  if (event.request.cache === 'only-if-cached' && event.request.mode !== 'same-origin') return;
 
-  if (!isStaticAsset) {
-    // 对于非静态资源（如 API 请求），直接使用网络请求，不缓存以避免泄露敏感信息
-    event.respondWith(fetch(event.request));
+  // Strategy 1: API requests → Network-first (try network, fall back to cache)
+  if (isApiRequest(url)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
     return;
   }
 
-  // 对于静态资源，使用网络优先策略，确保获取最新版本，并更新缓存
+  // Strategy 2: Static assets → Cache-first (serve from cache, update in background)
+  if (isStaticAsset(url)) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        // Stale-while-revalidate: return cache immediately, update in background
+        const fetchPromise = fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+              const clone = networkResponse.clone();
+              caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, clone));
+            }
+            return networkResponse;
+          })
+          .catch(() => null); // Silently fail if offline
+
+        return cachedResponse || fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // Strategy 3: Everything else → Network with runtime cache fallback
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // 只缓存成功的同源响应，避免缓存跨域或错误内容
         if (response && response.status === 200 && response.type === 'basic') {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          caches.open(RUNTIME_CACHE).then((cache) => cache.put(event.request, clone));
         }
         return response;
       })
-      .catch(() => {
-        // 如果网络失败，尝试从缓存中获取
-        return caches.match(event.request);
-      })
+      .catch(() => caches.match(event.request))
   );
-})
+});
+
+// ── Listen for skip-waiting message from client ──
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});

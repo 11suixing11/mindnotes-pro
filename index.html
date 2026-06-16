@@ -19,12 +19,64 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <div id="sw-update-banner" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99999;background:#4f46e5;color:#fff;padding:12px 24px;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.2);font-family:system-ui,-apple-system,sans-serif;font-size:14px;display:none;align-items:center;gap:12px;">
+      <span>🔄 新版本可用</span>
+      <button id="sw-update-btn" style="background:#fff;color:#4f46e5;border:none;padding:6px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">更新</button>
+      <button id="sw-dismiss-btn" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.4);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px;">稍后</button>
+    </div>
     <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch(() => {})
-        })
-      }
+      (function() {
+        if (!('serviceWorker' in navigator)) return;
+
+        var swReg = null;
+
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('./sw.js').then(function(reg) {
+            swReg = reg;
+
+            // Check for updates periodically (every 60 minutes)
+            setInterval(function() { reg.update(); }, 60 * 60 * 1000);
+
+            // Listen for new installing worker
+            reg.addEventListener('updatefound', function() {
+              var newWorker = reg.installing;
+              if (!newWorker) return;
+              newWorker.addEventListener('statechange', function() {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  showUpdateBanner();
+                }
+              });
+            });
+          }).catch(function() {});
+        });
+
+        // Listen for SW_UPDATED message (from activate event)
+        navigator.serviceWorker.addEventListener('message', function(event) {
+          if (event.data && event.data.type === 'SW_UPDATED') {
+            showUpdateBanner();
+          }
+        });
+
+        function showUpdateBanner() {
+          var banner = document.getElementById('sw-update-banner');
+          if (!banner) return;
+          banner.style.display = 'flex';
+
+          document.getElementById('sw-update-btn').addEventListener('click', function() {
+            if (swReg && swReg.waiting) {
+              swReg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+            // Reload once the new SW takes over
+            navigator.serviceWorker.addEventListener('controllerchange', function() {
+              window.location.reload();
+            });
+          });
+
+          document.getElementById('sw-dismiss-btn').addEventListener('click', function() {
+            banner.style.display = 'none';
+          });
+        }
+      })();
     </script>
   </body>
 </html>
