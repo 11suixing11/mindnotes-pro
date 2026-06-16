@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, memo } from 'react'
 
 const TOOLTIP_DELAY = 600
 
@@ -8,7 +8,7 @@ interface TooltipProps {
   children: React.ReactNode
 }
 
-export default function Tooltip({ content, shortcut, children }: TooltipProps) {
+const Tooltip = memo(function Tooltip({ content, shortcut, children }: TooltipProps) {
   const [show, setShow] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -75,4 +75,6 @@ export default function Tooltip({ content, shortcut, children }: TooltipProps) {
       )}
     </div>
   )
-}
+})
+
+export default Tooltip

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useCallback, memo } from 'react'
 import { createPortal } from 'react-dom'
 import type { BrushType, ToolType } from '../../store/types'
 
@@ -20,18 +20,18 @@ interface BrushSelectorProps {
   tool: ToolType
 }
 
-export default function BrushSelector({ brush, setBrush, tool }: BrushSelectorProps) {
+const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: BrushSelectorProps) {
   const brushBtnRef = useRef<HTMLButtonElement>(null)
   const [showBrush, setShowBrush] = useState(false)
   const [brushPos, setBrushPos] = useState({ top: 0, left: 0 })
 
-  const handleToggle = () => {
+  const handleToggle = useCallback(() => {
     if (!showBrush && brushBtnRef.current) {
       const r = brushBtnRef.current.getBoundingClientRect()
       setBrushPos({ top: r.bottom + 8, left: r.left })
     }
     setShowBrush(!showBrush)
-  }
+  }, [showBrush])
 
   const dropdown = showBrush
     ? createPortal(
@@ -87,6 +87,9 @@ export default function BrushSelector({ brush, setBrush, tool }: BrushSelectorPr
         onClick={handleToggle}
         className="pill-btn ghost"
         style={{ whiteSpace: 'nowrap' }}
+        aria-label={`Brush: ${BRUSHES.find((b) => b.id === brush)?.label}`}
+        aria-haspopup="true"
+        aria-expanded={showBrush}
       >
         <span>{BRUSHES.find((b) => b.id === brush)?.label}</span>
         <span className="text-[9px] opacity-50">{ARROW}</span>
@@ -95,4 +98,6 @@ export default function BrushSelector({ brush, setBrush, tool }: BrushSelectorPr
       {dropdown}
     </>
   )
-}
+})
+
+export default BrushSelector

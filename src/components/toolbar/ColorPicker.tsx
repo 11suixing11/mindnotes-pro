@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useCallback, memo } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useToastStore } from '../../store/toastStore'
@@ -23,11 +23,23 @@ const SIZES = [
   { value: 16, dot: 13 },
 ]
 
+const COLOR_NAMES: Record<string, string> = {
+  '#3A2E22': '黑色',
+  '#C07856': '棕色',
+  '#B8A0D0': '紫色',
+  '#D49898': '粉色',
+  '#90B888': '绿色',
+  '#90B4D0': '蓝色',
+  '#D0B888': '米色',
+  '#A8CCE0': '浅蓝',
+}
+const SIZE_LABELS: Record<number, string> = { 2: '极细', 4: '细', 8: '中等', 16: '粗' }
+
 function getCanvas() {
   return document.getElementById('main-canvas') as HTMLCanvasElement | null
 }
 
-export default function ColorPicker() {
+const ColorPicker = memo(function ColorPicker() {
   const toast = useToastStore((s) => s.show)
   const {
     tool,
@@ -65,54 +77,45 @@ export default function ColorPicker() {
   const fillColorRef = useRef<HTMLInputElement>(null)
   const bgRef = useRef<HTMLInputElement>(null)
 
-  const importImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (!f) return
-    const r = new FileReader()
-    r.onload = () => {
-      const dataUrl = r.result as string
-      const img = new Image()
-      img.onload = () => {
-        const c = getCanvas()
-        if (!c) return
-        const dpr = window.devicePixelRatio || 1
-        const cssW = c.width / dpr
-        const cssH = c.height / dpr
-        const maxW = cssW * 0.6,
-          maxH = cssH * 0.6
-        const scale = Math.min(maxW / img.width, maxH / img.height, 1)
-        const w = img.width * scale,
-          h = img.height * scale
-        const vb = useViewStore.getState().viewBox
-        const x = (cssW / 2 - w / 2) / vb.zoom + vb.x
-        const y = (cssH / 2 - h / 2) / vb.zoom + vb.y
-        addElement({ type: 'image', id: `img-${Date.now()}`, x, y, width: w, height: h, dataUrl })
+  const importImage = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const f = e.target.files?.[0]
+      if (!f) return
+      const r = new FileReader()
+      r.onload = () => {
+        const dataUrl = r.result as string
+        const img = new Image()
+        img.onload = () => {
+          const c = getCanvas()
+          if (!c) return
+          const dpr = window.devicePixelRatio || 1
+          const cssW = c.width / dpr
+          const cssH = c.height / dpr
+          const maxW = cssW * 0.6,
+            maxH = cssH * 0.6
+          const scale = Math.min(maxW / img.width, maxH / img.height, 1)
+          const w = img.width * scale,
+            h = img.height * scale
+          const vb = useViewStore.getState().viewBox
+          const x = (cssW / 2 - w / 2) / vb.zoom + vb.x
+          const y = (cssH / 2 - h / 2) / vb.zoom + vb.y
+          addElement({ type: 'image', id: `img-${Date.now()}`, x, y, width: w, height: h, dataUrl })
+        }
+        img.onerror = () => {
+          toast('图片加载失败', 'error')
+        }
+        img.src = dataUrl
       }
-      img.onerror = () => {
-        toast('图片加载失败', 'error')
-      }
-      img.src = dataUrl
-    }
-    r.readAsDataURL(f)
-    e.target.value = ''
-  }
+      r.readAsDataURL(f)
+      e.target.value = ''
+    },
+    [addElement, toast]
+  )
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen()
     else document.exitFullscreen()
-  }
-
-  const COLOR_NAMES: Record<string, string> = {
-    '#3A2E22': '黑色',
-    '#C07856': '棕色',
-    '#B8A0D0': '紫色',
-    '#D49898': '粉色',
-    '#90B888': '绿色',
-    '#90B4D0': '蓝色',
-    '#D0B888': '米色',
-    '#A8CCE0': '浅蓝',
-  }
-  const SIZE_LABELS: Record<number, string> = { 2: '极细', 4: '细', 8: '中等', 16: '粗' }
+  }, [])
 
   return (
     <>
@@ -274,4 +277,6 @@ export default function ColorPicker() {
       />
     </>
   )
-}
+})
+
+export default ColorPicker

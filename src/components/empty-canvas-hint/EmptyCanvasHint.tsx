@@ -1,7 +1,8 @@
+import { memo } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useShallow } from 'zustand/react/shallow'
 
-export default function EmptyCanvasHint() {
+const EmptyCanvasHint = memo(function EmptyCanvasHint() {
   const elements = useAppStore(useShallow((s) => s.elements))
 
   if (elements.length > 0) return null
@@ -26,4 +27,6 @@ export default function EmptyCanvasHint() {
       </div>
     </div>
   )
-}
+})
+
+export default EmptyCanvasHint
