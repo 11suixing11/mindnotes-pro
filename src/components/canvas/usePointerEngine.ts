@@ -3,6 +3,7 @@ import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useThemeStore } from '../../store/useThemeStore'
+import type { StrokeElement } from '../../store/types'
 import type { CanvasElement, ShapeElement, TextElement, ShapeKind } from '../../store/types'
 import { simplifyPts, distToSeg, elementBounds } from '../../canvas/canvasUtils'
 import { drawElement } from '../../canvas/canvasDrawing'
@@ -145,113 +146,126 @@ export function usePointerEngine(opts: {
     [canvasRef]
   )
 
-  function hitTest(px: number, py: number): string | null {
-    const r = 12 / (viewBoxRef.current.zoom || 1)
-    const els = useAppStore.getState().elements
-    for (let i = els.length - 1; i >= 0; i--) {
-      const el = els[i]
-      if (el.type === 'image') {
-        if (
-          px >= el.x - r &&
-          px <= el.x + el.width + r &&
-          py >= el.y - r &&
-          py <= el.y + el.height + r
-        )
-          return el.id
-      } else if (el.type === 'text') {
-        if (
-          px >= el.x - r &&
-          px <= el.x + (el.width || 100) + r &&
-          py >= el.y - r &&
-          py <= el.y + (el.height || 30) + r
-        )
-          return el.id
-      } else if (el.type === 'shape') {
-        const b = cachedBounds(el)
-        if (px >= b.x - r && px <= b.x + b.w + r && py >= b.y - r && py <= b.y + b.h + r)
-          return el.id
-      } else if (el.type === 'stroke' && el.points.length >= 2) {
-        for (let j = 1; j < el.points.length; j++) {
+  const hitTest = useCallback(
+    (px: number, py: number): string | null => {
+      const r = 12 / (viewBoxRef.current.zoom || 1)
+      const els = useAppStore.getState().elements
+      for (let i = els.length - 1; i >= 0; i--) {
+        const el = els[i]
+        if (el.type === 'image') {
           if (
-            distToSeg(
-              px,
-              py,
-              el.points[j - 1][0],
-              el.points[j - 1][1],
-              el.points[j][0],
-              el.points[j][1]
-            ) <
-            r + el.size / 2
+            px >= el.x - r &&
+            px <= el.x + el.width + r &&
+            py >= el.y - r &&
+            py <= el.y + el.height + r
           )
             return el.id
+        } else if (el.type === 'text') {
+          if (
+            px >= el.x - r &&
+            px <= el.x + (el.width || 100) + r &&
+            py >= el.y - r &&
+            py <= el.y + (el.height || 30) + r
+          )
+            return el.id
+        } else if (el.type === 'shape') {
+          const b = cachedBounds(el)
+          if (px >= b.x - r && px <= b.x + b.w + r && py >= b.y - r && py <= b.y + b.h + r)
+            return el.id
+        } else if (el.type === 'stroke' && el.points.length >= 2) {
+          for (let j = 1; j < el.points.length; j++) {
+            if (
+              distToSeg(
+                px,
+                py,
+                el.points[j - 1][0],
+                el.points[j - 1][1],
+                el.points[j][0],
+                el.points[j][1]
+              ) <
+              r + el.size / 2
+            )
+              return el.id
+          }
         }
       }
-    }
-    return null
-  }
+      return null
+    },
+    [cachedBounds]
+  )
 
-  function hitHandle(
-    px: number,
-    py: number
-  ): { handle: number; id: string; bounds: { x: number; y: number; w: number; h: number } } | null {
-    const selIds = useAppStore.getState().selectedIds
-    if (selIds.length === 0) return null
-    const hr = 10 / (viewBoxRef.current.zoom || 1)
-    const els = useAppStore.getState().elements
-    for (const selId of selIds) {
-      const el = els.find((e) => e.id === selId)
-      if (!el) continue
-      const b = cachedBounds(el)
-      const corners: [number, number][] = [
-        [b.x, b.y],
-        [b.x + b.w, b.y],
-        [b.x, b.y + b.h],
-        [b.x + b.w, b.y + b.h],
-      ]
-      for (let i = 0; i < 4; i++) {
-        if (Math.abs(px - corners[i][0]) < hr && Math.abs(py - corners[i][1]) < hr)
-          return { handle: i, id: selId, bounds: b }
-      }
-    }
-    return null
-  }
-
-  function eraseAt(x: number, y: number) {
-    const r = sizeRef.current * 2 + 10,
-      r2 = r * r
-    const state = useAppStore.getState()
-    for (const el of state.elements) {
-      if (erasedRef.current.has(el.id)) continue
-      if (el.type === 'stroke') {
-        const segments: number[][][] = []
-        let cur: number[][] = []
-        let hit = false
-        for (const p of el.points) {
-          if ((p[0] - x) ** 2 + (p[1] - y) ** 2 < r2) {
-            hit = true
-            if (cur.length >= 2) segments.push(cur)
-            cur = []
-          } else cur.push(p)
-        }
-        if (cur.length >= 2) segments.push(cur)
-        if (!hit) continue
-        erasedRef.current.add(el.id)
-        removeElement(el.id)
-        for (const seg of segments)
-          addElement({
-            ...el,
-            id: `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            points: seg,
-          })
-      } else {
+  const hitHandle = useCallback(
+    (
+      px: number,
+      py: number
+    ): {
+      handle: number
+      id: string
+      bounds: { x: number; y: number; w: number; h: number }
+    } | null => {
+      const selIds = useAppStore.getState().selectedIds
+      if (selIds.length === 0) return null
+      const hr = 10 / (viewBoxRef.current.zoom || 1)
+      const els = useAppStore.getState().elements
+      for (const selId of selIds) {
+        const el = els.find((e) => e.id === selId)
+        if (!el) continue
         const b = cachedBounds(el)
-        if (x >= b.x - r && x <= b.x + b.w + r && y >= b.y - r && y <= b.y + b.h + r) {
+        const corners: [number, number][] = [
+          [b.x, b.y],
+          [b.x + b.w, b.y],
+          [b.x, b.y + b.h],
+          [b.x + b.w, b.y + b.h],
+        ]
+        for (let i = 0; i < 4; i++) {
+          if (Math.abs(px - corners[i][0]) < hr && Math.abs(py - corners[i][1]) < hr)
+            return { handle: i, id: selId, bounds: b }
+        }
+      }
+      return null
+    },
+    [cachedBounds]
+  )
+
+  const eraseAt = useCallback(
+    (x: number, y: number) => {
+      const r = sizeRef.current * 2 + 10,
+        r2 = r * r
+      const state = useAppStore.getState()
+      for (const el of state.elements) {
+        if (erasedRef.current.has(el.id)) continue
+        if (el.type === 'stroke') {
+          const segments: number[][][] = []
+          let cur: number[][] = []
+          let hit = false
+          for (const p of el.points) {
+            if ((p[0] - x) ** 2 + (p[1] - y) ** 2 < r2) {
+              hit = true
+              if (cur.length >= 2) segments.push(cur)
+              cur = []
+            } else cur.push(p)
+          }
+          if (cur.length >= 2) segments.push(cur)
+          if (!hit) continue
           erasedRef.current.add(el.id)
           removeElement(el.id)
+          for (const seg of segments)
+            addElement({
+              ...el,
+              id: `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              points: seg,
+            })
+        } else {
+          const b = cachedBounds(el)
+          if (x >= b.x - r && x <= b.x + b.w + r && y >= b.y - r && y <= b.y + b.h + r) {
+            erasedRef.current.add(el.id)
+            removeElement(el.id)
+          }
         }
       }
-    }
-  }
+    },
+    [removeElement, addElement, cachedBounds]
+  )
 
   const handleStart = useCallback(
     (e: MouseEvent | TouchEvent) => {
@@ -302,7 +316,9 @@ export function usePointerEngine(opts: {
             if (ids.includes(el.id)) {
               if (el.type === 'stroke')
                 startPositions.set(el.id, { x: el.points[0]?.[0] ?? 0, y: el.points[0]?.[1] ?? 0 })
-              else startPositions.set(el.id, { x: (el as any).x ?? 0, y: (el as any).y ?? 0 })
+              else if (el.type === 'shape') startPositions.set(el.id, { x: el.x, y: el.y })
+              else if (el.type === 'text') startPositions.set(el.id, { x: el.x, y: el.y })
+              else if (el.type === 'image') startPositions.set(el.id, { x: el.x, y: el.y })
             }
           }
           dragRef.current = { x: pos.x, y: pos.y, id: hit, startPositions }
@@ -363,6 +379,7 @@ export function usePointerEngine(opts: {
         }
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       getPos,
       startPan,
@@ -372,8 +389,6 @@ export function usePointerEngine(opts: {
       textRef,
       cachedBounds,
       canvasRef,
-      addElement,
-      removeElement,
       hitTest,
       hitHandle,
       eraseAt,
@@ -500,6 +515,7 @@ export function usePointerEngine(opts: {
       }
       scheduleRedraw()
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       getPos,
       isPanning,
@@ -511,6 +527,7 @@ export function usePointerEngine(opts: {
       cachedBounds,
       findSnaps,
       snapLinesRef,
+      eraseAt,
     ]
   )
 
@@ -529,7 +546,7 @@ export function usePointerEngine(opts: {
             if (pts.length === 1) {
               pts = [pts[0], [pts[0][0] + 0.1, pts[0][1] + 0.1]]
             }
-            const el: any = {
+            const el: StrokeElement = {
               type: 'stroke',
               id: `stroke-${Date.now()}`,
               points: simplifyPts(pts, 1),
@@ -586,9 +603,12 @@ export function usePointerEngine(opts: {
             if (el.type === 'stroke') {
               cx = el.points[0]?.[0] ?? 0
               cy = el.points[0]?.[1] ?? 0
+            } else if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
+              cx = el.x
+              cy = el.y
             } else {
-              cx = (el as any).x ?? 0
-              cy = (el as any).y ?? 0
+              cx = 0
+              cy = 0
             }
             const dx = cx - startPos.x,
               dy = cy - startPos.y
@@ -596,18 +616,16 @@ export function usePointerEngine(opts: {
           }
           if (deltas.length > 0) useAppStore.getState().pushUndo({ type: 'move', deltas })
         }
-        if (resizeRef.current?.origElement) {
-          const afterEl = useAppStore
-            .getState()
-            .elements.find((e) => e.id === resizeRef.current!.id)
+        const resizeCur = resizeRef.current
+        if (resizeCur?.origElement) {
+          const afterEl = useAppStore.getState().elements.find((e) => e.id === resizeCur.id)
           if (afterEl) {
+            const origEl = resizeCur.origElement
             useAppStore.getState().pushUndo({
               type: 'clear',
               snapshot: useAppStore
                 .getState()
-                .elements.map((e) =>
-                  e.id === resizeRef.current!.id ? resizeRef.current!.origElement! : e
-                ),
+                .elements.map((e) => (e.id === resizeCur.id ? origEl : e)),
             })
           }
         }
@@ -622,6 +640,7 @@ export function usePointerEngine(opts: {
         return
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [addElement, endPan, setSelectedIds, scheduleRedraw, cachedBounds]
   )
 
@@ -702,6 +721,7 @@ export function usePointerEngine(opts: {
       canvas.removeEventListener('touchmove', onMove)
       canvas.removeEventListener('touchend', onEnd)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasRef])
 
   // Touch pinch zoom
@@ -724,6 +744,13 @@ export function usePointerEngine(opts: {
     }
     function onTouchStart(e: TouchEvent) {
       if (e.touches.length === 2) {
+        // Cancel any ongoing single-finger drawing when a second finger touches
+        if (drawingRef.current) {
+          drawingRef.current = false
+          currentPtsRef.current = []
+          currentShapeRef.current = null
+          shapeStartRef.current = null
+        }
         pinching = true
         pinchDist = getTouchDist(e)
         pinchMid = getTouchMid(e)
@@ -735,14 +762,29 @@ export function usePointerEngine(opts: {
       e.preventDefault()
       const newDist = getTouchDist(e),
         newMid = getTouchMid(e),
-        scale = newDist / pinchDist
+        scale = Math.max(0.1, Math.min(10, newDist / pinchDist))
       const vb = useViewStore.getState().viewBox
-      const newZoom = vb.zoom * scale
-      const dx = (newMid.x - pinchMid.x) / newZoom,
-        dy = (newMid.y - pinchMid.y) / newZoom
+      const newZoom = Math.max(0.2, Math.min(5, vb.zoom * scale))
+
+      // Zoom around the pinch midpoint: keep the world point under the midpoint fixed
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (!rect) {
+        pinchDist = newDist
+        pinchMid = newMid
+        return
+      }
+      const midX = newMid.x - rect.left
+      const midY = newMid.y - rect.top
+      const worldX = midX / vb.zoom + vb.x
+      const worldY = midY / vb.zoom + vb.y
+      const newX = worldX - midX / newZoom
+      const newY = worldY - midY / newZoom
+      // Also account for midpoint panning (finger movement)
+      const panDx = (newMid.x - pinchMid.x) / newZoom
+      const panDy = (newMid.y - pinchMid.y) / newZoom
       useViewStore.getState().setViewBox({
-        x: vb.x - dx,
-        y: vb.y - dy,
+        x: newX - panDx,
+        y: newY - panDy,
         zoom: newZoom,
       })
       pinchDist = newDist

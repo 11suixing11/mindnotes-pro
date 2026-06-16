@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useCallback, memo } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore } from '../../store/appStore'
 import { useThemeStore } from '../../store/useThemeStore'
 import { useToastStore } from '../../store/toastStore'
 import type { CanvasElement } from '../../store/types'
+import { buildSVGString } from '../../canvas/svgExport'
 
 const DARK_BG = '#1C1A24'
 
@@ -86,67 +87,15 @@ function withBg(c: HTMLCanvasElement, bg: string) {
   const t = document.createElement('canvas')
   t.width = w
   t.height = h
-  const ctx = t.getContext('2d')!
+  const ctx = t.getContext('2d')
+  if (!ctx) return t
   ctx.fillStyle = bg
   ctx.fillRect(0, 0, w, h)
   ctx.drawImage(c, 0, 0, c.width, c.height, 0, 0, w, h)
   return t
 }
 
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function buildSVG(elements: CanvasElement[], isDarkMode: boolean): string {
-  const c = getCanvas()
-  if (!c) return ''
-  const dpr = window.devicePixelRatio || 1
-  const lw = Math.round(c.width / dpr),
-    lh = Math.round(c.height / dpr)
-  const bg = isDarkMode ? DARK_BG : '#fff'
-  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${lw}" height="${lh}">\n`
-  s += `<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="context-stroke"/></marker></defs>\n`
-  s += `<rect width="100%" height="100%" fill="${bg}"/>\n`
-  for (const el of elements) {
-    if (el.type === 'stroke' && el.points.length >= 2) {
-      let d = `M${el.points[0][0]} ${el.points[0][1]}`
-      for (let i = 1; i < el.points.length; i++) d += `L${el.points[i][0]} ${el.points[i][1]}`
-      s += `<path d="${d}" stroke="${el.color}" stroke-width="${el.size}" fill="none" stroke-linecap="round"/>\n`
-    } else if (el.type === 'shape') {
-      const fill = el.fillColor && el.fillColor !== 'transparent' ? el.fillColor : 'none'
-      if (el.kind === 'rectangle')
-        s += `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" stroke="${el.color}" stroke-width="${el.size}" fill="${fill}" rx="3"/>\n`
-      else if (el.kind === 'circle')
-        s += `<ellipse cx="${el.x + el.w / 2}" cy="${el.y + el.h / 2}" rx="${Math.abs(el.w) / 2}" ry="${Math.abs(el.h) / 2}" stroke="${el.color}" stroke-width="${el.size}" fill="${fill}"/>\n`
-      else if (el.kind === 'arrow')
-        s += `<line x1="${el.x}" y1="${el.y}" x2="${el.x + el.w}" y2="${el.y + el.h}" stroke="${el.color}" stroke-width="${el.size}" marker-end="url(#arrowhead)"/>\n`
-      else
-        s += `<line x1="${el.x}" y1="${el.y}" x2="${el.x + el.w}" y2="${el.y + el.h}" stroke="${el.color}" stroke-width="${el.size}"/>\n`
-    } else if (el.type === 'text') {
-      const lines = el.content.split('\n')
-      const lineHeight = el.fontSize * 1.4
-      if (lines.length === 1) {
-        s += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${el.color}" font-size="${el.fontSize}" font-family="sans-serif">${escapeXml(lines[0])}</text>\n`
-      } else {
-        s += `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${el.color}" font-size="${el.fontSize}" font-family="sans-serif">\n`
-        for (let i = 0; i < lines.length; i++) {
-          s += `  <tspan x="${el.x}" dy="${i === 0 ? 0 : lineHeight}">${escapeXml(lines[i])}</tspan>\n`
-        }
-        s += `</text>\n`
-      }
-    } else if (el.type === 'image') {
-      s += `<image x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" href="${el.dataUrl}" preserveAspectRatio="none"/>\n`
-    }
-  }
-  s += '</svg>'
-  return s
-}
-
-export default function ExportMenu() {
+const ExportMenu = memo(function ExportMenu() {
   const exportBtnRef = useRef<HTMLButtonElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [showExport, setShowExport] = useState(false)
@@ -212,8 +161,12 @@ export default function ExportMenu() {
     showToast('PDF 导出成功', 'success')
   }
   const exportSVG = () => {
-    const svgStr = buildSVG(elements, isDarkMode)
-    if (!svgStr) return showToast('画布为空', 'warning')
+    const c = getCanvas()
+    if (!c) return showToast('画布为空', 'warning')
+    const dpr = window.devicePixelRatio || 1
+    const width = Math.round(c.width / dpr)
+    const height = Math.round(c.height / dpr)
+    const svgStr = buildSVGString(elements, { width, height, isDarkMode })
     download(new Blob([svgStr], { type: 'image/svg+xml' }), `mindnotes-${ts()}.svg`)
     showToast('SVG 导出成功', 'success')
   }
@@ -242,7 +195,7 @@ export default function ExportMenu() {
         if (d.elements) {
           useAppStore.getState().addElements(d.elements)
         } else if (d.strokes || d.shapes) {
-          const els: any[] = []
+          const els: CanvasElement[] = []
           for (const s of d.strokes ?? []) {
             if (s.imageData)
               els.push({
@@ -315,13 +268,13 @@ export default function ExportMenu() {
     { icon: I.download, label: 'JSON 数据', desc: '完整备份', action: exportJSON },
   ]
 
-  const handleToggle = () => {
+  const handleToggle = useCallback(() => {
     if (!showExport && exportBtnRef.current) {
       const r = exportBtnRef.current.getBoundingClientRect()
       setExportPos({ top: r.bottom + 8, right: window.innerWidth - r.right })
     }
     setShowExport(!showExport)
-  }
+  }, [showExport])
 
   return (
     <>
@@ -394,4 +347,6 @@ export default function ExportMenu() {
       />
     </>
   )
-}
+})
+
+export default ExportMenu

@@ -96,7 +96,8 @@ export function openDB(): Promise<IDBDatabase> {
     const req = indexedDB.open(DB_NAME, DB_VERSION)
     req.onupgradeneeded = (e) => {
       const db = req.result
-      const tx = req.transaction!
+      const tx = req.transaction
+      if (!tx) return
       for (let v = (e as IDBVersionChangeEvent).oldVersion + 1; v <= DB_VERSION; v++) {
         const migrate = migrations[v]
         if (migrate) migrate(db, tx)

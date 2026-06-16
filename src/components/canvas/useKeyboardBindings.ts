@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import type { ToolType } from '../../store/types'
@@ -18,6 +18,9 @@ function getViewportCenter(): { x: number; y: number } {
 }
 
 export function useKeyboardBindings(options: Options = {}) {
+  const optionsRef = useRef(options)
+  optionsRef.current = options
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
@@ -36,7 +39,7 @@ export function useKeyboardBindings(options: Options = {}) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
         e.preventDefault()
         st.copySelected()
-        options.copySelectedToSystemClipboard?.()
+        optionsRef.current.copySelectedToSystemClipboard?.()
         return
       }
 
@@ -133,7 +136,7 @@ export function useKeyboardBindings(options: Options = {}) {
       // Grid toggle (G key)
       if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault()
-        useViewStore.setState((s: any) => ({ showGrid: !(s as any).showGrid }))
+        useViewStore.getState().toggleGrid()
         return
       }
 

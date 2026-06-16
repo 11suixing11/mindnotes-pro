@@ -15,6 +15,7 @@ export interface HistoryActions {
   pushUndo: (action: UndoAction) => void
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createHistorySlice(set: any, get: any): HistoryState & HistoryActions {
   return {
     // State
@@ -30,12 +31,12 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
     undo: () => {
       const { undoStack, redoStack, elements } = get()
       if (undoStack.length === 0) return
-      const action = undoStack[undoStack.length - 1]
+      const action: UndoAction = undoStack[undoStack.length - 1]
       let next: CanvasElement[]
       let redoAction: UndoAction
 
       if (action.type === 'add') {
-        const idSet = new Set((action.els ?? []).map((e: any) => e.id))
+        const idSet = new Set((action.els ?? []).map((e: CanvasElement) => e.id))
         next = elements.filter((e: CanvasElement) => !idSet.has(e.id))
         redoAction = { type: 'add', ids: action.ids, els: (action.els ?? []).map(shallowClone) }
       } else if (action.type === 'remove') {
@@ -45,13 +46,18 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         }
         redoAction = {
           type: 'remove',
-          items: action.items.map((i: any) => ({ el: shallowClone(i.el), index: i.index })),
+          items: action.items.map((i: { el: CanvasElement; index: number }) => ({
+            el: shallowClone(i.el),
+            index: i.index,
+          })),
         }
       } else if (action.type === 'move') {
-        const deltaMap = new Map(action.deltas.map((d: any) => [d.id, d]))
+        const deltaMap = new Map(
+          action.deltas.map((d: { id: string; dx: number; dy: number }) => [d.id, d])
+        )
         next = elements.map((e: CanvasElement) => {
           const d = deltaMap.get(e.id)
-          return d ? reverseMoveDelta(e, (d as any).dx, (d as any).dy) : e
+          return d ? reverseMoveDelta(e, d.dx, d.dy) : e
         })
         redoAction = action
       } else if (action.type === 'erase') {
@@ -74,7 +80,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
     redo: () => {
       const { redoStack, elements, undoStack } = get()
       if (redoStack.length === 0) return
-      const action = redoStack[redoStack.length - 1]
+      const action: UndoAction = redoStack[redoStack.length - 1]
       let next: CanvasElement[]
       let undoAction: UndoAction
 
@@ -82,17 +88,24 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         next = [...elements, ...(action.els ?? []).map(shallowClone)]
         undoAction = { type: 'add', ids: action.ids, els: (action.els ?? []).map(shallowClone) }
       } else if (action.type === 'remove') {
-        const idSet = new Set(action.items.map((i: any) => i.el.id))
+        const idSet = new Set(
+          action.items.map((i: { el: CanvasElement; index: number }) => i.el.id)
+        )
         next = elements.filter((e: CanvasElement) => !idSet.has(e.id))
         undoAction = {
           type: 'remove',
-          items: action.items.map((i: any) => ({ el: shallowClone(i.el), index: i.index })),
+          items: action.items.map((i: { el: CanvasElement; index: number }) => ({
+            el: shallowClone(i.el),
+            index: i.index,
+          })),
         }
       } else if (action.type === 'move') {
-        const deltaMap = new Map(action.deltas.map((d: any) => [d.id, d]))
+        const deltaMap = new Map(
+          action.deltas.map((d: { id: string; dx: number; dy: number }) => [d.id, d])
+        )
         next = elements.map((e: CanvasElement) => {
           const d = deltaMap.get(e.id)
-          return d ? applyMoveDelta(e, (d as any).dx, (d as any).dy) : e
+          return d ? applyMoveDelta(e, d.dx, d.dy) : e
         })
         undoAction = action
       } else if (action.type === 'erase') {
