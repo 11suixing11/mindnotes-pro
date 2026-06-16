@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1080, initial-scale=1.0">
+<title>MindNotes Pro - 对比图</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans SC', 'Inter', sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    width: 1080px;
+    margin: 0 auto;
+  }
+  .card {
+    width: 1080px;
+    padding: 48px;
+    background: #0d1117;
+    position: relative;
+  }
+  .title {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .title h1 {
+    font-size: 36px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .title p {
+    color: #8b949e;
+    font-size: 16px;
+  }
+  .compare-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .compare-table th, .compare-table td {
+    padding: 16px 20px;
+    text-align: center;
+    font-size: 15px;
+  }
+  .compare-table thead th {
+    background: rgba(255,255,255,0.05);
+    font-weight: 700;
+    font-size: 14px;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .compare-table thead th:first-child {
+    text-align: left;
+  }
+  .compare-table thead th.highlight {
+    background: rgba(124,109,240,0.15);
+    color: #7c6df0;
+    position: relative;
+  }
+  .compare-table tbody td {
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: #e6edf3;
+  }
+  .compare-table tbody td:first-child {
+    text-align: left;
+    font-weight: 600;
+    color: #8b949e;
+  }
+  .compare-table tbody td.highlight {
+    background: rgba(124,109,240,0.06);
+    color: #7c6df0;
+    font-weight: 700;
+  }
+  .compare-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .check { color: #5ce8a0; font-size: 20px; }
+  .cross { color: #f85149; font-size: 20px; }
+  .warn { color: #e8845c; font-size: 20px; }
+  .na { color: #555; }
+  .winner-row td.highlight {
+    background: rgba(124,109,240,0.1);
+  }
+  .footer {
+    margin-top: 32px;
+    text-align: center;
+    color: #8b949e;
+    font-size: 14px;
+  }
+  .footer a {
+    color: #7c6df0;
+    text-decoration: none;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="title">
+    <h1>MindNotes Pro vs 竞品对比</h1>
+    <p>为什么选择 MindNotes Pro？</p>
+  </div>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>特性</th>
+        <th class="highlight">MindNotes Pro 🏆</th>
+        <th>Excalidraw</th>
+        <th>tldraw</th>
+        <th>Miro</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>开源协议</td>
+        <td class="highlight">✅ MIT</td>
+        <td>✅ MIT</td>
+        <td>⚠️ 部分</td>
+        <td>❌ 闭源</td>
+      </tr>
+      <tr>
+        <td>本地优先</td>
+        <td class="highlight"><span class="check">✅</span> 是</td>
+        <td><span class="cross">❌</span></td>
+        <td><span class="cross">❌</span></td>
+        <td><span class="cross">❌</span></td>
+      </tr>
+      <tr>
+        <td>运行时依赖</td>
+        <td class="highlight" style="font-size:20px;font-weight:800;color:#e8845c">3 🪶</td>
+        <td>30+</td>
+        <td>50+</td>
+        <td class="na">N/A</td>
+      </tr>
+      <tr>
+        <td>包大小</td>
+        <td class="highlight" style="font-size:18px;font-weight:800;color:#e8845c">&lt;200KB</td>
+        <td>~2MB</td>
+        <td>~3MB</td>
+        <td class="na">N/A</td>
+      </tr>
+      <tr>
+        <td>加载时间</td>
+        <td class="highlight" style="font-size:18px;font-weight:800;color:#5ce8a0">&lt;1秒 ⚡</td>
+        <td>3-5秒</td>
+        <td>3-5秒</td>
+        <td>5秒+</td>
+      </tr>
+      <tr>
+        <td>离线PWA</td>
+        <td class="highlight"><span class="check">✅</span> 完整</td>
+        <td><span class="warn">⚠️</span></td>
+        <td><span class="cross">❌</span></td>
+        <td><span class="cross">❌</span></td>
+      </tr>
+      <tr>
+        <td>隐私保护</td>
+        <td class="highlight"><span class="check">✅</span> 零追踪</td>
+        <td><span class="warn">⚠️</span></td>
+        <td><span class="warn">⚠️</span></td>
+        <td><span class="cross">❌</span></td>
+      </tr>
+      <tr>
+        <td>需要注册</td>
+        <td class="highlight"><span class="check">✅</span> 不需要</td>
+        <td><span class="cross">❌</span></td>
+        <td><span class="cross">❌</span></td>
+        <td><span class="cross">❌</span></td>
+      </tr>
+      <tr>
+        <td>多文档管理</td>
+        <td class="highlight"><span class="check">✅</span></td>
+        <td><span class="cross">❌</span></td>
+        <td><span class="cross">❌</span></td>
+        <td><span class="check">✅</span></td>
+      </tr>
+      <tr>
+        <td>完全免费</td>
+        <td class="highlight"><span class="check">✅</span> 永久</td>
+        <td><span class="check">✅</span></td>
+        <td><span class="warn">⚠️</span> 付费</td>
+        <td><span class="cross">❌</span> $$$</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <p>🔗 在线体验：<a href="https://11suixing11.github.io/mindnotes-pro">11suixing11.github.io/mindnotes-pro</a></p>
+    <p style="margin-top:8px">💻 源码：<a href="https://github.com/11suixing11/mindnotes-pro">github.com/11suixing11/mindnotes-pro</a></p>
+  </div>
+</div>
+</body>
+</html>
