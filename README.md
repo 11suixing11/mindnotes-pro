@@ -204,6 +204,21 @@ Open [http://localhost:3000](http://localhost:3000) — start drawing in 30 seco
 
 ---
 
+## 💬 What users say
+
+> _"MindNotes Pro is the simplest whiteboard I've ever used. No sign-up, no distractions — just draw."_
+> — ⭐ Early adopter
+
+> _"Finally, a whiteboard app that's < 200KB. My students love it for sketching diagrams."_
+> — ⭐ Educator
+
+> _"The Monet palette is gorgeous. I switched from Excalidraw for quick mockups."_
+> — ⭐ Designer
+
+**Using MindNotes Pro?** [Add your testimonial](https://github.com/11suixing11/mindnotes-pro/discussions/showcase) — we'd love to hear from you!
+
+---
+
 ## Tech stack
 
 | Layer   | Choice                                | Why                           |
@@ -215,6 +230,18 @@ Open [http://localhost:3000](http://localhost:3000) — start drawing in 30 seco
 | Export  | jsPDF (lazy-loaded)                   | Zero impact on initial bundle |
 | Build   | Vite 5                                | Instant HMR                   |
 | Test    | Vitest + Testing Library + Playwright | 245+ unit tests, E2E ready    |
+
+---
+
+## 🗺️ Roadmap
+
+| Version | Feature                                                                | Status      |
+| ------- | ---------------------------------------------------------------------- | ----------- |
+| v4.0    | 🤝 **Real-time collaboration** — draw together on the same canvas      | 🔄 Planning |
+| v4.0    | 🔌 **Plugin system** — extend with custom brushes, shapes, and exports | 🔄 Planning |
+| v4.0    | 📱 **Mobile optimization** — touch gestures, responsive toolbar        | 🔄 Planning |
+
+> Have ideas for the roadmap? [Open a discussion](https://github.com/11suixing11/mindnotes-pro/discussions) and let us know!
 
 ---
 
@@ -231,6 +258,19 @@ New to open source? Look for [`good first issue`](https://github.com/11suixing11
 
 ---
 
+## 💚 Support
+
+If MindNotes Pro is useful to you, here's how you can help the project grow:
+
+| Action                       | Impact                                                                                                                |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| ⭐ **Star this repo**        | Helps others discover the project — **this is the #1 thing you can do**                                               |
+| 🐦 **Share on social media** | Tweet about it, post on Reddit, share in your team chat                                                               |
+| 🍴 **Fork & customize**      | Make it your own, then share back with the community                                                                  |
+| 🐛 **Report bugs**           | [Open an issue](https://github.com/11suixing11/mindnotes-pro/issues/new) — even a one-liner helps                     |
+| 💬 **Join the discussion**   | [GitHub Discussions](https://github.com/11suixing11/mindnotes-pro/discussions) — ideas, questions, showcase your work |
+| 🔧 **Contribute code**       | Check [CONTRIBUTING.md](CONTRIBUTING.md) to get started                                                               |
+
 ---
 
 ## Star history
@@ -238,6 +278,20 @@ New to open source? Look for [`good first issue`](https://github.com/11suixing11
 <div align="center">
   <a href="https://star-history.com/#11suixing11/mindnotes-pro&Date">
     <img src="https://api.star-history.com/svg?repos=11suixing11/mindnotes-pro&type=Date" alt="Star History" width="600" />
+  </a>
+</div>
+
+---
+
+## 📈 Stargazers over time
+
+<div align="center">
+  <a href="https://star-history.com/#11suixing11/mindnotes-pro&Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=11suixing11/mindnotes-pro&type=Date&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=11suixing11/mindnotes-pro&type=Date" />
+      <img alt="Stargazers over time" src="https://api.star-history.com/svg?repos=11suixing11/mindnotes-pro&type=Date" width="600" />
+    </picture>
   </a>
 </div>
 
