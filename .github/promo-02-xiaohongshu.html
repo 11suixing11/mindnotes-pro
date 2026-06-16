@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1080, initial-scale=1.0">
+<title>MindNotes Pro - 小红书封面</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    width: 1080px;
+    margin: 0 auto;
+  }
+  .card {
+    width: 1080px;
+    height: 1440px;
+    background: linear-gradient(180deg, #fdf6f0 0%, #f0e6d8 100%);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 60px;
+  }
+  /* Watercolor blobs */
+  .blob1 {
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(124,109,240,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .blob2 {
+    position: absolute;
+    bottom: 100px; left: -100px;
+    width: 350px; height: 350px;
+    background: radial-gradient(circle, rgba(232,132,92,0.1) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .blob3 {
+    position: absolute;
+    top: 400px; right: 50px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(92,232,160,0.08) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+
+  .top-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(124,109,240,0.1);
+    border: 1px solid rgba(124,109,240,0.2);
+    border-radius: 20px;
+    padding: 8px 20px;
+    font-size: 14px;
+    color: #7c6df0;
+    font-weight: 600;
+    margin-bottom: 40px;
+    position: relative;
+    z-index: 1;
+    width: fit-content;
+  }
+
+  .main-title {
+    position: relative;
+    z-index: 1;
+    margin-bottom: 40px;
+  }
+  .main-title h1 {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.15;
+    color: #2d2d2d;
+    letter-spacing: -1px;
+  }
+  .main-title h1 .highlight {
+    background: linear-gradient(135deg, #7c6df0, #e8845c);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .main-title .sub {
+    font-size: 22px;
+    color: #888;
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    position: relative;
+    z-index: 1;
+    margin-bottom: 40px;
+  }
+  .feat {
+    background: rgba(255,255,255,0.7);
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 20px;
+    padding: 24px;
+    backdrop-filter: blur(10px);
+  }
+  .feat-emoji {
+    font-size: 36px;
+    margin-bottom: 12px;
+  }
+  .feat h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #2d2d2d;
+    margin-bottom: 6px;
+  }
+  .feat p {
+    font-size: 15px;
+    color: #888;
+    line-height: 1.5;
+  }
+
+  .bottom-area {
+    margin-top: auto;
+    position: relative;
+    z-index: 1;
+  }
+  .url-box {
+    background: rgba(255,255,255,0.8);
+    border: 1px dashed rgba(124,109,240,0.3);
+    border-radius: 16px;
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .url-icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, #7c6df0, #e8845c);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+  }
+  .url-text {
+    font-size: 18px;
+    color: #2d2d2d;
+    font-weight: 600;
+  }
+  .url-sub {
+    font-size: 13px;
+    color: #aaa;
+    margin-top: 2px;
+  }
+
+  .tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .tag {
+    background: rgba(124,109,240,0.08);
+    color: #7c6df0;
+    padding: 6px 14px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="blob1"></div>
+  <div class="blob2"></div>
+  <div class="blob3"></div>
+
+  <div class="top-badge">
+    ✨ 开源免费 · MIT协议 · 打开即画
+  </div>
+
+  <div class="main-title">
+    <h1>这个白板工具<br><span class="highlight">绝了！</span></h1>
+    <p class="sub">不注册 · 不联网 · 不追踪<br>打开浏览器就能画，像在真实纸上一样</p>
+  </div>
+
+  <div class="feature-grid">
+    <div class="feat">
+      <div class="feat-emoji">✏️</div>
+      <h3>6种画笔</h3>
+      <p>钢笔·铅笔·荧光笔<br>书法笔·发光笔·橡皮擦</p>
+    </div>
+    <div class="feat">
+      <div class="feat-emoji">🔒</div>
+      <h3>数据永不上传</h3>
+      <p>只存在浏览器本地<br>画了什么只有你知道</p>
+    </div>
+    <div class="feat">
+      <div class="feat-emoji">⚡</div>
+      <h3>秒开！</h3>
+      <p>仅3个依赖<br>加载不到1秒</p>
+    </div>
+    <div class="feat">
+      <div class="feat-emoji">🎨</div>
+      <h3>莫奈美学</h3>
+      <p>水彩调色板<br>纸质纹理超治愈</p>
+    </div>
+  </div>
+
+  <div class="bottom-area">
+    <div class="url-box">
+      <div class="url-icon">🔗</div>
+      <div>
+        <div class="url-text">11suixing11.github.io/mindnotes-pro</div>
+        <div class="url-sub">浏览器打开直接用，无需下载安装</div>
+      </div>
+    </div>
+    <div class="tags">
+      <span class="tag">#白板</span>
+      <span class="tag">#绘画工具</span>
+      <span class="tag">#效率工具</span>
+      <span class="tag">#开源</span>
+      <span class="tag">#免费工具</span>
+      <span class="tag">#学生党必备</span>
+      <span class="tag">#设计师日常</span>
+      <span class="tag">#手账</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

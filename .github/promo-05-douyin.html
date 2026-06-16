@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1080, initial-scale=1.0">
+<title>MindNotes Pro - 抖音/快手封面</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;600;700;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans SC', 'Inter', sans-serif;
+    width: 1080px;
+    margin: 0 auto;
+  }
+  .card {
+    width: 1080px;
+    height: 1920px;
+    background: linear-gradient(180deg, #0a0a12 0%, #1a1a2e 40%, #16213e 100%);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 80px 60px;
+    text-align: center;
+  }
+  /* Decorative circles */
+  .circle1 {
+    position: absolute;
+    top: 150px; left: -80px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(124,109,240,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .circle2 {
+    position: absolute;
+    bottom: 200px; right: -60px;
+    width: 250px; height: 250px;
+    background: radial-gradient(circle, rgba(232,132,92,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .circle3 {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(92,184,232,0.05) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+
+  .content {
+    position: relative;
+    z-index: 1;
+  }
+
+  .app-icon {
+    width: 120px; height: 120px;
+    background: linear-gradient(135deg, #7c6df0, #e8845c);
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 60px;
+    margin: 0 auto 40px;
+    box-shadow: 0 16px 48px rgba(124,109,240,0.4);
+  }
+
+  .app-name {
+    font-size: 28px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 40px;
+    letter-spacing: 4px;
+  }
+
+  h1 {
+    font-size: 72px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.15;
+    margin-bottom: 24px;
+    letter-spacing: -2px;
+  }
+  h1 .gradient {
+    background: linear-gradient(135deg, #7c6df0, #e8845c, #5ce8a0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .sub {
+    font-size: 28px;
+    color: rgba(255,255,255,0.5);
+    line-height: 1.6;
+    margin-bottom: 60px;
+  }
+
+  /* Big numbers */
+  .numbers {
+    display: flex;
+    justify-content: center;
+    gap: 48px;
+    margin-bottom: 60px;
+  }
+  .num-item {
+    text-align: center;
+  }
+  .num {
+    font-family: 'Inter', sans-serif;
+    font-size: 64px;
+    font-weight: 900;
+    color: #e8845c;
+    line-height: 1;
+  }
+  .num-label {
+    font-size: 20px;
+    color: rgba(255,255,255,0.4);
+    margin-top: 8px;
+  }
+
+  /* Feature pills */
+  .pills {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 60px;
+  }
+  .pill {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 30px;
+    padding: 12px 28px;
+    font-size: 20px;
+    color: rgba(255,255,255,0.7);
+    font-weight: 500;
+  }
+
+  /* CTA */
+  .cta {
+    background: linear-gradient(135deg, #7c6df0, #5b4ed0);
+    border-radius: 20px;
+    padding: 24px 48px;
+    display: inline-block;
+  }
+  .cta-text {
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .cta-url {
+    font-size: 16px;
+    color: rgba(255,255,255,0.6);
+    margin-top: 8px;
+  }
+
+  .bottom-tag {
+    position: absolute;
+    bottom: 60px;
+    font-size: 18px;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="circle1"></div>
+  <div class="circle2"></div>
+  <div class="circle3"></div>
+
+  <div class="content">
+    <div class="app-icon">🎨</div>
+    <div class="app-name">MINDNOTES PRO</div>
+
+    <h1>3个依赖<br><span class="gradient">1秒加载</span><br>白板新标杆</h1>
+
+    <p class="sub">不注册 · 不联网 · 不追踪<br>打开就能画</p>
+
+    <div class="numbers">
+      <div class="num-item">
+        <div class="num">&lt;3</div>
+        <div class="num-label">依赖</div>
+      </div>
+      <div class="num-item">
+        <div class="num">&lt;1s</div>
+        <div class="num-label">加载</div>
+      </div>
+      <div class="num-item">
+        <div class="num">0</div>
+        <div class="num-label">云端</div>
+      </div>
+    </div>
+
+    <div class="pills">
+      <span class="pill">✏️ 6种画笔</span>
+      <span class="pill">🔒 隐私安全</span>
+      <span class="pill">🎨 莫奈美学</span>
+      <span class="pill">📱 离线PWA</span>
+      <span class="pill">📄 PDF导出</span>
+      <span class="pill">🌙 深色模式</span>
+    </div>
+
+    <div class="cta">
+      <div class="cta-text">🔗 立即体验</div>
+      <div class="cta-url">11suixing11.github.io/mindnotes-pro</div>
+    </div>
+  </div>
+
+  <div class="bottom-tag">开源免费 · MIT协议 · github.com/11suixing11/mindnotes-pro</div>
+</div>
+</body>
+</html>

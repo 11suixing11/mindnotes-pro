@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1080, initial-scale=1.0">
+<title>MindNotes Pro - 即刻/微博风格</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;600;700;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans SC', 'Inter', sans-serif;
+    background: #fff;
+    width: 1080px;
+    margin: 0 auto;
+  }
+  .card {
+    width: 1080px;
+    background: #fff;
+    padding: 0;
+    position: relative;
+  }
+  /* Hero section */
+  .hero {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    padding: 64px 60px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -50px; right: -50px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(124,109,240,0.2) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; left: 20%;
+    width: 250px; height: 250px;
+    background: radial-gradient(circle, rgba(232,132,92,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .hero-content {
+    position: relative;
+    z-index: 1;
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(124,109,240,0.2);
+    color: #a99bfa;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 24px;
+  }
+  .hero h1 {
+    font-size: 52px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.2;
+    margin-bottom: 16px;
+    letter-spacing: -1px;
+  }
+  .hero p {
+    font-size: 20px;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.6;
+    max-width: 600px;
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: flex;
+    background: #fff;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .stat-item {
+    flex: 1;
+    padding: 32px 20px;
+    text-align: center;
+    border-right: 1px solid #f0f0f0;
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-num {
+    font-family: 'Inter', sans-serif;
+    font-size: 42px;
+    font-weight: 800;
+    color: #7c6df0;
+    line-height: 1;
+  }
+  .stat-unit {
+    font-size: 16px;
+    font-weight: 600;
+    color: #7c6df0;
+  }
+  .stat-desc {
+    font-size: 14px;
+    color: #999;
+    margin-top: 8px;
+  }
+
+  /* Features */
+  .features {
+    padding: 48px 60px;
+    background: #fafafa;
+  }
+  .features h2 {
+    font-size: 28px;
+    font-weight: 800;
+    color: #222;
+    margin-bottom: 32px;
+    text-align: center;
+  }
+  .feat-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .feat-item {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .feat-icon {
+    width: 48px; height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  .fi1 { background: #f0ecff; }
+  .fi2 { background: #fff0ec; }
+  .fi3 { background: #ecf8ff; }
+  .fi4 { background: #ecfff4; }
+  .feat-info h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #222;
+    margin-bottom: 4px;
+  }
+  .feat-info p {
+    font-size: 14px;
+    color: #888;
+    line-height: 1.5;
+  }
+
+  /* CTA */
+  .cta {
+    padding: 48px 60px;
+    text-align: center;
+    background: #fff;
+  }
+  .cta-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: #7c6df0;
+    color: #fff;
+    padding: 16px 36px;
+    border-radius: 14px;
+    font-size: 18px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 4px 16px rgba(124,109,240,0.3);
+  }
+  .cta-sub {
+    font-size: 14px;
+    color: #999;
+    margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="hero">
+    <div class="hero-content">
+      <div class="hero-badge">✨ 开源免费 · MIT协议</div>
+      <h1>3个依赖，1秒加载<br>白板应用新标杆</h1>
+      <p>不注册、不联网、不追踪。打开浏览器就能画，数据只存在你自己设备上。</p>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-item">
+      <div class="stat-num">&lt;3</div>
+      <div class="stat-desc">运行时依赖</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">&lt;1<span class="stat-unit">秒</span></div>
+      <div class="stat-desc">加载时间</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">&lt;200<span class="stat-unit">KB</span></div>
+      <div class="stat-desc">包大小</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">0<span class="stat-unit">KB</span></div>
+      <div class="stat-desc">服务器存储</div>
+    </div>
+  </div>
+
+  <div class="features">
+    <h2>功能亮点</h2>
+    <div class="feat-list">
+      <div class="feat-item">
+        <div class="feat-icon fi1">✏️</div>
+        <div class="feat-info">
+          <h3>6种画笔</h3>
+          <p>钢笔·铅笔·荧光笔·书法笔·发光笔·橡皮擦</p>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-icon fi2">🔒</div>
+        <div class="feat-info">
+          <h3>100% 隐私</h3>
+          <p>数据只在浏览器，永不上传云端</p>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-icon fi3">🎨</div>
+        <div class="feat-info">
+          <h3>莫奈美学</h3>
+          <p>水彩调色板·玻璃拟态·纸质纹理</p>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-icon fi4">📱</div>
+        <div class="feat-info">
+          <h3>PWA离线</h3>
+          <p>无需网络，飞机地铁都能画</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta">
+    <a class="cta-link" href="https://11suixing11.github.io/mindnotes-pro">
+      🔗 立即体验 MindNotes Pro
+    </a>
+    <p class="cta-sub">github.com/11suixing11/mindnotes-pro</p>
+  </div>
+</div>
+</body>
+</html>
