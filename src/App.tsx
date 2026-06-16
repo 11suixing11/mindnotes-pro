@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Canvas } from './components/canvas'
 import { Toolbar } from './components/toolbar'
 import { ToastContainer } from './components/toast'
@@ -26,6 +26,7 @@ const TOOL_LABELS: Record<string, string> = {
 
 export default function App() {
   const { initTheme } = useThemeStore()
+  const mainContentRef = useRef<HTMLDivElement>(null)
   const init = useAppStore((s) => s.init)
   const loaded = useAppStore((s) => s.loaded)
   const tool = useAppStore((s) => s.tool)
@@ -37,7 +38,11 @@ export default function App() {
   const saveStatus = useAppStore((s) => s.saveStatus)
   const zoom = useViewStore((s) => s.viewBox.zoom)
   const zoomToFit = useViewStore((s) => s.zoomToFit)
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  interface BeforeInstallPromptEvent extends Event {
+    prompt(): Promise<void>
+    userChoice: Promise<{ outcome: string }>
+  }
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
 
   useEffect(() => {
     initTheme()
@@ -76,11 +81,15 @@ export default function App() {
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault()
-      setDeferredPrompt(e)
+      setDeferredPrompt(e as BeforeInstallPromptEvent)
     }
+    const installedHandler = () => setDeferredPrompt(null)
     window.addEventListener('beforeinstallprompt', handler)
-    window.addEventListener('appinstalled', () => setDeferredPrompt(null))
-    return () => window.removeEventListener('beforeinstallprompt', handler)
+    window.addEventListener('appinstalled', installedHandler)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler)
+      window.removeEventListener('appinstalled', installedHandler)
+    }
   }, [])
 
   const handleShortcutsClose = useCallback(() => setShortcutsOpen(false), [])
@@ -90,135 +99,170 @@ export default function App() {
   }
 
   return (
-    <div
-      style={{
-        width: '100vw',
-        height: '100vh',
-        display: 'flex',
-        overflow: 'hidden',
-        background: bgColor,
-      }}
-    >
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        <Canvas />
-        <Toolbar />
-        <ToastContainer />
-        <ConfirmModal />
+    <>
+      {/* Skip-to-content link for screen readers */}
+      <a
+        href="#main-canvas"
+        className="skip-to-content"
+        onClick={(e) => {
+          e.preventDefault()
+          mainContentRef.current?.focus()
+          document.getElementById('main-canvas')?.focus()
+        }}
+      >
+        Skip to canvas
+      </a>
+      <div
+        style={{
+          width: '100vw',
+          height: '100vh',
+          display: 'flex',
+          overflow: 'hidden',
+          background: bgColor,
+        }}
+        role="application"
+        aria-label="MindNotes Pro - Whiteboard Application"
+      >
+        <div
+          ref={mainContentRef}
+          tabIndex={-1}
+          style={{ flex: 1, position: 'relative', overflow: 'hidden', outline: 'none' }}
+        >
+          <Canvas />
+          <Toolbar />
+          <ToastContainer />
+          <ConfirmModal />
 
-        <div className="status panel">
-          <span className="dot" />
-          <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
-            {TOOL_LABELS[tool] ?? tool}
-          </span>
-          <span className="vl" />
-          <span>{elements.length} elements</span>
-          <span className="vl" />
-          <span>{docs.length} docs</span>
-          <span className="vl" />
-          <span
-            style={{ cursor: 'pointer' }}
-            onClick={() => {
-              const bounds = getContentBounds(useAppStore.getState().elements)
-              if (bounds) zoomToFit(bounds)
-            }}
-          >
-            {Math.round(zoom * 100)}%
-          </span>
-          <span className="vl" />
-          <span
-            style={{
-              fontSize: '10px',
-              color: saveStatus === 'saving' ? 'var(--text-4)' : 'var(--success)',
-              transition: 'color 0.3s',
-            }}
-          >
-            {saveStatus === 'saving'
-              ? '\u00b7\u00b7\u00b7'
-              : saveStatus === 'saved'
-                ? '\u2713'
-                : ''}
-          </span>
-          <span className="vl" />
-          <button
-            onClick={() => setShortcutsOpen(true)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-4)',
-              cursor: 'pointer',
-              fontSize: '12px',
-              padding: '0 2px',
-              lineHeight: 1,
-              borderRadius: '4px',
-              transition: 'color 0.15s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--primary)')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-4)')}
-            title="Keyboard shortcuts (?)"
-            aria-label="Keyboard shortcuts"
-          >
-            ?
-          </button>
-        </div>
-
-        {hintsVisible && (
-          <div className="hints panel">
-            <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo \u00b7 <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
-            Copy/Paste \u00b7 <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all \u00b7 Scroll to zoom \u00b7{' '}
-            <kbd>Del</kbd> Delete
-          </div>
-        )}
-
-        <EmptyCanvasHint />
-        <FirstRunGuide />
-        <KeyboardShortcutsHelp open={shortcutsOpen} onClose={handleShortcutsClose} />
-
-        {deferredPrompt && (
-          <button
-            onClick={async () => {
-              ;(deferredPrompt as any).prompt()
-              await (deferredPrompt as any).userChoice
-              setDeferredPrompt(null)
-            }}
-            style={{
-              position: 'fixed',
-              bottom: 12,
-              right: 16,
-              zIndex: 100,
-              padding: '8px 14px',
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'var(--card-solid)',
-              backdropFilter: 'var(--glass)',
-              color: 'var(--text)',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: 'var(--shadow-md)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              animation: 'popIn 0.3s cubic-bezier(0.16,1,0.3,1)',
-            }}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          <div className="status panel" role="status" aria-label="Application status">
+            <span className="dot" aria-hidden="true" />
+            <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
+              {TOOL_LABELS[tool] ?? tool}
+            </span>
+            <span className="vl" aria-hidden="true" />
+            <span>{elements.length} elements</span>
+            <span className="vl" aria-hidden="true" />
+            <span>{docs.length} docs</span>
+            <span className="vl" aria-hidden="true" />
+            <span
+              style={{ cursor: 'pointer' }}
+              onClick={() => {
+                const bounds = getContentBounds(useAppStore.getState().elements)
+                if (bounds) zoomToFit(bounds)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  const bounds = getContentBounds(useAppStore.getState().elements)
+                  if (bounds) zoomToFit(bounds)
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Zoom ${Math.round(zoom * 100)} percent - Click to fit content`}
             >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Install
-          </button>
-        )}
+              {Math.round(zoom * 100)}%
+            </span>
+            <span className="vl" aria-hidden="true" />
+            <span
+              style={{
+                fontSize: '10px',
+                color: saveStatus === 'saving' ? 'var(--text-4)' : 'var(--success)',
+                transition: 'color 0.3s',
+              }}
+              aria-live="polite"
+              aria-label={
+                saveStatus === 'saving' ? 'Saving' : saveStatus === 'saved' ? 'Saved' : ''
+              }
+            >
+              {saveStatus === 'saving'
+                ? '\u00b7\u00b7\u00b7'
+                : saveStatus === 'saved'
+                  ? '\u2713'
+                  : ''}
+            </span>
+            <span className="vl" aria-hidden="true" />
+            <button
+              onClick={() => setShortcutsOpen(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-4)',
+                cursor: 'pointer',
+                fontSize: '12px',
+                padding: '0 2px',
+                lineHeight: 1,
+                borderRadius: '4px',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--primary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-4)')}
+              title="Keyboard shortcuts (?)"
+              aria-label="Keyboard shortcuts"
+            >
+              ?
+            </button>
+          </div>
+
+          {hintsVisible && (
+            <div className="hints panel">
+              <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo \u00b7 <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
+              Copy/Paste \u00b7 <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all \u00b7 Scroll to zoom \u00b7{' '}
+              <kbd>Del</kbd> Delete
+            </div>
+          )}
+
+          <EmptyCanvasHint />
+          <FirstRunGuide />
+          <KeyboardShortcutsHelp open={shortcutsOpen} onClose={handleShortcutsClose} />
+
+          {deferredPrompt && (
+            <button
+              onClick={async () => {
+                deferredPrompt.prompt()
+                await deferredPrompt.userChoice
+                setDeferredPrompt(null)
+              }}
+              style={{
+                position: 'fixed',
+                bottom: 12,
+                right: 16,
+                zIndex: 100,
+                padding: '8px 14px',
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background: 'var(--card-solid)',
+                backdropFilter: 'var(--glass)',
+                color: 'var(--text)',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: 'var(--shadow-md)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                animation: 'popIn 0.3s cubic-bezier(0.16,1,0.3,1)',
+              }}
+              aria-label="Install MindNotes Pro"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Install
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }

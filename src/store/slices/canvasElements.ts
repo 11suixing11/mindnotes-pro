@@ -27,7 +27,9 @@ export interface CanvasElementsActions {
 }
 
 export function createCanvasElementsSlice(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   set: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   get: any
 ): CanvasElementsState & CanvasElementsActions {
   return {
@@ -66,6 +68,7 @@ export function createCanvasElementsSlice(
     },
 
     updateElement: (id, update) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => ({
         elements: s.elements.map((el: CanvasElement) => (el.id === id ? update(el) : el)),
       }))
@@ -110,6 +113,7 @@ export function createCanvasElementsSlice(
     },
 
     moveElementById: (id, dx, dy) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => ({
         elements: s.elements.map((el: CanvasElement) =>
           el.id === id ? moveElement(el, dx, dy) : el
@@ -120,6 +124,7 @@ export function createCanvasElementsSlice(
 
     moveElementsById: (ids, dx, dy) => {
       const idSet = new Set(ids)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => ({
         elements: s.elements.map((el: CanvasElement) =>
           idSet.has(el.id) ? moveElement(el, dx, dy) : el
@@ -129,6 +134,7 @@ export function createCanvasElementsSlice(
     },
 
     resizeElementById: (id, ax, ay, sx, sy) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => ({
         elements: s.elements.map((el: CanvasElement) =>
           el.id === id ? resizeElement(el, ax, ay, sx, sy) : el

@@ -1,42 +1,8 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
+import type { ConfirmOptions } from './useConfirm'
+import { queue } from './useConfirm'
 
-interface ConfirmOptions {
-  message: string
-  confirmLabel?: string
-  cancelLabel?: string
-  danger?: boolean
-}
-
-type ConfirmFn = (message: string, options?: Partial<ConfirmOptions>) => Promise<boolean>
-
-interface QueueEntry {
-  resolve: (v: boolean) => void
-  options: ConfirmOptions
-}
-
-const queue: QueueEntry[] = []
-
-export function useConfirm(): ConfirmFn {
-  return useCallback((message: string, options?: Partial<ConfirmOptions>) => {
-    return new Promise<boolean>((resolve) => {
-      const entry: QueueEntry = {
-        resolve,
-        options: {
-          message,
-          confirmLabel: options?.confirmLabel,
-          cancelLabel: options?.cancelLabel,
-          danger: options?.danger,
-        },
-      }
-      queue.push(entry)
-      if (queue.length === 1) {
-        window.dispatchEvent(new CustomEvent('app-confirm', { detail: entry.options }))
-      }
-    })
-  }, [])
-}
-
-export default function ConfirmModal() {
+const ConfirmModal = memo(function ConfirmModal() {
   const [opts, setOpts] = useState<ConfirmOptions | null>(null)
 
   useEffect(() => {
@@ -80,4 +46,6 @@ export default function ConfirmModal() {
       </div>
     </div>
   )
-}
+})
+
+export default ConfirmModal

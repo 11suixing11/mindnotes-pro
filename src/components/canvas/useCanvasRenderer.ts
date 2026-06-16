@@ -211,7 +211,7 @@ export function useCanvasRenderer(
     })
     obs.observe(el)
     return () => obs.disconnect()
-  }, [])
+  }, [containerRef])
 
   useEffect(() => {
     redraw()

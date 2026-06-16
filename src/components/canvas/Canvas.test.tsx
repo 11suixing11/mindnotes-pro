@@ -82,12 +82,14 @@ describe('Canvas', () => {
     const { container } = render(<Canvas />)
     const div = container.querySelector('div')
     expect(div).not.toBeNull()
-    expect(div!.classList.contains('overflow-hidden')).toBe(true)
+    if (div) expect(div.classList.contains('overflow-hidden')).toBe(true)
   })
 
   it('should set canvas touch-action to none', () => {
     const { container } = render(<Canvas />)
-    const canvas = container.querySelector('canvas')!
+    const canvas = container.querySelector('canvas')
+    expect(canvas).not.toBeNull()
+    if (!canvas) return
     expect(canvas.classList.contains('touch-none')).toBe(true)
   })
 

@@ -13,8 +13,10 @@ export interface FolderManagementActions {
 }
 
 export function createFolderManagementSlice(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   set: any,
-  _get: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  get: any
 ): FolderManagementState & FolderManagementActions {
   return {
     // State
@@ -52,10 +54,11 @@ export function createFolderManagementSlice(
     },
 
     toggleFolder: async (id) => {
-      const folder = (_get() as any).folders.find((f: CanvasFolder) => f.id === id)
+      const folder = get().folders.find((f: CanvasFolder) => f.id === id)
       if (folder) {
         const updated = { ...folder, expanded: !folder.expanded }
         await storage.put('folders', updated)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         set((s: any) => ({
           folders: s.folders.map((f: CanvasFolder) => (f.id === id ? updated : f)),
         }))

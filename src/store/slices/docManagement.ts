@@ -21,7 +21,9 @@ export interface DocManagementActions {
 }
 
 export function createDocManagementSlice(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   set: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   get: any
 ): DocManagementState & DocManagementActions {
   return {

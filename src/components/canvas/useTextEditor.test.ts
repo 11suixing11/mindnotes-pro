@@ -26,15 +26,17 @@ describe('useTextEditor', () => {
       act(() => {
         result.current.startEditText(100, 200, 150, 250, '#333')
       })
-      expect(result.current.editingText).not.toBeNull()
-      expect(result.current.editingText!.x).toBe(100)
-      expect(result.current.editingText!.y).toBe(200)
-      expect(result.current.editingText!.screenX).toBe(150)
-      expect(result.current.editingText!.screenY).toBe(250)
-      expect(result.current.editingText!.color).toBe('#333')
-      expect(result.current.editingText!.content).toBe('')
-      expect(result.current.editingText!.fontSize).toBe(16)
-      expect(result.current.editingText!.id).toMatch(/^new-/)
+      const et = result.current.editingText
+      expect(et).not.toBeNull()
+      if (!et) return
+      expect(et.x).toBe(100)
+      expect(et.y).toBe(200)
+      expect(et.screenX).toBe(150)
+      expect(et.screenY).toBe(250)
+      expect(et.color).toBe('#333')
+      expect(et.content).toBe('')
+      expect(et.fontSize).toBe(16)
+      expect(et.id).toMatch(/^new-/)
     })
 
     it('should set editingText for existing text element', () => {
@@ -46,10 +48,12 @@ describe('useTextEditor', () => {
           fontSize: 20,
         })
       })
-      expect(result.current.editingText).not.toBeNull()
-      expect(result.current.editingText!.id).toBe('text-1')
-      expect(result.current.editingText!.content).toBe('hello')
-      expect(result.current.editingText!.fontSize).toBe(20)
+      const et2 = result.current.editingText
+      expect(et2).not.toBeNull()
+      if (!et2) return
+      expect(et2.id).toBe('text-1')
+      expect(et2.content).toBe('hello')
+      expect(et2.fontSize).toBe(20)
     })
   })
 

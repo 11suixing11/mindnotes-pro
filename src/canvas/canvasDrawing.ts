@@ -198,8 +198,8 @@ export function drawShapeEl(ctx: CanvasRenderingContext2D, el: ShapeElement) {
       ctx.lineTo(x, y + rx)
       ctx.quadraticCurveTo(x, y, x + rx, y)
       ctx.closePath()
-      if (hasFill) {
-        ctx.fillStyle = el.fillColor!
+      if (hasFill && el.fillColor) {
+        ctx.fillStyle = el.fillColor
         ctx.fill()
       }
       ctx.stroke()
@@ -208,8 +208,8 @@ export function drawShapeEl(ctx: CanvasRenderingContext2D, el: ShapeElement) {
     case 'circle':
       ctx.beginPath()
       ctx.ellipse(x + w / 2, y + h / 2, Math.abs(w) / 2, Math.abs(h) / 2, 0, 0, Math.PI * 2)
-      if (hasFill) {
-        ctx.fillStyle = el.fillColor!
+      if (hasFill && el.fillColor) {
+        ctx.fillStyle = el.fillColor
         ctx.fill()
       }
       ctx.stroke()

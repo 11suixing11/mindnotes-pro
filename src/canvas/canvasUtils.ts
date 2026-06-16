@@ -7,7 +7,8 @@ const imageLoading = new Set<string>()
 
 export function getImage(src: string): HTMLImageElement | null {
   if (imageCache.has(src)) {
-    const img = imageCache.get(src)!
+    const img = imageCache.get(src)
+    if (!img) return null
     imageCache.delete(src)
     imageCache.set(src, img)
     return img

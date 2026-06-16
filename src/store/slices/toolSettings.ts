@@ -24,7 +24,9 @@ export interface ToolSettingsActions {
 }
 
 export function createToolSettingsSlice(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   set: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   _get: any
 ): ToolSettingsState & ToolSettingsActions {
   return {
