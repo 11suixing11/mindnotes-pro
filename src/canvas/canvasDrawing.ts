@@ -509,14 +509,11 @@ export function drawMinimap(
   ctx.save()
   ctx.globalAlpha = 0.8
 
-  // Background
-  ctx.fillStyle = isDarkMode ? 'rgba(34,32,44,0.9)' : 'rgba(251,246,238,0.9)'
-  ctx.strokeStyle = isDarkMode ? 'rgba(160,150,180,0.2)' : 'rgba(155,142,127,0.2)'
-  ctx.lineWidth = 1
+  // Background - transparent container, no border
+  ctx.fillStyle = 'transparent'
   ctx.beginPath()
   ctx.roundRect(mmX - 2, mmY - 2, mmW + 4, mmH + 4, 8)
   ctx.fill()
-  ctx.stroke()
 
   if (elements.length === 0) {
     ctx.restore()
