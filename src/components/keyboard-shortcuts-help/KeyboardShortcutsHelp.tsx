@@ -24,6 +24,7 @@ const SHORTCUTS = [
   { keys: ['Shift', 'Click'], label: 'Multi-select' },
   { keys: ['DblClick'], label: 'Edit text' },
   { keys: ['?'], label: 'Toggle this panel' },
+  { keys: ['Ctrl', 'Shift', 'P'], label: 'Screen Pen (draw on screen)' },
 ]
 
 interface KeyboardShortcutsHelpProps {
