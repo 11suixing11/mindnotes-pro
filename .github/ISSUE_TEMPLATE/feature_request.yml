@@ -1,65 +1,64 @@
-name: Feature Request / ��������
-description: Suggest a new feature / ����һ���¹���
+name: Feature Request
+description: Suggest a new feature or improvement
 title: '[Feature] '
 labels: ['enhancement']
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for suggesting a feature! Please provide as much detail as possible.
-        ��л�㽨���¹��ܣ��뾡���ṩ��ϸ��Ϣ��
+        Thank you for suggesting a feature! Please describe your idea below.
 
   - type: textarea
     id: problem
     attributes:
-      label: Problem / ��������
-      description: What problem does this feature solve? / �������Ҫ���ʲô���⣿
-      placeholder: "I'm always frustrated when... / �Ҿ�������..."
+      label: Problem Statement
+      description: What problem does this feature solve?
+      placeholder: I'm always frustrated when...
     validations:
       required: true
 
   - type: textarea
     id: solution
     attributes:
-      label: Proposed Solution / ����Ľ������
-      description: How would you like it to work? / ��ϣ������ι�����
+      label: Proposed Solution
+      description: How would you like this to work?
     validations:
       required: true
 
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternatives Considered / ��ѡ����
-      description: Any alternative solutions you've considered / ���Ƿ��ǹ��������������
+      label: Alternatives Considered
+      description: Any alternative solutions you've considered?
     validations:
       required: false
 
   - type: dropdown
     id: priority
     attributes:
-      label: Priority / ���ȼ�
-      description: How important is this feature to you? / ������ܶ����ж���Ҫ��
+      label: Priority
+      description: How important is this feature to you?
       options:
-        - Nice to have / ��������
-        - Important / ��Ҫ
-        - Critical / �ؼ�
+        - Nice to have
+        - Important
+        - Critical for my workflow
     validations:
       required: true
 
   - type: textarea
     id: context
     attributes:
-      label: Additional Context / ������Ϣ
-      description: Any other context, screenshots, or examples / ����������Ϣ����ͼ��ʾ��
+      label: Additional Context
+      description: Any other context, screenshots, or examples
     validations:
       required: false
 
   - type: checkboxes
     id: terms
     attributes:
-      label: Checklist / ȷ���嵥
+      label: Checklist
       options:
-        - label: I have searched existing issues / ������������ Issue ȷ�����ظ�
+        - label: I have searched existing issues to ensure this is not a duplicate
           required: true
-        - label: I am willing to contribute this feature / ��Ը�����ʵ�ִ˹���
+        - label: I would be willing to contribute this feature
           required: false
