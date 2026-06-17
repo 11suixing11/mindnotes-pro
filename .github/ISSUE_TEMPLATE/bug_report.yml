@@ -1,5 +1,5 @@
-name: Bug Report / Bug ����
-description: Report a bug to help us improve / �ύ Bug ����������ǸĽ�
+name: Bug Report
+description: Report a bug to help us improve
 title: '[Bug] '
 labels: ['bug', 'triage']
 body:
@@ -7,21 +7,20 @@ body:
     attributes:
       value: |
         Thank you for reporting a bug! Please fill in the information below to help us locate the issue.
-        ��л���ύ Bug ���棡�뾡����д������Ϣ�԰������Ǹ��춨λ���⡣
 
   - type: textarea
     id: description
     attributes:
-      label: Description / ����
-      description: Clearly describe the issue / ������������������������
+      label: Description
+      description: Clearly describe the issue
     validations:
       required: true
 
   - type: textarea
     id: steps
     attributes:
-      label: Steps to Reproduce / ���ֲ���
-      description: List steps to reproduce / ���г����ִ�����Ĳ���
+      label: Steps to Reproduce
+      description: List steps to reproduce
       placeholder: |
         1. Open '...'
         2. Click on '...'
@@ -33,37 +32,37 @@ body:
   - type: textarea
     id: expected
     attributes:
-      label: Expected Behavior / ������Ϊ
-      description: What should happen / ��������������������Ϊ
+      label: Expected Behavior
+      description: What should happen
     validations:
       required: true
 
   - type: textarea
     id: actual
     attributes:
-      label: Actual Behavior / ʵ����Ϊ
-      description: What actually happened / ������ʵ�ʷ�����ʲô
+      label: Actual Behavior
+      description: What actually happened
     validations:
       required: true
 
   - type: dropdown
     id: severity
     attributes:
-      label: Severity / ���س̶�
-      description: How severely does this bug impact you? / �� Bug �����Ӱ��̶�
+      label: Severity
+      description: How severely does this bug impact you?
       options:
-        - Low - Minor inconvenience / �� - ��΢����
-        - Medium - Feature partially broken / �� - ���ܲ��ֲ�����
-        - High - Feature completely broken / �� - ������ȫ������
-        - Critical - Data loss or security issue / ���� - ���ݶ�ʧ��ȫ����
+        - Low - Minor inconvenience
+        - Medium - Feature partially broken
+        - High - Feature completely broken
+        - Critical - Data loss or security issue
     validations:
       required: true
 
   - type: input
     id: environment
     attributes:
-      label: Browser & OS / ����������ϵͳ
-      description: Provide browser and OS info / ���ṩ������Ͳ���ϵͳ��Ϣ
+      label: Browser & OS
+      description: Provide browser and OS info
       placeholder: 'Chrome 126 / Windows 11'
     validations:
       required: true
@@ -71,25 +70,25 @@ body:
   - type: input
     id: version
     attributes:
-      label: MindNotes Pro Version / �汾��
-      description: Version you are using / ��ʹ�õ� MindNotes Pro �汾��
-      placeholder: '3.1.0'
+      label: MindNotes Pro Version
+      description: Version you are using
+      placeholder: '3.2.0'
     validations:
       required: true
 
   - type: textarea
     id: screenshots
     attributes:
-      label: Screenshots / ��ͼ
-      description: Attach screenshots if they help / ���н�ͼ�ܰ���˵�����⣬�븽��
+      label: Screenshots
+      description: Attach screenshots if they help
     validations:
       required: false
 
   - type: textarea
     id: console
     attributes:
-      label: Console Errors / ����̨������Ϣ
-      description: Paste browser console errors here / ������������̨�д�����Ϣ����ճ���ڴ˴�
+      label: Console Errors
+      description: Paste browser console errors here
       render: shell
     validations:
       required: false
@@ -97,9 +96,9 @@ body:
   - type: checkboxes
     id: terms
     attributes:
-      label: Checklist / ȷ���嵥
+      label: Checklist
       options:
-        - label: I have searched existing issues / ������������ Issue ȷ�����ظ�
+        - label: I have searched existing issues to ensure this is not a duplicate
           required: true
-        - label: I can reproduce this issue consistently / �ҿ����ȶ����ִ�����
+        - label: I can reproduce this issue consistently
           required: false
