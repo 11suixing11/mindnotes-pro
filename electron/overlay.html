@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screen Pen - MindNotes Pro</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: transparent;
+      overflow: hidden;
+      cursor: crosshair;
+      user-select: none;
+    }
+
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .toolbar {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.85);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      z-index: 9999;
+    }
+
+    .toolbar-title {
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .tools {
+      display: flex;
+      gap: 4px;
+    }
+
+    .tool-btn {
+      flex: 1;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .tool-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .tool-btn.active {
+      background: #7c6df0;
+    }
+
+    .colors {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .color-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .color-btn:hover {
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .color-btn.active {
+      border-color: white;
+    }
+
+    .size-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .size-label {
+      color: white;
+      font-size: 12px;
+      min-width: 30px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .size-slider {
+      flex: 1;
+      height: 4px;
+      -webkit-appearance: none;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 2px;
+      outline: none;
+    }
+
+    .size-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: white;
+      cursor: pointer;
+    }
+
+    .actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .action-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .action-btn.danger {
+      background: rgba(255, 0, 0, 0.3);
+    }
+
+    .action-btn.danger:hover {
+      background: rgba(255, 0, 0, 0.5);
+    }
+
+    .close-btn {
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .shortcuts-hint {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 10px;
+      text-align: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div class="toolbar">
+    <div class="toolbar-title">Screen Pen</div>
+
+    <div class="tools">
+      <button class="tool-btn active" data-tool="pen" title="Pen (1)">✏️</button>
+      <button class="tool-btn" data-tool="highlighter" title="Highlighter (2)">🖍️</button>
+      <button class="tool-btn" data-tool="eraser" title="Eraser (3)">🧹</button>
+    </div>
+
+    <div class="colors">
+      <button class="color-btn active" data-color="#ff0000" style="background: #ff0000;" title="Red"></button>
+      <button class="color-btn" data-color="#00ff00" style="background: #00ff00;" title="Green"></button>
+      <button class="color-btn" data-color="#0000ff" style="background: #0000ff;" title="Blue"></button>
+      <button class="color-btn" data-color="#ffff00" style="background: #ffff00;" title="Yellow"></button>
+      <button class="color-btn" data-color="#ff00ff" style="background: #ff00ff;" title="Magenta"></button>
+      <button class="color-btn" data-color="#00ffff" style="background: #00ffff;" title="Cyan"></button>
+      <button class="color-btn" data-color="#ffffff" style="background: #ffffff;" title="White"></button>
+      <button class="color-btn" data-color="#000000" style="background: #000000; border: 1px solid #666;" title="Black"></button>
+    </div>
+
+    <div class="size-control">
+      <span class="size-label">Size:</span>
+      <input type="range" class="size-slider" min="1" max="20" value="3">
+      <span class="size-label" id="sizeValue">3</span>
+    </div>
+
+    <div class="actions">
+      <button class="action-btn" id="undoBtn">↩️ Undo</button>
+      <button class="action-btn danger" id="clearBtn">🗑️ Clear</button>
+    </div>
+
+    <button class="close-btn" id="closeBtn">❌ Close (Esc)</button>
+
+    <div class="shortcuts-hint">Ctrl+Shift+P to toggle</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    // 状态
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+    let currentColor = '#ff0000';
+    let currentSize = 3;
+    let currentTool = 'pen';
+    let strokes = [];
+    let currentStroke = [];
+
+    // 设置画布大小
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      redrawAll();
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // 重绘所有笔画
+    function redrawAll() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (const stroke of strokes) {
+        drawStroke(stroke);
+      }
+
+      if (currentStroke.length > 1) {
+        drawStroke({
+          points: currentStroke,
+          color: currentColor,
+          size: currentSize,
+          tool: currentTool,
+        });
+      }
+    }
+
+    // 绘制单个笔画
+    function drawStroke(stroke) {
+      if (stroke.points.length < 2) return;
+
+      ctx.save();
+      ctx.strokeStyle = stroke.color;
+      ctx.lineWidth = stroke.size;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      if (stroke.tool === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.strokeStyle = 'rgba(0,0,0,1)';
+      } else if (stroke.tool === 'highlighter') {
+        ctx.globalAlpha = 0.3;
+        ctx.lineWidth = stroke.size * 3;
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(stroke.points[0][0], stroke.points[0][1]);
+
+      for (let i = 1; i < stroke.points.length; i++) {
+        const p0 = stroke.points[i - 1];
+        const p1 = stroke.points[i];
+        const midX = (p0[0] + p1[0]) / 2;
+        const midY = (p0[1] + p1[1]) / 2;
+        ctx.quadraticCurveTo(p0[0], p0[1], midX, midY);
+      }
+
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // 鼠标事件
+    canvas.addEventListener('mousedown', (e) => {
+      isDrawing = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      currentStroke = [[lastX, lastY]];
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!isDrawing) return;
+      currentStroke.push([e.clientX, e.clientY]);
+      redrawAll();
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      if (!isDrawing) return;
+      isDrawing = false;
+
+      if (currentStroke.length > 1) {
+        strokes.push({
+          points: currentStroke,
+          color: currentColor,
+          size: currentSize,
+          tool: currentTool,
+        });
+      }
+      currentStroke = [];
+      redrawAll();
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      if (isDrawing) {
+        isDrawing = false;
+        if (currentStroke.length > 1) {
+          strokes.push({
+            points: currentStroke,
+            color: currentColor,
+            size: currentSize,
+            tool: currentTool,
+          });
+        }
+        currentStroke = [];
+        redrawAll();
+      }
+    });
+
+    // 工具切换
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelector('.tool-btn.active')?.classList.remove('active');
+        btn.classList.add('active');
+        currentTool = btn.dataset.tool;
+      });
+    });
+
+    // 颜色切换
+    document.querySelectorAll('.color-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelector('.color-btn.active')?.classList.remove('active');
+        btn.classList.add('active');
+        currentColor = btn.dataset.color;
+      });
+    });
+
+    // 大小调节
+    const sizeSlider = document.querySelector('.size-slider');
+    const sizeValue = document.getElementById('sizeValue');
+    sizeSlider.addEventListener('input', () => {
+      currentSize = parseInt(sizeSlider.value);
+      sizeValue.textContent = currentSize;
+    });
+
+    // 撤销
+    document.getElementById('undoBtn').addEventListener('click', () => {
+      strokes.pop();
+      redrawAll();
+    });
+
+    // 清除
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      strokes = [];
+      redrawAll();
+    });
+
+    // 关闭
+    document.getElementById('closeBtn').addEventListener('click', () => {
+      if (window.electronAPI) {
+        window.electronAPI.closeOverlay();
+      }
+    });
+
+    // 快捷键
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (window.electronAPI) {
+          window.electronAPI.closeOverlay();
+        }
+      }
+
+      if (e.ctrlKey && e.key === 'z') {
+        e.preventDefault();
+        strokes.pop();
+        redrawAll();
+      }
+
+      if (e.key === '1') {
+        document.querySelector('[data-tool="pen"]').click();
+      }
+      if (e.key === '2') {
+        document.querySelector('[data-tool="highlighter"]').click();
+      }
+      if (e.key === '3') {
+        document.querySelector('[data-tool="eraser"]').click();
+      }
+
+      if (e.key === '[') {
+        currentSize = Math.max(1, currentSize - 2);
+        sizeSlider.value = currentSize;
+        sizeValue.textContent = currentSize;
+      }
+      if (e.key === ']') {
+        currentSize = Math.min(20, currentSize + 2);
+        sizeSlider.value = currentSize;
+        sizeValue.textContent = currentSize;
+      }
+    });
+
+    // 接收来自主进程的消息
+    if (window.electronAPI) {
+      window.electronAPI.onClearCanvas(() => {
+        strokes = [];
+        redrawAll();
+      });
+
+      window.electronAPI.onSetPenColor((color) => {
+        currentColor = color;
+        document.querySelector('.color-btn.active')?.classList.remove('active');
+        document.querySelector(`[data-color="${color}"]`)?.classList.add('active');
+      });
+
+      window.electronAPI.onSetPenSize((size) => {
+        currentSize = size;
+        sizeSlider.value = size;
+        sizeValue.textContent = size;
+      });
+    }
+  </script>
+</body>
+</html>
