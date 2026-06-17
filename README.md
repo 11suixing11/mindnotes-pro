@@ -254,7 +254,27 @@ Open [http://localhost:3000](http://localhost:3000) — start drawing in 30 seco
 - 🔧 **Want to code?** → Check out [CONTRIBUTING.md](CONTRIBUTING.md) — it has everything you need to get started in 5 minutes
 - ⭐ **Like it?** → Star this repo — it genuinely helps others discover the project
 
-New to open source? Look for [`good first issue`](https://github.com/11suixing11/mindnotes-pro/labels/good%20first%20issue) labels — they're hand-picked for first-time contributors. 💚
+### Good First Issues 🌱
+
+New to open source? We have **18 issues** hand-picked for first-time contributors:
+
+| Issue                                                         | Description                                    | Difficulty |
+| ------------------------------------------------------------- | ---------------------------------------------- | ---------- |
+| [#38](https://github.com/11suixing11/mindnotes-pro/issues/38) | Add more brush types (calligraphy, watercolor) | Easy       |
+| [#39](https://github.com/11suixing11/mindnotes-pro/issues/39) | Add keyboard shortcut customization            | Easy       |
+| [#40](https://github.com/11suixing11/mindnotes-pro/issues/40) | Add template system for common diagrams        | Medium     |
+| [#41](https://github.com/11suixing11/mindnotes-pro/issues/41) | Add color picker with recent colors            | Easy       |
+| [#42](https://github.com/11suixing11/mindnotes-pro/issues/42) | Add undo/redo visual indicator                 | Easy       |
+| [#43](https://github.com/11suixing11/mindnotes-pro/issues/43) | Add document rename functionality              | Easy       |
+| [#44](https://github.com/11suixing11/mindnotes-pro/issues/44) | Add export to JPEG format                      | Easy       |
+| [#45](https://github.com/11suixing11/mindnotes-pro/issues/45) | Add grid snap option                           | Medium     |
+| [#46](https://github.com/11suixing11/mindnotes-pro/issues/46) | Add layer support                              | Medium     |
+| [#47](https://github.com/11suixing11/mindnotes-pro/issues/47) | Add text formatting options                    | Medium     |
+| [#48](https://github.com/11suixing11/mindnotes-pro/issues/48) | Add image resize handles                       | Easy       |
+| [#49](https://github.com/11suixing11/mindnotes-pro/issues/49) | Add document search functionality              | Easy       |
+| [#50](https://github.com/11suixing11/mindnotes-pro/issues/50) | Add canvas background options                  | Easy       |
+
+👉 **[Browse all Good First Issues](https://github.com/11suixing11/mindnotes-pro/labels/good%20first%20issue)**
 
 ---
 
