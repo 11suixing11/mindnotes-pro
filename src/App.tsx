@@ -11,6 +11,7 @@ import { FirstRunGuide } from './components/first-run-guide'
 import { KeyboardShortcutsHelp } from './components/keyboard-shortcuts-help'
 import { LoadingScreen } from './components/loading-screen'
 import { EmptyCanvasHint } from './components/empty-canvas-hint'
+import { useScreenPen, ScreenPenControls } from './components/screen-pen'
 
 const TOOL_LABELS: Record<string, string> = {
   select: 'Select',
@@ -38,6 +39,7 @@ export default function App() {
   const saveStatus = useAppStore((s) => s.saveStatus)
   const zoom = useViewStore((s) => s.viewBox.zoom)
   const zoomToFit = useViewStore((s) => s.zoomToFit)
+  const screenPen = useScreenPen()
   interface BeforeInstallPromptEvent extends Event {
     prompt(): Promise<void>
     userChoice: Promise<{ outcome: string }>
@@ -132,6 +134,7 @@ export default function App() {
           <Toolbar />
           <ToastContainer />
           <ConfirmModal />
+          <ScreenPenControls screenPen={screenPen} />
 
           <div className="status panel" role="status" aria-label="Application status">
             <span className="dot" aria-hidden="true" />
@@ -205,9 +208,9 @@ export default function App() {
 
           {hintsVisible && (
             <div className="hints panel">
-              <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo \u00b7 <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
-              Copy/Paste \u00b7 <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all \u00b7 Scroll to zoom \u00b7{' '}
-              <kbd>Del</kbd> Delete
+              <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
+              Copy/Paste · <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all · Scroll to zoom · <kbd>Del</kbd>{' '}
+              Delete · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> Screen Pen
             </div>
           )}
 
