@@ -111,7 +111,7 @@ export const useEraserStore = create<EraserState & EraserActions>()(
     },
     
     addErasePoint: (point: EraserPoint, elements: CanvasElement[]) => {
-      const { engine, eraserMode, performanceMonitor } = get()
+      const { engine, eraserMode, performanceMonitor, spatialIndex } = get()
       
       // 记录性能
       performanceMonitor.recordFrame()
@@ -122,7 +122,22 @@ export const useEraserStore = create<EraserState & EraserActions>()(
         return null
       }
       
-      const result = engine.addErasePoint(point, elements)
+      // 先用空间索引快速筛选候选元素（O(log n)）
+      const effectiveRadius = engine.computeEffectiveRadius(point.pressure)
+      const candidateIds = spatialIndex.search({
+        x: point.x - effectiveRadius,
+        y: point.y - effectiveRadius,
+        w: effectiveRadius * 2,
+        h: effectiveRadius * 2,
+      })
+      
+      // 根据ID筛选出候选元素，只对这些元素做精确计算
+      const elementMap = new Map(elements.map(el => [el.id, el]))
+      const candidates = candidateIds
+        .map(id => elementMap.get(id))
+        .filter((el): el is CanvasElement => el !== undefined)
+      
+      const result = engine.addErasePoint(point, candidates)
       
       set((state) => ({
         currentTrail: [...state.currentTrail, point],

@@ -67,8 +67,7 @@ export class PhysicsEraserEngine {
       if (el.type === 'stroke') {
         const erasure = this.computeStrokeErasure(
           el as StrokeElement,
-          point,
-          this.trail.slice(-5)
+          point
         )
         affectedIds.push(el.id)
 
@@ -126,8 +125,7 @@ export class PhysicsEraserEngine {
    */
   private computeStrokeErasure(
     stroke: StrokeElement,
-    erasePoint: EraserPoint,
-    recentTrail: EraserPoint[]
+    erasePoint: EraserPoint
   ): StrokeErasure {
     // 防御性检查：空笔触或单点笔触
     if (!stroke.points || stroke.points.length < 2) {
@@ -161,7 +159,7 @@ export class PhysicsEraserEngine {
 
       if (dist < effectiveRadius + stroke.size / 2) {
         // 计算相交点在笔触上的位置
-        const t = this.findIntersectionT(p1, p2, erasePoint, effectiveRadius)
+        const t = this.findIntersectionT(p1, p2, erasePoint)
         const strength = Math.max(
           0,
           Math.min(1, 1 - dist / (effectiveRadius + stroke.size / 2)) * eraseStrength
@@ -321,8 +319,7 @@ export class PhysicsEraserEngine {
   private findIntersectionT(
     p1: number[],
     p2: number[],
-    erasePoint: EraserPoint,
-    radius: number
+    erasePoint: EraserPoint
   ): number {
     const dx = p2[0] - p1[0]
     const dy = p2[1] - p1[1]
