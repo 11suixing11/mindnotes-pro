@@ -7,6 +7,8 @@ import type { StrokeElement } from '../../store/types'
 import type { CanvasElement, ShapeElement, TextElement, ShapeKind } from '../../store/types'
 import { simplifyPts, distToSeg, elementBounds } from '../../canvas/canvasUtils'
 import { drawElement } from '../../canvas/canvasDrawing'
+// 物理擦除引擎集成
+import { useEraserStore, type EraserPoint } from '../../eraser'
 
 export function usePointerEngine(opts: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>
@@ -105,6 +107,10 @@ export function usePointerEngine(opts: {
   const currentShapeRef = useRef<ShapeElement | null>(null)
   const erasedRef = useRef<Set<string>>(new Set())
   const preEraseSnapshotRef = useRef<CanvasElement[] | null>(null)
+  
+  // 物理擦除状态
+  const lastErasePointRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  const physicsErasingRef = useRef(false)
   const dragRef = useRef<{
     x: number
     y: number
@@ -227,7 +233,10 @@ export function usePointerEngine(opts: {
     [cachedBounds]
   )
 
-  const eraseAt = useCallback(
+  /**
+   * 传统擦除模式（兼容模式）
+   */
+  const eraseAtSimple = useCallback(
     (x: number, y: number) => {
       const r = sizeRef.current * 2 + 10,
         r2 = r * r
@@ -265,6 +274,85 @@ export function usePointerEngine(opts: {
       }
     },
     [removeElement, addElement, cachedBounds]
+  )
+
+  /**
+   * 物理擦除模式
+   * 支持压力感应、速度计算、笔触精确分割
+   */
+  const eraseAtPhysics = useCallback(
+    (x: number, y: number, pressure: number = 0.5) => {
+      const state = useAppStore.getState()
+      const eraserStore = useEraserStore.getState()
+      
+      // 计算速度
+      const now = performance.now()
+      let velocity = 0
+      let direction = 0
+      
+      if (lastErasePointRef.current) {
+        const dx = x - lastErasePointRef.current.x
+        const dy = y - lastErasePointRef.current.y
+        const dt = now - lastErasePointRef.current.time
+        velocity = dt > 0 ? Math.sqrt(dx * dx + dy * dy) / dt : 0
+        direction = Math.atan2(dy, dx)
+      }
+      lastErasePointRef.current = { x, y, time: now }
+
+      // 构建擦除点
+      const erasePoint: EraserPoint = {
+        x,
+        y,
+        pressure,
+        velocity: Math.min(velocity, 10),
+        direction,
+        timestamp: now,
+      }
+
+      // 设置橡皮擦大小
+      eraserStore.engine.setBaseSize(sizeRef.current)
+
+      // 执行物理擦除
+      const result = eraserStore.addErasePoint(erasePoint, state.elements)
+
+      if (result) {
+        // 应用擦除结果
+        for (const modified of result.modifiedStrokes) {
+          if (erasedRef.current.has(modified.id)) continue
+          
+          if (modified.action === 'delete') {
+            erasedRef.current.add(modified.id)
+            removeElement(modified.id)
+          } else if (modified.action === 'split' && modified.segments) {
+            erasedRef.current.add(modified.id)
+            removeElement(modified.id)
+            for (const seg of modified.segments) {
+              addElement(seg)
+            }
+          }
+        }
+      } else {
+        // 降级到简单模式
+        eraseAtSimple(x, y)
+      }
+    },
+    [removeElement, addElement, eraseAtSimple]
+  )
+
+  /**
+   * 统一擦除入口
+   * 自动选择物理/简单模式
+   */
+  const eraseAt = useCallback(
+    (x: number, y: number, pressure?: number) => {
+      const eraserStore = useEraserStore.getState()
+      if (eraserStore.shouldUsePhysics()) {
+        eraseAtPhysics(x, y, pressure)
+      } else {
+        eraseAtSimple(x, y)
+      }
+    },
+    [eraseAtPhysics, eraseAtSimple]
   )
 
   const handleStart = useCallback(
