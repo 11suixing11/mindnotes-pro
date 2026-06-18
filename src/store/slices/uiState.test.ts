@@ -15,8 +15,8 @@ describe('uiState slice', () => {
       } else {
         Object.assign(state, update)
       }
-    })
-    get = vi.fn(() => state)
+    }) as any
+    get = vi.fn(() => state) as any
     slice = createUISlice(set, get)
   })
 

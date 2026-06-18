@@ -44,8 +44,8 @@ describe('folderManagement slice', () => {
       } else {
         Object.assign(state, update)
       }
-    })
-    get = vi.fn(() => state)
+    }) as any
+    get = vi.fn(() => state) as any
     slice = createFolderManagementSlice(set, get)
   })
 

@@ -110,7 +110,6 @@ export function usePointerEngine(opts: {
   
   // 物理擦除状态
   const lastErasePointRef = useRef<{ x: number; y: number; time: number } | null>(null)
-  const physicsErasingRef = useRef(false)
   const dragRef = useRef<{
     x: number
     y: number
