@@ -352,6 +352,10 @@ export class PhysicsEraserEngine {
    * @returns 有效擦除半径（像素）
    */
   computeEffectiveRadius(pressure: number): number {
+    // 处理非法输入
+    if (!Number.isFinite(pressure)) {
+      pressure = 0.5
+    }
     const clampedPressure = clamp(pressure, 0, 1)
 
     // 压力影响：非线性，重压快速饱和
@@ -449,15 +453,22 @@ export class PhysicsEraserEngine {
    * @returns 擦除强度 0-1
    */
   computeEraseStrength(point: EraserPoint): number {
+    // 边界参数clamp
+    const pressure = clamp(point.pressure, 0, 1)
+    const velocity = Math.max(0, point.velocity)
+
     // 压力贡献: 非线性，重压快速饱和
     const pressureContrib =
-      Math.pow(point.pressure, STRENGTH_CONSTANTS.PRESSURE_EXPONENT) *
+      Math.pow(pressure, STRENGTH_CONSTANTS.PRESSURE_EXPONENT) *
       this.config.pressureSensitivity
 
     // 速度贡献: 高斯分布，最优速度约 2px/ms
-    const velocityDiff = point.velocity - STRENGTH_CONSTANTS.OPTIMAL_VELOCITY
-    const velocityContrib = Math.exp(
-      -Math.pow(velocityDiff, 2) / STRENGTH_CONSTANTS.VELOCITY_VARIANCE
+    const velocityDiff = velocity - STRENGTH_CONSTANTS.OPTIMAL_VELOCITY
+    const velocityContrib = Math.max(
+      0.05, // 确保最小强度，速度极快也不会完全失效
+      Math.exp(
+        -Math.pow(velocityDiff, 2) / STRENGTH_CONSTANTS.VELOCITY_VARIANCE
+      )
     )
 
     // 摩擦系数
@@ -468,9 +479,10 @@ export class PhysicsEraserEngine {
       STRENGTH_CONSTANTS.HARDNESS_BASE +
       this.config.hardness * STRENGTH_CONSTANTS.HARDNESS_MULTIPLIER
 
-    return Math.min(
-      STRENGTH_CONSTANTS.MAX_STRENGTH,
-      pressureContrib * velocityContrib * frictionContrib * hardnessContrib
+    return clamp(
+      pressureContrib * velocityContrib * frictionContrib * hardnessContrib,
+      0,
+      1
     )
   }
 
@@ -550,14 +562,19 @@ export class PhysicsEraserEngine {
    * 将元素转换为空间索引条目
    * 用于 RBush R树索引
    */
-  static toBoundsEntry(el: CanvasElement): BoundsEntry {
-    const b = elementBounds(el)
-    return {
-      minX: b.x,
-      minY: b.y,
-      maxX: b.x + b.w,
-      maxY: b.y + b.h,
-      id: el.id,
+  static toBoundsEntry(el: CanvasElement | null | undefined): BoundsEntry | null {
+    if (el == null) return null
+    try {
+      const b = elementBounds(el)
+      return {
+        minX: b.x,
+        minY: b.y,
+        maxX: b.x + b.w,
+        maxY: b.y + b.h,
+        id: el.id,
+      }
+    } catch {
+      return null
     }
   }
 
