@@ -277,10 +277,10 @@ export function usePointerEngine(opts: {
 
   /**
    * 物理擦除模式
-   * 支持压力感应、速度计算、笔触精确分割
+   * 支持压力感应、速度计算、笔触精确分割、压感笔倾斜
    */
   const eraseAtPhysics = useCallback(
-    (x: number, y: number, pressure: number = 0.5) => {
+    (x: number, y: number, pressure: number = 0.5, e?: MouseEvent | TouchEvent) => {
       const state = useAppStore.getState()
       const eraserStore = useEraserStore.getState()
       
@@ -306,6 +306,8 @@ export function usePointerEngine(opts: {
         velocity: Math.min(velocity, 10),
         direction,
         timestamp: now,
+        tiltX: e && 'tiltX' in e ? (e as PointerEvent).tiltX : undefined,
+        tiltY: e && 'tiltY' in e ? (e as PointerEvent).tiltY : undefined,
       }
 
       // 设置橡皮擦大小
@@ -343,10 +345,10 @@ export function usePointerEngine(opts: {
    * 自动选择物理/简单模式
    */
   const eraseAt = useCallback(
-    (x: number, y: number, pressure?: number) => {
+    (x: number, y: number, pressure?: number, e?: MouseEvent | TouchEvent) => {
       const eraserStore = useEraserStore.getState()
       if (eraserStore.shouldUsePhysics()) {
-        eraseAtPhysics(x, y, pressure)
+        eraseAtPhysics(x, y, pressure, e)
       } else {
         eraseAtSimple(x, y)
       }
@@ -449,7 +451,7 @@ export function usePointerEngine(opts: {
         preEraseSnapshotRef.current = useAppStore
           .getState()
           .elements.map((el) => ({ ...el }) as CanvasElement)
-        eraseAt(pos.x, pos.y)
+        eraseAt(pos.x, pos.y, undefined, e)
       } else {
         shapeStartRef.current = pos
         currentShapeRef.current = {
@@ -579,7 +581,7 @@ export function usePointerEngine(opts: {
         return
       }
       if (curTool === 'eraser') {
-        if (drawingRef.current) eraseAt(pos.x, pos.y)
+        if (drawingRef.current) eraseAt(pos.x, pos.y, undefined, e)
         scheduleRedraw()
         return
       }

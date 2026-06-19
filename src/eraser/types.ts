@@ -31,6 +31,8 @@ export interface EraserPoint {
   velocity: number      // 移动速度 px/ms
   direction: number     // 运动方向弧度
   timestamp: number
+  tiltX?: number        // 笔倾斜X角度 -90~90度 (Apple Pencil)
+  tiltY?: number        // 笔倾斜Y角度 -90~90度 (Apple Pencil)
 }
 
 export interface Bounds {
