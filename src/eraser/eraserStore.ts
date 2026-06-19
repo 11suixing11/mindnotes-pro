@@ -43,6 +43,10 @@ interface EraserActions {
   shouldUsePhysics: () => boolean
   getPerformanceLevel: () => 'high' | 'medium' | 'low'
   
+  // 磨损
+  getWearLevel: () => number
+  resetWear: () => void
+  
   // 重置
   reset: () => void
 }
@@ -167,6 +171,14 @@ export const useEraserStore = create<EraserState & EraserActions>()(
     
     getPerformanceLevel: () => {
       return get().performanceMonitor.getPerformanceLevel()
+    },
+    
+    getWearLevel: () => {
+      return get().engine.getWearLevel()
+    },
+    
+    resetWear: () => {
+      get().engine.resetWear()
     },
     
     reset: () => {
