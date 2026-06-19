@@ -1,18 +1,21 @@
 import { useShallow } from 'zustand/react/shallow'
 import { useEraserStore } from '../../eraser/eraserStore'
-import type { EraserShape } from '../../eraser/types'
+import type { EraserShape, EraserPresetType } from '../../eraser/types'
+import { ERASER_PRESET_LABELS, ERASER_PRESET_DESCRIPTIONS } from '../../eraser/types'
 
 const shapeLabels: Record<EraserShape, string> = {
-  circle: '● 圆形',
-  square: '■ 方形',
-  chisel: '◢ 凿形',
+  circle: '●',
+  square: '■',
+  chisel: '◢',
 }
 
 export default function EraserControls() {
-  const { eraserConfig, updateEraserConfig, getWearLevel, resetWear } = useEraserStore(
+  const { eraserConfig, eraserPreset, updateEraserConfig, setEraserPreset, getWearLevel, resetWear } = useEraserStore(
     useShallow((s) => ({
       eraserConfig: s.eraserConfig,
+      eraserPreset: s.eraserPreset,
       updateEraserConfig: s.updateEraserConfig,
+      setEraserPreset: s.setEraserPreset,
       getWearLevel: s.getWearLevel,
       resetWear: s.resetWear,
     }))
@@ -21,9 +24,14 @@ export default function EraserControls() {
   const wearLevel = getWearLevel()
   const currentShape = eraserConfig.shape ?? 'circle'
   const audioEnabled = eraserConfig.audioEnabled ?? true
+  const currentPreset = eraserPreset
 
   const handleShapeChange = (shape: EraserShape) => {
     updateEraserConfig({ shape })
+  }
+
+  const handlePresetChange = (preset: EraserPresetType) => {
+    setEraserPreset(preset)
   }
 
   const handleResetWear = () => {
@@ -44,17 +52,64 @@ export default function EraserControls() {
       background: 'var(--bg-1)',
       border: '1px solid var(--border)',
       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-      minWidth: '180px',
+      minWidth: '200px',
       zIndex: 100,
     }}>
       <div style={{ 
         fontSize: '12px', 
         fontWeight: 600, 
         color: 'var(--text-2)',
-        marginBottom: '8px',
+        marginBottom: '10px',
         letterSpacing: '0.5px',
       }}>
         橡皮擦设置
+      </div>
+
+      {/* 橡皮预设选择 */}
+      <div style={{ marginBottom: '12px' }}>
+        <div style={{ 
+          fontSize: '11px', 
+          color: 'var(--text-3)', 
+          marginBottom: '6px' 
+        }}>
+          橡皮类型
+        </div>
+        <div style={{ 
+          display: 'flex', 
+          gap: '4px',
+          flexDirection: 'column',
+        }}>
+          {(['2b', '4b', '6b'] as EraserPresetType[]).map((preset) => (
+            <button
+              key={preset}
+              onClick={() => handlePresetChange(preset)}
+              style={{
+                padding: '6px 10px',
+                fontSize: '11px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                background: currentPreset === preset ? 'var(--primary)' : 'var(--bg-2)',
+                color: currentPreset === preset ? 'white' : 'var(--text-2)',
+                fontWeight: currentPreset === preset ? 600 : 400,
+                textAlign: 'left',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <span>{ERASER_PRESET_LABELS[preset]}</span>
+              <span style={{ 
+                fontSize: '10px', 
+                opacity: 0.7,
+                fontWeight: 400,
+              }}>
+                {ERASER_PRESET_DESCRIPTIONS[preset]}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 形状选择 */}
@@ -69,15 +124,15 @@ export default function EraserControls() {
         <div style={{ 
           display: 'flex', 
           gap: '4px',
-          flexWrap: 'wrap',
         }}>
           {(['circle', 'square', 'chisel'] as EraserShape[]).map((shape) => (
             <button
               key={shape}
               onClick={() => handleShapeChange(shape)}
               style={{
-                padding: '6px 10px',
-                fontSize: '11px',
+                flex: 1,
+                padding: '6px 8px',
+                fontSize: '14px',
                 borderRadius: '6px',
                 border: 'none',
                 cursor: 'pointer',

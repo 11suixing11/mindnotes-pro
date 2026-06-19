@@ -255,7 +255,9 @@ export class PhysicsEraserEngine {
     const hardnessFactor = 1 - this.config.hardness * 0.3
     // 磨损影响：磨损越大，半径越大（最多增加50%）
     const wearFactor = 1 + this.wearLevel * 0.5
-    return Math.max(1, this.baseSize * pressureFactor * hardnessFactor * wearFactor)
+    // 使用配置中的 baseRadius，兼容旧代码
+    const baseRadius = this.config.baseRadius ?? this.baseSize
+    return Math.max(1, baseRadius * pressureFactor * hardnessFactor * wearFactor)
   }
 
   /**

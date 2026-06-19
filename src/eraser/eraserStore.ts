@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { EraserMode, EraserConfig, EraserPoint, EraseResult } from './types'
-import { DEFAULT_ERASER_CONFIG, HARD_ERASER_CONFIG, SOFT_ERASER_CONFIG } from './types'
+import type { EraserMode, EraserConfig, EraserPoint, EraseResult, EraserPresetType } from './types'
+import { DEFAULT_ERASER_CONFIG, ERASER_PRESET_CONFIGS } from './types'
 import { PhysicsEraserEngine } from './PhysicsEraserEngine'
 import { SpatialIndex, PerformanceMonitor } from './SpatialIndex'
 import type { CanvasElement } from '../store/types'
@@ -9,7 +9,7 @@ interface EraserState {
   // 模式配置
   eraserMode: EraserMode
   eraserConfig: EraserConfig
-  eraserPreset: 'default' | 'hard' | 'soft'
+  eraserPreset: EraserPresetType
   
   // 运行时状态
   isErasing: boolean
@@ -28,7 +28,7 @@ interface EraserState {
 interface EraserActions {
   // 模式切换
   setEraserMode: (mode: EraserMode) => void
-  setEraserPreset: (preset: 'default' | 'hard' | 'soft') => void
+  setEraserPreset: (preset: EraserPresetType) => void
   updateEraserConfig: (config: Partial<EraserConfig>) => void
   
   // 擦除流程
@@ -61,7 +61,7 @@ export const useEraserStore = create<EraserState & EraserActions>()(
     // ===== 状态 =====
     eraserMode: 'physics',
     eraserConfig: { ...DEFAULT_ERASER_CONFIG },
-    eraserPreset: 'default',
+    eraserPreset: '4b',
     
     isErasing: false,
     currentTrail: [],
@@ -79,17 +79,13 @@ export const useEraserStore = create<EraserState & EraserActions>()(
       set({ eraserMode: mode })
     },
     
-    setEraserPreset: (preset: 'default' | 'hard' | 'soft') => {
-      const configMap = {
-        default: DEFAULT_ERASER_CONFIG,
-        hard: HARD_ERASER_CONFIG,
-        soft: SOFT_ERASER_CONFIG,
-      }
+    setEraserPreset: (preset: EraserPresetType) => {
+      const config = ERASER_PRESET_CONFIGS[preset]
       set({
         eraserPreset: preset,
-        eraserConfig: { ...configMap[preset] },
+        eraserConfig: { ...config },
       })
-      get().engine.updateConfig(configMap[preset])
+      get().engine.updateConfig(config)
     },
     
     updateEraserConfig: (config: Partial<EraserConfig>) => {
