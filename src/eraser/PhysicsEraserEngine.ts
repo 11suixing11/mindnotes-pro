@@ -62,6 +62,20 @@ const STRENGTH_CONSTANTS = {
 const CHISEL_CONSTANTS = {
   /** 凿形高度占宽度的比例 */
   HEIGHT_RATIO: 0.4,
+  /** 倾斜时的最大宽度放大倍数 */
+  TILT_MAX_WIDTH_MULTIPLIER: 3.0,
+  /** 完全倾斜的角度阈值（度） */
+  FULL_TILT_ANGLE: 60,
+} as const
+
+/** 压感笔倾斜计算常量 */
+const TILT_CONSTANTS = {
+  /** 垂直角度（90度） */
+  VERTICAL_ANGLE: 90,
+  /** 角度转弧度系数 */
+  DEG_TO_RAD: Math.PI / 180,
+  /** 最小倾斜角度（低于此视为垂直） */
+  MIN_TILT_THRESHOLD: 5,
 } as const
 
 /** 笔触分割常量 */
@@ -383,12 +397,81 @@ export class PhysicsEraserEngine {
   /**
    * 获取凿形橡皮擦的尺寸（宽、高）
    * 凿形是扁长的，模拟真实美术橡皮的形状
+   * 支持压感笔倾斜：倾斜越大，宽度越宽（侧擦效果）
    */
-  getChiselDimensions(pressure: number): { width: number; height: number } {
+  getChiselDimensions(
+    pressure: number,
+    tiltX?: number,
+    tiltY?: number
+  ): { width: number; height: number; rotation: number } {
     const effectiveSize = this.computeEffectiveRadius(pressure) * 2
+
+    // 计算倾斜角度和方向
+    const { tiltMagnitude, tiltDirection } = this.computeTiltAngle(tiltX, tiltY)
+
+    // 根据倾斜角度计算宽度放大倍数
+    // 垂直时（tiltMagnitude=0）：1倍宽度
+    // 完全倾斜时（tiltMagnitude=1）：最大3倍宽度
+    const tiltWidthMultiplier =
+      1 + tiltMagnitude * (CHISEL_CONSTANTS.TILT_MAX_WIDTH_MULTIPLIER - 1)
+
+    const baseWidth = effectiveSize * tiltWidthMultiplier
+    const baseHeight = effectiveSize * CHISEL_CONSTANTS.HEIGHT_RATIO
+
+    // 结合倾斜方向和配置的旋转角度
+    const finalRotation = this.config.rotation + tiltDirection
+
     return {
-      width: effectiveSize,
-      height: effectiveSize * CHISEL_CONSTANTS.HEIGHT_RATIO,
+      width: baseWidth,
+      height: baseHeight,
+      rotation: finalRotation,
+    }
+  }
+
+  /**
+   * 计算压感笔的倾斜程度和方向
+   * 
+   * @param tiltX PointerEvent.tiltX (-90~90度)
+   * @param tiltY PointerEvent.tiltY (-90~90度)
+   * @returns tiltMagnitude 0-1（0=垂直，1=完全倾斜）
+   *          tiltDirection 倾斜方向（弧度）
+   */
+  computeTiltAngle(
+    tiltX?: number,
+    tiltY?: number
+  ): { tiltMagnitude: number; tiltDirection: number } {
+    // 不支持倾斜的设备，返回默认值
+    if (tiltX == null || tiltY == null) {
+      return { tiltMagnitude: 0, tiltDirection: 0 }
+    }
+
+    // 计算倾斜幅度（与垂直方向的夹角）
+    const tiltXRad = tiltX * TILT_CONSTANTS.DEG_TO_RAD
+    const tiltYRad = tiltY * TILT_CONSTANTS.DEG_TO_RAD
+
+    // 计算总倾斜角度（球面几何）
+    const tiltMagnitudeRad = Math.sqrt(tiltXRad * tiltXRad + tiltYRad * tiltYRad)
+    const tiltMagnitudeDeg = tiltMagnitudeRad / TILT_CONSTANTS.DEG_TO_RAD
+
+    // 归一化到 0-1
+    // 小于阈值视为垂直
+    if (tiltMagnitudeDeg < TILT_CONSTANTS.MIN_TILT_THRESHOLD) {
+      return { tiltMagnitude: 0, tiltDirection: 0 }
+    }
+
+    // 映射到 0-1 范围
+    const normalizedMagnitude = clamp(
+      tiltMagnitudeDeg / CHISEL_CONSTANTS.FULL_TILT_ANGLE,
+      0,
+      1
+    )
+
+    // 计算倾斜方向
+    const tiltDirection = Math.atan2(tiltYRad, tiltXRad)
+
+    return {
+      tiltMagnitude: normalizedMagnitude,
+      tiltDirection,
     }
   }
 
@@ -425,13 +508,16 @@ export class PhysicsEraserEngine {
       }
 
       case 'chisel': {
-        const dims = this.getChiselDimensions(erasePoint.pressure)
+        const dims = this.getChiselDimensions(
+          erasePoint.pressure,
+          erasePoint.tiltX,
+          erasePoint.tiltY
+        )
         const halfW = dims.width / 2
         const halfH = dims.height / 2
-        // 结合配置旋转和运动方向影响
+        // 结合配置旋转、运动方向和笔倾斜方向
         const totalRotation =
-          this.config.rotation +
-          erasePoint.direction * this.config.directionInfluence
+          dims.rotation + erasePoint.direction * this.config.directionInfluence
         return this.transformAndDistanceToRect(dx, dy, totalRotation, halfW, halfH)
       }
 
