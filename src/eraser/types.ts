@@ -16,6 +16,9 @@ export interface EraserConfig {
   pressureSensitivity: number  // 压感灵敏度 0-1
   directionInfluence: number   // 方向影响 0-1
   overlapMode: 'topmost' | 'all' | 'layered'
+  
+  // 音效
+  audioEnabled: boolean  // 音效开关
 }
 
 export interface EraserPoint {
@@ -77,6 +80,7 @@ export const DEFAULT_ERASER_CONFIG: EraserConfig = {
   pressureSensitivity: 0.8,
   directionInfluence: 0.3,
   overlapMode: 'layered',
+  audioEnabled: true,
 }
 
 // 硬橡皮配置 - 擦得干净
