@@ -302,4 +302,118 @@ describe('PhysicsEraserEngine', () => {
       expect(result.affectedElementIds).toContain(stroke.id)
     })
   })
+
+  describe('橡皮擦形状支持', () => {
+    it('圆形橡皮擦：中心点距离为0', () => {
+      const point: EraserPoint = {
+        x: 100, y: 100, pressure: 0.5, velocity: 2,
+        direction: 0, timestamp: Date.now(),
+      }
+      const dist = engine.pointToEraserDistance(point, 100, 100)
+      expect(dist).toBe(0)
+    })
+
+    it('圆形橡皮擦：边缘点距离正确', () => {
+      const engine = new PhysicsEraserEngine({ shape: 'circle' })
+      engine.setBaseSize(10)
+      const point: EraserPoint = {
+        x: 100, y: 100, pressure: 1, velocity: 2,
+        direction: 0, timestamp: Date.now(),
+      }
+      const radius = engine.computeEffectiveRadius(1)
+      const dist = engine.pointToEraserDistance(point, 100 + radius, 100)
+      expect(dist).toBeCloseTo(radius, 5)
+    })
+
+    it('凿形橡皮擦尺寸：宽度大于高度', () => {
+      const engine = new PhysicsEraserEngine({ shape: 'chisel' })
+      engine.setBaseSize(10)
+      const dims = engine.getChiselDimensions(1)
+      expect(dims.width).toBeGreaterThan(dims.height)
+      expect(dims.height).toBeCloseTo(dims.width * 0.4, 5)
+    })
+
+    it('凿形橡皮擦：中心点在内部', () => {
+      const engine = new PhysicsEraserEngine({ shape: 'chisel', rotation: 0 })
+      engine.setBaseSize(10)
+      const point: EraserPoint = {
+        x: 100, y: 100, pressure: 1, velocity: 2,
+        direction: 0, timestamp: Date.now(),
+      }
+      const dist = engine.pointToEraserDistance(point, 100, 100)
+      // 内部点距离为负数
+      expect(dist).toBeLessThan(0)
+    })
+
+    it('凿形橡皮擦：宽边方向更容易命中', () => {
+      const engine = new PhysicsEraserEngine({ shape: 'chisel', rotation: 0 })
+      engine.setBaseSize(10)
+      const point: EraserPoint = {
+        x: 100, y: 100, pressure: 1, velocity: 2,
+        direction: 0, timestamp: Date.now(),
+      }
+      const dims = engine.getChiselDimensions(1)
+
+      // 水平方向（宽边）：在宽度边缘应该在内部
+      const distH = engine.pointToEraserDistance(point, 100 + dims.width / 2 - 1, 100)
+      expect(distH).toBeLessThan(0)
+
+      // 垂直方向（窄边）：在高度边缘应该在外部
+      const distV = engine.pointToEraserDistance(point, 100, 100 + dims.height / 2 + 1)
+      expect(distV).toBeGreaterThan(0)
+    })
+
+    it('方形橡皮擦：旋转后距离计算正确', () => {
+      const engine = new PhysicsEraserEngine({ shape: 'square', rotation: Math.PI / 4 })
+      engine.setBaseSize(10)
+      const point: EraserPoint = {
+        x: 100, y: 100, pressure: 1, velocity: 2,
+        direction: 0, timestamp: Date.now(),
+      }
+      // 旋转45度后，对角线方向的点应该在内部
+      const size = engine.computeEffectiveRadius(1)
+      const dist = engine.pointToEraserDistance(
+        point,
+        100 + size * 0.5,
+        100 + size * 0.5
+      )
+      expect(dist).toBeLessThan(0)
+    })
+
+    it('凿形橡皮擦：运动方向影响旋转', () => {
+      const engine = new PhysicsEraserEngine({
+        shape: 'chisel',
+        rotation: 0,
+        directionInfluence: 1,
+      })
+      engine.setBaseSize(20) // 大一点更容易测试
+
+      const pointH: EraserPoint = {
+        x: 100, y: 100, pressure: 1, velocity: 2,
+        direction: 0, timestamp: Date.now(), // 水平向右
+      }
+      const pointV: EraserPoint = {
+        x: 100, y: 100, pressure: 1, velocity: 2,
+        direction: Math.PI / 2, timestamp: Date.now(), // 垂直向下
+      }
+
+      const dims = engine.getChiselDimensions(1)
+      const halfW = dims.width / 2
+      const halfH = dims.height / 2
+
+      // 水平运动时：长边水平，水平方向点在内部，垂直方向点在外部
+      const distH_horizontal = engine.pointToEraserDistance(pointH, 100 + halfW * 0.5, 100)
+      const distH_vertical = engine.pointToEraserDistance(pointH, 100, 100 + halfH * 1.5)
+
+      expect(distH_horizontal).toBeLessThan(0) // 内部
+      expect(distH_vertical).toBeGreaterThan(0) // 外部
+
+      // 垂直运动时：长边垂直，垂直方向点在内部，水平方向点在外部
+      const distV_vertical = engine.pointToEraserDistance(pointV, 100, 100 + halfW * 0.5)
+      const distV_horizontal = engine.pointToEraserDistance(pointV, 100 + halfH * 1.5, 100)
+
+      expect(distV_vertical).toBeLessThan(0) // 内部
+      expect(distV_horizontal).toBeGreaterThan(0) // 外部
+    })
+  })
 })

@@ -9,7 +9,7 @@ import type {
   BoundsEntry,
 } from './types'
 import { DEFAULT_ERASER_CONFIG } from './types'
-import { elementBounds, distToSeg } from '../canvas/canvasUtils'
+import { elementBounds } from '../canvas/canvasUtils'
 
 /**
  * 物理擦除引擎核心类
@@ -148,26 +148,41 @@ export class PhysicsEraserEngine {
       const p1 = stroke.points[i - 1]
       const p2 = stroke.points[i]
 
-      const dist = distToSeg(
-        erasePoint.x,
-        erasePoint.y,
-        p1[0],
-        p1[1],
-        p2[0],
-        p2[1]
+      // 找到线段上离擦除点最近的点
+      const t = this.findIntersectionT(p1, p2, erasePoint)
+      const closestX = p1[0] + (p2[0] - p1[0]) * t
+      const closestY = p1[1] + (p2[1] - p1[1]) * t
+
+      // 根据橡皮擦形状计算距离
+      const dist = this.pointToEraserDistance(
+        erasePoint,
+        closestX,
+        closestY
       )
 
-      if (dist < effectiveRadius + stroke.size / 2) {
-        // 计算相交点在笔触上的位置
-        const t = this.findIntersectionT(p1, p2, erasePoint)
+      // 有效距离阈值（考虑笔触粗细）
+      const effectiveDist = dist - stroke.size / 2
+
+      if (effectiveDist < 0) {
+        // 在橡皮擦内部：强度根据深度计算
+        const depthFactor = Math.min(1, -effectiveDist / (effectiveRadius * 0.5))
+        const strength = Math.max(0, Math.min(1, depthFactor * eraseStrength))
+
+        intersections.push({
+          t: (i - 1 + t) / stroke.points.length,
+          point: [closestX, closestY],
+          strength,
+        })
+      } else if (dist < effectiveRadius + stroke.size / 2) {
+        // 在边缘区域：渐变衰减
         const strength = Math.max(
           0,
-          Math.min(1, 1 - dist / (effectiveRadius + stroke.size / 2)) * eraseStrength
+          Math.min(1, 1 - effectiveDist / effectiveRadius) * eraseStrength
         )
 
         intersections.push({
           t: (i - 1 + t) / stroke.points.length,
-          point: [erasePoint.x, erasePoint.y],
+          point: [closestX, closestY],
           strength,
         })
       }
@@ -194,9 +209,87 @@ export class PhysicsEraserEngine {
    * 硬度越高，擦除范围越小（硬橡皮更精确）
    */
   computeEffectiveRadius(pressure: number): number {
-    const pressureFactor = 0.4 + pressure * 0.6 * this.config.pressureSensitivity
+    const clampedPressure = Math.max(0, Math.min(1, pressure))
+    const pressureFactor = 0.4 + clampedPressure * 0.6 * this.config.pressureSensitivity
     const hardnessFactor = 1 - this.config.hardness * 0.3
-    return this.baseSize * pressureFactor * hardnessFactor
+    return Math.max(1, this.baseSize * pressureFactor * hardnessFactor)
+  }
+
+  /**
+   * 获取凿形橡皮擦的尺寸（宽、高）
+   * 凿形是扁长的，宽度约等于圆形直径，高度约为宽度的40%
+   */
+  getChiselDimensions(pressure: number): { width: number; height: number } {
+    const effectiveSize = this.computeEffectiveRadius(pressure) * 2
+    return {
+      width: effectiveSize,
+      height: effectiveSize * 0.4,
+    }
+  }
+
+  /**
+   * 计算点到橡皮擦的距离
+   * 根据橡皮擦形状选择不同的距离计算方法
+   */
+  pointToEraserDistance(
+    erasePoint: EraserPoint,
+    x: number,
+    y: number
+  ): number {
+    const dx = x - erasePoint.x
+    const dy = y - erasePoint.y
+
+    switch (this.config.shape) {
+      case 'circle':
+        return Math.sqrt(dx * dx + dy * dy)
+
+      case 'square': {
+        const halfSize = this.computeEffectiveRadius(erasePoint.pressure)
+        const rot = this.config.rotation
+        const cos = Math.cos(-rot)
+        const sin = Math.sin(-rot)
+        const localX = dx * cos - dy * sin
+        const localY = dx * sin + dy * cos
+        return this.pointToRectDistance(localX, localY, halfSize, halfSize)
+      }
+
+      case 'chisel': {
+        const dims = this.getChiselDimensions(erasePoint.pressure)
+        const halfW = dims.width / 2
+        const halfH = dims.height / 2
+        // 结合配置旋转和运动方向
+        const rot = this.config.rotation + erasePoint.direction * this.config.directionInfluence
+        const cos = Math.cos(-rot)
+        const sin = Math.sin(-rot)
+        const localX = dx * cos - dy * sin
+        const localY = dx * sin + dy * cos
+        return this.pointToRectDistance(localX, localY, halfW, halfH)
+      }
+
+      default:
+        return Math.sqrt(dx * dx + dy * dy)
+    }
+  }
+
+  /**
+   * 计算点到轴对齐矩形的距离
+   * 点在矩形内返回负数，在外部返回正数
+   */
+  private pointToRectDistance(
+    px: number,
+    py: number,
+    halfW: number,
+    halfH: number
+  ): number {
+    const dx = Math.max(0, Math.abs(px) - halfW)
+    const dy = Math.max(0, Math.abs(py) - halfH)
+    // 在矩形内部时返回负距离（用于强度计算）
+    if (dx === 0 && dy === 0) {
+      // 内部：距离边缘的最近距离（负值）
+      const distToEdge = Math.min(halfW - Math.abs(px), halfH - Math.abs(py))
+      return -distToEdge
+    }
+    return Math.sqrt(dx * dx + dy * dy)
   }
 
   /**
