@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Canvas } from './components/canvas'
 import { Toolbar } from './components/toolbar'
+import { useEraserKeyboardShortcuts } from './eraser/useEraserKeyboardShortcuts'
 import { ToastContainer } from './components/toast'
 import { ConfirmModal } from './components/confirm-modal'
 import { useAppStore } from './store/appStore'
@@ -41,6 +42,9 @@ export default function App() {
   const zoom = useViewStore((s) => s.viewBox.zoom)
   const zoomToFit = useViewStore((s) => s.zoomToFit)
   const screenPen = useScreenPen()
+
+  // 橡皮擦键盘快捷键
+  useEraserKeyboardShortcuts()
   interface BeforeInstallPromptEvent extends Event {
     prompt(): Promise<void>
     userChoice: Promise<{ outcome: string }>

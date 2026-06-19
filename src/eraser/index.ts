@@ -42,6 +42,9 @@ export {
   ERASER_PRESET_DESCRIPTIONS,
 } from './types'
 
+// 键盘快捷键
+export { useEraserKeyboardShortcuts, ERASER_SHORTCUTS_INFO } from './useEraserKeyboardShortcuts'
+
 // 核心引擎
 export { PhysicsEraserEngine } from './PhysicsEraserEngine'
 
