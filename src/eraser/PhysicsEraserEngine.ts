@@ -11,6 +11,7 @@ import type {
 import { DEFAULT_ERASER_CONFIG } from './types'
 import { elementBounds } from '../canvas/canvasUtils'
 import { EraserAudioEngine } from './EraserAudioEngine'
+import { globalDirtyRectManager } from './performanceOptimizer'
 
 /**
  * 物理擦除引擎核心类
@@ -76,6 +77,14 @@ export class PhysicsEraserEngine {
 
     // 1. 计算当前擦除区域边界
     const eraseBounds = this.getEraseBounds(point)
+    
+    // 性能优化：标记脏区域，只重绘被擦除的区域
+    globalDirtyRectManager.addDirtyRect({
+      x: eraseBounds.x,
+      y: eraseBounds.y,
+      width: eraseBounds.w,
+      height: eraseBounds.h,
+    })
 
     // 2. 筛选候选元素 (简单空间过滤)
     const candidates = elements.filter((el) =>
