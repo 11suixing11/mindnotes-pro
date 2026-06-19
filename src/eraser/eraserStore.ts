@@ -1,9 +1,15 @@
 import { create } from 'zustand'
 import type { EraserMode, EraserConfig, EraserPoint, EraseResult, EraserPresetType } from './types'
-import { DEFAULT_ERASER_CONFIG, ERASER_PRESET_CONFIGS } from './types'
+import type { EraserUserPreferences } from './userPreferences'
+import { ERASER_PRESET_CONFIGS } from './types'
 import { PhysicsEraserEngine } from './PhysicsEraserEngine'
 import { SpatialIndex, PerformanceMonitor } from './SpatialIndex'
 import type { CanvasElement } from '../store/types'
+import {
+  loadEraserPreferences,
+  saveEraserPreferences,
+  getEraserConfigFromPreferences,
+} from './userPreferences'
 
 interface EraserState {
   // 模式配置
@@ -51,8 +57,12 @@ interface EraserActions {
   reset: () => void
 }
 
+// 加载用户保存的偏好
+const savedPrefs = loadEraserPreferences()
+const initialConfig = getEraserConfigFromPreferences(savedPrefs)
+
 // 引擎实例（单例）
-const globalEngine = new PhysicsEraserEngine()
+const globalEngine = new PhysicsEraserEngine(initialConfig)
 const globalSpatialIndex = new SpatialIndex()
 const globalPerformanceMonitor = new PerformanceMonitor()
 
@@ -60,8 +70,8 @@ export const useEraserStore = create<EraserState & EraserActions>()(
   (set, get) => ({
     // ===== 状态 =====
     eraserMode: 'physics',
-    eraserConfig: { ...DEFAULT_ERASER_CONFIG },
-    eraserPreset: '4b',
+    eraserConfig: initialConfig,
+    eraserPreset: savedPrefs.preset,
     
     isErasing: false,
     currentTrail: [],
@@ -86,6 +96,7 @@ export const useEraserStore = create<EraserState & EraserActions>()(
         eraserConfig: { ...config },
       })
       get().engine.updateConfig(config)
+      saveEraserPreferences({ preset })
     },
     
     updateEraserConfig: (config: Partial<EraserConfig>) => {
@@ -93,6 +104,13 @@ export const useEraserStore = create<EraserState & EraserActions>()(
         eraserConfig: { ...state.eraserConfig, ...config },
       }))
       get().engine.updateConfig(config)
+      // 保存可持久化的配置项
+      const prefsToSave: Partial<EraserUserPreferences> = {}
+      if (config.shape !== undefined) prefsToSave.shape = config.shape
+      if (config.baseRadius !== undefined) prefsToSave.baseRadius = config.baseRadius
+      if (config.audioEnabled !== undefined) prefsToSave.audioEnabled = config.audioEnabled
+      if (config.rotation !== undefined) prefsToSave.rotation = config.rotation
+      saveEraserPreferences(prefsToSave)
     },
     
     startErase: (point: EraserPoint, elements: CanvasElement[]) => {

@@ -61,6 +61,15 @@ export {
 // 键盘快捷键
 export { useEraserKeyboardShortcuts, ERASER_SHORTCUTS_INFO } from './useEraserKeyboardShortcuts'
 
+// 用户偏好持久化
+export {
+  loadEraserPreferences,
+  saveEraserPreferences,
+  getEraserConfigFromPreferences,
+  clearEraserPreferences,
+} from './userPreferences'
+export type { EraserUserPreferences } from './userPreferences'
+
 // 核心引擎
 export { PhysicsEraserEngine } from './PhysicsEraserEngine'
 
