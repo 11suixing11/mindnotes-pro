@@ -20,6 +20,7 @@ export default function EraserControls() {
 
   const wearLevel = getWearLevel()
   const currentShape = eraserConfig.shape ?? 'circle'
+  const audioEnabled = eraserConfig.audioEnabled ?? true
 
   const handleShapeChange = (shape: EraserShape) => {
     updateEraserConfig({ shape })
@@ -27,6 +28,10 @@ export default function EraserControls() {
 
   const handleResetWear = () => {
     resetWear()
+  }
+
+  const toggleAudio = () => {
+    updateEraserConfig({ audioEnabled: !audioEnabled })
   }
 
   return (
@@ -161,9 +166,33 @@ export default function EraserControls() {
           alignItems: 'center',
           justifyContent: 'center',
           gap: '6px',
+          marginBottom: '8px',
         }}
       >
         ✏️ 削橡皮
+      </button>
+
+      {/* 音效开关 */}
+      <button
+        onClick={toggleAudio}
+        style={{
+          width: '100%',
+          padding: '8px 12px',
+          fontSize: '12px',
+          fontWeight: 500,
+          borderRadius: '8px',
+          border: 'none',
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+          background: audioEnabled ? 'var(--success)' : 'var(--bg-2)',
+          color: audioEnabled ? 'white' : 'var(--text-2)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '6px',
+        }}
+      >
+        {audioEnabled ? '🔊 音效开启' : '🔇 音效关闭'}
       </button>
     </div>
   )

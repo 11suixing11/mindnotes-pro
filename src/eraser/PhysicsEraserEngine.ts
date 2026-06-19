@@ -10,6 +10,7 @@ import type {
 } from './types'
 import { DEFAULT_ERASER_CONFIG } from './types'
 import { elementBounds } from '../canvas/canvasUtils'
+import { EraserAudioEngine } from './EraserAudioEngine'
 
 /**
  * 物理擦除引擎核心类
@@ -20,16 +21,19 @@ export class PhysicsEraserEngine {
   private trail: EraserPoint[] = []
   private baseSize: number = 10
   private wearLevel: number = 0 // 磨损程度 0-1，0=全新，1=完全磨损
+  private audioEngine: EraserAudioEngine
 
   constructor(config: Partial<EraserConfig> = {}) {
     this.config = {
       ...DEFAULT_ERASER_CONFIG,
       ...config,
     }
+    this.audioEngine = new EraserAudioEngine(this.config)
   }
 
   updateConfig(config: Partial<EraserConfig>): void {
     this.config = { ...this.config, ...config }
+    this.audioEngine.updateConfig(config)
   }
 
   setBaseSize(size: number): void {
@@ -41,6 +45,7 @@ export class PhysicsEraserEngine {
    */
   startErase(point: EraserPoint): void {
     this.trail = [point]
+    this.audioEngine.startErase(point, this.wearLevel)
   }
 
   /**
@@ -51,6 +56,7 @@ export class PhysicsEraserEngine {
     elements: CanvasElement[]
   ): EraseResult {
     this.trail.push(point)
+    this.audioEngine.updateErase(point, this.wearLevel)
 
     // 计算磨损增量
     if (this.trail.length >= 2) {
@@ -128,6 +134,7 @@ export class PhysicsEraserEngine {
    */
   endErase(): void {
     this.trail = []
+    this.audioEngine.stopErase()
   }
 
   /**
@@ -150,6 +157,7 @@ export class PhysicsEraserEngine {
    */
   resetWear(): void {
     this.wearLevel = 0
+    this.audioEngine.playSharpenSound()
   }
 
   /**
