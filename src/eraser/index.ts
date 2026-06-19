@@ -42,6 +42,22 @@ export {
   ERASER_PRESET_DESCRIPTIONS,
 } from './types'
 
+// 性能优化
+export {
+  DirtyRectManager,
+  ObjectPool,
+  BatchRenderer,
+  ResourceCleanupManager,
+  pointPool,
+  rectPool,
+  globalDirtyRectManager,
+  globalBatchRenderer,
+  globalResourceCleanup,
+  withClipping,
+  unionRect,
+  rectsIntersect,
+} from './performanceOptimizer'
+
 // 键盘快捷键
 export { useEraserKeyboardShortcuts, ERASER_SHORTCUTS_INFO } from './useEraserKeyboardShortcuts'
 
