@@ -43,7 +43,6 @@ function drawEraserGlow(
     trail[trail.length - 1].x,
     trail[trail.length - 1].y
   )
-
   const primaryColor = isDarkMode ? 'rgba(200, 160, 176, ' : 'rgba(176, 125, 110, '
   gradient.addColorStop(0, primaryColor + '0.1)')
   gradient.addColorStop(1, primaryColor + '0.3)')
@@ -88,37 +87,94 @@ function drawEraserCursor(
     baseSize
   )
 
-  // 外圈光晕
-  const gradient = ctx.createRadialGradient(
-    point.x,
-    point.y,
-    0,
-    point.x,
-    point.y,
-    effectiveRadius
-  )
-
   const primaryColor = isDarkMode ? '200, 160, 176' : '176, 125, 110'
-  gradient.addColorStop(0, `rgba(${primaryColor}, 0.3)`)
-  gradient.addColorStop(0.7, `rgba(${primaryColor}, 0.15)`)
-  gradient.addColorStop(1, `rgba(${primaryColor}, 0.05)`)
 
+  ctx.save()
+  ctx.translate(point.x, point.y)
+
+  // 根据形状绘制不同的光标
+  switch (config.shape) {
+    case 'circle':
+      drawCircleCursor(ctx, effectiveRadius, primaryColor)
+      break
+
+    case 'square':
+      ctx.rotate(config.rotation)
+      drawRectCursor(ctx, effectiveRadius, effectiveRadius, primaryColor)
+      break
+
+    case 'chisel': {
+      const width = effectiveRadius * 2
+      const height = width * 0.4
+      const rotation = config.rotation + point.direction * config.directionInfluence
+      ctx.rotate(rotation)
+      drawRectCursor(ctx, width / 2, height / 2, primaryColor)
+      break
+    }
+  }
+
+  ctx.restore()
+}
+
+/**
+ * 绘制圆形橡皮擦光标
+ */
+function drawCircleCursor(
+  ctx: CanvasRenderingContext2D,
+  radius: number,
+  color: string
+): void {
+  // 外圈光晕
+  const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius)
+  gradient.addColorStop(0, `rgba(${color}, 0.3)`)
+  gradient.addColorStop(0.7, `rgba(${color}, 0.15)`)
+  gradient.addColorStop(1, `rgba(${color}, 0.05)`)
   ctx.beginPath()
-  ctx.arc(point.x, point.y, effectiveRadius, 0, Math.PI * 2)
+  ctx.arc(0, 0, radius, 0, Math.PI * 2)
   ctx.fillStyle = gradient
   ctx.fill()
 
   // 内圈边框
   ctx.beginPath()
-  ctx.arc(point.x, point.y, effectiveRadius * 0.7, 0, Math.PI * 2)
-  ctx.strokeStyle = `rgba(${primaryColor}, 0.5)`
+  ctx.arc(0, 0, radius * 0.7, 0, Math.PI * 2)
+  ctx.strokeStyle = `rgba(${color}, 0.5)`
   ctx.lineWidth = 1.5
   ctx.stroke()
 
   // 中心点
   ctx.beginPath()
-  ctx.arc(point.x, point.y, 2, 0, Math.PI * 2)
-  ctx.fillStyle = `rgba(${primaryColor}, 0.8)`
+  ctx.arc(0, 0, 2, 0, Math.PI * 2)
+  ctx.fillStyle = `rgba(${color}, 0.8)`
+  ctx.fill()
+}
+
+/**
+ * 绘制矩形橡皮擦光标（方形/凿形）
+ */
+function drawRectCursor(
+  ctx: CanvasRenderingContext2D,
+  halfW: number,
+  halfH: number,
+  color: string
+): void {
+  // 外圈光晕
+  const gradient = ctx.createLinearGradient(-halfW, 0, halfW, 0)
+  gradient.addColorStop(0, `rgba(${color}, 0.05)`)
+  gradient.addColorStop(0.3, `rgba(${color}, 0.2)`)
+  gradient.addColorStop(0.7, `rgba(${color}, 0.2)`)
+  gradient.addColorStop(1, `rgba(${color}, 0.05)`)
+  ctx.fillStyle = gradient
+  ctx.fillRect(-halfW, -halfH, halfW * 2, halfH * 2)
+
+  // 内圈边框
+  ctx.strokeStyle = `rgba(${color}, 0.5)`
+  ctx.lineWidth = 1.5
+  ctx.strokeRect(-halfW * 0.7, -halfH * 0.7, halfW * 1.4, halfH * 1.4)
+
+  // 中心点
+  ctx.beginPath()
+  ctx.arc(0, 0, 2, 0, Math.PI * 2)
+  ctx.fillStyle = `rgba(${color}, 0.8)`
   ctx.fill()
 }
 
