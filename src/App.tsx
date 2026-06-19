@@ -12,6 +12,7 @@ import { KeyboardShortcutsHelp } from './components/keyboard-shortcuts-help'
 import { LoadingScreen } from './components/loading-screen'
 import { EmptyCanvasHint } from './components/empty-canvas-hint'
 import { useScreenPen, ScreenPenControls } from './components/screen-pen'
+import { EraserControls } from './components/eraser'
 
 const TOOL_LABELS: Record<string, string> = {
   select: 'Select',
@@ -135,6 +136,9 @@ export default function App() {
           <ToastContainer />
           <ConfirmModal />
           <ScreenPenControls screenPen={screenPen} />
+          
+          {/* 橡皮擦控制面板 - 仅在橡皮擦工具时显示 */}
+          {tool === 'eraser' && <EraserControls />}
 
           <div className="status panel" role="status" aria-label="Application status">
             <span className="dot" aria-hidden="true" />
