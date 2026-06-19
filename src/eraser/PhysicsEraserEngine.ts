@@ -19,6 +19,7 @@ export class PhysicsEraserEngine {
   private config: EraserConfig
   private trail: EraserPoint[] = []
   private baseSize: number = 10
+  private wearLevel: number = 0 // 磨损程度 0-1，0=全新，1=完全磨损
 
   constructor(config: Partial<EraserConfig> = {}) {
     this.config = {
@@ -50,6 +51,22 @@ export class PhysicsEraserEngine {
     elements: CanvasElement[]
   ): EraseResult {
     this.trail.push(point)
+
+    // 计算磨损增量
+    if (this.trail.length >= 2) {
+      const prevPoint = this.trail[this.trail.length - 2]
+      const dx = point.x - prevPoint.x
+      const dy = point.y - prevPoint.y
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      
+      // 磨损速度与距离、压力成正比，与硬度成反比
+      // 硬橡皮磨损慢，软橡皮磨损快
+      const pressureFactor = 0.3 + point.pressure * 0.7
+      const hardnessFactor = 1 - this.config.hardness * 0.6
+      const wearIncrement = distance * pressureFactor * hardnessFactor * this.config.wearRate * 0.001
+      
+      this.wearLevel = Math.min(1, this.wearLevel + wearIncrement)
+    }
 
     // 1. 计算当前擦除区域边界
     const eraseBounds = this.getEraseBounds(point)
@@ -118,6 +135,21 @@ export class PhysicsEraserEngine {
    */
   getTrail(): EraserPoint[] {
     return [...this.trail]
+  }
+
+  /**
+   * 获取当前磨损程度
+   * @returns 0-1，0=全新，1=完全磨损
+   */
+  getWearLevel(): number {
+    return this.wearLevel
+  }
+
+  /**
+   * 重置磨损（削橡皮/换橡皮）
+   */
+  resetWear(): void {
+    this.wearLevel = 0
   }
 
   /**
@@ -207,12 +239,15 @@ export class PhysicsEraserEngine {
    * 物理公式: 有效擦除半径
    * 压力越大，擦除范围越大
    * 硬度越高，擦除范围越小（硬橡皮更精确）
+   * 磨损越大，擦除范围越大（橡皮变钝，接触面积变大）
    */
   computeEffectiveRadius(pressure: number): number {
     const clampedPressure = Math.max(0, Math.min(1, pressure))
     const pressureFactor = 0.4 + clampedPressure * 0.6 * this.config.pressureSensitivity
     const hardnessFactor = 1 - this.config.hardness * 0.3
-    return Math.max(1, this.baseSize * pressureFactor * hardnessFactor)
+    // 磨损影响：磨损越大，半径越大（最多增加50%）
+    const wearFactor = 1 + this.wearLevel * 0.5
+    return Math.max(1, this.baseSize * pressureFactor * hardnessFactor * wearFactor)
   }
 
   /**

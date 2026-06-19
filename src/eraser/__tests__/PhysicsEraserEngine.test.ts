@@ -416,4 +416,163 @@ describe('PhysicsEraserEngine', () => {
       expect(distV_horizontal).toBeGreaterThan(0) // 外部
     })
   })
+
+  describe('橡皮磨损模拟', () => {
+    it('初始磨损程度为0', () => {
+      const engine = new PhysicsEraserEngine()
+      expect(engine.getWearLevel()).toBe(0)
+    })
+
+    it('擦除后磨损程度增加', () => {
+      const engine = new PhysicsEraserEngine({ wearRate: 1 })
+      engine.setBaseSize(10)
+
+      const p1: EraserPoint = { x: 100, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 1 }
+      const p2: EraserPoint = { x: 200, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 2 }
+
+      engine.startErase(p1)
+      engine.addErasePoint(p2, [])
+
+      expect(engine.getWearLevel()).toBeGreaterThan(0)
+    })
+
+    it('磨损程度与移动距离成正比', () => {
+      const engine1 = new PhysicsEraserEngine({ wearRate: 1 })
+      engine1.setBaseSize(10)
+      const p1a: EraserPoint = { x: 100, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 1 }
+      const p1b: EraserPoint = { x: 150, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 2 }
+      engine1.startErase(p1a)
+      engine1.addErasePoint(p1b, [])
+      const wear1 = engine1.getWearLevel()
+
+      const engine2 = new PhysicsEraserEngine({ wearRate: 1 })
+      engine2.setBaseSize(10)
+      const p2a: EraserPoint = { x: 100, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 1 }
+      const p2b: EraserPoint = { x: 200, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 2 }
+      engine2.startErase(p2a)
+      engine2.addErasePoint(p2b, [])
+      const wear2 = engine2.getWearLevel()
+
+      // 距离翻倍，磨损也应该翻倍
+      expect(wear2).toBeCloseTo(wear1 * 2, 5)
+    })
+
+    it('磨损程度与压力成正比', () => {
+      const engine1 = new PhysicsEraserEngine({ wearRate: 1 })
+      engine1.setBaseSize(10)
+      const p1a: EraserPoint = { x: 100, y: 100, pressure: 0.2, velocity: 2, direction: 0, timestamp: 1 }
+      const p1b: EraserPoint = { x: 200, y: 100, pressure: 0.2, velocity: 2, direction: 0, timestamp: 2 }
+      engine1.startErase(p1a)
+      engine1.addErasePoint(p1b, [])
+      const wear1 = engine1.getWearLevel()
+
+      const engine2 = new PhysicsEraserEngine({ wearRate: 1 })
+      engine2.setBaseSize(10)
+      const p2a: EraserPoint = { x: 100, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 1 }
+      const p2b: EraserPoint = { x: 200, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 2 }
+      engine2.startErase(p2a)
+      engine2.addErasePoint(p2b, [])
+      const wear2 = engine2.getWearLevel()
+
+      // 压力大的磨损更多
+      expect(wear2).toBeGreaterThan(wear1)
+    })
+
+    it('硬橡皮磨损更慢', () => {
+      const softEngine = new PhysicsEraserEngine({ hardness: 0.1, wearRate: 1 })
+      softEngine.setBaseSize(10)
+      const p1a: EraserPoint = { x: 100, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 1 }
+      const p1b: EraserPoint = { x: 200, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 2 }
+      softEngine.startErase(p1a)
+      softEngine.addErasePoint(p1b, [])
+      const softWear = softEngine.getWearLevel()
+
+      const hardEngine = new PhysicsEraserEngine({ hardness: 0.9, wearRate: 1 })
+      hardEngine.setBaseSize(10)
+      const p2a: EraserPoint = { x: 100, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 1 }
+      const p2b: EraserPoint = { x: 200, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 2 }
+      hardEngine.startErase(p2a)
+      hardEngine.addErasePoint(p2b, [])
+      const hardWear = hardEngine.getWearLevel()
+
+      // 硬橡皮磨损更慢
+      expect(hardWear).toBeLessThan(softWear)
+    })
+
+    it('磨损程度不会超过1', () => {
+      const engine = new PhysicsEraserEngine({ wearRate: 100 }) // 超高磨损速率
+      engine.setBaseSize(10)
+
+      // 连续擦除很长距离
+      let x = 100
+      const p0: EraserPoint = { x, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 0 }
+      engine.startErase(p0)
+
+      for (let i = 0; i < 100; i++) {
+        x += 100
+        const p: EraserPoint = { x, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: i + 1 }
+        engine.addErasePoint(p, [])
+      }
+
+      expect(engine.getWearLevel()).toBeLessThanOrEqual(1)
+      expect(engine.getWearLevel()).toBeCloseTo(1, 3)
+    })
+
+    it('resetWear 可以重置磨损', () => {
+      const engine = new PhysicsEraserEngine({ wearRate: 1 })
+      engine.setBaseSize(10)
+
+      const p1: EraserPoint = { x: 100, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 1 }
+      const p2: EraserPoint = { x: 200, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 2 }
+
+      engine.startErase(p1)
+      engine.addErasePoint(p2, [])
+      expect(engine.getWearLevel()).toBeGreaterThan(0)
+
+      engine.resetWear()
+      expect(engine.getWearLevel()).toBe(0)
+    })
+
+    it('磨损会增加擦除半径', () => {
+      const engine = new PhysicsEraserEngine({ wearRate: 1 })
+      engine.setBaseSize(10)
+
+      // 全新时的半径
+      const radiusNew = engine.computeEffectiveRadius(1)
+
+      // 模拟磨损
+      const p1: EraserPoint = { x: 100, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 1 }
+      const p2: EraserPoint = { x: 500, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 2 }
+      engine.startErase(p1)
+      engine.addErasePoint(p2, [])
+
+      // 磨损后的半径
+      const radiusWorn = engine.computeEffectiveRadius(1)
+
+      // 磨损后半径应该更大
+      expect(radiusWorn).toBeGreaterThan(radiusNew)
+    })
+
+    it('wearRate 配置影响磨损速度', () => {
+      const engineSlow = new PhysicsEraserEngine({ wearRate: 0.5 })
+      engineSlow.setBaseSize(10)
+      const p1a: EraserPoint = { x: 100, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 1 }
+      const p1b: EraserPoint = { x: 200, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 2 }
+      engineSlow.startErase(p1a)
+      engineSlow.addErasePoint(p1b, [])
+      const wearSlow = engineSlow.getWearLevel()
+
+      const engineFast = new PhysicsEraserEngine({ wearRate: 2 })
+      engineFast.setBaseSize(10)
+      const p2a: EraserPoint = { x: 100, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 1 }
+      const p2b: EraserPoint = { x: 200, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 2 }
+      engineFast.startErase(p2a)
+      engineFast.addErasePoint(p2b, [])
+      const wearFast = engineFast.getWearLevel()
+
+      // wearRate 大的磨损更快
+      expect(wearFast).toBeGreaterThan(wearSlow)
+      expect(wearFast).toBeCloseTo(wearSlow * 4, 5) // 2/0.5 = 4倍
+    })
+  })
 })
