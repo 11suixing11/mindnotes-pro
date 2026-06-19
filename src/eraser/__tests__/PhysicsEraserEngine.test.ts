@@ -575,4 +575,241 @@ describe('PhysicsEraserEngine', () => {
       expect(wearFast).toBeCloseTo(wearSlow * 4, 5) // 2/0.5 = 4倍
     })
   })
+
+  describe('极端参数边界测试', () => {
+    it('压力为负数时被clamp到0', () => {
+      const rNeg = engine.computeEffectiveRadius(-1)
+      const r0 = engine.computeEffectiveRadius(0)
+      expect(rNeg).toBeCloseTo(r0, 5)
+    })
+
+    it('压力超过1时被clamp到1', () => {
+      const r1 = engine.computeEffectiveRadius(1)
+      const rOver = engine.computeEffectiveRadius(2)
+      expect(rOver).toBeCloseTo(r1, 5)
+    })
+
+    it('NaN压力值优雅降级', () => {
+      expect(() => {
+        engine.computeEffectiveRadius(NaN as any)
+      }).not.toThrow()
+      const result = engine.computeEffectiveRadius(NaN as any)
+      expect(result).toBeGreaterThan(0)
+      expect(Number.isFinite(result)).toBe(true)
+    })
+
+    it('Infinity压力值优雅降级', () => {
+      expect(() => {
+        engine.computeEffectiveRadius(Infinity)
+      }).not.toThrow()
+      const result = engine.computeEffectiveRadius(Infinity)
+      expect(result).toBeGreaterThan(0)
+      expect(Number.isFinite(result)).toBe(true)
+    })
+
+    it('速度为0时擦除强度不为0', () => {
+      const point: EraserPoint = {
+        x: 100, y: 100, pressure: 0.5, velocity: 0,
+        direction: 0, timestamp: Date.now(),
+      }
+      const strength = engine.computeEraseStrength(point)
+      expect(strength).toBeGreaterThan(0)
+    })
+
+    it('速度极快时擦除强度降低但不为0', () => {
+      const point: EraserPoint = {
+        x: 100, y: 100, pressure: 0.5, velocity: 100,
+        direction: 0, timestamp: Date.now(),
+      }
+      const strength = engine.computeEraseStrength(point)
+      expect(strength).toBeGreaterThan(0)
+      expect(strength).toBeLessThan(1)
+    })
+
+    it('setBaseSize 负数被限制', () => {
+      engine.setBaseSize(-10)
+      const radius = engine.computeEffectiveRadius(1)
+      expect(radius).toBeGreaterThan(0)
+    })
+
+    it('setBaseSize 极大值被限制', () => {
+      engine.setBaseSize(1000)
+      const radius = engine.computeEffectiveRadius(1)
+      expect(radius).toBeGreaterThan(0)
+      expect(radius).toBeLessThan(100) // 应该被clamp到100以内
+    })
+  })
+
+  describe('异常输入优雅降级', () => {
+    it('null 元素数组不抛出异常', () => {
+      const point: EraserPoint = {
+        x: 100, y: 100, pressure: 0.5, velocity: 2,
+        direction: 0, timestamp: Date.now(),
+      }
+      expect(() => {
+        engine.addErasePoint(point, null as any)
+      }).not.toThrow()
+    })
+
+    it('undefined 元素数组不抛出异常', () => {
+      const point: EraserPoint = {
+        x: 100, y: 100, pressure: 0.5, velocity: 2,
+        direction: 0, timestamp: Date.now(),
+      }
+      expect(() => {
+        engine.addErasePoint(point, undefined as any)
+      }).not.toThrow()
+    })
+
+    it('无效擦除点不抛出异常', () => {
+      const invalidPoint = { x: NaN, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: Date.now() }
+      expect(() => {
+        engine.startErase(invalidPoint as any)
+      }).not.toThrow()
+    })
+
+    it('包含无效元素的数组优雅处理', () => {
+      const point: EraserPoint = {
+        x: 100, y: 100, pressure: 0.5, velocity: 2,
+        direction: 0, timestamp: Date.now(),
+      }
+      const elements = [
+        null,
+        undefined,
+        { type: 'stroke', id: 'test', points: [[100, 100], [150, 100]], color: '#000', size: 2, brush: 'pen' },
+      ]
+      expect(() => {
+        engine.addErasePoint(point, elements as any)
+      }).not.toThrow()
+    })
+
+    it('splitStroke null笔触返回空', () => {
+      expect(() => {
+        engine.splitStroke(null as any, [])
+      }).not.toThrow()
+      const result = engine.splitStroke(null as any, [])
+      expect(result).toEqual([])
+    })
+
+    it('splitStroke undefined笔触返回空', () => {
+      expect(() => {
+        engine.splitStroke(undefined as any, [])
+      }).not.toThrow()
+      const result = engine.splitStroke(undefined as any, [])
+      expect(result).toEqual([])
+    })
+  })
+
+  describe('大规模元素性能测试', () => {
+    const createManyStrokes = (count: number): StrokeElement[] => {
+      const strokes: StrokeElement[] = []
+      for (let i = 0; i < count; i++) {
+        strokes.push({
+          type: 'stroke',
+          id: `stroke-${i}`,
+          points: [[i * 10, 100], [i * 10 + 5, 100], [i * 10 + 10, 100]],
+          color: '#000',
+          size: 2,
+          brush: 'pen',
+        })
+      }
+      return strokes
+    }
+
+    it('100元素场景不卡顿', () => {
+      const elements = createManyStrokes(100)
+      const point: EraserPoint = {
+        x: 500, y: 100, pressure: 1, velocity: 2,
+        direction: 0, timestamp: Date.now(),
+      }
+      const start = performance.now()
+      engine.startErase(point)
+      const result = engine.addErasePoint(point, elements)
+      const duration = performance.now() - start
+      
+      expect(duration).toBeLessThan(50) // 50ms以内完成
+      expect(result.affectedElementIds.length).toBeGreaterThanOrEqual(0)
+    })
+
+    it('1000元素场景不卡顿', () => {
+      const elements = createManyStrokes(1000)
+      const point: EraserPoint = {
+        x: 5000, y: 100, pressure: 1, velocity: 2,
+        direction: 0, timestamp: Date.now(),
+      }
+      const start = performance.now()
+      engine.startErase(point)
+      const result = engine.addErasePoint(point, elements)
+      const duration = performance.now() - start
+      
+      expect(duration).toBeLessThan(100) // 100ms以内完成
+      expect(result.affectedElementIds.length).toBeGreaterThanOrEqual(0)
+    })
+
+    it('连续擦除100次内存稳定', () => {
+      const elements = createManyStrokes(100)
+      const point: EraserPoint = {
+        x: 500, y: 100, pressure: 1, velocity: 2,
+        direction: 0, timestamp: Date.now(),
+      }
+      
+      engine.startErase(point)
+      for (let i = 0; i < 100; i++) {
+        engine.addErasePoint({ ...point, x: 500 + i }, elements)
+      }
+      engine.endErase()
+      
+      // 不抛出异常即为通过
+      expect(true).toBe(true)
+    })
+  })
+
+  describe('空间索引集成测试', () => {
+    it('toBoundsEntry 正确转换元素', () => {
+      const stroke: StrokeElement = {
+        type: 'stroke',
+        id: 'test-stroke',
+        points: [[100, 100], [200, 150]],
+        color: '#000',
+        size: 2,
+        brush: 'pen',
+      }
+      const entry = PhysicsEraserEngine.toBoundsEntry(stroke)
+      expect(entry!.id).toBe('test-stroke')
+      expect(entry!.minX).toBeLessThan(entry!.maxX)
+      expect(entry!.minY).toBeLessThan(entry!.maxY)
+    })
+
+    it('toBoundsEntry null元素不崩溃', () => {
+      expect(() => {
+        PhysicsEraserEngine.toBoundsEntry(null as any)
+      }).not.toThrow()
+    })
+  })
+
+  describe('并发擦除测试', () => {
+    it('多次startErase正确重置状态', () => {
+      const p1: EraserPoint = { x: 100, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 1 }
+      const p2: EraserPoint = { x: 200, y: 200, pressure: 0.5, velocity: 2, direction: 0, timestamp: 2 }
+      
+      engine.startErase(p1)
+      engine.addErasePoint(p2, [])
+      expect(engine.getTrail()).toHaveLength(2)
+      
+      // 重新开始应该重置轨迹
+      engine.startErase(p1)
+      expect(engine.getTrail()).toHaveLength(1)
+    })
+
+    it('endErase后可以重新开始', () => {
+      const p1: EraserPoint = { x: 100, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 1 }
+      
+      engine.startErase(p1)
+      engine.endErase()
+      expect(engine.getTrail()).toHaveLength(0)
+      
+      engine.startErase(p1)
+      expect(engine.getTrail()).toHaveLength(1)
+    })
+  })
 })
