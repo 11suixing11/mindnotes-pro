@@ -16,13 +16,18 @@ export class EraserAudioEngine {
   
   private isPlaying: boolean = false
   private config: EraserConfig
+  private audioEnabled: boolean = true
 
   constructor(config: EraserConfig) {
     this.config = config
+    this.audioEnabled = config.audioEnabled ?? true
   }
 
   updateConfig(config: Partial<EraserConfig>): void {
     this.config = { ...this.config, ...config }
+    if (config.audioEnabled !== undefined) {
+      this.audioEnabled = config.audioEnabled
+    }
   }
 
   /**
@@ -35,7 +40,7 @@ export class EraserAudioEngine {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
     } catch (e) {
       console.warn('Web Audio API not supported, eraser audio disabled')
-      this.config.audioEnabled = false
+      this.audioEnabled = false
     }
   }
 
@@ -91,7 +96,7 @@ export class EraserAudioEngine {
    * 开始擦除音效
    */
   startErase(point: EraserPoint, wearLevel: number): void {
-    if (!this.config.audioEnabled) return
+    if (!this.audioEnabled) return
     
     this.initAudio()
     if (!this.audioContext) return
@@ -140,7 +145,7 @@ export class EraserAudioEngine {
    * 更新擦除音效参数（移动时实时调整）
    */
   updateErase(point: EraserPoint, wearLevel: number): void {
-    if (!this.isPlaying || !this.config.audioEnabled) return
+    if (!this.isPlaying || !this.audioEnabled) return
     if (!this.oscillator || !this.gainNode || !this.filterNode || !this.audioContext) return
 
     try {
@@ -214,7 +219,7 @@ export class EraserAudioEngine {
    * 播放"削橡皮"音效
    */
   playSharpenSound(): void {
-    if (!this.config.audioEnabled) return
+    if (!this.audioEnabled) return
     
     this.initAudio()
     if (!this.audioContext) return
@@ -255,6 +260,6 @@ export class EraserAudioEngine {
    * 检查音效是否启用
    */
   isAudioEnabled(): boolean {
-    return this.config.audioEnabled
+    return this.audioEnabled
   }
 }
