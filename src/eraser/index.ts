@@ -22,6 +22,7 @@
 export type {
   EraserMode,
   EraserShape,
+  EraserPresetType,
   EraserConfig,
   EraserPoint,
   Bounds,
@@ -33,12 +34,19 @@ export type {
 
 export {
   DEFAULT_ERASER_CONFIG,
-  HARD_ERASER_CONFIG,
-  SOFT_ERASER_CONFIG,
+  ERASER_2B_CONFIG,
+  ERASER_4B_CONFIG,
+  ERASER_6B_CONFIG,
+  ERASER_PRESET_CONFIGS,
+  ERASER_PRESET_LABELS,
+  ERASER_PRESET_DESCRIPTIONS,
 } from './types'
 
 // 核心引擎
 export { PhysicsEraserEngine } from './PhysicsEraserEngine'
+
+// 音效引擎
+export { EraserAudioEngine } from './EraserAudioEngine'
 
 // 空间索引与性能监控
 export { SpatialIndex, PerformanceMonitor } from './SpatialIndex'
