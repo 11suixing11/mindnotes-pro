@@ -16,6 +16,44 @@ import {
 // 粒子ID计数器
 let particleIdCounter = 0
 
+// ==================== 命名常量 ====================
+
+/** 对象池大小相对于 maxParticles 的倍数 */
+const POOL_SIZE_MULTIPLIER = 1.5
+
+/** deltaTime 的最小值，防止除零 */
+const MIN_DELTA_TIME = 0.001
+
+/** 时间-帧率换算基准（假设 60fps 基准） */
+const FRAME_RATE_BASE = 60
+
+/** 粒子发射位置的随机抖动范围（像素） */
+const EMIT_JITTER_RADIUS = 10
+
+/** 速度对初速度的混合系数：基础 + 速度 * 系数 */
+const SPEED_FACTOR_BASE = 0.5
+const SPEED_FACTOR_VELOCITY = 0.5
+
+/** 压力对粒子大小的混合系数：基础 + 压力 * 系数 */
+const PRESSURE_FACTOR_BASE = 0.6
+const PRESSURE_FACTOR_PRESSURE = 0.8
+
+/** 粒子质量范围 */
+const MASS_BASE = 0.8
+const MASS_VARIANCE = 0.4
+
+/** 防止除零的 epsilon 值 */
+const EPSILON = 0.001
+
+/** 气流方向中指针移动方向的占比 */
+const WIND_DIR_WEIGHT = 0.7
+
+/** 气流方向中向外推开方向的占比 */
+const WIND_PUSH_WEIGHT = 0.3
+
+/** 气流引起的旋转增强系数 */
+const WIND_ROTATION_BOOST = 0.02
+
 export class EraserParticleSystem {
   private particles: EraserParticle[] = []
   private config: ParticleSystemConfig
@@ -30,6 +68,7 @@ export class EraserParticleSystem {
   private pointerSpeed: number = 0
   private lastPointerX: number = 0
   private lastPointerY: number = 0
+  private pointerInitialized: boolean = false
   private windEnabled: boolean = true
 
   // 气流常量
@@ -40,7 +79,7 @@ export class EraserParticleSystem {
 
   constructor(config?: Partial<ParticleSystemConfig>) {
     this.config = { ...DEFAULT_PARTICLE_CONFIG, ...config }
-    this.poolSize = Math.floor(this.config.maxParticles * 1.5)
+    this.poolSize = Math.floor(this.config.maxParticles * POOL_SIZE_MULTIPLIER)
   }
 
   /**
@@ -48,7 +87,15 @@ export class EraserParticleSystem {
    */
   updateConfig(config: Partial<ParticleSystemConfig>): void {
     this.config = { ...this.config, ...config }
-    this.poolSize = Math.floor(this.config.maxParticles * 1.5)
+    this.poolSize = Math.floor(this.config.maxParticles * POOL_SIZE_MULTIPLIER)
+
+    // 当 maxParticles 减少时，裁剪多余的活跃粒子并回收
+    while (this.particles.length > this.config.maxParticles) {
+      const removed = this.particles.pop()
+      if (removed) {
+        this.recycleParticle(removed)
+      }
+    }
   }
 
   /**
@@ -64,8 +111,22 @@ export class EraserParticleSystem {
   updatePointerPosition(x: number, y: number, deltaTime: number = 1/60): void {
     if (!this.windEnabled) return
 
+    const dt = Math.max(deltaTime, MIN_DELTA_TIME)
+
+    // 首次调用时只记录位置，不计算速度（避免从原点 (0,0) 到当前位置的虚假大速度）
+    if (!this.pointerInitialized) {
+      this.lastPointerX = x
+      this.lastPointerY = y
+      this.pointerX = x
+      this.pointerY = y
+      this.pointerVx = 0
+      this.pointerVy = 0
+      this.pointerSpeed = 0
+      this.pointerInitialized = true
+      return
+    }
+
     // 计算速度
-    const dt = Math.max(deltaTime, 0.001)
     this.pointerVx = (x - this.lastPointerX) / dt
     this.pointerVy = (y - this.lastPointerY) / dt
     this.pointerSpeed = Math.sqrt(this.pointerVx ** 2 + this.pointerVy ** 2)
@@ -82,6 +143,9 @@ export class EraserParticleSystem {
    */
   setWindEnabled(enabled: boolean): void {
     this.windEnabled = enabled
+    if (!enabled) {
+      this.pointerInitialized = false
+    }
   }
 
   /**
@@ -157,11 +221,11 @@ export class EraserParticleSystem {
     const direction = params.direction + angleOffset
 
     // 随机速度（受擦除速度影响）
-    const speedFactor = 0.5 + params.velocity * 0.5
+    const speedFactor = SPEED_FACTOR_BASE + params.velocity * SPEED_FACTOR_VELOCITY
     const speed = (speedMin + Math.random() * (speedMax - speedMin)) * speedFactor
 
     // 随机大小（受压力影响：压力越大粒子越多越大）
-    const pressureFactor = 0.6 + params.pressure * 0.8
+    const pressureFactor = PRESSURE_FACTOR_BASE + params.pressure * PRESSURE_FACTOR_PRESSURE
     const size = (baseSize + Math.random() * sizeVariance) * pressureFactor
 
     // 随机生命周期
@@ -175,8 +239,8 @@ export class EraserParticleSystem {
     const rotationSpeed = (Math.random() - 0.5) * rotationSpeedMax * 2
 
     particle.id = `particle-${++particleIdCounter}`
-    particle.x = params.x + (Math.random() - 0.5) * 10
-    particle.y = params.y + (Math.random() - 0.5) * 10
+    particle.x = params.x + (Math.random() - 0.5) * EMIT_JITTER_RADIUS
+    particle.y = params.y + (Math.random() - 0.5) * EMIT_JITTER_RADIUS
     particle.vx = Math.cos(direction) * speed
     particle.vy = Math.sin(direction) * speed
     particle.size = size
@@ -186,7 +250,7 @@ export class EraserParticleSystem {
     particle.opacity = 1
     particle.life = 1
     particle.maxLife = life
-    particle.mass = 0.8 + Math.random() * 0.4
+    particle.mass = MASS_BASE + Math.random() * MASS_VARIANCE
 
     return particle
   }
@@ -208,7 +272,9 @@ export class EraserParticleSystem {
     // 只有速度超过阈值时才产生气流
     const hasWind = this.windEnabled && this.pointerSpeed > EraserParticleSystem.WIND_THRESHOLD
 
-    for (let i = this.particles.length - 1; i >= 0; i--) {
+    // swap-and-pop 删除：用末尾元素替换已死亡粒子，避免 splice 的 O(n) 开销
+    let i = 0
+    while (i < this.particles.length) {
       const p = this.particles[i]
 
       // 应用气流影响
@@ -224,8 +290,8 @@ export class EraserParticleSystem {
       p.vy *= friction
 
       // 更新位置
-      p.x += p.vx * deltaTime * 60
-      p.y += p.vy * deltaTime * 60
+      p.x += p.vx * deltaTime * FRAME_RATE_BASE
+      p.y += p.vy * deltaTime * FRAME_RATE_BASE
 
       // 更新旋转
       p.rotation += p.rotationSpeed * deltaTime
@@ -240,9 +306,17 @@ export class EraserParticleSystem {
         p.opacity = 1
       }
 
-      // 回收死亡粒子
+      // 回收死亡粒子：swap-and-pop
       if (p.life <= 0) {
-        this.recycleParticle(this.particles.splice(i, 1)[0])
+        this.recycleParticle(p)
+        const last = this.particles.length - 1
+        if (i !== last) {
+          this.particles[i] = this.particles[last]
+        }
+        this.particles.pop()
+        // 不递增 i，因为新的 this.particles[i] 还没被检查过
+      } else {
+        i++
       }
     }
   }
@@ -267,24 +341,24 @@ export class EraserParticleSystem {
     const windStrength = this.pointerSpeed * distanceFactorSq * EraserParticleSystem.WIND_FORCE
 
     // 气流方向（指针移动方向 + 向外扩散）
-    const windDirX = this.pointerVx / (this.pointerSpeed + 0.001)
-    const windDirY = this.pointerVy / (this.pointerSpeed + 0.001)
+    const windDirX = this.pointerVx / (this.pointerSpeed + EPSILON)
+    const windDirY = this.pointerVy / (this.pointerSpeed + EPSILON)
 
     // 向外扩散分量（防止粒子被吸向指针）
-    const pushDirX = dx / (distance + 0.001)
-    const pushDirY = dy / (distance + 0.001)
+    const pushDirX = dx / (distance + EPSILON)
+    const pushDirY = dy / (distance + EPSILON)
 
     // 组合方向：主要沿移动方向，带一点向外推开
-    const forceX = (windDirX * 0.7 + pushDirX * 0.3) * windStrength
-    const forceY = (windDirY * 0.7 + pushDirY * 0.3) * windStrength
+    const forceX = (windDirX * WIND_DIR_WEIGHT + pushDirX * WIND_PUSH_WEIGHT) * windStrength
+    const forceY = (windDirY * WIND_DIR_WEIGHT + pushDirY * WIND_PUSH_WEIGHT) * windStrength
 
     // 应用力到粒子（质量越小影响越大）
     const massFactor = 1 / particle.mass
-    particle.vx += forceX * massFactor * deltaTime * 60
-    particle.vy += forceY * massFactor * deltaTime * 60
+    particle.vx += forceX * massFactor * deltaTime * FRAME_RATE_BASE
+    particle.vy += forceY * massFactor * deltaTime * FRAME_RATE_BASE
 
     // 增加旋转
-    particle.rotationSpeed += (Math.random() - 0.5) * windStrength * 0.02
+    particle.rotationSpeed += (Math.random() - 0.5) * windStrength * WIND_ROTATION_BOOST
   }
 
   /**
@@ -303,15 +377,13 @@ export class EraserParticleSystem {
     if (!this.config.enabled) return
     if (this.particles.length === 0) return
 
-    ctx.save()
     for (const particle of this.particles) {
       this.renderParticle(ctx, particle)
     }
-    ctx.restore()
   }
 
   /**
-   * 渲染单个粒子
+   * 渲染单个粒子（内部自行 save/restore，独立管理变换状态）
    */
   private renderParticle(
     ctx: CanvasRenderingContext2D,
