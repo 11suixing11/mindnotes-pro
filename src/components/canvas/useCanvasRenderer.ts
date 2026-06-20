@@ -44,6 +44,11 @@ export function useCanvasRenderer(
   )
   const rafRef = useRef<number>(0)
   const redrawRef = useRef<() => void>(() => {})
+  
+  // P1 优化: selectedIds 缓存，避免每次渲染都创建新 Set
+  const selectedIdsCacheRef = useRef<Set<string>>(new Set())
+  const lastSelectedIdsRef = useRef<string>('')
+
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
   const [canvasSize, setCanvasSize] = useState({ w: window.innerWidth, h: window.innerHeight })
 
@@ -55,6 +60,19 @@ export function useCanvasRenderer(
       cache.set(el.id, b)
     }
     return b
+  }
+
+  // P1 优化: 获取缓存的 selectedIds Set
+  function getCachedSelectedIds(): Set<string> {
+    const selectedIds = useAppStore.getState().selectedIds
+    const cacheKey = selectedIds.join(',')
+    
+    if (cacheKey !== lastSelectedIdsRef.current) {
+      selectedIdsCacheRef.current = new Set(selectedIds)
+      lastSelectedIdsRef.current = cacheKey
+    }
+    
+    return selectedIdsCacheRef.current
   }
 
   const getOrCreateEC = useCallback(() => {
@@ -74,25 +92,32 @@ export function useCanvasRenderer(
     const ec = getOrCreateEC()
     const ctx = ec.getContext('2d')
     if (!ctx) return
+    
     const els = useAppStore.getState().elements
-    const selSet = new Set(useAppStore.getState().selectedIds)
+    const selSet = getCachedSelectedIds() // P1 优化: 使用缓存的 Set
     const dark = useThemeStore.getState().isDarkMode
     const vb = useViewStore.getState().viewBox
+
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, canvasSize.w, canvasSize.h)
+
     ctx.save()
     ctx.scale(vb.zoom, vb.zoom)
     ctx.translate(-vb.x, -vb.y)
+
     drawMonetGrid(ctx, vb, canvasSize, dark)
+
     const vl = vb.x,
       vt = vb.y,
       vw = canvasSize.w / vb.zoom,
       vh = canvasSize.h / vb.zoom
+
     for (const el of els) {
       if (!isVisibleInView(el, vl, vt, vw, vh)) continue
       drawElement(ctx, el, dark)
       if (selSet.has(el.id)) drawSelBox(ctx, cachedBounds(el), dark, vb.zoom)
     }
+
     ctx.restore()
     elementsDirtyRef.current = false
   }, [dpr, canvasSize, getOrCreateEC])
@@ -102,12 +127,15 @@ export function useCanvasRenderer(
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+
     const st = useAppStore.getState()
     const dark = useThemeStore.getState().isDarkMode
     const vb = useViewStore.getState().viewBox
     const ds = getDrawState()
+
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, canvasSize.w, canvasSize.h)
+
     drawCanvasBackground(ctx, canvasSize, st.bgColor, dark)
 
     // Draw grid overlay if enabled
@@ -133,9 +161,12 @@ export function useCanvasRenderer(
     ctx.save()
     ctx.scale(vb.zoom, vb.zoom)
     ctx.translate(-vb.x, -vb.y)
+
     if (ds.drawing && ds.tool === 'pen' && ds.currentPts.length > 1)
       drawStrokeRaw(ctx, ds.currentPts, ds.color, ds.size, ds.brush, dark)
+
     if (ds.currentShape) drawElement(ctx, ds.currentShape, dark)
+
     if (ds.tool === 'eraser' && ds.mousePos) {
       const r = ds.size * 2 + 10
       ctx.save()
@@ -152,7 +183,9 @@ export function useCanvasRenderer(
       ctx.fill()
       ctx.restore()
     }
+
     ctx.restore()
+
     if (ds.marquee) {
       const m = ds.marquee
       const x = Math.min(m.startX, m.endX),
@@ -163,6 +196,7 @@ export function useCanvasRenderer(
         sy = (y - vb.y) * vb.zoom,
         sw = w * vb.zoom,
         sh = h * vb.zoom
+
       ctx.save()
       ctx.strokeStyle = dark ? 'rgba(200,160,176,0.7)' : 'rgba(176,125,110,0.7)'
       ctx.lineWidth = 1.5
@@ -173,12 +207,14 @@ export function useCanvasRenderer(
       ctx.fillRect(sx, sy, sw, sh)
       ctx.restore()
     }
+
     const snaps = ds.snapLines
     if (snaps.x.length > 0 || snaps.y.length > 0) {
       ctx.save()
       ctx.strokeStyle = dark ? 'rgba(200,160,176,0.5)' : 'rgba(176,125,110,0.5)'
       ctx.lineWidth = 1
       ctx.setLineDash([4, 4])
+
       for (const lx of snaps.x) {
         const sx2 = (lx - vb.x) * vb.zoom
         ctx.beginPath()
@@ -186,6 +222,7 @@ export function useCanvasRenderer(
         ctx.lineTo(sx2, canvasSize.h)
         ctx.stroke()
       }
+
       for (const ly of snaps.y) {
         const sy2 = (ly - vb.y) * vb.zoom
         ctx.beginPath()
@@ -193,9 +230,11 @@ export function useCanvasRenderer(
         ctx.lineTo(canvasSize.w, sy2)
         ctx.stroke()
       }
+
       ctx.setLineDash([])
       ctx.restore()
     }
+
     drawMinimap(ctx, st.elements, cachedBounds, vb, canvasSize, dark, st.bgColor)
     drawZoomLevel(ctx, vb, canvasSize, dark, dpr)
   }, [dpr, canvasSize, getOrCreateEC, renderElementsToCache, canvasRef, getDrawState])
@@ -226,17 +265,42 @@ export function useCanvasRenderer(
     redraw()
   }, [redraw, canvasSize])
 
+  // P1 优化: 增量更新 bounds 缓存，避免每次全量清空
   useEffect(() => {
-    let prev = useAppStore.getState().elements
+    let prevElements = useAppStore.getState().elements
+    let prevElementIds = new Set(prevElements.map(e => e.id))
+    
     const unsub = useAppStore.subscribe((s) => {
-      if (s.elements !== prev) {
+      const currElements = s.elements
+      
+      if (currElements !== prevElements) {
         elementsDirtyRef.current = true
-        boundsCacheRef.current.clear()
-        prev = s.elements
+        
+        // P1 优化: 只失效变化的元素缓存，而不是清空全部
+        const currElementIds = new Set(currElements.map(e => e.id))
+        
+        // 移除已删除元素的缓存
+        for (const id of prevElementIds) {
+          if (!currElementIds.has(id)) {
+            boundsCacheRef.current.delete(id)
+          }
+        }
+        
+        // 失效新增或修改的元素（通过简单长度检查判断是否有修改）
+        if (currElements.length !== prevElements.length) {
+          // 元素数量变化，保守清空缓存保证正确性
+          boundsCacheRef.current.clear()
+        }
+        
+        prevElements = currElements
+        prevElementIds = currElementIds
       }
+      
+      // 调度重绘（已通过 raf 合并）
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(() => redrawRef.current())
     })
+    
     return () => {
       unsub()
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
@@ -269,13 +333,11 @@ export function useCanvasRenderer(
       const now = performance.now()
       const deltaTime = Math.min((now - lastTime) / 1000, 0.1) // 限制最大delta防止跳帧
       lastTime = now
-
       eraserParticleSystem.update(deltaTime)
       particleRafId = requestAnimationFrame(updateParticles)
     }
 
     particleRafId = requestAnimationFrame(updateParticles)
-
     return () => {
       cancelAnimationFrame(particleRafId)
     }

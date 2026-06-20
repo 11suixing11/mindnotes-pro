@@ -9,7 +9,111 @@ import type {
 import { getImage } from './canvasUtils'
 import getStroke from 'perfect-freehand'
 
-// 缓存Path2D对象以减少垃圾回收压�?
+// ==================== 性能缓存层 (P0 优化) ====================
+
+// 文本换行缓存 - 避免每次渲染都进行昂贵的 measureText 计算
+interface TextCacheValue {
+  lines: string[]
+  lastAccess: number
+}
+const textWrapCache = new Map<string, TextCacheValue>()
+const TEXT_CACHE_MAX_SIZE = 100
+const TEXT_CACHE_TTL = 30000 // 30秒
+
+function getTextCacheKey(el: TextElement): string {
+  return `${el.id}:${el.content.length}:${el.width}:${el.fontSize}`
+}
+
+function getCachedTextWrap(el: TextElement, ctx: CanvasRenderingContext2D): string[] {
+  const key = getTextCacheKey(el)
+  const cached = textWrapCache.get(key)
+  
+  if (cached && Date.now() - cached.lastAccess < TEXT_CACHE_TTL) {
+    cached.lastAccess = Date.now()
+    return cached.lines
+  }
+  
+  const rawLines = el.content.split('\n')
+  const wrappedLines: string[] = []
+  for (const line of rawLines) {
+    if (line === '') {
+      wrappedLines.push('')
+      continue
+    }
+    let current = ''
+    for (const char of line) {
+      const test = current + char
+      if (ctx.measureText(test).width > el.width && current.length > 0) {
+        wrappedLines.push(current)
+        current = char
+      } else {
+        current = test
+      }
+    }
+    wrappedLines.push(current)
+  }
+  
+  // LRU 缓存清理
+  if (textWrapCache.size >= TEXT_CACHE_MAX_SIZE) {
+    const oldestKey = Array.from(textWrapCache.entries())
+      .sort((a, b) => a[1].lastAccess - b[1].lastAccess)[0][0]
+    textWrapCache.delete(oldestKey)
+  }
+  
+  textWrapCache.set(key, { lines: wrappedLines, lastAccess: Date.now() })
+  return wrappedLines
+}
+
+// 小地图边界缓存 - 避免每次渲染都遍历所有元素计算边界
+interface MinimapCacheValue {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+  elementCount: number
+  lastAccess: number
+}
+let minimapCache: MinimapCacheValue | null = null
+const MINIMAP_CACHE_TTL = 5000 // 5秒
+
+function getCachedMinimapBounds(
+  elements: CanvasElement[],
+  cachedBounds: (el: CanvasElement) => { x: number; y: number; w: number; h: number }
+): { minX: number; minY: number; maxX: number; maxY: number } {
+  const now = Date.now()
+  const elementCount = elements.length
+  
+  if (
+    minimapCache &&
+    minimapCache.elementCount === elementCount &&
+    now - minimapCache.lastAccess < MINIMAP_CACHE_TTL
+  ) {
+    minimapCache.lastAccess = now
+    return {
+      minX: minimapCache.minX,
+      minY: minimapCache.minY,
+      maxX: minimapCache.maxX,
+      maxY: minimapCache.maxY,
+    }
+  }
+  
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity
+  for (const el of elements) {
+    const b = cachedBounds(el)
+    minX = Math.min(minX, b.x)
+    minY = Math.min(minY, b.y)
+    maxX = Math.max(maxX, b.x + b.w)
+    maxY = Math.max(maxY, b.y + b.h)
+  }
+  
+  minimapCache = { minX, minY, maxX, maxY, elementCount, lastAccess: now }
+  return { minX, minY, maxX, maxY }
+}
+
+// MonetGrid Path2D 缓存 - 修复 dotSize 变化时缓存不失效问题
 let cachedMonetGridPath: Path2D | null = null
 let cachedMonetGridParams: {
   startX: number
@@ -17,7 +121,10 @@ let cachedMonetGridParams: {
   endX: number
   endY: number
   gridSize: number
+  dotSize: number
 } | null = null
+
+// ==================== 导出函数 ====================
 
 export function drawElement(
   ctx: CanvasRenderingContext2D,
@@ -245,25 +352,10 @@ export function drawTextEl(ctx: CanvasRenderingContext2D, el: TextElement, editi
   ctx.fillStyle = el.color
   ctx.textBaseline = 'top'
   const lineHeight = el.fontSize * 1.6
-  const rawLines = el.content.split('\n')
-  const wrappedLines: string[] = []
-  for (const line of rawLines) {
-    if (line === '') {
-      wrappedLines.push('')
-      continue
-    }
-    let current = ''
-    for (const char of line) {
-      const test = current + char
-      if (ctx.measureText(test).width > el.width && current.length > 0) {
-        wrappedLines.push(current)
-        current = char
-      } else {
-        current = test
-      }
-    }
-    wrappedLines.push(current)
-  }
+  
+  // 使用缓存的换行结果 - P0 性能优化
+  const wrappedLines = getCachedTextWrap(el, ctx)
+  
   for (let i = 0; i < wrappedLines.length; i++) {
     ctx.fillText(wrappedLines[i], el.x, el.y + i * lineHeight)
   }
@@ -301,17 +393,14 @@ export function drawSelBox(
 ) {
   const primary = isDarkMode ? '#C8A0B0' : '#B07D6E'
   const primaryLight = isDarkMode ? 'rgba(200,160,176,0.12)' : 'rgba(176,125,110,0.1)'
-
   ctx.save()
   ctx.strokeStyle = primary
   ctx.lineWidth = 1.5 / zoom
   ctx.setLineDash([5 / zoom, 5 / zoom])
   ctx.strokeRect(b.x, b.y, b.w, b.h)
   ctx.setLineDash([])
-
   ctx.fillStyle = primaryLight
   ctx.fillRect(b.x, b.y, b.w, b.h)
-
   const cornerR = 4 / zoom
   ctx.fillStyle = primary
   ctx.shadowColor = isDarkMode ? 'rgba(200,160,176,0.3)' : 'rgba(176,125,110,0.3)'
@@ -341,29 +430,24 @@ export function drawMonetGrid(
   const sy = Math.floor(viewBox.y / gs) * gs
   const ex = viewBox.x + canvasSize.w / viewBox.zoom
   const ey = viewBox.y + canvasSize.h / viewBox.zoom
-
   const dotSize = Math.max(0.8, 1.2 / viewBox.zoom)
   const alpha = Math.min(0.12, 0.06 + (viewBox.zoom - 0.3) * 0.03)
-
+  
   ctx.save()
-  if (isDarkMode) {
-    ctx.fillStyle = `rgba(160,150,180,${alpha})`
-  } else {
-    ctx.fillStyle = `rgba(155,142,127,${alpha})`
-  }
-
-  // 检查参数是否变化，决定是否重新创建Path2D对象
-  const currentParams = { startX: sx, startY: sy, endX: ex, endY: ey, gridSize: gs }
+  ctx.fillStyle = isDarkMode ? `rgba(160,150,180,${alpha})` : `rgba(155,142,127,${alpha})`
+  
+  // 修复：包含 dotSize 在缓存检查中 - P1 性能优化
+  const currentParams = { startX: sx, startY: sy, endX: ex, endY: ey, gridSize: gs, dotSize }
   const paramsChanged =
     !cachedMonetGridParams ||
     cachedMonetGridParams.startX !== currentParams.startX ||
     cachedMonetGridParams.startY !== currentParams.startY ||
     cachedMonetGridParams.endX !== currentParams.endX ||
     cachedMonetGridParams.endY !== currentParams.endY ||
-    cachedMonetGridParams.gridSize !== currentParams.gridSize
-
+    cachedMonetGridParams.gridSize !== currentParams.gridSize ||
+    cachedMonetGridParams.dotSize !== currentParams.dotSize
+  
   if (paramsChanged || !cachedMonetGridPath) {
-    // 参数变化时创建新的Path2D对象
     const path = new Path2D()
     for (let x = sx; x <= ex; x += gs) {
       for (let y = sy; y <= ey; y += gs) {
@@ -371,13 +455,10 @@ export function drawMonetGrid(
         path.arc(x, y, dotSize, 0, Math.PI * 2)
       }
     }
-
-    // 更新缓存
     cachedMonetGridPath = path
     cachedMonetGridParams = currentParams
   }
-
-  // 使用缓存的Path2D对象绘制
+  
   ctx.fill(cachedMonetGridPath)
   ctx.restore()
 }
@@ -390,7 +471,6 @@ export function drawCanvasBackground(
 ) {
   ctx.fillStyle = bgColor
   ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-
   if (isDarkMode) {
     const g1 = ctx.createRadialGradient(
       canvasSize.w * 0.12,
@@ -405,7 +485,6 @@ export function drawCanvasBackground(
     g1.addColorStop(1, 'transparent')
     ctx.fillStyle = g1
     ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-
     const g2 = ctx.createRadialGradient(
       canvasSize.w * 0.82,
       canvasSize.h * 0.72,
@@ -419,7 +498,6 @@ export function drawCanvasBackground(
     g2.addColorStop(1, 'transparent')
     ctx.fillStyle = g2
     ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-
     const g3 = ctx.createRadialGradient(
       canvasSize.w * 0.5,
       canvasSize.h * 0.45,
@@ -446,7 +524,6 @@ export function drawCanvasBackground(
     g1.addColorStop(1, 'transparent')
     ctx.fillStyle = g1
     ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-
     const g2 = ctx.createRadialGradient(
       canvasSize.w * 0.82,
       canvasSize.h * 0.72,
@@ -460,7 +537,6 @@ export function drawCanvasBackground(
     g2.addColorStop(1, 'transparent')
     ctx.fillStyle = g2
     ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-
     const g3 = ctx.createRadialGradient(
       canvasSize.w * 0.55,
       canvasSize.h * 0.4,
@@ -474,7 +550,6 @@ export function drawCanvasBackground(
     g3.addColorStop(1, 'transparent')
     ctx.fillStyle = g3
     ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-
     const g4 = ctx.createRadialGradient(
       canvasSize.w * 0.7,
       canvasSize.h * 0.2,
@@ -505,38 +580,27 @@ export function drawMinimap(
     pad = 12
   const mmX = canvasSize.w - mmW - pad,
     mmY = canvasSize.h - mmH - pad
-
+  
   ctx.save()
   ctx.globalAlpha = 0.8
-
-  // Background - transparent container, no border
   ctx.fillStyle = 'transparent'
   ctx.beginPath()
   ctx.roundRect(mmX - 2, mmY - 2, mmW + 4, mmH + 4, 8)
   ctx.fill()
-
+  
   if (elements.length === 0) {
     ctx.restore()
     return
   }
-
-  // Compute content bounds
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity
-  for (const el of elements) {
-    const b = cachedBounds(el)
-    minX = Math.min(minX, b.x)
-    minY = Math.min(minY, b.y)
-    maxX = Math.max(maxX, b.x + b.w)
-    maxY = Math.max(maxY, b.y + b.h)
-  }
+  
+  // 使用缓存的边界计算 - P0 性能优化
+  const { minX, minY, maxX, maxY } = getCachedMinimapBounds(elements, cachedBounds)
+  
   if (!isFinite(minX)) {
     ctx.restore()
     return
   }
-
+  
   const contentW = maxX - minX || 1
   const contentH = maxY - minY || 1
   const padding = 20
@@ -545,8 +609,7 @@ export function drawMinimap(
   const scale = Math.min(availW / contentW, availH / contentH)
   const offX = mmX + (mmW - contentW * scale) / 2 - minX * scale
   const offY = mmY + (mmH - contentH * scale) / 2 - minY * scale
-
-  // Draw canvas background
+  
   ctx.save()
   ctx.beginPath()
   ctx.roundRect(mmX, mmY, mmW, mmH, 6)
@@ -555,8 +618,7 @@ export function drawMinimap(
   ctx.fillRect(mmX, mmY, mmW, mmH)
   ctx.translate(offX, offY)
   ctx.scale(scale, scale)
-
-  // Render each element
+  
   for (const el of elements) {
     drawElement(ctx, el, isDarkMode)
   }
@@ -577,6 +639,7 @@ export function drawMinimap(
 
   ctx.restore()
 }
+
 export function drawZoomLevel(
   ctx: CanvasRenderingContext2D,
   viewBox: { zoom: number },
@@ -586,7 +649,6 @@ export function drawZoomLevel(
 ) {
   ctx.save()
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  // Top-right corner, inside the canvas area
   const text = Math.round(viewBox.zoom * 100) + '%'
   ctx.font = '500 11px "Noto Sans SC", sans-serif'
   ctx.fillStyle = isDarkMode ? 'rgba(200,160,176,0.4)' : 'rgba(176,125,110,0.35)'
