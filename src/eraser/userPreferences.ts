@@ -9,6 +9,7 @@ export interface EraserUserPreferences {
   baseRadius: number
   audioEnabled: boolean
   rotation: number
+  particlesEnabled: boolean
 }
 
 const DEFAULT_PREFERENCES: EraserUserPreferences = {
@@ -17,6 +18,7 @@ const DEFAULT_PREFERENCES: EraserUserPreferences = {
   baseRadius: DEFAULT_ERASER_CONFIG.baseRadius,
   audioEnabled: true,
   rotation: 0,
+  particlesEnabled: true,
 }
 
 /**
