@@ -1,4 +1,5 @@
 import { useShallow } from 'zustand/react/shallow'
+import { useState } from 'react'
 import { useEraserStore } from '../../eraser/eraserStore'
 import type { EraserShape, EraserPresetType, EraserBrandType } from '../../eraser/types'
 import { 
@@ -8,6 +9,7 @@ import {
   ERASER_BRAND_ICONS,
   ERASER_BRAND_CONFIGS,
 } from '../../eraser/types'
+import { ShortcutSettings } from './ShortcutSettings'
 
 const shapeLabels: Record<EraserShape, string> = {
   circle: '●',
@@ -16,6 +18,8 @@ const shapeLabels: Record<EraserShape, string> = {
 }
 
 export default function EraserControls() {
+  const [showShortcutSettings, setShowShortcutSettings] = useState(false)
+  
   const {
     eraserConfig,
     eraserPreset,
@@ -500,10 +504,39 @@ export default function EraserControls() {
           alignItems: 'center',
           justifyContent: 'center',
           gap: '6px',
+          marginBottom: '8px',
         }}
       >
         {particlesEnabled ? '✨ 粒子效果开启' : '⭕ 粒子效果关闭'}
       </button>
+
+      {/* 快捷键设置按钮 */}
+      <div style={{ position: 'relative' }}>
+        <button
+          onClick={() => setShowShortcutSettings(!showShortcutSettings)}
+          style={{
+            width: '100%',
+            padding: '8px 12px',
+            fontSize: '12px',
+            fontWeight: 500,
+            borderRadius: '8px',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            background: showShortcutSettings ? 'var(--primary)' : 'var(--bg-2)',
+            color: showShortcutSettings ? 'white' : 'var(--text-2)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+          }}
+        >
+          ⌨️ 快捷键设置
+        </button>
+        {showShortcutSettings && (
+          <ShortcutSettings onClose={() => setShowShortcutSettings(false)} />
+        )}
+      </div>
     </div>
   )
 }
