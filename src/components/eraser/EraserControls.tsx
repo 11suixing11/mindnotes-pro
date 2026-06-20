@@ -17,6 +17,10 @@ export default function EraserControls() {
     setEraserPreset,
     getWearLevel,
     resetWear,
+    undoWear,
+    redoWear,
+    canUndoWear,
+    canRedoWear,
     particlesEnabled,
     setParticlesEnabled,
   } = useEraserStore(
@@ -27,6 +31,10 @@ export default function EraserControls() {
       setEraserPreset: s.setEraserPreset,
       getWearLevel: s.getWearLevel,
       resetWear: s.resetWear,
+      undoWear: s.undoWear,
+      redoWear: s.redoWear,
+      canUndoWear: s.canUndoWear,
+      canRedoWear: s.canRedoWear,
       particlesEnabled: s.particlesEnabled,
       setParticlesEnabled: s.setParticlesEnabled,
     }))
@@ -47,6 +55,14 @@ export default function EraserControls() {
 
   const handleResetWear = () => {
     resetWear()
+  }
+
+  const handleUndoWear = () => {
+    undoWear()
+  }
+
+  const handleRedoWear = () => {
+    redoWear()
   }
 
   const toggleAudio = () => {
@@ -216,6 +232,62 @@ export default function EraserControls() {
            wearLevel < 0.6 ? '有些磨损' :
            wearLevel < 0.8 ? '磨损较严重' : '该削橡皮了！'}
         </div>
+      </div>
+
+      {/* 撤销/重做按钮 */}
+      <div style={{
+        display: 'flex',
+        gap: '6px',
+        marginBottom: '8px',
+      }}>
+        <button
+          onClick={handleUndoWear}
+          disabled={!canUndoWear()}
+          title="撤销削橡皮 (Ctrl+Z)"
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            fontSize: '12px',
+            fontWeight: 500,
+            borderRadius: '8px',
+            border: 'none',
+            cursor: canUndoWear() ? 'pointer' : 'not-allowed',
+            transition: 'all 0.15s ease',
+            background: canUndoWear() ? 'var(--bg-2)' : 'var(--bg-3)',
+            color: canUndoWear() ? 'var(--text-2)' : 'var(--text-4)',
+            opacity: canUndoWear() ? 1 : 0.5,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+          }}
+        >
+          ↩️ 撤销
+        </button>
+        <button
+          onClick={handleRedoWear}
+          disabled={!canRedoWear()}
+          title="重做削橡皮 (Ctrl+Y)"
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            fontSize: '12px',
+            fontWeight: 500,
+            borderRadius: '8px',
+            border: 'none',
+            cursor: canRedoWear() ? 'pointer' : 'not-allowed',
+            transition: 'all 0.15s ease',
+            background: canRedoWear() ? 'var(--bg-2)' : 'var(--bg-3)',
+            color: canRedoWear() ? 'var(--text-2)' : 'var(--text-4)',
+            opacity: canRedoWear() ? 1 : 0.5,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+          }}
+        >
+          ↪️ 重做
+        </button>
       </div>
 
       {/* 削橡皮按钮 */}
