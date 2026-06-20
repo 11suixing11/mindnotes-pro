@@ -4,6 +4,7 @@ import type { EraserUserPreferences } from './userPreferences'
 import { ERASER_PRESET_CONFIGS } from './types'
 import { PhysicsEraserEngine } from './PhysicsEraserEngine'
 import { SpatialIndex, PerformanceMonitor } from './SpatialIndex'
+import { EraserParticleSystem, getParticleSystem } from './EraserParticleSystem'
 import type { CanvasElement } from '../store/types'
 import {
   loadEraserPreferences,
@@ -25,6 +26,10 @@ interface EraserState {
   engine: PhysicsEraserEngine
   spatialIndex: SpatialIndex
   performanceMonitor: PerformanceMonitor
+  particleSystem: EraserParticleSystem
+  
+  // 粒子系统
+  particlesEnabled: boolean
   
   // 统计
   lastEraseTime: number
@@ -53,6 +58,11 @@ interface EraserActions {
   getWearLevel: () => number
   resetWear: () => void
   
+  // 粒子系统
+  setParticlesEnabled: (enabled: boolean) => void
+  emitParticles: (point: EraserPoint) => void
+  updateParticles: (deltaTime: number) => void
+  
   // 重置
   reset: () => void
 }
@@ -65,6 +75,7 @@ const initialConfig = getEraserConfigFromPreferences(savedPrefs)
 const globalEngine = new PhysicsEraserEngine(initialConfig)
 const globalSpatialIndex = new SpatialIndex()
 const globalPerformanceMonitor = new PerformanceMonitor()
+const globalParticleSystem = getParticleSystem()
 
 export const useEraserStore = create<EraserState & EraserActions>()(
   (set, get) => ({
@@ -79,6 +90,9 @@ export const useEraserStore = create<EraserState & EraserActions>()(
     engine: globalEngine,
     spatialIndex: globalSpatialIndex,
     performanceMonitor: globalPerformanceMonitor,
+    particleSystem: globalParticleSystem,
+    
+    particlesEnabled: true,
     
     lastEraseTime: 0,
     elementsErased: 0,
@@ -195,8 +209,42 @@ export const useEraserStore = create<EraserState & EraserActions>()(
       get().engine.resetWear()
     },
     
+    // ===== 粒子系统 =====
+    
+    setParticlesEnabled: (enabled: boolean) => {
+      const { particleSystem } = get()
+      particleSystem.setEnabled(enabled)
+      set({ particlesEnabled: enabled })
+    },
+    
+    emitParticles: (point: EraserPoint) => {
+      const { particlesEnabled, particleSystem } = get()
+      if (!particlesEnabled) return
+      
+      const config = particleSystem.getConfig()
+      const particleCount = Math.floor(
+        config.particlesPerErase * (0.5 + point.pressure * 1.5)
+      )
+      
+      particleSystem.emit({
+        x: point.x,
+        y: point.y,
+        direction: point.direction,
+        pressure: point.pressure,
+        velocity: Math.min(point.velocity, 1),
+        count: particleCount,
+        spread: Math.PI * 0.5, // 90度扩散
+      })
+    },
+    
+    updateParticles: (deltaTime: number) => {
+      const { particleSystem } = get()
+      particleSystem.update(deltaTime)
+    },
+    
     reset: () => {
       globalPerformanceMonitor.reset()
+      globalParticleSystem.clear()
       set({
         isErasing: false,
         currentTrail: [],
@@ -211,3 +259,4 @@ export const useEraserStore = create<EraserState & EraserActions>()(
 export { globalEngine as eraserEngine }
 export { globalSpatialIndex as eraserSpatialIndex }
 export { globalPerformanceMonitor as eraserPerformanceMonitor }
+export { globalParticleSystem as eraserParticleSystem }
