@@ -10,6 +10,51 @@ import { getImage } from './canvasUtils'
 import getStroke from 'perfect-freehand'
 
 // ==================== 性能缓存层 (P0 优化) ====================
+// Perfect-Freehand 笔触缓存 - 避免每帧重复计算昂贵的描边路径
+interface StrokeCacheValue {
+  outline: number[][]
+  lastAccess: number
+}
+const strokeOutlineCache = new Map<string, StrokeCacheValue>()
+const STROKE_CACHE_MAX_SIZE = 200
+const STROKE_CACHE_TTL = 60000 // 60秒
+
+function getStrokeCacheKey(el: StrokeElement): string {
+  return `${el.id}:${el.points.length}:${el.size}`
+}
+
+function getCachedStrokeOutline(el: StrokeElement): number[][] | null {
+  if (el.brush !== 'pen') return null
+
+  const key = getStrokeCacheKey(el)
+  const cached = strokeOutlineCache.get(key)
+
+  if (cached && Date.now() - cached.lastAccess < STROKE_CACHE_TTL) {
+    cached.lastAccess = Date.now()
+    return cached.outline
+  }
+
+  try {
+    const outline = getStroke(el.points, {
+      size: el.size,
+      thinning: 0.5,
+      smoothing: 0.5,
+      streamline: 0.5,
+    })
+
+    // LRU 缓存清理
+    if (strokeOutlineCache.size >= STROKE_CACHE_MAX_SIZE) {
+      const oldestKey = Array.from(strokeOutlineCache.entries())
+        .sort((a, b) => a[1].lastAccess - b[1].lastAccess)[0][0]
+      strokeOutlineCache.delete(oldestKey)
+    }
+
+    strokeOutlineCache.set(key, { outline, lastAccess: Date.now() })
+    return outline
+  } catch {
+    return null
+  }
+}
 
 // 文本换行缓存 - 避免每次渲染都进行昂贵的 measureText 计算
 interface TextCacheValue {
@@ -19,20 +64,18 @@ interface TextCacheValue {
 const textWrapCache = new Map<string, TextCacheValue>()
 const TEXT_CACHE_MAX_SIZE = 100
 const TEXT_CACHE_TTL = 30000 // 30秒
-
 function getTextCacheKey(el: TextElement): string {
   return `${el.id}:${el.content.length}:${el.width}:${el.fontSize}`
 }
-
 function getCachedTextWrap(el: TextElement, ctx: CanvasRenderingContext2D): string[] {
   const key = getTextCacheKey(el)
   const cached = textWrapCache.get(key)
-  
+
   if (cached && Date.now() - cached.lastAccess < TEXT_CACHE_TTL) {
     cached.lastAccess = Date.now()
     return cached.lines
   }
-  
+
   const rawLines = el.content.split('\n')
   const wrappedLines: string[] = []
   for (const line of rawLines) {
@@ -52,18 +95,17 @@ function getCachedTextWrap(el: TextElement, ctx: CanvasRenderingContext2D): stri
     }
     wrappedLines.push(current)
   }
-  
+
   // LRU 缓存清理
   if (textWrapCache.size >= TEXT_CACHE_MAX_SIZE) {
     const oldestKey = Array.from(textWrapCache.entries())
       .sort((a, b) => a[1].lastAccess - b[1].lastAccess)[0][0]
     textWrapCache.delete(oldestKey)
   }
-  
+
   textWrapCache.set(key, { lines: wrappedLines, lastAccess: Date.now() })
   return wrappedLines
 }
-
 // 小地图边界缓存 - 避免每次渲染都遍历所有元素计算边界
 interface MinimapCacheValue {
   minX: number
@@ -75,14 +117,13 @@ interface MinimapCacheValue {
 }
 let minimapCache: MinimapCacheValue | null = null
 const MINIMAP_CACHE_TTL = 5000 // 5秒
-
 function getCachedMinimapBounds(
   elements: CanvasElement[],
   cachedBounds: (el: CanvasElement) => { x: number; y: number; w: number; h: number }
 ): { minX: number; minY: number; maxX: number; maxY: number } {
   const now = Date.now()
   const elementCount = elements.length
-  
+
   if (
     minimapCache &&
     minimapCache.elementCount === elementCount &&
@@ -96,7 +137,7 @@ function getCachedMinimapBounds(
       maxY: minimapCache.maxY,
     }
   }
-  
+
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
@@ -108,11 +149,10 @@ function getCachedMinimapBounds(
     maxX = Math.max(maxX, b.x + b.w)
     maxY = Math.max(maxY, b.y + b.h)
   }
-  
+
   minimapCache = { minX, minY, maxX, maxY, elementCount, lastAccess: now }
   return { minX, minY, maxX, maxY }
 }
-
 // MonetGrid Path2D 缓存 - 修复 dotSize 变化时缓存不失效问题
 let cachedMonetGridPath: Path2D | null = null
 let cachedMonetGridParams: {
@@ -123,9 +163,7 @@ let cachedMonetGridParams: {
   gridSize: number
   dotSize: number
 } | null = null
-
 // ==================== 导出函数 ====================
-
 export function drawElement(
   ctx: CanvasRenderingContext2D,
   el: CanvasElement,
@@ -136,6 +174,18 @@ export function drawElement(
   else if (el.type === 'shape') drawShapeEl(ctx, el)
   else if (el.type === 'text') drawTextEl(ctx, el, editingTextId)
   else if (el.type === 'image') drawImageEl(ctx, el)
+}
+
+// P0 性能优化：小地图专用简化绘制函数 - 只画边界矩形，不渲染完整笔触细节
+export function drawElementMinimap(
+  ctx: CanvasRenderingContext2D,
+  _el: CanvasElement,
+  isDarkMode: boolean,
+  bounds: { x: number; y: number; w: number; h: number }
+) {
+  const color = isDarkMode ? 'rgba(200,160,176,0.6)' : 'rgba(176,125,110,0.5)'
+  ctx.fillStyle = color
+  ctx.fillRect(bounds.x, bounds.y, bounds.w, bounds.h)
 }
 
 export function drawStrokeEl(
@@ -161,25 +211,19 @@ export function drawStrokeEl(
       ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2)
     }
     ctx.stroke()
-    try {
-      const outline = getStroke(pts, {
-        size: el.size,
-        thinning: 0.5,
-        smoothing: 0.5,
-        streamline: 0.5,
-      })
-      if (outline.length > 2) {
-        ctx.globalAlpha = 0.15
-        ctx.fillStyle = el.color
-        ctx.beginPath()
-        ctx.moveTo(outline[0][0], outline[0][1])
-        for (let i = 1; i < outline.length; i++) ctx.lineTo(outline[i][0], outline[i][1])
-        ctx.closePath()
-        ctx.fill()
-      }
-    } catch {
-      /* perfect-freehand fallback - main stroke already drawn */
+
+    // P1 性能优化：使用缓存的笔触结果，避免每帧重复计算
+    const outline = getCachedStrokeOutline(el)
+    if (outline && outline.length > 2) {
+      ctx.globalAlpha = 0.15
+      ctx.fillStyle = el.color
+      ctx.beginPath()
+      ctx.moveTo(outline[0][0], outline[0][1])
+      for (let i = 1; i < outline.length; i++) ctx.lineTo(outline[i][0], outline[i][1])
+      ctx.closePath()
+      ctx.fill()
     }
+
     ctx.globalAlpha = 1
   } else if (b === 'highlighter') {
     ctx.save()
@@ -268,7 +312,6 @@ export function drawStrokeEl(
     ctx.restore()
   }
 }
-
 export function drawStrokeRaw(
   ctx: CanvasRenderingContext2D,
   pts: number[][],
@@ -283,7 +326,6 @@ export function drawStrokeRaw(
     isDarkMode
   )
 }
-
 export function drawShapeEl(ctx: CanvasRenderingContext2D, el: ShapeElement) {
   ctx.strokeStyle = el.color
   ctx.lineWidth = el.size
@@ -344,7 +386,6 @@ export function drawShapeEl(ctx: CanvasRenderingContext2D, el: ShapeElement) {
     }
   }
 }
-
 export function drawTextEl(ctx: CanvasRenderingContext2D, el: TextElement, editingTextId?: string) {
   if (el.id === editingTextId) return
   ctx.save()
@@ -352,16 +393,15 @@ export function drawTextEl(ctx: CanvasRenderingContext2D, el: TextElement, editi
   ctx.fillStyle = el.color
   ctx.textBaseline = 'top'
   const lineHeight = el.fontSize * 1.6
-  
+
   // 使用缓存的换行结果 - P0 性能优化
   const wrappedLines = getCachedTextWrap(el, ctx)
-  
+
   for (let i = 0; i < wrappedLines.length; i++) {
     ctx.fillText(wrappedLines[i], el.x, el.y + i * lineHeight)
   }
   ctx.restore()
 }
-
 export function drawImageEl(ctx: CanvasRenderingContext2D, el: ImageElement) {
   const img = getImage(el.dataUrl)
   if (img?.complete) {
@@ -384,7 +424,6 @@ export function drawImageEl(ctx: CanvasRenderingContext2D, el: ImageElement) {
     ctx.restore()
   }
 }
-
 export function drawSelBox(
   ctx: CanvasRenderingContext2D,
   b: { x: number; y: number; w: number; h: number },
@@ -417,7 +456,6 @@ export function drawSelBox(
   }
   ctx.restore()
 }
-
 export function drawMonetGrid(
   ctx: CanvasRenderingContext2D,
   viewBox: { x: number; y: number; zoom: number },
@@ -432,11 +470,11 @@ export function drawMonetGrid(
   const ey = viewBox.y + canvasSize.h / viewBox.zoom
   const dotSize = Math.max(0.8, 1.2 / viewBox.zoom)
   const alpha = Math.min(0.12, 0.06 + (viewBox.zoom - 0.3) * 0.03)
-  
+
   ctx.save()
   ctx.fillStyle = isDarkMode ? `rgba(160,150,180,${alpha})` : `rgba(155,142,127,${alpha})`
-  
-  // 修复：包含 dotSize 在缓存检查中 - P1 性能优化
+
+  // P1 性能优化：包含 dotSize 在缓存检查中
   const currentParams = { startX: sx, startY: sy, endX: ex, endY: ey, gridSize: gs, dotSize }
   const paramsChanged =
     !cachedMonetGridParams ||
@@ -446,7 +484,7 @@ export function drawMonetGrid(
     cachedMonetGridParams.endY !== currentParams.endY ||
     cachedMonetGridParams.gridSize !== currentParams.gridSize ||
     cachedMonetGridParams.dotSize !== currentParams.dotSize
-  
+
   if (paramsChanged || !cachedMonetGridPath) {
     const path = new Path2D()
     for (let x = sx; x <= ex; x += gs) {
@@ -458,11 +496,10 @@ export function drawMonetGrid(
     cachedMonetGridPath = path
     cachedMonetGridParams = currentParams
   }
-  
+
   ctx.fill(cachedMonetGridPath)
   ctx.restore()
 }
-
 export function drawCanvasBackground(
   ctx: CanvasRenderingContext2D,
   canvasSize: { w: number; h: number },
@@ -565,7 +602,6 @@ export function drawCanvasBackground(
     ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
   }
 }
-
 export function drawMinimap(
   ctx: CanvasRenderingContext2D,
   elements: CanvasElement[],
@@ -580,27 +616,27 @@ export function drawMinimap(
     pad = 12
   const mmX = canvasSize.w - mmW - pad,
     mmY = canvasSize.h - mmH - pad
-  
+
   ctx.save()
   ctx.globalAlpha = 0.8
   ctx.fillStyle = 'transparent'
   ctx.beginPath()
   ctx.roundRect(mmX - 2, mmY - 2, mmW + 4, mmH + 4, 8)
   ctx.fill()
-  
+
   if (elements.length === 0) {
     ctx.restore()
     return
   }
-  
+
   // 使用缓存的边界计算 - P0 性能优化
   const { minX, minY, maxX, maxY } = getCachedMinimapBounds(elements, cachedBounds)
-  
+
   if (!isFinite(minX)) {
     ctx.restore()
     return
   }
-  
+
   const contentW = maxX - minX || 1
   const contentH = maxY - minY || 1
   const padding = 20
@@ -609,7 +645,7 @@ export function drawMinimap(
   const scale = Math.min(availW / contentW, availH / contentH)
   const offX = mmX + (mmW - contentW * scale) / 2 - minX * scale
   const offY = mmY + (mmH - contentH * scale) / 2 - minY * scale
-  
+
   ctx.save()
   ctx.beginPath()
   ctx.roundRect(mmX, mmY, mmW, mmH, 6)
@@ -618,13 +654,14 @@ export function drawMinimap(
   ctx.fillRect(mmX, mmY, mmW, mmH)
   ctx.translate(offX, offY)
   ctx.scale(scale, scale)
-  
+
+  // P0 性能优化：小地图只绘制边界矩形，不完整渲染每个元素
+  // 避免调用 drawElement 进行复杂的笔触渲染
   for (const el of elements) {
-    drawElement(ctx, el, isDarkMode)
+    drawElementMinimap(ctx, el, isDarkMode, cachedBounds(el))
   }
 
   ctx.restore()
-
   // Draw viewport rectangle
   const vpX = offX + viewBox.x * scale
   const vpY = offY + viewBox.y * scale
@@ -636,10 +673,8 @@ export function drawMinimap(
   ctx.beginPath()
   ctx.roundRect(vpX, vpY, vpW, vpH, 2)
   ctx.stroke()
-
   ctx.restore()
 }
-
 export function drawZoomLevel(
   ctx: CanvasRenderingContext2D,
   viewBox: { zoom: number },
@@ -656,7 +691,6 @@ export function drawZoomLevel(
   ctx.fillText(text, canvasSize.w - 16, 22)
   ctx.restore()
 }
-
 export function drawGrid(
   ctx: CanvasRenderingContext2D,
   viewBox: { x: number; y: number; zoom: number },
@@ -669,7 +703,6 @@ export function drawGrid(
   const startY = Math.floor(viewBox.y / step) * step
   const endX = viewBox.x + canvasSize.w / viewBox.zoom
   const endY = viewBox.y + canvasSize.h / viewBox.zoom
-
   ctx.save()
   ctx.strokeStyle = isDarkMode ? 'rgba(200,160,176,0.08)' : 'rgba(176,125,110,0.08)'
   ctx.lineWidth = 0.5 / viewBox.zoom
