@@ -2,6 +2,11 @@
  * 橡皮屑粒子系统
  * 模拟真实擦除时产生的橡皮屑飞散效果
  * 支持气流交互：快速移动鼠标/笔可以吹走橡皮屑
+ * 
+ * 性能优化说明：
+ * - 使用 Path2D 批量渲染，避免每个粒子调用 save/restore
+ * - 按颜色分组渲染，减少 fillStyle 切换开销
+ * - 使用贝塞尔曲线近似旋转椭圆，避免逐粒子变换
  */
 import type {
   EraserParticle,
@@ -17,40 +22,29 @@ import {
 let particleIdCounter = 0
 
 // ==================== 命名常量 ====================
-
 /** 对象池大小相对于 maxParticles 的倍数 */
 const POOL_SIZE_MULTIPLIER = 1.5
-
 /** deltaTime 的最小值，防止除零 */
 const MIN_DELTA_TIME = 0.001
-
 /** 时间-帧率换算基准（假设 60fps 基准） */
 const FRAME_RATE_BASE = 60
-
 /** 粒子发射位置的随机抖动范围（像素） */
 const EMIT_JITTER_RADIUS = 10
-
 /** 速度对初速度的混合系数：基础 + 速度 * 系数 */
 const SPEED_FACTOR_BASE = 0.5
 const SPEED_FACTOR_VELOCITY = 0.5
-
 /** 压力对粒子大小的混合系数：基础 + 压力 * 系数 */
 const PRESSURE_FACTOR_BASE = 0.6
 const PRESSURE_FACTOR_PRESSURE = 0.8
-
 /** 粒子质量范围 */
 const MASS_BASE = 0.8
 const MASS_VARIANCE = 0.4
-
 /** 防止除零的 epsilon 值 */
 const EPSILON = 0.001
-
 /** 气流方向中指针移动方向的占比 */
 const WIND_DIR_WEIGHT = 0.7
-
 /** 气流方向中向外推开方向的占比 */
 const WIND_PUSH_WEIGHT = 0.3
-
 /** 气流引起的旋转增强系数 */
 const WIND_ROTATION_BOOST = 0.02
 
@@ -372,57 +366,152 @@ export class EraserParticleSystem {
 
   /**
    * 渲染所有粒子到Canvas
+   * 性能优化：批量渲染，避免每个粒子都调用 save/restore
+   * 使用 Path2D 批量绘制，减少 Canvas 状态切换开销
    */
   render(ctx: CanvasRenderingContext2D): void {
     if (!this.config.enabled) return
     if (this.particles.length === 0) return
 
+    // 按颜色分组批量渲染，减少 fillStyle 切换次数
+    const particlesByColor = new Map<string, EraserParticle[]>()
     for (const particle of this.particles) {
-      this.renderParticle(ctx, particle)
+      let list = particlesByColor.get(particle.color)
+      if (!list) {
+        list = []
+        particlesByColor.set(particle.color, list)
+      }
+      list.push(particle)
+    }
+
+    // 对每种颜色批量渲染
+    for (const [color, particles] of particlesByColor) {
+      // 主颜色粒子
+      const mainPath = new Path2D()
+      // 阴影粒子
+      const shadowPath = new Path2D()
+
+      for (const particle of particles) {
+        const cos = Math.cos(particle.rotation)
+        const sin = Math.sin(particle.rotation)
+        const rx = particle.size
+        const ry = particle.size * 0.6
+        const shadowRx = particle.size * 0.8
+        const shadowRy = particle.size * 0.5
+
+        // 应用旋转变换计算椭圆位置
+        // 对于椭圆中心偏移 (1, 1) 的阴影
+        const shadowOffsetX = 1 * cos - 1 * sin
+        const shadowOffsetY = 1 * sin + 1 * cos
+
+        // 添加主粒子到路径
+        this.addRotatedEllipseToPath(
+          mainPath,
+          particle.x,
+          particle.y,
+          rx,
+          ry,
+          cos,
+          sin
+        )
+
+        // 添加阴影粒子到路径（只在透明度足够时绘制）
+        if (particle.opacity > 0.3) {
+          this.addRotatedEllipseToPath(
+            shadowPath,
+            particle.x + shadowOffsetX,
+            particle.y + shadowOffsetY,
+            shadowRx,
+            shadowRy,
+            cos,
+            sin
+          )
+        }
+      }
+
+      // 批量绘制阴影
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'
+      ctx.fill(shadowPath)
+
+      // 批量绘制主粒子
+      ctx.fillStyle = color
+      ctx.fill(mainPath)
     }
   }
 
   /**
-   * 渲染单个粒子（内部自行 save/restore，独立管理变换状态）
+   * 添加旋转后的椭圆到 Path2D（用于批量渲染）
+   * 使用贝塞尔曲线近似椭圆，避免每个粒子单独变换
    */
-  private renderParticle(
-    ctx: CanvasRenderingContext2D,
-    particle: EraserParticle
+  private addRotatedEllipseToPath(
+    path: Path2D,
+    cx: number,
+    cy: number,
+    rx: number,
+    ry: number,
+    cos: number,
+    sin: number
   ): void {
-    ctx.save()
-    ctx.translate(particle.x, particle.y)
-    ctx.rotate(particle.rotation)
-    ctx.globalAlpha = particle.opacity
+    // 使用近似的4段贝塞尔曲线绘制旋转椭圆
+    const kappa = 0.5522847498 // 椭圆贝塞尔曲线系数
+    const ox = rx * kappa
+    const oy = ry * kappa
 
-    // 绘制不规则橡皮屑形状（小椭圆）
-    ctx.fillStyle = particle.color
-    ctx.beginPath()
-    ctx.ellipse(
-      0,
-      0,
-      particle.size,
-      particle.size * 0.6,
-      0,
-      0,
-      Math.PI * 2
+    // 四个顶点（旋转后）
+    const right = this.rotatePoint(rx, 0, cos, sin, cx, cy)
+    const bottom = this.rotatePoint(0, ry, cos, sin, cx, cy)
+    const left = this.rotatePoint(-rx, 0, cos, sin, cx, cy)
+    const top = this.rotatePoint(0, -ry, cos, sin, cx, cy)
+
+    // 控制点（旋转后）
+    const rightBottomCp = this.rotatePoint(rx, oy, cos, sin, cx, cy)
+    const bottomRightCp = this.rotatePoint(ox, ry, cos, sin, cx, cy)
+    const bottomLeftCp = this.rotatePoint(-ox, ry, cos, sin, cx, cy)
+    const leftBottomCp = this.rotatePoint(-rx, oy, cos, sin, cx, cy)
+    const leftTopCp = this.rotatePoint(-rx, -oy, cos, sin, cx, cy)
+    const topLeftCp = this.rotatePoint(-ox, -ry, cos, sin, cx, cy)
+    const topRightCp = this.rotatePoint(ox, -ry, cos, sin, cx, cy)
+    const rightTopCp = this.rotatePoint(rx, -oy, cos, sin, cx, cy)
+
+    path.moveTo(right.x, right.y)
+    path.bezierCurveTo(
+      rightBottomCp.x, rightBottomCp.y,
+      bottomRightCp.x, bottomRightCp.y,
+      bottom.x, bottom.y
     )
-    ctx.fill()
-
-    // 添加细微阴影增加立体感
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'
-    ctx.beginPath()
-    ctx.ellipse(
-      1,
-      1,
-      particle.size * 0.8,
-      particle.size * 0.5,
-      0,
-      0,
-      Math.PI * 2
+    path.bezierCurveTo(
+      bottomLeftCp.x, bottomLeftCp.y,
+      leftBottomCp.x, leftBottomCp.y,
+      left.x, left.y
     )
-    ctx.fill()
+    path.bezierCurveTo(
+      leftTopCp.x, leftTopCp.y,
+      topLeftCp.x, topLeftCp.y,
+      top.x, top.y
+    )
+    path.bezierCurveTo(
+      topRightCp.x, topRightCp.y,
+      rightTopCp.x, rightTopCp.y,
+      right.x, right.y
+    )
+    path.closePath()
+  }
 
-    ctx.restore()
+  /**
+   * 旋转点坐标辅助函数
+   */
+  private rotatePoint(
+    x: number,
+    y: number,
+    cos: number,
+    sin: number,
+    cx: number,
+    cy: number
+  ): { x: number; y: number } {
+    return {
+      x: x * cos - y * sin + cx,
+      y: x * sin + y * cos + cy,
+    }
   }
 
   /**
