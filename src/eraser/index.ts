@@ -30,6 +30,13 @@ export type {
   Intersection,
   EraseResult,
   BoundsEntry,
+  EraserParticle,
+  ParticleSystemConfig,
+  ParticleEmitParams,
+} from './types'
+export {
+  DEFAULT_PARTICLE_CONFIG,
+  PARTICLE_COLORS,
 } from './types'
 
 export {
@@ -82,5 +89,8 @@ export { SpatialIndex, PerformanceMonitor } from './SpatialIndex'
 // 渲染
 export { drawEraserTrail, drawSimpleEraserCursor } from './eraserRendering'
 
+// 粒子系统
+export { EraserParticleSystem, getParticleSystem } from './EraserParticleSystem'
+
 // Zustand Store
-export { useEraserStore, eraserEngine, eraserSpatialIndex, eraserPerformanceMonitor } from './eraserStore'
+export { useEraserStore, eraserEngine, eraserSpatialIndex, eraserPerformanceMonitor, eraserParticleSystem } from './eraserStore'

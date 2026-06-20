@@ -75,6 +75,76 @@ export interface BoundsEntry {
   id: string
 }
 
+// ==================== 橡皮屑粒子系统类型 ====================
+
+export interface EraserParticle {
+  id: string
+  x: number              // 当前位置X
+  y: number              // 当前位置Y
+  vx: number             // 速度X
+  vy: number             // 速度Y
+  size: number           // 粒子大小
+  rotation: number       // 旋转角度
+  rotationSpeed: number  // 旋转速度
+  color: string          // 粒子颜色
+  opacity: number        // 透明度
+  life: number           // 剩余生命值 0-1
+  maxLife: number        // 最大生命值
+  mass: number           // 质量（影响重力）
+}
+
+export interface ParticleSystemConfig {
+  enabled: boolean              // 粒子系统开关
+  maxParticles: number          // 最大粒子数量
+  particlesPerErase: number     // 每次擦除产生的粒子数
+  baseSize: number              // 基础粒子大小
+  sizeVariance: number          // 大小随机变化范围
+  speedMin: number              // 最小初速度
+  speedMax: number              // 最大初速度
+  gravity: number               // 重力加速度
+  friction: number              // 空气阻力
+  lifeMin: number               // 最小生命周期（秒）
+  lifeMax: number               // 最大生命周期（秒）
+  fadeOutStart: number          // 开始淡出的生命比例
+  rotationSpeedMax: number      // 最大旋转速度
+}
+
+export interface ParticleEmitParams {
+  x: number              // 发射中心X
+  y: number              // 发射中心Y
+  direction: number      // 擦除方向（弧度）
+  pressure: number       // 擦除压力 0-1
+  velocity: number       // 擦除速度
+  count: number          // 发射粒子数量
+  spread: number         // 扩散角度（弧度）
+}
+
+// 默认粒子系统配置
+export const DEFAULT_PARTICLE_CONFIG: ParticleSystemConfig = {
+  enabled: true,
+  maxParticles: 200,
+  particlesPerErase: 3,
+  baseSize: 3,
+  sizeVariance: 2,
+  speedMin: 20,
+  speedMax: 80,
+  gravity: 150,
+  friction: 0.98,
+  lifeMin: 0.8,
+  lifeMax: 2.5,
+  fadeOutStart: 0.6,
+  rotationSpeedMax: 5,
+}
+
+// 橡皮屑颜色调色板（Monet风格）
+export const PARTICLE_COLORS = [
+  '#E8DFD8',  // 浅米色
+  '#D4C4B5',  // 米色
+  '#C9B8A8',  // 深米色
+  '#F5EFEA',  // 极浅米
+  '#E0D5CD',  // 灰米色
+]
+
 /**
  * 2B 硬橡皮预设
  * - 高硬度：擦得干净，边缘锐利
