@@ -65,7 +65,7 @@ export {
 } from './performanceOptimizer'
 
 // 键盘快捷键
-export { useEraserKeyboardShortcuts, ERASER_SHORTCUTS_INFO } from './useEraserKeyboardShortcuts'
+export { useEraserKeyboardShortcuts, getShortcutsInfo } from './useEraserKeyboardShortcuts'
 
 // 用户偏好持久化
 export {
