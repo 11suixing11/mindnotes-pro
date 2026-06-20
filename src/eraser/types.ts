@@ -1,4 +1,5 @@
 // 物理擦除引擎类型定义
+import type { StrokeElement } from '../store/types'
 
 export type EraserMode = 'simple' | 'physics'
 export type EraserShape = 'circle' | 'square' | 'chisel'
@@ -61,11 +62,24 @@ export interface EraseResult {
   modifiedStrokes: {
     id: string
     action: 'keep' | 'split' | 'delete'
-    segments?: any[]      // 分割后的新笔触
+    segments?: StrokeElement[]      // 分割后的新笔触
   }[]
   affectedElementIds: string[]
   trail: EraserPoint[]
 }
+
+/**
+ * 笔触分割结果（判别联合类型）
+ *
+ * 消除原来空数组的语义歧义：
+ * - 'split': 成功分割，segments 非空
+ * - 'deleted': 所有子段被过滤（整笔被擦除），调用方应删除原笔触
+ * - 'unchanged': 输入无效或无交点，调用方应保留原笔触
+ */
+export type SplitStrokeResult =
+  | { status: 'split'; segments: StrokeElement[] }
+  | { status: 'deleted' }
+  | { status: 'unchanged' }
 
 export interface BoundsEntry {
   minX: number

@@ -104,7 +104,7 @@ describe('PhysicsEraserEngine', () => {
     it('splitStroke - 空相交点返回空数组', () => {
       const stroke = createTestStroke()
       const result = engine.splitStroke(stroke, [])
-      expect(result).toEqual([])
+      expect(result).toEqual({ status: 'unchanged' })
     })
 
     it('splitStroke - 单点分割', () => {
@@ -116,9 +116,12 @@ describe('PhysicsEraserEngine', () => {
       const result = engine.splitStroke(stroke, intersections)
       
       // 应该分割成2段
-      expect(result.length).toBe(2)
-      expect(result[0].points.length).toBeGreaterThanOrEqual(2)
-      expect(result[1].points.length).toBeGreaterThanOrEqual(2)
+      expect(result.status).toBe('split')
+      if (result.status === 'split') {
+        expect(result.segments.length).toBe(2)
+        expect(result.segments[0].points.length).toBeGreaterThanOrEqual(2)
+        expect(result.segments[1].points.length).toBeGreaterThanOrEqual(2)
+      }
     })
 
     it('splitStroke - 多点分割', () => {
@@ -131,7 +134,10 @@ describe('PhysicsEraserEngine', () => {
       const result = engine.splitStroke(stroke, intersections)
       
       // 应该分割成3段
-      expect(result.length).toBe(3)
+      expect(result.status).toBe('split')
+      if (result.status === 'split') {
+        expect(result.segments.length).toBe(3)
+      }
     })
 
     it('splitStroke - 过近点合并', () => {
@@ -144,7 +150,10 @@ describe('PhysicsEraserEngine', () => {
       const result = engine.splitStroke(stroke, intersections)
       
       // 距离小于0.05应该合并，只产生2段
-      expect(result.length).toBeLessThanOrEqual(2)
+      expect(result.status).toBe('split')
+      if (result.status === 'split') {
+        expect(result.segments.length).toBeLessThanOrEqual(2)
+      }
     })
 
     it('splitStroke - 生成新ID不重复', () => {
@@ -157,7 +166,11 @@ describe('PhysicsEraserEngine', () => {
       const result2 = engine.splitStroke(stroke, intersections)
       
       // 两次调用ID应该不同
-      expect(result1[0].id).not.toBe(result2[0].id)
+      expect(result1.status).toBe('split')
+      expect(result2.status).toBe('split')
+      if (result1.status === 'split' && result2.status === 'split') {
+        expect(result1.segments[0].id).not.toBe(result2.segments[0].id)
+      }
     })
 
     it('splitStroke - 透明度渐变', () => {
@@ -171,8 +184,11 @@ describe('PhysicsEraserEngine', () => {
       const result = engine.splitStroke(stroke, intersections)
       
       // 第一段应该有透明度降低
-      expect(result[0].opacity).toBeLessThan(1)
-      expect(result[0].opacity).toBeGreaterThan(0)
+      expect(result.status).toBe('split')
+      if (result.status === 'split') {
+        expect(result.segments[0].opacity).toBeLessThan(1)
+        expect(result.segments[0].opacity).toBeGreaterThan(0)
+      }
     })
   })
 
@@ -688,7 +704,7 @@ describe('PhysicsEraserEngine', () => {
         engine.splitStroke(null as any, [])
       }).not.toThrow()
       const result = engine.splitStroke(null as any, [])
-      expect(result).toEqual([])
+      expect(result).toEqual({ status: 'unchanged' })
     })
 
     it('splitStroke undefined笔触返回空', () => {
@@ -696,7 +712,7 @@ describe('PhysicsEraserEngine', () => {
         engine.splitStroke(undefined as any, [])
       }).not.toThrow()
       const result = engine.splitStroke(undefined as any, [])
-      expect(result).toEqual([])
+      expect(result).toEqual({ status: 'unchanged' })
     })
   })
 
