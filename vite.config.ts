@@ -17,25 +17,29 @@ export default defineConfig(({ mode }) => ({
         brotliSize: true,
       }),
   ].filter(Boolean),
-
   base: process.env.VITE_APP_BASE || (process.env.GITHUB_ACTIONS ? '/mindnotes-pro/' : '/'),
-
   server: {
     port: 3000,
     open: true,
   },
-
+  esbuild: {
+    drop: mode === 'production' ? ['console', 'debugger'] : [],
+    legalComments: 'none',
+    treeShaking: true,
+  },
   build: {
-    target: 'esnext',
+    target: 'es2020',
     minify: 'esbuild',
     sourcemap: process.env.NODE_ENV === 'development' ? 'inline' : false,
-
+    cssMinify: true,
+    cssCodeSplit: true,
     rollupOptions: {
       input: 'index.html',
       output: {
         manualChunks: (id) => {
           const normalizedId = id.replace(/\\/g, '/')
-
+          
+          // React 核心库 - 最稳定的依赖
           if (
             normalizedId.includes('/node_modules/react/') ||
             normalizedId.includes('/node_modules/react-dom/') ||
@@ -44,7 +48,17 @@ export default defineConfig(({ mode }) => ({
           ) {
             return 'vendor-react'
           }
-
+          
+          // Zustand 状态管理
+          if (normalizedId.includes('/node_modules/zustand')) {
+            return 'vendor-state'
+          }
+          
+          // Perfect-freehand 笔触算法
+          if (normalizedId.includes('/node_modules/perfect-freehand')) {
+            return 'vendor-drawing'
+          }
+          
           // jspdf and all its transitive dependencies are dynamically imported
           // Route them together so they form a single async chunk
           if (
@@ -62,12 +76,12 @@ export default defineConfig(({ mode }) => ({
           ) {
             return
           }
-
+          
+          // 其他第三方依赖
           if (normalizedId.includes('/node_modules/')) {
             return 'vendor'
           }
         },
-
         entryFileNames: 'js/[name].[hash].js',
         chunkFileNames: 'js/[name].[hash].js',
         assetFileNames: (assetInfo) => {
@@ -84,13 +98,11 @@ export default defineConfig(({ mode }) => ({
         },
       },
     },
-
     chunkSizeWarningLimit: 500,
     reportCompressedSize: true,
   },
-
   optimizeDeps: {
-    include: ['react', 'react-dom', 'zustand'],
+    include: ['react', 'react-dom', 'zustand', 'perfect-freehand'],
     exclude: ['@vite/client', '@vite/env'],
   },
 }))
