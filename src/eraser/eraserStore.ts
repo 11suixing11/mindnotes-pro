@@ -77,6 +77,9 @@ const globalSpatialIndex = new SpatialIndex()
 const globalPerformanceMonitor = new PerformanceMonitor()
 const globalParticleSystem = getParticleSystem()
 
+// 初始化粒子系统状态
+globalParticleSystem.setEnabled(savedPrefs.particlesEnabled)
+
 export const useEraserStore = create<EraserState & EraserActions>()(
   (set, get) => ({
     // ===== 状态 =====
@@ -92,7 +95,7 @@ export const useEraserStore = create<EraserState & EraserActions>()(
     performanceMonitor: globalPerformanceMonitor,
     particleSystem: globalParticleSystem,
     
-    particlesEnabled: true,
+    particlesEnabled: savedPrefs.particlesEnabled,
     
     lastEraseTime: 0,
     elementsErased: 0,
@@ -215,6 +218,7 @@ export const useEraserStore = create<EraserState & EraserActions>()(
       const { particleSystem } = get()
       particleSystem.setEnabled(enabled)
       set({ particlesEnabled: enabled })
+      saveEraserPreferences({ particlesEnabled: enabled })
     },
     
     emitParticles: (point: EraserPoint) => {
