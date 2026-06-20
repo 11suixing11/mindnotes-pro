@@ -14,6 +14,7 @@ import {
   drawZoomLevel,
   drawGrid,
 } from '../../canvas/canvasDrawing'
+import { eraserParticleSystem } from '../../eraser'
 
 export interface DrawState {
   drawing: boolean
@@ -121,6 +122,14 @@ export function useCanvasRenderer(
     const ec = getOrCreateEC()
     if (elementsDirtyRef.current) renderElementsToCache()
     ctx.drawImage(ec, 0, 0, ec.width, ec.height, 0, 0, canvasSize.w, canvasSize.h)
+    
+    // 渲染橡皮屑粒子
+    ctx.save()
+    ctx.scale(vb.zoom, vb.zoom)
+    ctx.translate(-vb.x, -vb.y)
+    eraserParticleSystem.render(ctx)
+    ctx.restore()
+    
     ctx.save()
     ctx.scale(vb.zoom, vb.zoom)
     ctx.translate(-vb.x, -vb.y)
@@ -250,6 +259,27 @@ export function useCanvasRenderer(
     })
     return unsub
   }, [scheduleRedraw])
+
+  // 粒子系统更新循环（独立于渲染循环）
+  useEffect(() => {
+    let lastTime = performance.now()
+    let particleRafId: number
+
+    function updateParticles() {
+      const now = performance.now()
+      const deltaTime = Math.min((now - lastTime) / 1000, 0.1) // 限制最大delta防止跳帧
+      lastTime = now
+
+      eraserParticleSystem.update(deltaTime)
+      particleRafId = requestAnimationFrame(updateParticles)
+    }
+
+    particleRafId = requestAnimationFrame(updateParticles)
+
+    return () => {
+      cancelAnimationFrame(particleRafId)
+    }
+  }, [])
 
   return { redraw, scheduleRedraw, elementsDirtyRef, boundsCacheRef, cachedBounds, canvasSize, dpr }
 }
