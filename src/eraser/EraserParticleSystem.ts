@@ -300,6 +300,13 @@ export class EraserParticleSystem {
   }
 
   /**
+   * 获取粒子系统启用状态
+   */
+  isEnabled(): boolean {
+    return this.config.enabled ?? true
+  }
+
+  /**
    * 获取对象池统计
    */
   getPoolStats(): { active: number; pooled: number; max: number } {

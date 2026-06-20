@@ -47,7 +47,16 @@ export function loadEraserPreferences(): EraserUserPreferences {
 export function saveEraserPreferences(prefs: Partial<EraserUserPreferences>): void {
   try {
     const current = loadEraserPreferences()
-    const updated = { ...current, ...prefs }
+    const updated: Partial<EraserUserPreferences> = { ...current }
+    
+    // 只更新非undefined的值
+    if (prefs.preset !== undefined) updated.preset = prefs.preset
+    if (prefs.shape !== undefined) updated.shape = prefs.shape
+    if (prefs.baseRadius !== undefined) updated.baseRadius = prefs.baseRadius
+    if (prefs.audioEnabled !== undefined) updated.audioEnabled = prefs.audioEnabled
+    if (prefs.rotation !== undefined) updated.rotation = prefs.rotation
+    if (prefs.particlesEnabled !== undefined) updated.particlesEnabled = prefs.particlesEnabled
+    
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
   } catch {
     // localStorage不可用，静默失败
