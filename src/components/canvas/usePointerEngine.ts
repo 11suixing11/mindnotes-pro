@@ -316,6 +316,9 @@ export function usePointerEngine(opts: {
       // 执行物理擦除
       const result = eraserStore.addErasePoint(erasePoint, state.elements)
 
+      // 发射橡皮屑粒子
+      eraserStore.emitParticles(erasePoint)
+
       if (result) {
         // 应用擦除结果
         for (const modified of result.modifiedStrokes) {

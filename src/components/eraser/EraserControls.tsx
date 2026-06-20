@@ -10,7 +10,16 @@ const shapeLabels: Record<EraserShape, string> = {
 }
 
 export default function EraserControls() {
-  const { eraserConfig, eraserPreset, updateEraserConfig, setEraserPreset, getWearLevel, resetWear } = useEraserStore(
+  const {
+    eraserConfig,
+    eraserPreset,
+    updateEraserConfig,
+    setEraserPreset,
+    getWearLevel,
+    resetWear,
+    particlesEnabled,
+    setParticlesEnabled,
+  } = useEraserStore(
     useShallow((s) => ({
       eraserConfig: s.eraserConfig,
       eraserPreset: s.eraserPreset,
@@ -18,6 +27,8 @@ export default function EraserControls() {
       setEraserPreset: s.setEraserPreset,
       getWearLevel: s.getWearLevel,
       resetWear: s.resetWear,
+      particlesEnabled: s.particlesEnabled,
+      setParticlesEnabled: s.setParticlesEnabled,
     }))
   )
 
@@ -40,6 +51,10 @@ export default function EraserControls() {
 
   const toggleAudio = () => {
     updateEraserConfig({ audioEnabled: !audioEnabled })
+  }
+
+  const toggleParticles = () => {
+    setParticlesEnabled(!particlesEnabled)
   }
 
   return (
@@ -245,9 +260,33 @@ export default function EraserControls() {
           alignItems: 'center',
           justifyContent: 'center',
           gap: '6px',
+          marginBottom: '8px',
         }}
       >
         {audioEnabled ? '🔊 音效开启' : '🔇 音效关闭'}
+      </button>
+
+      {/* 粒子效果开关 */}
+      <button
+        onClick={toggleParticles}
+        style={{
+          width: '100%',
+          padding: '8px 12px',
+          fontSize: '12px',
+          fontWeight: 500,
+          borderRadius: '8px',
+          border: 'none',
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+          background: particlesEnabled ? 'var(--primary)' : 'var(--bg-2)',
+          color: particlesEnabled ? 'white' : 'var(--text-2)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '6px',
+        }}
+      >
+        {particlesEnabled ? '✨ 粒子效果开启' : '⭕ 粒子效果关闭'}
       </button>
     </div>
   )
