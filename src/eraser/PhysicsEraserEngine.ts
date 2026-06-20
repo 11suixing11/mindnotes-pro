@@ -195,6 +195,15 @@ export class PhysicsEraserEngine {
   /** 磨损程度 0-1，0=全新，1=完全磨损 */
   private wearLevel: number = 0
 
+  /** 磨损历史记录栈（用于撤销） */
+  private wearHistory: number[] = []
+
+  /** 磨损重做栈（用于重做） */
+  private wearRedoStack: number[] = []
+
+  /** 最大历史记录步数 */
+  private readonly MAX_WEAR_HISTORY = 20
+
   /** 音效引擎 */
   private readonly audioEngine: EraserAudioEngine
 
@@ -344,10 +353,83 @@ export class PhysicsEraserEngine {
   /**
    * 重置磨损（削橡皮/换橡皮）
    * 触发削橡皮音效
+   * 保存历史记录支持撤销
    */
   resetWear(): void {
+    this.saveWearHistory()
     this.wearLevel = 0
     this.audioEngine.playSharpenSound()
+  }
+
+  // ==========================================
+  // 磨损历史记录（撤销/重做）
+  // ==========================================
+
+  /**
+   * 保存当前磨损状态到历史记录
+   * 限制最大历史步数，防止内存泄漏
+   */
+  private saveWearHistory(): void {
+    this.wearHistory.push(this.wearLevel)
+    // 限制历史记录上限
+    if (this.wearHistory.length > this.MAX_WEAR_HISTORY) {
+      this.wearHistory.shift()
+    }
+    // 新操作清空重做栈
+    this.wearRedoStack = []
+  }
+
+  /**
+   * 撤销上一次磨损操作
+   * @returns 是否成功撤销
+   */
+  undoWear(): boolean {
+    if (this.wearHistory.length === 0) {
+      return false
+    }
+    const previousWear = this.wearHistory.pop()!
+    this.wearRedoStack.push(this.wearLevel)
+    this.wearLevel = previousWear
+    return true
+  }
+
+  /**
+   * 重做磨损操作
+   * @returns 是否成功重做
+   */
+  redoWear(): boolean {
+    if (this.wearRedoStack.length === 0) {
+      return false
+    }
+    const nextWear = this.wearRedoStack.pop()!
+    this.wearHistory.push(this.wearLevel)
+    this.wearLevel = nextWear
+    return true
+  }
+
+  /**
+   * 检查是否可以撤销磨损
+   */
+  canUndoWear(): boolean {
+    return this.wearHistory.length > 0
+  }
+
+  /**
+   * 检查是否可以重做磨损
+   */
+  canRedoWear(): boolean {
+    return this.wearRedoStack.length > 0
+  }
+
+  /**
+   * 获取历史记录统计
+   */
+  getWearHistoryStats(): { historyCount: number; redoCount: number; maxHistory: number } {
+    return {
+      historyCount: this.wearHistory.length,
+      redoCount: this.wearRedoStack.length,
+      maxHistory: this.MAX_WEAR_HISTORY,
+    }
   }
 
   // ==========================================
