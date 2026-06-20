@@ -1,5 +1,5 @@
-import type { EraserConfig, EraserPresetType, EraserShape, EraserBrandType } from './types'
-import { ERASER_PRESET_CONFIGS, ERASER_BRAND_CONFIGS, DEFAULT_ERASER_CONFIG } from './types'
+import type { EraserConfig, EraserPresetType, EraserShape, EraserBrandType, ShortcutMap } from './types'
+import { ERASER_PRESET_CONFIGS, ERASER_BRAND_CONFIGS, DEFAULT_ERASER_CONFIG, DEFAULT_SHORTCUTS } from './types'
 
 const STORAGE_KEY = 'mindnotes-eraser-preferences'
 
@@ -11,6 +11,7 @@ export interface EraserUserPreferences {
   audioEnabled: boolean
   rotation: number
   particlesEnabled: boolean
+  shortcuts: Partial<ShortcutMap>
 }
 
 const DEFAULT_PREFERENCES: EraserUserPreferences = {
@@ -21,6 +22,7 @@ const DEFAULT_PREFERENCES: EraserUserPreferences = {
   audioEnabled: true,
   rotation: 0,
   particlesEnabled: true,
+  shortcuts: {},
 }
 
 /**
@@ -59,10 +61,21 @@ export function saveEraserPreferences(prefs: Partial<EraserUserPreferences>): vo
     if (prefs.audioEnabled !== undefined) updated.audioEnabled = prefs.audioEnabled
     if (prefs.rotation !== undefined) updated.rotation = prefs.rotation
     if (prefs.particlesEnabled !== undefined) updated.particlesEnabled = prefs.particlesEnabled
+    if (prefs.shortcuts !== undefined) updated.shortcuts = prefs.shortcuts
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
   } catch {
     // localStorage不可用，静默失败
+  }
+}
+
+/**
+ * 获取合并后的快捷键配置（用户自定义 + 默认）
+ */
+export function getMergedShortcuts(prefs: EraserUserPreferences): ShortcutMap {
+  return {
+    ...DEFAULT_SHORTCUTS,
+    ...prefs.shortcuts,
   }
 }
 
