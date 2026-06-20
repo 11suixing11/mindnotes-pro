@@ -7,6 +7,7 @@ import type {
   StrokeErasure,
   Intersection,
   BoundsEntry,
+  SplitStrokeResult,
 } from './types'
 import { DEFAULT_ERASER_CONFIG } from './types'
 import { elementBounds } from '../canvas/canvasUtils'
@@ -661,22 +662,25 @@ export class PhysicsEraserEngine {
   /**
    * 笔触分割算法
    * 根据相交点将笔触分割为多段
-   * 
+   *
    * 算法原理：
    * 1. 按参数化位置 t 排序所有相交点
    * 2. 在每两个相交点之间提取子段
    * 3. 过短的段直接丢弃（避免碎片）
-   * 
+   *
    * @param stroke 原始笔触
    * @param intersections 相交点列表
-   * @returns 分割后的笔触数组
+   * @returns 分割结果（判别联合）：
+   *   - 'split': 成功分割，segments 非空
+   *   - 'deleted': 所有子段被过滤（整笔被擦除）
+   *   - 'unchanged': 输入无效或无交点，保留原笔触
    */
   splitStroke(
     stroke: StrokeElement,
     intersections: Intersection[]
-  ): StrokeElement[] {
+  ): SplitStrokeResult {
     if (!validateStroke(stroke) || intersections.length === 0) {
-      return []
+      return { status: 'unchanged' }
     }
 
     // 按参数化位置 t 排序
@@ -719,7 +723,12 @@ export class PhysicsEraserEngine {
       }
     }
 
-    return segments
+    if (segments.length > 0) {
+      return { status: 'split', segments }
+    }
+
+    // 所有子段均被过滤 — 整笔被擦除，调用方应删除原笔触
+    return { status: 'deleted' }
   }
 
   // ==========================================
@@ -845,11 +854,14 @@ export class PhysicsEraserEngine {
     }
 
     if (erasure.shouldSplit && erasure.intersections.length > 0) {
-      const segments = this.splitStroke(stroke, erasure.intersections)
-      if (segments.length > 0) {
-        return { id: stroke.id, action: 'split', segments }
+      const result = this.splitStroke(stroke, erasure.intersections)
+      if (result.status === 'split') {
+        return { id: stroke.id, action: 'split', segments: result.segments }
       }
-      return { id: stroke.id, action: 'delete' }
+      if (result.status === 'deleted') {
+        return { id: stroke.id, action: 'delete' }
+      }
+      // unchanged - 保留原笔触
     }
 
     return { id: stroke.id, action: 'keep' }
