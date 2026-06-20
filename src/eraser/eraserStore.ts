@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import type { EraserMode, EraserConfig, EraserPoint, EraseResult, EraserPresetType } from './types'
+import type { EraserMode, EraserConfig, EraserPoint, EraseResult, EraserPresetType, EraserBrandType, EraserBrandConfig } from './types'
 import type { EraserUserPreferences } from './userPreferences'
-import { ERASER_PRESET_CONFIGS } from './types'
+import { ERASER_PRESET_CONFIGS, ERASER_BRAND_CONFIGS } from './types'
 import { PhysicsEraserEngine } from './PhysicsEraserEngine'
 import { SpatialIndex, PerformanceMonitor } from './SpatialIndex'
 import { EraserParticleSystem, getParticleSystem } from './EraserParticleSystem'
@@ -17,6 +17,8 @@ interface EraserState {
   eraserMode: EraserMode
   eraserConfig: EraserConfig
   eraserPreset: EraserPresetType
+  eraserBrand: EraserBrandType
+  eraserBrandConfig: EraserBrandConfig
   
   // 运行时状态
   isErasing: boolean
@@ -40,6 +42,7 @@ interface EraserActions {
   // 模式切换
   setEraserMode: (mode: EraserMode) => void
   setEraserPreset: (preset: EraserPresetType) => void
+  setEraserBrand: (brand: EraserBrandType) => void
   updateEraserConfig: (config: Partial<EraserConfig>) => void
   
   // 擦除流程
@@ -77,6 +80,8 @@ interface EraserActions {
 // 加载用户保存的偏好
 const savedPrefs = loadEraserPreferences()
 const initialConfig = getEraserConfigFromPreferences(savedPrefs)
+const initialBrand = savedPrefs.brand || 'default'
+const initialBrandConfig = ERASER_BRAND_CONFIGS[initialBrand]
 
 // 引擎实例（单例）
 const globalEngine = new PhysicsEraserEngine(initialConfig)
@@ -93,6 +98,8 @@ export const useEraserStore = create<EraserState & EraserActions>()(
     eraserMode: 'physics',
     eraserConfig: initialConfig,
     eraserPreset: savedPrefs.preset,
+    eraserBrand: initialBrand,
+    eraserBrandConfig: initialBrandConfig,
     
     isErasing: false,
     currentTrail: [],
@@ -114,13 +121,45 @@ export const useEraserStore = create<EraserState & EraserActions>()(
     },
     
     setEraserPreset: (preset: EraserPresetType) => {
-      const config = ERASER_PRESET_CONFIGS[preset]
+      const brandConfig = get().eraserBrandConfig
+      const baseConfig = ERASER_PRESET_CONFIGS[preset]
+      
+      // 应用品牌修正系数
+      const config: EraserConfig = {
+        ...baseConfig,
+        hardness: baseConfig.hardness * brandConfig.hardnessModifier,
+        wearRate: baseConfig.wearRate * brandConfig.wearRateModifier,
+        friction: baseConfig.friction * brandConfig.frictionModifier,
+      }
+      
       set({
         eraserPreset: preset,
         eraserConfig: { ...config },
       })
       get().engine.updateConfig(config)
       saveEraserPreferences({ preset })
+    },
+    
+    setEraserBrand: (brand: EraserBrandType) => {
+      const brandConfig = ERASER_BRAND_CONFIGS[brand]
+      const currentPreset = get().eraserPreset
+      const baseConfig = ERASER_PRESET_CONFIGS[currentPreset]
+      
+      // 应用品牌修正系数
+      const config: EraserConfig = {
+        ...baseConfig,
+        hardness: baseConfig.hardness * brandConfig.hardnessModifier,
+        wearRate: baseConfig.wearRate * brandConfig.wearRateModifier,
+        friction: baseConfig.friction * brandConfig.frictionModifier,
+      }
+      
+      set({
+        eraserBrand: brand,
+        eraserBrandConfig: brandConfig,
+        eraserConfig: { ...config },
+      })
+      get().engine.updateConfig(config)
+      saveEraserPreferences({ brand })
     },
     
     updateEraserConfig: (config: Partial<EraserConfig>) => {
@@ -251,7 +290,7 @@ export const useEraserStore = create<EraserState & EraserActions>()(
     },
     
     emitParticles: (point: EraserPoint) => {
-      const { particlesEnabled, particleSystem } = get()
+      const { particlesEnabled, particleSystem, eraserBrandConfig } = get()
       if (!particlesEnabled) return
       
       const config = particleSystem.getConfig()
@@ -259,6 +298,8 @@ export const useEraserStore = create<EraserState & EraserActions>()(
         config.particlesPerErase * (0.5 + point.pressure * 1.5)
       )
       
+      // 使用品牌特定的粒子颜色
+      const brandColors = eraserBrandConfig.particleColors
       particleSystem.emit({
         x: point.x,
         y: point.y,
@@ -267,7 +308,8 @@ export const useEraserStore = create<EraserState & EraserActions>()(
         velocity: Math.min(point.velocity, 1),
         count: particleCount,
         spread: Math.PI * 0.5, // 90度扩散
-      })
+        customColors: brandColors,
+      } as any)
     },
     
     updateParticles: (deltaTime: number) => {
