@@ -58,6 +58,13 @@ interface EraserActions {
   getWearLevel: () => number
   resetWear: () => void
   
+  // 磨损历史记录（撤销/重做）
+  undoWear: () => boolean
+  redoWear: () => boolean
+  canUndoWear: () => boolean
+  canRedoWear: () => boolean
+  getWearHistoryStats: () => { historyCount: number; redoCount: number; maxHistory: number }
+  
   // 粒子系统
   setParticlesEnabled: (enabled: boolean) => void
   emitParticles: (point: EraserPoint) => void
@@ -210,6 +217,28 @@ export const useEraserStore = create<EraserState & EraserActions>()(
     
     resetWear: () => {
       get().engine.resetWear()
+    },
+    
+    // ===== 磨损历史记录（撤销/重做） =====
+    
+    undoWear: () => {
+      return get().engine.undoWear()
+    },
+    
+    redoWear: () => {
+      return get().engine.redoWear()
+    },
+    
+    canUndoWear: () => {
+      return get().engine.canUndoWear()
+    },
+    
+    canRedoWear: () => {
+      return get().engine.canRedoWear()
+    },
+    
+    getWearHistoryStats: () => {
+      return get().engine.getWearHistoryStats()
     },
     
     // ===== 粒子系统 =====
