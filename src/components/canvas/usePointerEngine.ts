@@ -492,6 +492,13 @@ export function usePointerEngine(opts: {
       e.preventDefault()
       const pos = getPos(e)
       mouseRef.current = pos
+
+      // 更新粒子系统指针位置（用于气流效果）
+      const { particleSystem, particlesEnabled } = useEraserStore.getState()
+      if (particlesEnabled && particleSystem) {
+        particleSystem.updatePointerPosition(pos.x, pos.y, 1 / 60)
+      }
+
       const curTool = toolRef.current
       if (curTool === 'select' && resizeRef.current) {
         const { handle, id, startX, startY, origBounds: ob } = resizeRef.current
