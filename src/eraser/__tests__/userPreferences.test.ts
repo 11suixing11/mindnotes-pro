@@ -168,6 +168,7 @@ describe('userPreferences - 用户偏好持久化', () => {
         audioEnabled: false,
         rotation: 30,
         particlesEnabled: true,
+        shortcuts: {},
       }
       const config = getEraserConfigFromPreferences(prefs)
       
@@ -189,6 +190,7 @@ describe('userPreferences - 用户偏好持久化', () => {
         audioEnabled: true,
         rotation: 0,
         particlesEnabled: true,
+        shortcuts: {},
       }
       const config = getEraserConfigFromPreferences(prefs)
       
@@ -204,6 +206,7 @@ describe('userPreferences - 用户偏好持久化', () => {
         audioEnabled: true,
         rotation: 0,
         particlesEnabled: true,
+        shortcuts: {},
       }
       const config = getEraserConfigFromPreferences(prefs)
       
@@ -219,6 +222,7 @@ describe('userPreferences - 用户偏好持久化', () => {
         audioEnabled: true,
         rotation: 0,
         particlesEnabled: true,
+        shortcuts: {},
       }
       const config = getEraserConfigFromPreferences(prefs)
       

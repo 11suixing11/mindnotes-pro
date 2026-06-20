@@ -399,5 +399,66 @@ export const ERASER_PRESET_LABELS: Record<EraserPresetType, string> = {
 export const ERASER_PRESET_DESCRIPTIONS: Record<EraserPresetType, string> = {
   '2b': '精确擦除',
   '4b': '日常通用',
-  '6b': '大面积',
+  '6b': '大面积柔和擦除',
+}
+
+// ==================== 快捷键配置类型 ====================
+export interface ShortcutConfig {
+  key: string           // 快捷键按键
+  enabled: boolean      // 是否启用
+  description: string   // 功能描述
+  category: 'shape' | 'preset' | 'action' | 'size'  // 分类
+}
+
+export interface ShortcutMap {
+  // 形状切换
+  shapeCircle: ShortcutConfig
+  shapeSquare: ShortcutConfig
+  shapeChisel: ShortcutConfig
+  
+  // 预设切换
+  preset2b: ShortcutConfig
+  preset4b: ShortcutConfig
+  preset6b: ShortcutConfig
+  
+  // 操作
+  resetWear: ShortcutConfig
+  toggleAudio: ShortcutConfig
+  undoWear: ShortcutConfig
+  redoWear: ShortcutConfig
+  
+  // 大小调整
+  sizeIncrease: ShortcutConfig
+  sizeDecrease: ShortcutConfig
+}
+
+// 默认快捷键配置
+export const DEFAULT_SHORTCUTS: ShortcutMap = {
+  // 形状切换
+  shapeCircle: { key: '1', enabled: true, description: '圆形橡皮擦', category: 'shape' },
+  shapeSquare: { key: '2', enabled: true, description: '方形橡皮擦', category: 'shape' },
+  shapeChisel: { key: '3', enabled: true, description: '凿形橡皮擦', category: 'shape' },
+  
+  // 预设切换
+  preset2b: { key: 'q', enabled: true, description: '2B硬橡皮', category: 'preset' },
+  preset4b: { key: 'w', enabled: true, description: '4B中性', category: 'preset' },
+  preset6b: { key: 'e', enabled: true, description: '6B软橡皮', category: 'preset' },
+  
+  // 操作
+  resetWear: { key: 'r', enabled: true, description: '削橡皮（重置磨损）', category: 'action' },
+  toggleAudio: { key: 'm', enabled: true, description: '开关音效', category: 'action' },
+  undoWear: { key: 'z', enabled: true, description: '撤销磨损', category: 'action' },
+  redoWear: { key: 'y', enabled: true, description: '重做磨损', category: 'action' },
+  
+  // 大小调整
+  sizeIncrease: { key: ']', enabled: true, description: '增大橡皮擦', category: 'size' },
+  sizeDecrease: { key: '[', enabled: true, description: '减小橡皮擦', category: 'size' },
+}
+
+// 快捷键分类标签
+export const SHORTCUT_CATEGORY_LABELS: Record<ShortcutConfig['category'], string> = {
+  shape: '形状切换',
+  preset: '预设切换',
+  action: '操作',
+  size: '大小调整',
 }

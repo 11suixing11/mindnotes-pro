@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import type { EraserMode, EraserConfig, EraserPoint, EraseResult, EraserPresetType, EraserBrandType, EraserBrandConfig } from './types'
+import type { EraserMode, EraserConfig, EraserPoint, EraseResult, EraserPresetType, EraserBrandType, EraserBrandConfig, ShortcutMap } from './types'
 import type { EraserUserPreferences } from './userPreferences'
-import { ERASER_PRESET_CONFIGS, ERASER_BRAND_CONFIGS } from './types'
+import { ERASER_PRESET_CONFIGS, ERASER_BRAND_CONFIGS, DEFAULT_SHORTCUTS } from './types'
 import { PhysicsEraserEngine } from './PhysicsEraserEngine'
 import { SpatialIndex, PerformanceMonitor } from './SpatialIndex'
 import { EraserParticleSystem, getParticleSystem } from './EraserParticleSystem'
@@ -10,6 +10,7 @@ import {
   loadEraserPreferences,
   saveEraserPreferences,
   getEraserConfigFromPreferences,
+  getMergedShortcuts,
 } from './userPreferences'
 
 interface EraserState {
@@ -19,6 +20,9 @@ interface EraserState {
   eraserPreset: EraserPresetType
   eraserBrand: EraserBrandType
   eraserBrandConfig: EraserBrandConfig
+  
+  // 快捷键配置
+  shortcuts: ShortcutMap
   
   // 运行时状态
   isErasing: boolean
@@ -44,6 +48,10 @@ interface EraserActions {
   setEraserPreset: (preset: EraserPresetType) => void
   setEraserBrand: (brand: EraserBrandType) => void
   updateEraserConfig: (config: Partial<EraserConfig>) => void
+  
+  // 快捷键
+  setShortcut: (shortcutKey: keyof ShortcutMap, config: Partial<ShortcutMap[keyof ShortcutMap]>) => void
+  resetShortcutsToDefault: () => void
   
   // 擦除流程
   startErase: (point: EraserPoint, elements: CanvasElement[]) => void
@@ -100,6 +108,8 @@ export const useEraserStore = create<EraserState & EraserActions>()(
     eraserPreset: savedPrefs.preset,
     eraserBrand: initialBrand,
     eraserBrandConfig: initialBrandConfig,
+    
+    shortcuts: getMergedShortcuts(savedPrefs),
     
     isErasing: false,
     currentTrail: [],
@@ -174,6 +184,27 @@ export const useEraserStore = create<EraserState & EraserActions>()(
       if (config.audioEnabled !== undefined) prefsToSave.audioEnabled = config.audioEnabled
       if (config.rotation !== undefined) prefsToSave.rotation = config.rotation
       saveEraserPreferences(prefsToSave)
+    },
+    
+    // ===== 快捷键管理 =====
+    setShortcut: (shortcutKey: keyof ShortcutMap, config: Partial<ShortcutMap[keyof ShortcutMap]>) => {
+      set((state) => {
+        const newShortcuts = {
+          ...state.shortcuts,
+          [shortcutKey]: {
+            ...state.shortcuts[shortcutKey],
+            ...config,
+          },
+        }
+        // 保存到用户偏好
+        saveEraserPreferences({ shortcuts: newShortcuts })
+        return { shortcuts: newShortcuts }
+      })
+    },
+    
+    resetShortcutsToDefault: () => {
+      set({ shortcuts: { ...DEFAULT_SHORTCUTS } })
+      saveEraserPreferences({ shortcuts: {} })
     },
     
     startErase: (point: EraserPoint, elements: CanvasElement[]) => {
