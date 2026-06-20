@@ -1,7 +1,13 @@
 import { useShallow } from 'zustand/react/shallow'
 import { useEraserStore } from '../../eraser/eraserStore'
-import type { EraserShape, EraserPresetType } from '../../eraser/types'
-import { ERASER_PRESET_LABELS, ERASER_PRESET_DESCRIPTIONS } from '../../eraser/types'
+import type { EraserShape, EraserPresetType, EraserBrandType } from '../../eraser/types'
+import { 
+  ERASER_PRESET_LABELS, 
+  ERASER_PRESET_DESCRIPTIONS, 
+  ERASER_BRAND_LABELS,
+  ERASER_BRAND_ICONS,
+  ERASER_BRAND_CONFIGS,
+} from '../../eraser/types'
 
 const shapeLabels: Record<EraserShape, string> = {
   circle: '●',
@@ -13,8 +19,10 @@ export default function EraserControls() {
   const {
     eraserConfig,
     eraserPreset,
+    eraserBrand,
     updateEraserConfig,
     setEraserPreset,
+    setEraserBrand,
     getWearLevel,
     resetWear,
     undoWear,
@@ -27,8 +35,10 @@ export default function EraserControls() {
     useShallow((s) => ({
       eraserConfig: s.eraserConfig,
       eraserPreset: s.eraserPreset,
+      eraserBrand: s.eraserBrand,
       updateEraserConfig: s.updateEraserConfig,
       setEraserPreset: s.setEraserPreset,
+      setEraserBrand: s.setEraserBrand,
       getWearLevel: s.getWearLevel,
       resetWear: s.resetWear,
       undoWear: s.undoWear,
@@ -44,6 +54,7 @@ export default function EraserControls() {
   const currentShape = eraserConfig.shape ?? 'circle'
   const audioEnabled = eraserConfig.audioEnabled ?? true
   const currentPreset = eraserPreset
+  const currentBrand = eraserBrand
   const currentSize = eraserConfig.baseRadius ?? 12
 
   const handleShapeChange = (shape: EraserShape) => {
@@ -52,6 +63,10 @@ export default function EraserControls() {
 
   const handlePresetChange = (preset: EraserPresetType) => {
     setEraserPreset(preset)
+  }
+
+  const handleBrandChange = (brand: EraserBrandType) => {
+    setEraserBrand(brand)
   }
 
   const handleResetWear = () => {
@@ -100,6 +115,54 @@ export default function EraserControls() {
         letterSpacing: '0.5px',
       }}>
         橡皮擦设置
+      </div>
+
+      {/* 橡皮品牌选择 */}
+      <div style={{ marginBottom: '12px' }}>
+        <div style={{ 
+          fontSize: '11px', 
+          color: 'var(--text-3)', 
+          marginBottom: '6px' 
+        }}>
+          橡皮品牌
+        </div>
+        <div style={{ 
+          display: 'flex', 
+          gap: '4px',
+          flexWrap: 'wrap',
+        }}>
+          {(['default', 'sakura', 'faber-castell', 'staedtler', 'uni'] as EraserBrandType[]).map((brand) => (
+            <button
+              key={brand}
+              onClick={() => handleBrandChange(brand)}
+              title={ERASER_BRAND_CONFIGS[brand].description}
+              style={{
+                flex: 1,
+                minWidth: '36px',
+                padding: '6px 4px',
+                fontSize: '14px',
+                borderRadius: '6px',
+                border: currentBrand === brand ? '2px solid var(--primary)' : '1px solid var(--border)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                background: currentBrand === brand 
+                  ? ERASER_BRAND_CONFIGS[brand].primaryColor + '20' 
+                  : 'var(--bg-2)',
+                color: 'var(--text-2)',
+                fontWeight: currentBrand === brand ? 600 : 400,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '2px',
+              }}
+            >
+              <span>{ERASER_BRAND_ICONS[brand]}</span>
+              <span style={{ fontSize: '9px', opacity: 0.8 }}>
+                {ERASER_BRAND_LABELS[brand]}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 橡皮预设选择 */}

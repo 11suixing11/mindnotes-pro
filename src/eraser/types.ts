@@ -145,6 +145,177 @@ export const PARTICLE_COLORS = [
   '#E0D5CD',  // 灰米色
 ]
 
+// 橡皮擦品牌皮肤类型
+export type EraserBrandType = 'default' | 'sakura' | 'faber-castell' | 'staedtler' | 'uni'
+
+// 橡皮擦品牌皮肤配置
+export interface EraserBrandConfig {
+  // 品牌信息
+  name: string
+  displayName: string
+  description: string
+  
+  // 视觉外观
+  primaryColor: string      // 主体颜色
+  secondaryColor: string    // 辅助颜色
+  borderColor: string       // 边框颜色
+  cursorColor: string       // 光标颜色
+  particleColors: string[]  // 橡皮屑颜色
+  
+  // 物理特性（叠加到预设上）
+  hardnessModifier: number   // 硬度修正系数
+  wearRateModifier: number   // 磨损速率修正系数
+  frictionModifier: number   // 摩擦修正系数
+  
+  // 音效特性
+  audioFrequencyBase: number // 基础频率
+  audioWaveform: OscillatorType // 波形类型
+  
+  // 品牌风格
+  texture: 'smooth' | 'matte' | 'glossy'
+}
+
+/**
+ * 默认橡皮擦（经典白色）
+ * - 中性风格，无品牌属性
+ * - 标准参数
+ */
+export const ERASER_BRAND_DEFAULT: EraserBrandConfig = {
+  name: 'default',
+  displayName: '经典',
+  description: '标准白色橡皮',
+  primaryColor: '#FFFFFF',
+  secondaryColor: '#F5F5F5',
+  borderColor: '#E0E0E0',
+  cursorColor: 'rgba(255, 255, 255, 0.7)',
+  particleColors: PARTICLE_COLORS,
+  hardnessModifier: 1.0,
+  wearRateModifier: 1.0,
+  frictionModifier: 1.0,
+  audioFrequencyBase: 400,
+  audioWaveform: 'sine',
+  texture: 'smooth',
+}
+
+/**
+ * 樱花 (Sakura) - 日本文具品牌
+ * - 标志性粉色
+ * - 高品质、顺滑
+ * - 日本市场认知度极高
+ */
+export const ERASER_BRAND_SAKURA: EraserBrandConfig = {
+  name: 'sakura',
+  displayName: '樱花',
+  description: 'Sakura 日本品质',
+  primaryColor: '#FFB7C5',  // 樱花粉
+  secondaryColor: '#FFD1DC',
+  borderColor: '#FF91A4',
+  cursorColor: 'rgba(255, 183, 197, 0.7)',
+  particleColors: ['#FFE4E9', '#FFD1DC', '#FFB7C5', '#FFC0CB', '#FFEBEE'],
+  hardnessModifier: 0.95,    // 樱花橡皮偏软一点
+  wearRateModifier: 0.9,     // 更耐用
+  frictionModifier: 0.95,    // 更顺滑
+  audioFrequencyBase: 450,   // 更高音调
+  audioWaveform: 'sine',
+  texture: 'matte',
+}
+
+/**
+ * 辉柏嘉 (Faber-Castell) - 德国文具品牌
+ * - 标志性蓝色
+ * - 专业级品质
+ * - 全球知名美术品牌
+ */
+export const ERASER_BRAND_FABER_CASTELL: EraserBrandConfig = {
+  name: 'faber-castell',
+  displayName: '辉柏嘉',
+  description: 'Faber-Castell 德国品质',
+  primaryColor: '#1E88E5',  // 辉柏嘉蓝
+  secondaryColor: '#64B5F6',
+  borderColor: '#1565C0',
+  cursorColor: 'rgba(30, 136, 229, 0.7)',
+  particleColors: ['#BBDEFB', '#90CAF9', '#64B5F6', '#42A5F5', '#E3F2FD'],
+  hardnessModifier: 1.1,     // 偏硬
+  wearRateModifier: 0.85,    // 非常耐用
+  frictionModifier: 1.05,    // 摩擦力略大
+  audioFrequencyBase: 350,   // 更低沉
+  audioWaveform: 'triangle',
+  texture: 'glossy',
+}
+
+/**
+ * 施德楼 (Staedtler) - 德国文具品牌
+ * - 标志性黄色
+ * - 专业绘图
+ * - 工程/设计领域首选
+ */
+export const ERASER_BRAND_STAEDTLER: EraserBrandConfig = {
+  name: 'staedtler',
+  displayName: '施德楼',
+  description: 'Staedtler 德国专业',
+  primaryColor: '#FFC107',  // 施德楼黄
+  secondaryColor: '#FFD54F',
+  borderColor: '#FF8F00',
+  cursorColor: 'rgba(255, 193, 7, 0.7)',
+  particleColors: ['#FFF8E1', '#FFECB3', '#FFE082', '#FFD54F', '#FFF3E0'],
+  hardnessModifier: 1.05,    // 适中偏硬
+  wearRateModifier: 0.95,    // 耐用
+  frictionModifier: 1.0,     // 标准
+  audioFrequencyBase: 380,
+  audioWaveform: 'square',
+  texture: 'matte',
+}
+
+/**
+ * 三菱 (Uni) - 日本文具品牌
+ * - 标志性绿色
+ * - 高品质美术橡皮
+ * - 专业画师首选
+ */
+export const ERASER_BRAND_UNI: EraserBrandConfig = {
+  name: 'uni',
+  displayName: '三菱',
+  description: 'Uni 日本专业',
+  primaryColor: '#4CAF50',  // 三菱绿
+  secondaryColor: '#81C784',
+  borderColor: '#2E7D32',
+  cursorColor: 'rgba(76, 175, 80, 0.7)',
+  particleColors: ['#E8F5E9', '#C8E6C9', '#A5D6A7', '#81C784', '#E0F2F1'],
+  hardnessModifier: 0.9,     // 偏软
+  wearRateModifier: 1.1,     // 磨损略快
+  frictionModifier: 0.9,     // 非常顺滑
+  audioFrequencyBase: 420,
+  audioWaveform: 'sine',
+  texture: 'smooth',
+}
+
+// 品牌配置映射
+export const ERASER_BRAND_CONFIGS: Record<EraserBrandType, EraserBrandConfig> = {
+  'default': ERASER_BRAND_DEFAULT,
+  'sakura': ERASER_BRAND_SAKURA,
+  'faber-castell': ERASER_BRAND_FABER_CASTELL,
+  'staedtler': ERASER_BRAND_STAEDTLER,
+  'uni': ERASER_BRAND_UNI,
+}
+
+// 品牌显示名称
+export const ERASER_BRAND_LABELS: Record<EraserBrandType, string> = {
+  'default': '经典',
+  'sakura': '樱花',
+  'faber-castell': '辉柏嘉',
+  'staedtler': '施德楼',
+  'uni': '三菱',
+}
+
+// 品牌图标（emoji）
+export const ERASER_BRAND_ICONS: Record<EraserBrandType, string> = {
+  'default': '⚪',
+  'sakura': '🌸',
+  'faber-castell': '🔵',
+  'staedtler': '🟡',
+  'uni': '🟢',
+}
+
 /**
  * 2B 硬橡皮预设
  * - 高硬度：擦得干净，边缘锐利
