@@ -34,11 +34,8 @@ export type {
   ParticleSystemConfig,
   ParticleEmitParams,
 } from './types'
-export {
-  DEFAULT_PARTICLE_CONFIG,
-  PARTICLE_COLORS,
-} from './types'
 
+// 常量与配置
 export {
   DEFAULT_ERASER_CONFIG,
   ERASER_2B_CONFIG,
@@ -47,9 +44,11 @@ export {
   ERASER_PRESET_CONFIGS,
   ERASER_PRESET_LABELS,
   ERASER_PRESET_DESCRIPTIONS,
+  DEFAULT_PARTICLE_CONFIG,
+  PARTICLE_COLORS,
 } from './types'
 
-// 性能优化
+// 性能优化工具
 export {
   DirtyRectManager,
   ObjectPool,
@@ -86,11 +85,17 @@ export { EraserAudioEngine } from './EraserAudioEngine'
 // 空间索引与性能监控
 export { SpatialIndex, PerformanceMonitor } from './SpatialIndex'
 
-// 渲染
+// 渲染工具
 export { drawEraserTrail, drawSimpleEraserCursor } from './eraserRendering'
 
 // 粒子系统
 export { EraserParticleSystem, getParticleSystem } from './EraserParticleSystem'
 
-// Zustand Store
-export { useEraserStore, eraserEngine, eraserSpatialIndex, eraserPerformanceMonitor, eraserParticleSystem } from './eraserStore'
+// Zustand状态管理与单例实例
+export {
+  useEraserStore,
+  eraserEngine,
+  eraserSpatialIndex,
+  eraserPerformanceMonitor,
+  eraserParticleSystem,
+} from './eraserStore'
