@@ -44,6 +44,7 @@ export default function EraserControls() {
   const currentShape = eraserConfig.shape ?? 'circle'
   const audioEnabled = eraserConfig.audioEnabled ?? true
   const currentPreset = eraserPreset
+  const currentSize = eraserConfig.baseRadius ?? 12
 
   const handleShapeChange = (shape: EraserShape) => {
     updateEraserConfig({ shape })
@@ -71,6 +72,11 @@ export default function EraserControls() {
 
   const toggleParticles = () => {
     setParticlesEnabled(!particlesEnabled)
+  }
+
+  const handleSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSize = parseInt(e.target.value, 10)
+    updateEraserConfig({ baseRadius: newSize })
   }
 
   return (
@@ -176,6 +182,81 @@ export default function EraserControls() {
               {shapeLabels[shape]}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* 橡皮擦大小 */}
+      <div style={{ marginBottom: '12px' }}>
+        <div style={{ 
+          fontSize: '11px', 
+          color: 'var(--text-3)', 
+          marginBottom: '6px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <span>橡皮擦大小</span>
+          <span style={{ 
+            fontSize: '10px', 
+            color: 'var(--primary)',
+            fontWeight: 600,
+            background: 'var(--primary-bg)',
+            padding: '2px 6px',
+            borderRadius: '4px',
+          }}>
+            {currentSize}px
+          </span>
+        </div>
+        <input
+          type="range"
+          min="4"
+          max="40"
+          value={currentSize}
+          onChange={handleSizeChange}
+          style={{
+            width: '100%',
+            height: '8px',
+            borderRadius: '4px',
+            background: 'var(--bg-2)',
+            outline: 'none',
+            cursor: 'pointer',
+            WebkitAppearance: 'none',
+            appearance: 'none',
+          }}
+        />
+        <style>{`
+          input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            transition: transform 0.15s ease;
+          }
+          input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+          }
+          input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            border: none;
+          }
+        `}</style>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: '10px',
+          color: 'var(--text-4)',
+          marginTop: '2px',
+        }}>
+          <span>精细</span>
+          <span>标准</span>
+          <span>大面积</span>
         </div>
       </div>
 
