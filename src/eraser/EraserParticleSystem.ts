@@ -1,8 +1,8 @@
 /**
  * 橡皮屑粒子系统
  * 模拟真实擦除时产生的橡皮屑飞散效果
+ * 支持气流交互：快速移动鼠标/笔可以吹走橡皮屑
  */
-
 import type {
   EraserParticle,
   ParticleSystemConfig,
@@ -22,6 +22,22 @@ export class EraserParticleSystem {
   private particlePool: EraserParticle[] = []
   private poolSize: number = 0
 
+  // 气流相关状态
+  private pointerX: number = 0
+  private pointerY: number = 0
+  private pointerVx: number = 0
+  private pointerVy: number = 0
+  private pointerSpeed: number = 0
+  private lastPointerX: number = 0
+  private lastPointerY: number = 0
+  private windEnabled: boolean = true
+
+  // 气流常量
+  private static readonly WIND_THRESHOLD = 8 // 产生气流的最小速度
+  private static readonly WIND_RADIUS = 80 // 气流影响半径
+  private static readonly WIND_FORCE = 0.8 // 气流强度系数
+  private static readonly WIND_DECAY = 0.92 // 气流速度衰减
+
   constructor(config?: Partial<ParticleSystemConfig>) {
     this.config = { ...DEFAULT_PARTICLE_CONFIG, ...config }
     this.poolSize = Math.floor(this.config.maxParticles * 1.5)
@@ -40,6 +56,32 @@ export class EraserParticleSystem {
    */
   getConfig(): ParticleSystemConfig {
     return { ...this.config }
+  }
+
+  /**
+   * 更新指针位置，用于计算气流
+   */
+  updatePointerPosition(x: number, y: number, deltaTime: number = 1/60): void {
+    if (!this.windEnabled) return
+
+    // 计算速度
+    const dt = Math.max(deltaTime, 0.001)
+    this.pointerVx = (x - this.lastPointerX) / dt
+    this.pointerVy = (y - this.lastPointerY) / dt
+    this.pointerSpeed = Math.sqrt(this.pointerVx ** 2 + this.pointerVy ** 2)
+
+    // 更新位置
+    this.pointerX = x
+    this.pointerY = y
+    this.lastPointerX = x
+    this.lastPointerY = y
+  }
+
+  /**
+   * 启用/禁用气流效果
+   */
+  setWindEnabled(enabled: boolean): void {
+    this.windEnabled = enabled
   }
 
   /**
@@ -66,11 +108,9 @@ export class EraserParticleSystem {
   private createParticle(params: ParticleEmitParams): EraserParticle {
     // 尝试从对象池获取
     let particle = this.particlePool.pop()
-
     if (!particle) {
       particle = this.createNewParticle()
     }
-
     return this.initializeParticle(particle, params)
   }
 
@@ -160,8 +200,21 @@ export class EraserParticleSystem {
 
     const { gravity, friction, fadeOutStart } = this.config
 
+    // 衰减指针速度（防止快速停止后还有强气流）
+    this.pointerVx *= EraserParticleSystem.WIND_DECAY
+    this.pointerVy *= EraserParticleSystem.WIND_DECAY
+    this.pointerSpeed *= EraserParticleSystem.WIND_DECAY
+
+    // 只有速度超过阈值时才产生气流
+    const hasWind = this.windEnabled && this.pointerSpeed > EraserParticleSystem.WIND_THRESHOLD
+
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i]
+
+      // 应用气流影响
+      if (hasWind) {
+        this.applyWindForce(p, deltaTime)
+      }
 
       // 应用重力
       p.vy += gravity * p.mass * deltaTime
@@ -195,6 +248,46 @@ export class EraserParticleSystem {
   }
 
   /**
+   * 应用气流作用力到粒子
+   */
+  private applyWindForce(particle: EraserParticle, deltaTime: number): void {
+    // 计算粒子到指针的距离
+    const dx = particle.x - this.pointerX
+    const dy = particle.y - this.pointerY
+    const distance = Math.sqrt(dx * dx + dy * dy)
+
+    // 只影响气流半径内的粒子
+    if (distance > EraserParticleSystem.WIND_RADIUS) return
+
+    // 距离衰减：越近影响越大
+    const distanceFactor = 1 - distance / EraserParticleSystem.WIND_RADIUS
+    const distanceFactorSq = distanceFactor * distanceFactor
+
+    // 气流强度（速度 × 距离因子）
+    const windStrength = this.pointerSpeed * distanceFactorSq * EraserParticleSystem.WIND_FORCE
+
+    // 气流方向（指针移动方向 + 向外扩散）
+    const windDirX = this.pointerVx / (this.pointerSpeed + 0.001)
+    const windDirY = this.pointerVy / (this.pointerSpeed + 0.001)
+
+    // 向外扩散分量（防止粒子被吸向指针）
+    const pushDirX = dx / (distance + 0.001)
+    const pushDirY = dy / (distance + 0.001)
+
+    // 组合方向：主要沿移动方向，带一点向外推开
+    const forceX = (windDirX * 0.7 + pushDirX * 0.3) * windStrength
+    const forceY = (windDirY * 0.7 + pushDirY * 0.3) * windStrength
+
+    // 应用力到粒子（质量越小影响越大）
+    const massFactor = 1 / particle.mass
+    particle.vx += forceX * massFactor * deltaTime * 60
+    particle.vy += forceY * massFactor * deltaTime * 60
+
+    // 增加旋转
+    particle.rotationSpeed += (Math.random() - 0.5) * windStrength * 0.02
+  }
+
+  /**
    * 回收粒子到对象池
    */
   private recycleParticle(particle: EraserParticle): void {
@@ -211,11 +304,9 @@ export class EraserParticleSystem {
     if (this.particles.length === 0) return
 
     ctx.save()
-
     for (const particle of this.particles) {
       this.renderParticle(ctx, particle)
     }
-
     ctx.restore()
   }
 
@@ -314,6 +405,16 @@ export class EraserParticleSystem {
       active: this.particles.length,
       pooled: this.particlePool.length,
       max: this.config.maxParticles,
+    }
+  }
+
+  /**
+   * 获取气流状态
+   */
+  getWindState(): { speed: number; enabled: boolean } {
+    return {
+      speed: this.pointerSpeed,
+      enabled: this.windEnabled,
     }
   }
 }
