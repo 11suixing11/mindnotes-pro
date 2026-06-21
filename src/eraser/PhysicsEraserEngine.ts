@@ -127,11 +127,15 @@ function clamp(value: number, min: number, max: number): number {
 
 /**
  * 生成唯一ID（用于分割后的新笔触）
+ * P0修复: 使用 performance.now() 高分辨率时间戳 + 计数器
+ * 避免 Date.now() 毫秒精度在快速操作时产生重复ID
  */
 let _idCounter = 0
+const _sessionId = Math.random().toString(36).slice(2, 8)
 function generateStrokeId(): string {
-  // P1优化: 使用自增计数器替代 Math.random()，避免随机数生成开销
-  return `stroke-${Date.now()}-${(++_idCounter).toString(36)}`
+  // P0修复: 高分辨率时间戳 + 会话ID + 自增计数器
+  // 保证多帧快速操作时ID绝对唯一
+  return `stroke-${_sessionId}-${Math.trunc(performance.now() * 100)}-${(++_idCounter).toString(36)}`
 }
 
 /**
@@ -173,20 +177,23 @@ function validateStroke(stroke: StrokeElement): boolean {
  * Intersection 临时对象池
  * 避免在热循环中频繁创建 Intersection 对象
  */
-const INTERSECTION_POOL_SIZE = 128
-const _intersectionPool: Intersection[] = []
+const INTERSECTION_POOL_SIZE = 256
+const _intersectionPool: Intersection[] = new Array(INTERSECTION_POOL_SIZE)
 let _intersectionPoolIdx = 0
 
-function acquireIntersection(t: number, x: number, y: number, strength: number): Intersection {
-  let obj: Intersection
-  if (_intersectionPoolIdx < INTERSECTION_POOL_SIZE) {
-    obj = _intersectionPool[_intersectionPoolIdx] ?? { t: 0, point: [0, 0], strength: 0 }
-    _intersectionPool[_intersectionPoolIdx] = obj
-  } else {
-    // 池满时回退创建新对象（极少见）
-    obj = { t: 0, point: [0, 0], strength: 0 }
+// P0修复: 模块加载时预初始化所有池对象，消除热路径分配
+for (let i = 0; i < INTERSECTION_POOL_SIZE; i++) {
+  _intersectionPool[i] = {
+    t: 0,
+    point: new Array(2),
+    strength: 0,
   }
-  _intersectionPoolIdx++
+}
+
+function acquireIntersection(t: number, x: number, y: number, strength: number): Intersection {
+  // P0修复: 消除条件分支，池溢出时循环复用
+  const idx = _intersectionPoolIdx++ & (INTERSECTION_POOL_SIZE - 1)
+  const obj = _intersectionPool[idx]
   obj.t = t
   obj.point[0] = x
   obj.point[1] = y
