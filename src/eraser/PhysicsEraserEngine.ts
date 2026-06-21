@@ -270,12 +270,14 @@ export class PhysicsEraserEngine {
    * 这是核心入口方法，每帧调用一次
    * 
    * @param point 当前擦除点（含压力、速度、方向信息）
-   * @param elements 画布所有元素
+   * @param elements 画布所有元素（或已预筛选的候选元素）
+   * @param preFiltered 如果为 true，跳过内部空间过滤（调用方已通过空间索引预筛选）
    * @returns 擦除结果（修改的笔触列表）
    */
   addErasePoint(
     point: EraserPoint,
-    elements: CanvasElement[]
+    elements: CanvasElement[],
+    preFiltered: boolean = false
   ): EraseResult {
     // 参数校验
     if (!validateErasePoint(point)) {
@@ -313,8 +315,10 @@ export class PhysicsEraserEngine {
       height: eraseBounds.h,
     })
 
-    // 4. 空间过滤：快速筛选候选元素
-    const candidates = this.filterCandidateElements(elements, eraseBounds)
+    // 4. 空间过滤：如果元素已预筛选则直接使用，否则内部过滤
+    const candidates = preFiltered
+      ? elements
+      : this.filterCandidateElements(elements, eraseBounds)
 
     // 5. 精确计算每个候选元素的擦除结果
     const { modifiedStrokes, affectedElementIds } = this.computeErasureResults(

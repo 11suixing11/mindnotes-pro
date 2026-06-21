@@ -165,12 +165,23 @@ export function usePointerEngine(opts: {
         h: r * 2,
       })
       
-      // 如果空间索引可用，只检测候选元素
+      // P0 优化: 如果空间索引可用，直接遍历候选元素而非全部元素
+      // 从后向前遍历以保持 Z-order（后绘制的在上层）
       if (candidateIds && candidateIds.length > 0) {
-        const candidateSet = new Set(candidateIds)
-        for (let i = els.length - 1; i >= 0; i--) {
-          const el = els[i]
-          if (!candidateSet.has(el.id)) continue
+        // 构建 ID → index 映射，用于按 Z-order 排序
+        const idToIndex = new Map<string, number>()
+        for (let i = 0; i < els.length; i++) {
+          idToIndex.set(els[i].id, i)
+        }
+        // 按 Z-order 降序排列候选（后绘制的优先命中）
+        const sortedCandidates = [...candidateIds].sort((a, b) => {
+          return (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
+        })
+        
+        for (const id of sortedCandidates) {
+          const idx = idToIndex.get(id)
+          if (idx === undefined) continue
+          const el = els[idx]
           
           // 精确检测
           if (el.type === 'image') {

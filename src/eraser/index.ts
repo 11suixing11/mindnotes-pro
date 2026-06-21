@@ -84,6 +84,7 @@ export { EraserAudioEngine } from './EraserAudioEngine'
 
 // 空间索引与性能监控
 export { SpatialIndex, PerformanceMonitor } from './SpatialIndex'
+export type { RebuildStats } from './SpatialIndex'
 
 // 渲染工具
 export { drawEraserTrail, drawSimpleEraserCursor } from './eraserRendering'

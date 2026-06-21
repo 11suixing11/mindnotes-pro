@@ -60,6 +60,7 @@ interface EraserActions {
   
   // 空间索引
   rebuildSpatialIndex: (elements: CanvasElement[]) => void
+  setElementsProvider: (provider: () => CanvasElement[]) => void
   
   // 性能
   shouldUsePhysics: () => boolean
@@ -96,6 +97,11 @@ const globalEngine = new PhysicsEraserEngine(initialConfig)
 const globalSpatialIndex = new SpatialIndex()
 const globalPerformanceMonitor = new PerformanceMonitor()
 const globalParticleSystem = getParticleSystem()
+
+// 设置空间索引的元素提供者（用于自动重建）
+// 注意：此引用会在 store 创建后被更新为实际的获取函数
+let _elementsProvider: (() => CanvasElement[]) | null = null
+globalSpatialIndex.setElementProvider(() => _elementsProvider?.() ?? [])
 
 // 初始化粒子系统状态
 globalParticleSystem.setEnabled(savedPrefs.particlesEnabled)
@@ -244,12 +250,18 @@ export const useEraserStore = create<EraserState & EraserActions>()(
       })
       
       // 根据ID筛选出候选元素，只对这些元素做精确计算
-      const elementMap = new Map(elements.map(el => [el.id, el]))
-      const candidates = candidateIds
-        .map(id => elementMap.get(id))
-        .filter((el): el is CanvasElement => el !== undefined)
+      // P0优化: 使用 for 循环构建 Map，避免 .map()/.filter() 产生临时数组
+      const elementMap = new Map<string, CanvasElement>()
+      for (let j = 0; j < elements.length; j++) {
+        elementMap.set(elements[j].id, elements[j])
+      }
+      const candidates: CanvasElement[] = []
+      for (let i = 0; i < candidateIds.length; i++) {
+        const el = elementMap.get(candidateIds[i])
+        if (el) candidates.push(el)
+      }
       
-      const result = engine.addErasePoint(point, candidates)
+      const result = engine.addErasePoint(point, candidates, true)
       
       set((state) => ({
         currentTrail: [...state.currentTrail, point],
@@ -270,6 +282,10 @@ export const useEraserStore = create<EraserState & EraserActions>()(
     
     rebuildSpatialIndex: (elements: CanvasElement[]) => {
       get().spatialIndex.bulkLoad(elements)
+    },
+
+    setElementsProvider: (provider: () => CanvasElement[]) => {
+      _elementsProvider = provider
     },
     
     shouldUsePhysics: () => {
