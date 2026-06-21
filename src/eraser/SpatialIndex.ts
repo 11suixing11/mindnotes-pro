@@ -98,6 +98,37 @@ export class SpatialIndex {
   }
 
   /**
+   * P0 性能优化: 视口裁剪查询
+   * 使用空间索引进行 O(log n) 视口内元素筛选，替代 O(n) 全量遍历
+   * 返回视口内的元素 ID 集合，用于渲染裁剪
+   */
+  queryVisible(
+    vx: number,
+    vy: number,
+    vw: number,
+    vh: number
+  ): Set<string> {
+    const results: string[] = []
+    const searchBounds = {
+      minX: vx,
+      minY: vy,
+      maxX: vx + vw,
+      maxY: vy + vh,
+    }
+    this.searchNode(this.root, searchBounds, results)
+
+    if (this.deletedIds.size > 0) {
+      const visible = new Set<string>()
+      for (const id of results) {
+        if (!this.deletedIds.has(id)) visible.add(id)
+      }
+      return visible
+    }
+
+    return new Set(results)
+  }
+
+  /**
    * 删除元素（懒删除）
    * 先标记为删除，达到阈值时重建索引
    */

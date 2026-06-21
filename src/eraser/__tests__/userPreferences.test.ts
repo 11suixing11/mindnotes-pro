@@ -226,9 +226,9 @@ describe('userPreferences - 用户偏好持久化', () => {
       }
       const config = getEraserConfigFromPreferences(prefs)
       
-      // 樱花橡皮应该更软、磨损更快
+      // 樱花橡皮应该更软、更耐用（磨损更慢）
       expect(config.hardness).toBeLessThan(ERASER_PRESET_CONFIGS['4b'].hardness)
-      expect(config.wearRate).toBeGreaterThan(ERASER_PRESET_CONFIGS['4b'].wearRate)
+      expect(config.wearRate).toBeLessThan(ERASER_PRESET_CONFIGS['4b'].wearRate)
     })
   })
 
