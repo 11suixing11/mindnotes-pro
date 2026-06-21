@@ -12,6 +12,7 @@ interface StoreRef {
     undoStack: UndoAction[]
     redoStack: UndoAction[]
     saveStatus: string
+    docs: CanvasDoc[]
   }
 }
 
@@ -130,8 +131,8 @@ export async function saveDocNow(): Promise<void> {
   
   // P1 性能优化: 增量更新文档列表，避免每次都重新获取所有文档
   // 只更新当前修改的文档，而不是重新 fetch 全部
-  const currentState = _storeRef.getState()
-  const currentDocs = currentState.docs as CanvasDoc[] || []
+  // P0 修复: 复用已有的 state 变量，避免重复调用 getState()
+  const currentDocs = state.docs || []
   const updatedDoc = {
     id: currentDocId,
     title: existing?.title ?? '未命名画布',
