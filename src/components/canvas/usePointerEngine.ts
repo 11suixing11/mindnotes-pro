@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useThemeStore } from '../../store/useThemeStore'
 import type { StrokeElement } from '../../store/types'
 import type { CanvasElement, ShapeElement, TextElement, ShapeKind } from '../../store/types'
-import { simplifyPts, distToSeg, elementBounds } from '../../canvas/canvasUtils'
+import { simplifyPts, distToSeg, distToSegSq, elementBounds } from '../../canvas/canvasUtils'
 import { drawElement } from '../../canvas/canvasDrawing'
 // 物理擦除引擎集成
 import { useEraserStore, type EraserPoint } from '../../eraser'
@@ -210,17 +210,19 @@ export function usePointerEngine(opts: {
             const b = cachedBounds(el)
             if (px < b.x - r || px > b.x + b.w + r || py < b.y - r || py > b.y + b.h + r) continue
             
+            // P1 性能优化: 使用平方距离比较，避免 Math.sqrt 开销
+            const threshold = r + el.size / 2
+            const thresholdSq = threshold * threshold
             for (let j = 1; j < el.points.length; j++) {
               if (
-                distToSeg(
+                distToSegSq(
                   px,
                   py,
                   el.points[j - 1][0],
                   el.points[j - 1][1],
                   el.points[j][0],
                   el.points[j][1]
-                ) <
-                r + el.size / 2
+                ) < thresholdSq
               )
                 return el.id
             }
@@ -253,17 +255,19 @@ export function usePointerEngine(opts: {
           if (px >= b.x - r && px <= b.x + b.w + r && py >= b.y - r && py <= b.y + b.h + r)
             return el.id
         } else if (el.type === 'stroke' && el.points.length >= 2) {
+          // P1 性能优化: 使用平方距离比较，避免 Math.sqrt 开销
+          const threshold = r + el.size / 2
+          const thresholdSq = threshold * threshold
           for (let j = 1; j < el.points.length; j++) {
             if (
-              distToSeg(
+              distToSegSq(
                 px,
                 py,
                 el.points[j - 1][0],
                 el.points[j - 1][1],
                 el.points[j][0],
                 el.points[j][1]
-              ) <
-              r + el.size / 2
+              ) < thresholdSq
             )
               return el.id
           }
