@@ -74,6 +74,8 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         undoStack: undoStack.slice(0, -1),
         selectedIds: [],
       })
+      // P0 修复: undo 后同步空间索引
+      get().spatialIndex?.bulkLoad(next)
       scheduleSave()
     },
 
@@ -122,6 +124,8 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         undoStack: [...undoStack, undoAction],
         selectedIds: [],
       })
+      // P0 修复: redo 后同步空间索引
+      get().spatialIndex?.bulkLoad(next)
       scheduleSave()
     },
   }

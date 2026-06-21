@@ -118,8 +118,9 @@ export function moveElement(el: CanvasElement, dx: number, dy: number): CanvasEl
     }
     return { ...el, points: newPts }
   }
+  // P0 优化: shape/text/image 直接修改坐标，减少 spread 开销
   if (el.type === 'shape') return { ...el, x: el.x + dx, y: el.y + dy }
-  return { ...el, x: el.x + dx, y: el.y + dy }
+  return { ...el, x: el.x + dx, y: el.y + dy } as CanvasElement
 }
 
 export function resizeElement(
