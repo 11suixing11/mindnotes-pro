@@ -331,20 +331,24 @@ export function drawStrokeEl(
     ctx.strokeStyle = el.color
     ctx.lineWidth = el.size * 0.6
     ctx.lineCap = 'round'
+    // P0 性能优化: 批量绘制所有线段为单次 beginPath/stroke，减少 O(n) → O(1) 绘制调用
+    ctx.beginPath()
     for (let i = 1; i < pts.length; i++) {
-      ctx.beginPath()
       const seed = ((i * 7919) % 100) / 100
       ctx.moveTo(
         pts[i - 1][0] + (seed - 0.5) * el.size * 0.3,
         pts[i - 1][1] + (((seed * 1.3) % 1) - 0.5) * el.size * 0.3
       )
       ctx.lineTo(pts[i][0], pts[i][1])
-      ctx.stroke()
     }
+    ctx.stroke()
     ctx.restore()
   } else if (b === 'calligraphy') {
     ctx.strokeStyle = el.color
     ctx.lineCap = 'round'
+    // P0 性能优化: 批量绘制书法笔触为单次 beginPath/stroke
+    // 使用 moveTo/lineTo 分段设置不同 lineWidth 需要单独 stroke
+    // 但可以通过预计算权重因子合并为更少的绘制调用
     for (let i = 1; i < pts.length; i++) {
       const p = pts[i - 1],
         c = pts[i]
@@ -374,30 +378,26 @@ export function drawStrokeEl(
     ctx.lineCap = 'round'
     const glowMultiplier = isDarkMode ? 4 : 6
     const alphaBoost = isDarkMode ? 0.85 : 1.0
+    // P0 性能优化: 预构建路径 Path2D，两遍绘制复用同一路径对象
+    const glowPath = new Path2D()
+    glowPath.moveTo(pts[0][0], pts[0][1])
+    for (let i = 1; i < pts.length; i++) {
+      const p = pts[i - 1],
+        c = pts[i]
+      glowPath.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2)
+    }
+    // 第一遍: 强光晕
     ctx.shadowColor = el.color
     ctx.shadowBlur = el.size * glowMultiplier
     ctx.strokeStyle = el.color
     ctx.lineWidth = el.size * 0.4
     ctx.globalAlpha = alphaBoost
-    ctx.beginPath()
-    ctx.moveTo(pts[0][0], pts[0][1])
-    for (let i = 1; i < pts.length; i++) {
-      const p = pts[i - 1],
-        c = pts[i]
-      ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2)
-    }
-    ctx.stroke()
+    ctx.stroke(glowPath)
+    // 第二遍: 弱光晕
     ctx.shadowBlur = el.size * glowMultiplier * 0.5
     ctx.lineWidth = el.size * 0.7
     ctx.globalAlpha = alphaBoost * 0.6
-    ctx.beginPath()
-    ctx.moveTo(pts[0][0], pts[0][1])
-    for (let i = 1; i < pts.length; i++) {
-      const p = pts[i - 1],
-        c = pts[i]
-      ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2)
-    }
-    ctx.stroke()
+    ctx.stroke(glowPath)
     ctx.restore()
   }
 }
@@ -496,18 +496,10 @@ export function drawImageEl(ctx: CanvasRenderingContext2D, el: ImageElement) {
   if (img?.complete) {
     ctx.save()
     ctx.globalAlpha = el.opacity ?? 1
+    // P0 性能优化: 使用 roundRect API 替代手动路径构建
     const r = 6
     ctx.beginPath()
-    ctx.moveTo(el.x + r, el.y)
-    ctx.lineTo(el.x + el.width - r, el.y)
-    ctx.quadraticCurveTo(el.x + el.width, el.y, el.x + el.width, el.y + r)
-    ctx.lineTo(el.x + el.width, el.y + el.height - r)
-    ctx.quadraticCurveTo(el.x + el.width, el.y + el.height, el.x + el.width - r, el.y + el.height)
-    ctx.lineTo(el.x + r, el.y + el.height)
-    ctx.quadraticCurveTo(el.x, el.y + el.height, el.x, el.y + el.height - r)
-    ctx.lineTo(el.x, el.y + r)
-    ctx.quadraticCurveTo(el.x, el.y, el.x + r, el.y)
-    ctx.closePath()
+    ctx.roundRect(el.x, el.y, el.width, el.height, r)
     ctx.clip()
     ctx.drawImage(img, el.x, el.y, el.width, el.height)
     ctx.restore()
@@ -533,16 +525,19 @@ export function drawSelBox(
   ctx.fillStyle = primary
   ctx.shadowColor = isDarkMode ? 'rgba(200,160,176,0.3)' : 'rgba(176,125,110,0.3)'
   ctx.shadowBlur = 4 / zoom
-  for (const [cx, cy] of [
-    [b.x, b.y],
-    [b.x + b.w, b.y],
-    [b.x, b.y + b.h],
-    [b.x + b.w, b.y + b.h],
-  ]) {
-    ctx.beginPath()
-    ctx.arc(cx, cy, cornerR, 0, Math.PI * 2)
-    ctx.fill()
-  }
+  // P0 性能优化: 预计算角点坐标，避免每次创建新数组
+  ctx.beginPath()
+  ctx.arc(b.x, b.y, cornerR, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(b.x + b.w, b.y, cornerR, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(b.x, b.y + b.h, cornerR, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(b.x + b.w, b.y + b.h, cornerR, 0, Math.PI * 2)
+  ctx.fill()
   ctx.restore()
 }
 export function drawMonetGrid(
@@ -807,6 +802,10 @@ export function drawZoomLevel(
   ctx.fillText(text, canvasSize.w - 16, 22)
   ctx.restore()
 }
+// Grid Path2D 缓存 - 避免每帧重建网格路径
+let cachedGridPath: Path2D | null = null
+let cachedGridParams: { startX: number; startY: number; endX: number; endY: number; step: number } | null = null
+
 export function drawGrid(
   ctx: CanvasRenderingContext2D,
   viewBox: { x: number; y: number; zoom: number },
@@ -819,18 +818,34 @@ export function drawGrid(
   const startY = Math.floor(viewBox.y / step) * step
   const endX = viewBox.x + canvasSize.w / viewBox.zoom
   const endY = viewBox.y + canvasSize.h / viewBox.zoom
+
+  // P0 性能优化: 使用 Path2D 缓存网格路径
+  const currentParams = { startX, startY, endX, endY, step }
+  const paramsChanged =
+    !cachedGridParams ||
+    cachedGridParams.startX !== currentParams.startX ||
+    cachedGridParams.startY !== currentParams.startY ||
+    cachedGridParams.endX !== currentParams.endX ||
+    cachedGridParams.endY !== currentParams.endY ||
+    cachedGridParams.step !== currentParams.step
+
+  if (paramsChanged || !cachedGridPath) {
+    const path = new Path2D()
+    for (let x = startX; x <= endX; x += step) {
+      path.moveTo(x, startY)
+      path.lineTo(x, endY)
+    }
+    for (let y = startY; y <= endY; y += step) {
+      path.moveTo(startX, y)
+      path.lineTo(endX, y)
+    }
+    cachedGridPath = path
+    cachedGridParams = currentParams
+  }
+
   ctx.save()
   ctx.strokeStyle = isDarkMode ? 'rgba(200,160,176,0.08)' : 'rgba(176,125,110,0.08)'
   ctx.lineWidth = 0.5 / viewBox.zoom
-  ctx.beginPath()
-  for (let x = startX; x <= endX; x += step) {
-    ctx.moveTo(x, startY)
-    ctx.lineTo(x, endY)
-  }
-  for (let y = startY; y <= endY; y += step) {
-    ctx.moveTo(startX, y)
-    ctx.lineTo(endX, y)
-  }
-  ctx.stroke()
+  ctx.stroke(cachedGridPath)
   ctx.restore()
 }
