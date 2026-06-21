@@ -113,33 +113,61 @@ export function createCanvasElementsSlice(
     },
 
     moveElementById: (id, dx, dy) => {
+      // P0 性能优化: 跳过无意义的移动
+      if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return
+      
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      set((s: any) => ({
-        elements: s.elements.map((el: CanvasElement) =>
-          el.id === id ? moveElement(el, dx, dy) : el
-        ),
-      }))
+      set((s: any) => {
+        // P0 性能优化: 快速路径 - 先检查元素是否存在
+        const targetEl = s.elements.find((el: CanvasElement) => el.id === id)
+        if (!targetEl) return s
+        
+        return {
+          elements: s.elements.map((el: CanvasElement) =>
+            el.id === id ? moveElement(el, dx, dy) : el
+          ),
+        }
+      })
       scheduleSave()
     },
 
     moveElementsById: (ids, dx, dy) => {
+      // P0 性能优化: 跳过无意义的移动
+      if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return
+      if (ids.length === 0) return
+      
       const idSet = new Set(ids)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      set((s: any) => ({
-        elements: s.elements.map((el: CanvasElement) =>
-          idSet.has(el.id) ? moveElement(el, dx, dy) : el
-        ),
-      }))
+      set((s: any) => {
+        // P0 性能优化: 快速检查是否有元素需要移动
+        const hasMatch = s.elements.some((el: CanvasElement) => idSet.has(el.id))
+        if (!hasMatch) return s
+        
+        return {
+          elements: s.elements.map((el: CanvasElement) =>
+            idSet.has(el.id) ? moveElement(el, dx, dy) : el
+          ),
+        }
+      })
       scheduleSave()
     },
 
     resizeElementById: (id, ax, ay, sx, sy) => {
+      // P0 性能优化: 跳过无意义的缩放
+      if (Math.abs(sx - 1) < 0.001 && Math.abs(sy - 1) < 0.001) return
+      
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      set((s: any) => ({
-        elements: s.elements.map((el: CanvasElement) =>
-          el.id === id ? resizeElement(el, ax, ay, sx, sy) : el
-        ),
-      }))
+      set((s: any) => {
+        // P0 性能优化: 快速路径 - 先检查元素是否存在
+        const targetEl = s.elements.find((el: CanvasElement) => el.id === id)
+        if (!targetEl) return s
+        
+        return {
+          elements: s.elements.map((el: CanvasElement) =>
+            el.id === id ? resizeElement(el, ax, ay, sx, sy) : el
+          ),
+        }
+      })
       scheduleSave()
     },
 
