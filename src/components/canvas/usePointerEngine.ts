@@ -89,6 +89,11 @@ export function usePointerEngine(opts: {
   const erasedRef = useRef<Set<string>>(new Set())
   const preEraseSnapshotRef = useRef<CanvasElement[] | null>(null)
   
+  // P0 修复: 擦除轨迹跟踪（用于光标拖尾渲染）- 移到开头，在 handleMove 使用前声明
+  const eraserTrailRef = useRef<{ x: number; y: number; time: number }[]>([])
+  const eraserTrailHeadRef = useRef(0)
+  const penVelocityRef = useRef(0)
+  
   // 物理擦除状态
   const lastErasePointRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const dragRef = useRef<{
@@ -1062,11 +1067,6 @@ export function usePointerEngine(opts: {
       /* Clipboard API may fail silently */
     }
   }
-
-  // 擦除轨迹跟踪（用于光标拖尾渲染）
-  const eraserTrailRef = useRef<{ x: number; y: number; time: number }[]>([])
-  const eraserTrailHeadRef = useRef(0)
-  const penVelocityRef = useRef(0)
 
   // getDrawState for renderer
   const getDrawState = useCallback(
