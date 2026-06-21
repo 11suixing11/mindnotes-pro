@@ -33,9 +33,10 @@ export default function App() {
   const init = useAppStore((s) => s.init)
   const loaded = useAppStore((s) => s.loaded)
   const tool = useAppStore((s) => s.tool)
-  const elements = useAppStore((s) => s.elements)
+  // P1-9/P1-10 修复: 只订阅 length 而非完整数组，避免不必要的 re-render
+  const elementCount = useAppStore((s) => s.elements.length)
   const bgColor = useAppStore((s) => s.bgColor)
-  const docs = useAppStore((s) => s.docs)
+  const docCount = useAppStore((s) => s.docs.length)
   const [hintsVisible, setHintsVisible] = useState(() => !localStorage.getItem('mn-hints-seen'))
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const saveStatus = useAppStore((s) => s.saveStatus)
@@ -150,9 +151,9 @@ export default function App() {
               {TOOL_LABELS[tool] ?? tool}
             </span>
             <span className="vl" aria-hidden="true" />
-            <span>{elements.length} elements</span>
+            <span>{elementCount} elements</span>
             <span className="vl" aria-hidden="true" />
-            <span>{docs.length} docs</span>
+            <span>{docCount} docs</span>
             <span className="vl" aria-hidden="true" />
             <span
               style={{ cursor: 'pointer' }}
