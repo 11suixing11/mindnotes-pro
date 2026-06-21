@@ -380,11 +380,20 @@ export function useCanvasRenderer(
           }
         }
         
+        // P0-4 优化: 增量更新 prevRefMap，避免每次都重建完整 Map
+        // 只添加新元素，删除已移除的元素
+        for (const el of currElements) {
+          prevRefMap.set(el.id, el)
+        }
+        // 删除已不存在的元素
+        for (const id of prevIdSet) {
+          if (!currIdSet.has(id)) {
+            prevRefMap.delete(id)
+          }
+        }
         // 更新快照引用
         prevElements = currElements
         prevIdSet = currIdSet
-        prevRefMap = new Map<string, CanvasElement>()
-        for (const e of currElements) prevRefMap.set(e.id, e)
       }
       
       // 调度重绘（已通过 raf 合并）
