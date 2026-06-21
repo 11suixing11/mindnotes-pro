@@ -19,6 +19,9 @@ interface RTreeNode {
 export class SpatialIndex {
   private root: RTreeNode
   private maxEntries: number = 9
+  private deletedIds: Set<string> = new Set()
+  private totalCount: number = 0
+  private readonly rebuildThreshold: number = 0.2 // 20% 删除率触发重建
 
   constructor() {
     this.root = this.createNode(true)
@@ -28,6 +31,11 @@ export class SpatialIndex {
    * 批量插入元素
    */
   bulkLoad(elements: CanvasElement[]): void {
+    // 重置状态
+    this.root = this.createNode(true)
+    this.deletedIds.clear()
+    this.totalCount = elements.length
+
     const entries = elements.map((el) => this.toEntry(el))
     if (entries.length < this.maxEntries) {
       entries.forEach((e) => this.insertEntry(e))
@@ -55,7 +63,12 @@ export class SpatialIndex {
    * 插入单个元素
    */
   insert(element: CanvasElement): void {
+    // 如果之前被标记删除了，先移除删除标记
+    if (this.deletedIds.has(element.id)) {
+      this.deletedIds.delete(element.id)
+    }
     this.insertEntry(this.toEntry(element))
+    this.totalCount++
   }
 
   private insertEntry(entry: BoundsEntry): void {
@@ -75,7 +88,48 @@ export class SpatialIndex {
     }
 
     this.searchNode(this.root, searchBounds, results)
+
+    // 过滤掉已删除的元素
+    if (this.deletedIds.size > 0) {
+      return results.filter((id) => !this.deletedIds.has(id))
+    }
+
     return results
+  }
+
+  /**
+   * 删除元素（懒删除）
+   * 先标记为删除，达到阈值时重建索引
+   */
+  remove(id: string): void {
+    if (this.deletedIds.has(id)) return
+    this.deletedIds.add(id)
+    this.totalCount--
+
+    // 检查是否需要重建索引
+    this.rebuildIfNeeded()
+  }
+
+  /**
+   * 更新元素（先删后插）
+   */
+  update(element: CanvasElement): void {
+    this.remove(element.id)
+    this.insert(element)
+  }
+
+  /**
+   * 检查是否需要重建索引
+   */
+  private rebuildIfNeeded(): void {
+    if (this.totalCount <= 0) return
+    const deleteRatio = this.deletedIds.size / (this.totalCount + this.deletedIds.size)
+    if (deleteRatio >= this.rebuildThreshold) {
+      // 这里不直接重建，因为我们没有完整的元素列表
+      // 调用方需要在适当的时候调用 bulkLoad 来重建
+      // 或者我们可以在 search 时检查并重建（但需要元素列表）
+      // 暂时只做标记，由外部控制重建时机
+    }
   }
 
   /**
@@ -83,6 +137,8 @@ export class SpatialIndex {
    */
   clear(): void {
     this.root = this.createNode(true)
+    this.deletedIds.clear()
+    this.totalCount = 0
   }
 
   private createNode(leaf: boolean): RTreeNode {

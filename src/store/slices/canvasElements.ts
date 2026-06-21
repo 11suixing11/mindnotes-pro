@@ -3,11 +3,13 @@ import { moveElement, resizeElement } from '../types'
 import { shallowClone, snapshot } from '../helpers'
 import { scheduleSave } from '../saveManager'
 import { MAX_HISTORY } from './history'
+import { SpatialIndex } from '../../eraser/SpatialIndex'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
   selectedIds: string[]
   clipboard: CanvasElement[]
+  spatialIndex: SpatialIndex
 }
 
 export interface CanvasElementsActions {
@@ -32,11 +34,15 @@ export function createCanvasElementsSlice(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   get: any
 ): CanvasElementsState & CanvasElementsActions {
+  // 全局空间索引实例 - 实时维护，O(log n) 区域查询
+  const spatialIndex = new SpatialIndex()
+
   return {
     // State
     elements: [],
     selectedIds: [],
     clipboard: [],
+    spatialIndex,
 
     // Actions
     setSelectedIds: (ids) => set({ selectedIds: ids }),
@@ -49,6 +55,7 @@ export function createCanvasElementsSlice(
         undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
+      spatialIndex.insert(el)
       scheduleSave()
     },
 
@@ -64,13 +71,21 @@ export function createCanvasElementsSlice(
         undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
+      els.forEach((el) => spatialIndex.insert(el))
       scheduleSave()
     },
 
     updateElement: (id, update) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => ({
-        elements: s.elements.map((el: CanvasElement) => (el.id === id ? update(el) : el)),
+        elements: s.elements.map((el: CanvasElement) => {
+          if (el.id === id) {
+            const newEl = update(el)
+            spatialIndex.update(newEl)
+            return newEl
+          }
+          return el
+        }),
       }))
       scheduleSave()
     },
@@ -92,6 +107,7 @@ export function createCanvasElementsSlice(
         redoStack: [],
         selectedIds: st.selectedIds.filter((i: string) => i !== id),
       })
+      spatialIndex.remove(id)
       scheduleSave()
     },
 
@@ -109,6 +125,7 @@ export function createCanvasElementsSlice(
         redoStack: [],
         selectedIds: [],
       })
+      ids.forEach((id) => spatialIndex.remove(id))
       scheduleSave()
     },
 
@@ -123,9 +140,14 @@ export function createCanvasElementsSlice(
         if (!targetEl) return s
         
         return {
-          elements: s.elements.map((el: CanvasElement) =>
-            el.id === id ? moveElement(el, dx, dy) : el
-          ),
+          elements: s.elements.map((el: CanvasElement) => {
+            if (el.id === id) {
+              const newEl = moveElement(el, dx, dy)
+              spatialIndex.update(newEl)
+              return newEl
+            }
+            return el
+          }),
         }
       })
       scheduleSave()
@@ -144,9 +166,14 @@ export function createCanvasElementsSlice(
         if (!hasMatch) return s
         
         return {
-          elements: s.elements.map((el: CanvasElement) =>
-            idSet.has(el.id) ? moveElement(el, dx, dy) : el
-          ),
+          elements: s.elements.map((el: CanvasElement) => {
+            if (idSet.has(el.id)) {
+              const newEl = moveElement(el, dx, dy)
+              spatialIndex.update(newEl)
+              return newEl
+            }
+            return el
+          }),
         }
       })
       scheduleSave()
@@ -163,9 +190,14 @@ export function createCanvasElementsSlice(
         if (!targetEl) return s
         
         return {
-          elements: s.elements.map((el: CanvasElement) =>
-            el.id === id ? resizeElement(el, ax, ay, sx, sy) : el
-          ),
+          elements: s.elements.map((el: CanvasElement) => {
+            if (el.id === id) {
+              const newEl = resizeElement(el, ax, ay, sx, sy)
+              spatialIndex.update(newEl)
+              return newEl
+            }
+            return el
+          }),
         }
       })
       scheduleSave()
@@ -180,6 +212,7 @@ export function createCanvasElementsSlice(
         redoStack: [],
         selectedIds: [],
       })
+      spatialIndex.clear()
       scheduleSave()
     },
 
@@ -209,6 +242,7 @@ export function createCanvasElementsSlice(
         undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
+      pasted.forEach((el: CanvasElement) => spatialIndex.insert(el))
       scheduleSave()
     },
 
@@ -224,6 +258,8 @@ export function createCanvasElementsSlice(
         redoStack: [],
         selectedIds: [],
       })
+      // 擦除操作会改变大量元素，直接重建空间索引
+      spatialIndex.bulkLoad(get().elements)
       scheduleSave()
     },
   }

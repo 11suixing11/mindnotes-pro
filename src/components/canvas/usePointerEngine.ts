@@ -154,7 +154,66 @@ export function usePointerEngine(opts: {
   const hitTest = useCallback(
     (px: number, py: number): string | null => {
       const r = 12 / (viewBoxRef.current.zoom || 1)
-      const els = useAppStore.getState().elements
+      const state = useAppStore.getState()
+      const els = state.elements
+      
+      // P0 性能优化: 先用空间索引快速筛选候选元素（O(log n)）
+      const candidateIds = state.spatialIndex?.search({
+        x: px - r,
+        y: py - r,
+        w: r * 2,
+        h: r * 2,
+      })
+      
+      // 如果空间索引可用，只检测候选元素
+      if (candidateIds && candidateIds.length > 0) {
+        const candidateSet = new Set(candidateIds)
+        for (let i = els.length - 1; i >= 0; i--) {
+          const el = els[i]
+          if (!candidateSet.has(el.id)) continue
+          
+          // 精确检测
+          if (el.type === 'image') {
+            if (
+              px >= el.x - r &&
+              px <= el.x + el.width + r &&
+              py >= el.y - r &&
+              py <= el.y + el.height + r
+            )
+              return el.id
+          } else if (el.type === 'text') {
+            if (
+              px >= el.x - r &&
+              px <= el.x + (el.width || 100) + r &&
+              py >= el.y - r &&
+              py <= el.y + (el.height || 30) + r
+            )
+              return el.id
+          } else if (el.type === 'shape') {
+            const b = cachedBounds(el)
+            if (px >= b.x - r && px <= b.x + b.w + r && py >= b.y - r && py <= b.y + b.h + r)
+              return el.id
+          } else if (el.type === 'stroke' && el.points.length >= 2) {
+            for (let j = 1; j < el.points.length; j++) {
+              if (
+                distToSeg(
+                  px,
+                  py,
+                  el.points[j - 1][0],
+                  el.points[j - 1][1],
+                  el.points[j][0],
+                  el.points[j][1]
+                ) <
+                r + el.size / 2
+              )
+                return el.id
+            }
+          }
+        }
+        return null
+      }
+      
+      // 降级: 空间索引不可用时用原有的 O(n) 遍历
       for (let i = els.length - 1; i >= 0; i--) {
         const el = els[i]
         if (el.type === 'image') {
