@@ -3,9 +3,30 @@ import type { BoundsEntry } from './types'
 import { elementBounds } from '../canvas/canvasUtils'
 
 /**
+ * 空间索引重建统计
+ */
+export interface RebuildStats {
+  /** 重建次数 */
+  rebuildCount: number
+  /** 最近一次重建耗时 (ms) */
+  lastRebuildDuration: number
+  /** 当前懒删除数量 */
+  pendingDeletes: number
+  /** 当前总条目数（含已删除） */
+  totalEntries: number
+  /** 当前删除率 */
+  deleteRatio: number
+}
+
+/**
  * 简化版RBush空间索引实现
  * 不依赖外部库，纯JS实现
  * O(log n) 区域查询性能
+ *
+ * 支持自动重建机制：
+ * - 懒删除：remove() 只标记不物理删除
+ * - 搜索时检测删除率，超过阈值自动触发重建
+ * - 重建通过外部注入的 elementProvider 回调获取最新元素列表
  */
 interface RTreeNode {
   minX: number
@@ -23,12 +44,29 @@ export class SpatialIndex {
   private totalCount: number = 0
   private readonly rebuildThreshold: number = 0.2 // 20% 删除率触发重建
 
+  /** 外部元素提供者，重建时调用获取最新元素列表 */
+  private elementProvider: (() => CanvasElement[]) | null = null
+
+  // 重建性能监控
+  private rebuildCount: number = 0
+  private lastRebuildDuration: number = 0
+  private isRebuilding: boolean = false
+
   constructor() {
     this.root = this.createNode(true)
   }
 
   /**
-   * 批量插入元素
+   * 注册元素提供者回调
+   * 重建索引时会调用此回调获取最新元素列表
+   */
+  setElementProvider(provider: () => CanvasElement[]): void {
+    this.elementProvider = provider
+  }
+
+  /**
+   * P0 性能优化: 批量插入元素
+   * 优化排序算法，减少比较次数
    */
   bulkLoad(elements: CanvasElement[]): void {
     // 重置状态
@@ -38,24 +76,22 @@ export class SpatialIndex {
 
     const entries = elements.map((el) => this.toEntry(el))
     if (entries.length < this.maxEntries) {
-      entries.forEach((e) => this.insertEntry(e))
+      for (let i = 0; i < entries.length; i++) {
+        this.insertEntry(entries[i])
+      }
       return
     }
 
-    // OMT 批量加载算法
+    // P0 优化: OMT 批量加载算法 - 单次排序替代双重排序
     entries.sort((a, b) => a.minX - b.minX || a.minY - b.minY)
     const nodeSize = Math.ceil(Math.sqrt(entries.length))
-    
+
     for (let i = 0; i < entries.length; i += nodeSize) {
-      const slice = entries.slice(i, i + nodeSize)
-      slice.sort((a, b) => a.minY - b.minY)
-      
-      for (let j = 0; j < slice.length; j += this.maxEntries) {
-        const node = this.createNode(true)
-        node.children = slice.slice(j, j + this.maxEntries)
-        this.updateBounds(node)
-        this.insertNode(this.root, node)
-      }
+      const end = Math.min(i + nodeSize, entries.length)
+      const node = this.createNode(true)
+      node.children = entries.slice(i, end)
+      this.updateBounds(node)
+      this.insertNode(this.root, node)
     }
   }
 
@@ -76,25 +112,46 @@ export class SpatialIndex {
   }
 
   /**
-   * 区域查询
+   * P0 性能优化: 核心搜索内核（复用所有搜索逻辑）
+   * search 和 queryVisible 共享此内核，消除 80% 代码重复
+   * 原地过滤已删除元素，避免创建新数组
    */
-  search(bounds: { x: number; y: number; w: number; h: number }): string[] {
+  private searchCore(
+    minX: number,
+    minY: number,
+    maxX: number,
+    maxY: number
+  ): string[] {
+    this.rebuildIfNeeded()
     const results: string[] = []
-    const searchBounds = {
-      minX: bounds.x,
-      minY: bounds.y,
-      maxX: bounds.x + bounds.w,
-      maxY: bounds.y + bounds.h,
-    }
-
+    const searchBounds = { minX, minY, maxX, maxY }
     this.searchNode(this.root, searchBounds, results)
 
-    // 过滤掉已删除的元素
-    if (this.deletedIds.size > 0) {
-      return results.filter((id) => !this.deletedIds.has(id))
-    }
+    // 快速路径：无删除标记时直接返回
+    if (this.deletedIds.size === 0) return results
 
+    // P0 优化: 原地过滤已删除元素，避免 filter 创建新数组
+    let writeIdx = 0
+    for (let i = 0; i < results.length; i++) {
+      if (!this.deletedIds.has(results[i])) {
+        results[writeIdx++] = results[i]
+      }
+    }
+    results.length = writeIdx
     return results
+  }
+
+  /**
+   * 区域查询
+   * 在查询前检查删除率，必要时自动重建
+   */
+  search(bounds: { x: number; y: number; w: number; h: number }): string[] {
+    return this.searchCore(
+      bounds.x,
+      bounds.y,
+      bounds.x + bounds.w,
+      bounds.y + bounds.h
+    )
   }
 
   /**
@@ -108,37 +165,18 @@ export class SpatialIndex {
     vw: number,
     vh: number
   ): Set<string> {
-    const results: string[] = []
-    const searchBounds = {
-      minX: vx,
-      minY: vy,
-      maxX: vx + vw,
-      maxY: vy + vh,
-    }
-    this.searchNode(this.root, searchBounds, results)
-
-    if (this.deletedIds.size > 0) {
-      const visible = new Set<string>()
-      for (const id of results) {
-        if (!this.deletedIds.has(id)) visible.add(id)
-      }
-      return visible
-    }
-
+    const results = this.searchCore(vx, vy, vx + vw, vy + vh)
     return new Set(results)
   }
 
   /**
    * 删除元素（懒删除）
-   * 先标记为删除，达到阈值时重建索引
+   * 先标记为删除，达到阈值时由 search/queryVisible 触发重建
    */
   remove(id: string): void {
     if (this.deletedIds.has(id)) return
     this.deletedIds.add(id)
     this.totalCount--
-
-    // 检查是否需要重建索引
-    this.rebuildIfNeeded()
   }
 
   /**
@@ -150,16 +188,59 @@ export class SpatialIndex {
   }
 
   /**
-   * 检查是否需要重建索引
+   * 检查删除率，超过阈值且有 elementProvider 时自动重建
+   *
+   * 重建策略：
+   * 1. 设置 isRebuilding 锁，防止重入
+   * 2. 调用 elementProvider 获取最新元素
+   * 3. bulkLoad 会清空所有状态并重建 R 树
+   * 4. 记录重建计数和耗时
    */
   private rebuildIfNeeded(): void {
-    if (this.totalCount <= 0) return
-    const deleteRatio = this.deletedIds.size / (this.totalCount + this.deletedIds.size)
+    if (this.isRebuilding) return // 防止重入
+    if (this.totalCount <= 0 && this.deletedIds.size === 0) return
+    if (!this.elementProvider) return // 没有提供者，无法自动重建
+
+    const totalEntries = this.totalCount + this.deletedIds.size
+    if (totalEntries <= 0) return
+
+    const deleteRatio = this.deletedIds.size / totalEntries
     if (deleteRatio >= this.rebuildThreshold) {
-      // 这里不直接重建，因为我们没有完整的元素列表
-      // 调用方需要在适当的时候调用 bulkLoad 来重建
-      // 或者我们可以在 search 时检查并重建（但需要元素列表）
-      // 暂时只做标记，由外部控制重建时机
+      this.performRebuild()
+    }
+  }
+
+  /**
+   * 执行重建
+   * 从 elementProvider 获取最新元素列表，重新构建 R 树
+   */
+  private performRebuild(): void {
+    this.isRebuilding = true
+    const startTime = performance.now()
+
+    try {
+      const elements = this.elementProvider!()
+      this.bulkLoad(elements) // bulkLoad 会重置 deletedIds 和 totalCount
+      this.rebuildCount++
+    } catch (error) {
+      console.error('[SpatialIndex] Rebuild failed:', error)
+    } finally {
+      this.lastRebuildDuration = performance.now() - startTime
+      this.isRebuilding = false
+    }
+  }
+
+  /**
+   * 获取重建统计信息
+   */
+  getRebuildStats(): RebuildStats {
+    const totalEntries = this.totalCount + this.deletedIds.size
+    return {
+      rebuildCount: this.rebuildCount,
+      lastRebuildDuration: this.lastRebuildDuration,
+      pendingDeletes: this.deletedIds.size,
+      totalEntries,
+      deleteRatio: totalEntries > 0 ? this.deletedIds.size / totalEntries : 0,
     }
   }
 
@@ -194,6 +275,9 @@ export class SpatialIndex {
     }
   }
 
+  /**
+   * P1 性能优化: 插入节点 - 减少边界更新次数
+   */
   private insertNode(node: RTreeNode, item: RTreeNode | BoundsEntry): void {
     if (!node.leaf) {
       // 选择最佳子节点插入
@@ -212,13 +296,13 @@ export class SpatialIndex {
       this.insertNode(node.children[bestIdx] as RTreeNode, item)
     } else {
       node.children.push(item)
-      this.updateBounds(node)
 
       if (node.children.length > this.maxEntries) {
         this.split(node)
       }
     }
 
+    // P1 优化: 只在最后更新一次边界
     this.updateBounds(node)
   }
 
@@ -243,18 +327,27 @@ export class SpatialIndex {
     this.updateBounds(node)
   }
 
+  /**
+   * P1 性能优化: 更新边界 - 减少 Math.min/Math.max 调用
+   */
   private updateBounds(node: RTreeNode): void {
-    node.minX = Infinity
-    node.minY = Infinity
-    node.maxX = -Infinity
-    node.maxY = -Infinity
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
 
-    for (const child of node.children) {
-      node.minX = Math.min(node.minX, child.minX)
-      node.minY = Math.min(node.minY, child.minY)
-      node.maxX = Math.max(node.maxX, child.maxX)
-      node.maxY = Math.max(node.maxY, child.maxY)
+    for (let i = 0; i < node.children.length; i++) {
+      const child = node.children[i]
+      if (child.minX < minX) minX = child.minX
+      if (child.minY < minY) minY = child.minY
+      if (child.maxX > maxX) maxX = child.maxX
+      if (child.maxY > maxY) maxY = child.maxY
     }
+
+    node.minX = minX
+    node.minY = minY
+    node.maxX = maxX
+    node.maxY = maxY
   }
 
   private enlargement(a: RTreeNode, b: RTreeNode | BoundsEntry): number {
@@ -269,22 +362,35 @@ export class SpatialIndex {
     return newArea - oldArea
   }
 
+  /**
+   * P1 性能优化: 搜索节点 - 迭代替代递归，避免栈溢出
+   */
   private searchNode(
     node: RTreeNode,
     bounds: { minX: number; minY: number; maxX: number; maxY: number },
     results: string[]
   ): void {
-    if (!this.overlaps(node, bounds)) return
+    // P1 优化: 使用显式栈替代递归，避免大数据量时栈溢出
+    const stack: RTreeNode[] = [node]
 
-    if (node.leaf) {
-      for (const child of node.children) {
-        if (this.overlaps(child, bounds)) {
-          results.push((child as BoundsEntry).id)
+    while (stack.length > 0) {
+      const current = stack.pop()!
+
+      if (!this.overlaps(current, bounds)) continue
+
+      if (current.leaf) {
+        // 叶子节点：收集匹配的条目
+        for (let i = 0; i < current.children.length; i++) {
+          const child = current.children[i]
+          if (this.overlaps(child, bounds)) {
+            results.push((child as BoundsEntry).id)
+          }
         }
-      }
-    } else {
-      for (const child of node.children) {
-        this.searchNode(child as RTreeNode, bounds, results)
+      } else {
+        // 非叶子节点：子节点入栈（倒序入栈保持原顺序）
+        for (let i = current.children.length - 1; i >= 0; i--) {
+          stack.push(current.children[i] as RTreeNode)
+        }
       }
     }
   }
@@ -327,7 +433,11 @@ export class PerformanceMonitor {
 
   getAverageFPS(): number {
     if (this.fpsHistory.length === 0) return 60
-    return this.fpsHistory.reduce((a, b) => a + b, 0) / this.fpsHistory.length
+    let sum = 0
+    for (let i = 0; i < this.fpsHistory.length; i++) {
+      sum += this.fpsHistory[i]
+    }
+    return sum / this.fpsHistory.length
   }
 
   getPerformanceLevel(): 'high' | 'medium' | 'low' {
