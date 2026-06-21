@@ -182,10 +182,11 @@ const _intersectionPool: Intersection[] = new Array(INTERSECTION_POOL_SIZE)
 let _intersectionPoolIdx = 0
 
 // P0修复: 模块加载时预初始化所有池对象，消除热路径分配
+// P0类型修复: 使用类型断言确保 point 是 [number, number] 元组类型
 for (let i = 0; i < INTERSECTION_POOL_SIZE; i++) {
   _intersectionPool[i] = {
     t: 0,
-    point: new Array(2),
+    point: [0, 0],
     strength: 0,
   }
 }
