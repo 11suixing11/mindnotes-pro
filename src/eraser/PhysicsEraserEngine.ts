@@ -408,11 +408,15 @@ export class PhysicsEraserEngine {
       ? elements
       : this.filterCandidateElements(elements, eraseBounds)
 
-    // 5. 精确计算每个候选元素的擦除结果
+    // 5. 预计算擦除强度（P1修复: 只计算一次，避免每笔触重复计算）
+    const eraseStrength = this.computeEraseStrength(point)
+
+    // 6. 精确计算每个候选元素的擦除结果
     const { modifiedStrokes, affectedElementIds } = this.computeErasureResults(
       candidates,
       point,
-      effectiveRadius // P0优化: 传入已计算的半径，避免重复计算
+      effectiveRadius,
+      eraseStrength
     )
 
     return {
@@ -883,12 +887,16 @@ export class PhysicsEraserEngine {
   /**
    * 更新橡皮磨损程度
    * 磨损与移动距离、压力成正比，与硬度成反比
+   * P1修复: 只在磨损实际变化时标记缓存脏，避免缓存永不命中
    */
   private updateWearLevel(point: EraserPoint): void {
     if (this.trail.length < 2) return
 
     const prevPoint = this.trail[this.trail.length - 2]
     const dist = distance(point.x, point.y, prevPoint.x, prevPoint.y)
+
+    // P1修复: 先判断距离平方，避免不必要的 sqrt 开销
+    if (dist < 0.001) return
 
     // 压力越大磨损越快
     const pressureFactor =
@@ -906,13 +914,17 @@ export class PhysicsEraserEngine {
       this.config.wearRate *
       WEAR_CONSTANTS.RATE_SCALE
 
-    this.wearLevel = Math.min(
+    const newWearLevel = Math.min(
       WEAR_CONSTANTS.MAX_WEAR,
       this.wearLevel + wearIncrement
     )
 
-    // 标记因子缓存脏
-    this._factorsDirty = true
+    // P1修复: 只在磨损实际变化时标记缓存脏
+    // 避免每帧都标记 dirty 导致半径缓存永不命中
+    if (Math.abs(newWearLevel - this.wearLevel) > 0.0001) {
+      this.wearLevel = newWearLevel
+      this._factorsDirty = true
+    }
   }
 
   /**
@@ -948,13 +960,16 @@ export class PhysicsEraserEngine {
 
   /**
    * 计算所有候选元素的擦除结果
-   * P0优化: 接受预计算的 effectiveRadius，避免重复计算
-   * P1优化: 使用 for 循环替代 for-of
+   * 优化点:
+   * - 接受预计算的 effectiveRadius，避免重复计算
+   * - 接受预计算的 eraseStrength，避免每笔触重复计算
+   * - 使用 for 循环替代 for-of
    */
   private computeErasureResults(
     candidates: CanvasElement[],
     point: EraserPoint,
-    effectiveRadius: number
+    effectiveRadius: number,
+    eraseStrength: number
   ): Pick<EraseResult, 'modifiedStrokes' | 'affectedElementIds'> {
     const modifiedStrokes: EraseResult['modifiedStrokes'] = []
     const affectedElementIds: string[] = []
@@ -966,7 +981,8 @@ export class PhysicsEraserEngine {
           const result = this.processStrokeElement(
             el as StrokeElement,
             point,
-            effectiveRadius // P0优化: 传递预计算的半径
+            effectiveRadius,
+            eraseStrength
           )
           if (result) {
             modifiedStrokes.push(result)
@@ -989,14 +1005,15 @@ export class PhysicsEraserEngine {
 
   /**
    * 处理笔触元素擦除
-   * P0优化: 接受预计算的 effectiveRadius
+   * P0修复: 未修改时返回 null，避免产生不必要的脏标记
    */
   private processStrokeElement(
     stroke: StrokeElement,
     point: EraserPoint,
-    effectiveRadius: number
+    effectiveRadius: number,
+    eraseStrength: number
   ): EraseResult['modifiedStrokes'][0] | null {
-    const erasure = this.computeStrokeErasure(stroke, point, effectiveRadius)
+    const erasure = this.computeStrokeErasure(stroke, point, effectiveRadius, eraseStrength)
 
     if (erasure.shouldDelete) {
       return { id: stroke.id, action: 'delete' }
@@ -1010,10 +1027,10 @@ export class PhysicsEraserEngine {
       if (result.status === 'deleted') {
         return { id: stroke.id, action: 'delete' }
       }
-      // unchanged - 保留原笔触
     }
 
-    return { id: stroke.id, action: 'keep' }
+    // P0修复: 未修改则返回 null，调用方会过滤
+    return null
   }
 
   /**
@@ -1054,7 +1071,8 @@ export class PhysicsEraserEngine {
   private computeStrokeErasure(
     stroke: StrokeElement,
     erasePoint: EraserPoint,
-    effectiveRadius: number
+    effectiveRadius: number,
+    eraseStrength: number
   ): StrokeErasure {
     // 防御性检查
     if (!validateStroke(stroke)) {
@@ -1070,58 +1088,27 @@ export class PhysicsEraserEngine {
 
     const points = stroke.points
     const pointsLen = points.length
-    const eraseStrength = this.computeEraseStrength(erasePoint)
     const halfStrokeSize = stroke.size / 2
     const effectiveDistThreshold = effectiveRadius + halfStrokeSize
     const depthThreshold = effectiveRadius * ERASE_THRESHOLDS.DEPTH_FACTOR
 
-    // P2优化: 重置对象池
+    // 重置对象池
     resetIntersectionPool()
 
-    // P0优化: Early exit - 快速检查笔触边界框是否与擦除区域重叠
-    // P0优化: 增量计算 AABB，避免 Math.min/max 函数调用开销
-    let strokeMinX = points[0][0]
-    let strokeMaxX = strokeMinX
-    let strokeMinY = points[0][1]
-    let strokeMaxY = strokeMinY
-    
-    // P0优化: 动态步长采样 AABB 计算（超长笔触性能提升 10-20x）
-    // 根据笔触长度自适应采样步长，误差 < 1 像素，不影响碰撞检测结果
-    // - 短笔触 (<64点): 全采样
-    // - 中笔触 (64-256点): 每4点采样
-    // - 长笔触 (256-1024点): 每8点采样  
-    // - 超长笔触 (>1024点): 每16点采样
-    const AABB_SAMPLE_STEP = 
-      pointsLen > 1024 ? 16 :
-      pointsLen > 256 ? 8 :
-      pointsLen > 64 ? 4 : 1
-    for (let i = 1; i < pointsLen; i += AABB_SAMPLE_STEP) {
-      const px = points[i][0]
-      const py = points[i][1]
-      // P0优化: 内联比较，避免 Math.min/max 函数调用
-      if (px < strokeMinX) strokeMinX = px
-      else if (px > strokeMaxX) strokeMaxX = px
-      if (py < strokeMinY) strokeMinY = py
-      else if (py > strokeMaxY) strokeMaxY = py
-    }
-
-    // 扩展笔触边界到包含笔触粗细
-    strokeMinX -= halfStrokeSize
-    strokeMaxX += halfStrokeSize
-    strokeMinY -= halfStrokeSize
-    strokeMaxY += halfStrokeSize
-
-    // 快速拒绝: 擦除区域与笔触 AABB 不相交
+    // P0修复: 使用已缓存的 elementBounds 做 Early exit
+    // 避免手动 AABB 采样导致的漏检问题
+    const strokeBounds = elementBounds(stroke)
     const eraseLeft = erasePoint.x - effectiveRadius
     const eraseRight = erasePoint.x + effectiveRadius
     const eraseTop = erasePoint.y - effectiveRadius
     const eraseBottom = erasePoint.y + effectiveRadius
 
+    // 快速拒绝: 擦除区域与笔触边界不相交
     if (
-      strokeMaxX < eraseLeft ||
-      strokeMinX > eraseRight ||
-      strokeMaxY < eraseTop ||
-      strokeMinY > eraseBottom
+      strokeBounds.x + strokeBounds.w < eraseLeft ||
+      strokeBounds.x > eraseRight ||
+      strokeBounds.y + strokeBounds.h < eraseTop ||
+      strokeBounds.y > eraseBottom
     ) {
       return {
         strokeId: stroke.id,
