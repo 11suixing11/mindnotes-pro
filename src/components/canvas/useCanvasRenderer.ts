@@ -151,16 +151,13 @@ export function useCanvasRenderer(
     if (elementsDirtyRef.current) renderElementsToCache()
     ctx.drawImage(ec, 0, 0, ec.width, ec.height, 0, 0, canvasSize.w, canvasSize.h)
     
-    // 渲染橡皮屑粒子
+    // P1 优化: 合并 save/restore，只做一次 transform 应用
     ctx.save()
     ctx.scale(vb.zoom, vb.zoom)
     ctx.translate(-vb.x, -vb.y)
-    eraserParticleSystem.render(ctx)
-    ctx.restore()
     
-    ctx.save()
-    ctx.scale(vb.zoom, vb.zoom)
-    ctx.translate(-vb.x, -vb.y)
+    // 渲染橡皮屑粒子
+    eraserParticleSystem.render(ctx)
 
     if (ds.drawing && ds.tool === 'pen' && ds.currentPts.length > 1)
       drawStrokeRaw(ctx, ds.currentPts, ds.color, ds.size, ds.brush, dark)
@@ -169,7 +166,6 @@ export function useCanvasRenderer(
 
     if (ds.tool === 'eraser' && ds.mousePos) {
       const r = ds.size * 2 + 10
-      ctx.save()
       ctx.strokeStyle = dark ? 'rgba(200,160,176,0.5)' : 'rgba(176,125,110,0.35)'
       ctx.lineWidth = 1.5 / vb.zoom
       ctx.setLineDash([5 / vb.zoom, 5 / vb.zoom])
@@ -181,7 +177,6 @@ export function useCanvasRenderer(
       ctx.beginPath()
       ctx.arc(ds.mousePos.x, ds.mousePos.y, r, 0, Math.PI * 2)
       ctx.fill()
-      ctx.restore()
     }
 
     ctx.restore()
@@ -265,10 +260,10 @@ export function useCanvasRenderer(
     redraw()
   }, [redraw, canvasSize])
 
-  // P1 优化: 增量更新 bounds 缓存，避免每次全量清空
+  // P0 修复 + P1 优化: 增量更新 bounds 缓存，精确检测元素修改
   useEffect(() => {
     let prevElements = useAppStore.getState().elements
-    let prevElementIds = new Set(prevElements.map(e => e.id))
+    let prevElementMap = new Map(prevElements.map(e => [e.id, e]))
     
     const unsub = useAppStore.subscribe((s) => {
       const currElements = s.elements
@@ -276,24 +271,27 @@ export function useCanvasRenderer(
       if (currElements !== prevElements) {
         elementsDirtyRef.current = true
         
-        // P1 优化: 只失效变化的元素缓存，而不是清空全部
-        const currElementIds = new Set(currElements.map(e => e.id))
+        // P0 修复: 精确检测元素修改，不再只依赖长度判断
+        const currElementMap = new Map(currElements.map(e => [e.id, e]))
         
-        // 移除已删除元素的缓存
-        for (const id of prevElementIds) {
-          if (!currElementIds.has(id)) {
+        // 1. 移除已删除元素的缓存
+        for (const id of prevElementMap.keys()) {
+          if (!currElementMap.has(id)) {
             boundsCacheRef.current.delete(id)
           }
         }
         
-        // 失效新增或修改的元素（通过简单长度检查判断是否有修改）
-        if (currElements.length !== prevElements.length) {
-          // 元素数量变化，保守清空缓存保证正确性
-          boundsCacheRef.current.clear()
+        // 2. 失效修改或新增的元素缓存
+        for (const [id, currEl] of currElementMap.entries()) {
+          const prevEl = prevElementMap.get(id)
+          // 元素不存在（新增）或引用变化（修改）时失效缓存
+          if (!prevEl || prevEl !== currEl) {
+            boundsCacheRef.current.delete(id)
+          }
         }
         
         prevElements = currElements
-        prevElementIds = currElementIds
+        prevElementMap = currElementMap
       }
       
       // 调度重绘（已通过 raf 合并）
