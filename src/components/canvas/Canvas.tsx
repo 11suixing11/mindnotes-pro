@@ -28,6 +28,8 @@ export default function Canvas() {
     showGrid: false,
     showRulers: false,
     gridSize: 20,
+    eraserTrail: [],
+    penVelocity: 0,
   }))
 
   // a) useTextEditor

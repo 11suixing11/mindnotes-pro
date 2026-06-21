@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useThemeStore } from '../../store/useThemeStore'
 import type { StrokeElement } from '../../store/types'
 import type { CanvasElement, ShapeElement, TextElement, ShapeKind } from '../../store/types'
-import { simplifyPts, distToSeg, distToSegSq, elementBounds } from '../../canvas/canvasUtils'
+import { simplifyPts, distToSegSq, elementBounds } from '../../canvas/canvasUtils'
 import { drawElement } from '../../canvas/canvasDrawing'
 // 物理擦除引擎集成
 import { useEraserStore, type EraserPoint } from '../../eraser'
