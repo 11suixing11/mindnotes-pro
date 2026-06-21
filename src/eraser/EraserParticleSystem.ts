@@ -319,37 +319,43 @@ export class EraserParticleSystem {
    * 应用气流作用力到粒子
    */
   private applyWindForce(particle: EraserParticle, deltaTime: number): void {
+    // P0 性能优化：预计算常量引用
+    const WIND_RADIUS = EraserParticleSystem.WIND_RADIUS
+    const WIND_FORCE = EraserParticleSystem.WIND_FORCE
+
     // 计算粒子到指针的距离
     const dx = particle.x - this.pointerX
     const dy = particle.y - this.pointerY
-    const distance = Math.sqrt(dx * dx + dy * dy)
+    const distSq = dx * dx + dy * dy
 
-    // 只影响气流半径内的粒子
-    if (distance > EraserParticleSystem.WIND_RADIUS) return
+    // P0 优化：快速距离平方检测，避免 sqrt
+    if (distSq > WIND_RADIUS * WIND_RADIUS) return
+
+    const distance = Math.sqrt(distSq)
+    const invDistance = 1 / (distance + EPSILON)
 
     // 距离衰减：越近影响越大
-    const distanceFactor = 1 - distance / EraserParticleSystem.WIND_RADIUS
+    const distanceFactor = 1 - distance * (1 / WIND_RADIUS)
     const distanceFactorSq = distanceFactor * distanceFactor
 
     // 气流强度（速度 × 距离因子）
-    const windStrength = this.pointerSpeed * distanceFactorSq * EraserParticleSystem.WIND_FORCE
+    const windStrength = this.pointerSpeed * distanceFactorSq * WIND_FORCE
+
+    // P0 优化：预计算倒数，避免重复除法
+    const invSpeed = 1 / (this.pointerSpeed + EPSILON)
 
     // 气流方向（指针移动方向 + 向外扩散）
-    const windDirX = this.pointerVx / (this.pointerSpeed + EPSILON)
-    const windDirY = this.pointerVy / (this.pointerSpeed + EPSILON)
+    const windDirX = this.pointerVx * invSpeed
+    const windDirY = this.pointerVy * invSpeed
 
     // 向外扩散分量（防止粒子被吸向指针）
-    const pushDirX = dx / (distance + EPSILON)
-    const pushDirY = dy / (distance + EPSILON)
+    const pushDirX = dx * invDistance
+    const pushDirY = dy * invDistance
 
     // 组合方向：主要沿移动方向，带一点向外推开
-    const forceX = (windDirX * WIND_DIR_WEIGHT + pushDirX * WIND_PUSH_WEIGHT) * windStrength
-    const forceY = (windDirY * WIND_DIR_WEIGHT + pushDirY * WIND_PUSH_WEIGHT) * windStrength
-
-    // 应用力到粒子（质量越小影响越大）
-    const massFactor = 1 / particle.mass
-    particle.vx += forceX * massFactor * deltaTime * FRAME_RATE_BASE
-    particle.vy += forceY * massFactor * deltaTime * FRAME_RATE_BASE
+    const forceMultiplier = windStrength * (1 / particle.mass) * deltaTime * FRAME_RATE_BASE
+    particle.vx += (windDirX * WIND_DIR_WEIGHT + pushDirX * WIND_PUSH_WEIGHT) * forceMultiplier
+    particle.vy += (windDirY * WIND_DIR_WEIGHT + pushDirY * WIND_PUSH_WEIGHT) * forceMultiplier
 
     // 增加旋转
     particle.rotationSpeed += (Math.random() - 0.5) * windStrength * WIND_ROTATION_BOOST
@@ -384,6 +390,12 @@ export class EraserParticleSystem {
       list.push(particle)
     }
 
+    // P1 性能优化：预计算椭圆形状系数常量
+    const ELLIPSE_Y_SCALE = 0.6
+    const SHADOW_SCALE = 0.8
+    const SHADOW_Y_SCALE = 0.5
+    const SHADOW_OFFSET_BASE = 1
+
     // 对每种颜色批量渲染
     for (const [color, particles] of particlesByColor) {
       // 主颜色粒子
@@ -394,15 +406,9 @@ export class EraserParticleSystem {
       for (const particle of particles) {
         const cos = Math.cos(particle.rotation)
         const sin = Math.sin(particle.rotation)
-        const rx = particle.size
-        const ry = particle.size * 0.6
-        const shadowRx = particle.size * 0.8
-        const shadowRy = particle.size * 0.5
-
-        // 应用旋转变换计算椭圆位置
-        // 对于椭圆中心偏移 (1, 1) 的阴影
-        const shadowOffsetX = 1 * cos - 1 * sin
-        const shadowOffsetY = 1 * sin + 1 * cos
+        const size = particle.size
+        const rx = size
+        const ry = size * ELLIPSE_Y_SCALE
 
         // 添加主粒子到路径
         this.addRotatedEllipseToPath(
@@ -417,6 +423,12 @@ export class EraserParticleSystem {
 
         // 添加阴影粒子到路径（只在透明度足够时绘制）
         if (particle.opacity > 0.3) {
+          const shadowRx = size * SHADOW_SCALE
+          const shadowRy = size * SHADOW_Y_SCALE
+          // P1 优化：阴影偏移计算内联，避免额外变量
+          const shadowOffsetX = SHADOW_OFFSET_BASE * (cos - sin)
+          const shadowOffsetY = SHADOW_OFFSET_BASE * (sin + cos)
+
           this.addRotatedEllipseToPath(
             shadowPath,
             particle.x + shadowOffsetX,
