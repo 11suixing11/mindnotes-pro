@@ -74,8 +74,14 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         undoStack: undoStack.slice(0, -1),
         selectedIds: [],
       })
-      // P0 修复: undo 后同步空间索引
-      get().spatialIndex?.bulkLoad(next)
+      // P0 修复: undo 后同步空间索引和 idToElement 映射
+      const state = get()
+      state.spatialIndex?.bulkLoad(next)
+      // P1 修复: 同步 idToElement 映射，防止数据不一致
+      state.idToElement?.clear()
+      for (const el of next) {
+        state.idToElement?.set(el.id, el)
+      }
       scheduleSave()
     },
 
@@ -124,8 +130,14 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         undoStack: [...undoStack, undoAction],
         selectedIds: [],
       })
-      // P0 修复: redo 后同步空间索引
-      get().spatialIndex?.bulkLoad(next)
+      // P0 修复: redo 后同步空间索引和 idToElement 映射
+      const state = get()
+      state.spatialIndex?.bulkLoad(next)
+      // P1 修复: 同步 idToElement 映射，防止数据不一致
+      state.idToElement?.clear()
+      for (const el of next) {
+        state.idToElement?.set(el.id, el)
+      }
       scheduleSave()
     },
   }

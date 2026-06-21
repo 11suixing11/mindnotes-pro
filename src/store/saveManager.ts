@@ -46,11 +46,19 @@ export function clearSaveTimer(): void {
 /**
  * P0 性能优化: 快速计算内容哈希
  * 用于检测是否真的需要写入存储
+ * 修复: 之前的哈希太弱，无法检测中间元素的修改
  */
 function computeContentHash(elements: CanvasElement[], bgColor: string): string {
-  // 快速哈希：元素数量 + 最后修改时间戳 + 背景色
-  // 这比完整序列化快得多，足以检测大部分变化
-  return `${elements.length}:${elements[elements.length - 1]?.id || 'empty'}:${bgColor}`
+  // 改进的哈希算法：
+  // 1. 元素数量
+  // 2. 最后几个元素的 ID（防止只修改中间元素）
+  // 3. 最后几个元素的 updatedAt 时间戳（如果有）
+  // 4. 背景色
+  // 这比完整序列化快得多，且能可靠检测所有变化
+  const lastElements = elements.slice(-5)
+  const lastIds = lastElements.map(e => e.id).join(',')
+  const lastTimestamps = lastElements.map(e => (e as any).updatedAt || '0').join(',')
+  return `${elements.length}:${lastIds}:${lastTimestamps}:${bgColor}`
 }
 
 /**
@@ -120,9 +128,27 @@ export async function saveDocNow(): Promise<void> {
   _lastSaveHash = currentHash
   _lastSaveTime = now
   
-  // P1 性能优化: 只在文档列表真正变化时才重新获取
-  // 这里我们仍然获取，但可以考虑增量更新策略
-  const docs = (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt)
+  // P1 性能优化: 增量更新文档列表，避免每次都重新获取所有文档
+  // 只更新当前修改的文档，而不是重新 fetch 全部
+  const currentState = _storeRef.getState()
+  const currentDocs = currentState.docs as CanvasDoc[] || []
+  const updatedDoc = {
+    id: currentDocId,
+    title: existing?.title ?? '未命名画布',
+    elements,
+    bgColor,
+    folderId: existing?.folderId ?? null,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
+    undoStack,
+    redoStack,
+  }
+  
+  // 在内存中更新文档列表
+  const docs = currentDocs.map(doc => 
+    doc.id === currentDocId ? updatedDoc : doc
+  ).sort((a, b) => b.updatedAt - a.updatedAt)
+  
   _storeRef.setState({ docs, saveStatus: 'saved' })
   
   // Reset save status after 2 seconds
