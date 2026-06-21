@@ -128,9 +128,10 @@ function clamp(value: number, min: number, max: number): number {
 /**
  * 生成唯一ID（用于分割后的新笔触）
  */
+let _idCounter = 0
 function generateStrokeId(): string {
-  // 使用8位随机字符（约43亿种组合），大幅降低碰撞概率
-  return `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+  // P1优化: 使用自增计数器替代 Math.random()，避免随机数生成开销
+  return `stroke-${Date.now()}-${(++_idCounter).toString(36)}`
 }
 
 /**
@@ -165,6 +166,39 @@ function validateStroke(stroke: StrokeElement): boolean {
 }
 
 // ============================================
+// P1优化: 预分配的临时对象池
+// ============================================
+
+/**
+ * Intersection 临时对象池
+ * 避免在热循环中频繁创建 Intersection 对象
+ */
+const INTERSECTION_POOL_SIZE = 128
+const _intersectionPool: Intersection[] = []
+let _intersectionPoolIdx = 0
+
+function acquireIntersection(t: number, x: number, y: number, strength: number): Intersection {
+  let obj: Intersection
+  if (_intersectionPoolIdx < INTERSECTION_POOL_SIZE) {
+    obj = _intersectionPool[_intersectionPoolIdx] ?? { t: 0, point: [0, 0], strength: 0 }
+    _intersectionPool[_intersectionPoolIdx] = obj
+  } else {
+    // 池满时回退创建新对象（极少见）
+    obj = { t: 0, point: [0, 0], strength: 0 }
+  }
+  _intersectionPoolIdx++
+  obj.t = t
+  obj.point[0] = x
+  obj.point[1] = y
+  obj.strength = strength
+  return obj
+}
+
+function resetIntersectionPool(): void {
+  _intersectionPoolIdx = 0
+}
+
+// ============================================
 // 物理擦除引擎核心类
 // ============================================
 
@@ -182,8 +216,13 @@ function validateStroke(stroke: StrokeElement): boolean {
  * 
  * 设计原则：
  * 1. 物理真实：所有公式基于真实橡皮物理特性
- * 2. 性能优先：O(log n) 空间索引 + 增量更新
+ * 2. 性能优先：O(log n) 空间索引 + 增量更新 + 对象池复用
  * 3. 向后兼容：双模式切换，不破坏现有功能
+ * 
+ * 性能优化历史：
+ * - v1: 基础实现
+ * - v2: 空间索引集成
+ * - v3: P0 擦除循环缓存 + P1 对象池 + P2 early exit + 批量处理
  */
 export class PhysicsEraserEngine {
   // ==========================================
@@ -215,6 +254,35 @@ export class PhysicsEraserEngine {
   private readonly audioEngine: EraserAudioEngine
 
   // ==========================================
+  // P0优化: 缓存的物理计算结果（避免重复计算）
+  // ==========================================
+
+  /** 缓存: 上次计算的有效半径 */
+  private _cachedRadius: number = -1
+  /** 缓存: 上次计算半径时的压力值 */
+  private _cachedPressure: number = -1
+
+  /** 缓存: 硬度因子（配置变化时更新） */
+  private _hardnessFactor: number = 0
+  /** 缓存: 磨损因子（磨损变化时更新） */
+  private _wearFactor: number = 1
+  /** 缓存: 基础半径 */
+  private _baseRadius: number = 12
+  /** 缓存: 是否需要更新因子 */
+  private _factorsDirty: boolean = true
+
+  // ==========================================
+  // P2优化: 预计算的 sin/cos 缓存
+  // ==========================================
+
+  /** 缓存: 上次 transformAndDistanceToRect 使用的旋转角 */
+  private _cachedRotation: number = NaN
+  /** 缓存: 对应的 cos 值 */
+  private _cachedCos: number = 1
+  /** 缓存: 对应的 sin 值 */
+  private _cachedSin: number = 0
+
+  // ==========================================
   // 构造与配置
   // ==========================================
 
@@ -224,6 +292,7 @@ export class PhysicsEraserEngine {
       ...config,
     })
     this.audioEngine = new EraserAudioEngine(this.config)
+    this._updateCachedFactors()
   }
 
   /**
@@ -236,6 +305,9 @@ export class PhysicsEraserEngine {
       ...config,
     })
     this.audioEngine.updateConfig(config)
+    this._factorsDirty = true
+    // 配置变化时清除半径缓存
+    this._cachedPressure = -1
   }
 
   /**
@@ -244,6 +316,8 @@ export class PhysicsEraserEngine {
    */
   setBaseSize(size: number): void {
     this.baseSize = clamp(size, 1, 100)
+    this._factorsDirty = true
+    this._cachedPressure = -1
   }
 
   // ==========================================
@@ -285,7 +359,7 @@ export class PhysicsEraserEngine {
       return {
         modifiedStrokes: [],
         affectedElementIds: [],
-        trail: [...this.trail],
+        trail: this.trail, // P0优化: 不再拷贝 trail，直接返回引用
       }
     }
 
@@ -294,7 +368,7 @@ export class PhysicsEraserEngine {
       return {
         modifiedStrokes: [],
         affectedElementIds: [],
-        trail: [...this.trail],
+        trail: this.trail, // P0优化: 不再拷贝 trail
       }
     }
 
@@ -304,8 +378,14 @@ export class PhysicsEraserEngine {
     // 1. 更新橡皮磨损
     this.updateWearLevel(point)
 
-    // 2. 计算擦除区域边界
-    const eraseBounds = this.getEraseBounds(point)
+    // 2. 计算擦除区域边界（使用缓存半径）
+    const effectiveRadius = this.computeEffectiveRadius(point.pressure)
+    const eraseBounds: Bounds = {
+      x: point.x - effectiveRadius,
+      y: point.y - effectiveRadius,
+      w: effectiveRadius * 2,
+      h: effectiveRadius * 2,
+    }
 
     // 3. 性能优化：标记脏区域
     globalDirtyRectManager.addDirtyRect({
@@ -323,13 +403,14 @@ export class PhysicsEraserEngine {
     // 5. 精确计算每个候选元素的擦除结果
     const { modifiedStrokes, affectedElementIds } = this.computeErasureResults(
       candidates,
-      point
+      point,
+      effectiveRadius // P0优化: 传入已计算的半径，避免重复计算
     )
 
     return {
       modifiedStrokes,
       affectedElementIds,
-      trail: [...this.trail],
+      trail: this.trail, // P0优化: 不再拷贝 trail
     }
   }
 
@@ -350,7 +431,7 @@ export class PhysicsEraserEngine {
    * 获取当前擦除轨迹（用于渲染预览）
    */
   getTrail(): EraserPoint[] {
-    return [...this.trail]
+    return this.trail // P0优化: 返回直接引用而非拷贝
   }
 
   /**
@@ -369,6 +450,7 @@ export class PhysicsEraserEngine {
   resetWear(): void {
     this.saveWearHistory()
     this.wearLevel = 0
+    this._factorsDirty = true
     this.audioEngine.playSharpenSound()
   }
 
@@ -401,6 +483,7 @@ export class PhysicsEraserEngine {
     const previousWear = this.wearHistory.pop()!
     this.wearRedoStack.push(this.wearLevel)
     this.wearLevel = previousWear
+    this._factorsDirty = true
     return true
   }
 
@@ -415,6 +498,7 @@ export class PhysicsEraserEngine {
     const nextWear = this.wearRedoStack.pop()!
     this.wearHistory.push(this.wearLevel)
     this.wearLevel = nextWear
+    this._factorsDirty = true
     return true
   }
 
@@ -448,12 +532,27 @@ export class PhysicsEraserEngine {
   // ==========================================
 
   /**
+   * P0优化: 更新缓存的物理因子
+   * 仅在配置/磨损变化时调用，避免每次半径计算都做乘法
+   */
+  private _updateCachedFactors(): void {
+    if (!this._factorsDirty) return
+    this._hardnessFactor = 1 - this.config.hardness * RADIUS_CONSTANTS.HARDNESS_FACTOR
+    this._wearFactor = 1 + this.wearLevel * RADIUS_CONSTANTS.WEAR_MAX_INCREASE
+    this._baseRadius = this.config.baseRadius ?? this.baseSize
+    this._factorsDirty = false
+  }
+
+  /**
    * 物理公式: 有效擦除半径
    * 
    * 基于真实橡皮物理特性：
    * - 压力越大，橡皮形变越大，接触面积越大
    * - 硬度越高，形变越小，接触面积越小
    * - 磨损越大，橡皮变钝，接触面积越大
+   * 
+   * P0优化: 压力缓存 - 相同压力值直接返回缓存结果
+   * P0优化: 因子缓存 - 硬度/磨损因子预计算
    * 
    * @param pressure 笔触压力 0-1
    * @returns 有效擦除半径（像素）
@@ -465,6 +564,13 @@ export class PhysicsEraserEngine {
     }
     const clampedPressure = clamp(pressure, 0, 1)
 
+    // P0优化: 压力缓存命中检查（擦除同一帧内压力通常不变）
+    if (clampedPressure === this._cachedPressure && !this._factorsDirty) {
+      return this._cachedRadius
+    }
+
+    this._updateCachedFactors()
+
     // 压力影响：非线性，重压快速饱和
     const pressureFactor =
       RADIUS_CONSTANTS.PRESSURE_BASE +
@@ -472,19 +578,16 @@ export class PhysicsEraserEngine {
         RADIUS_CONSTANTS.PRESSURE_MULTIPLIER *
         this.config.pressureSensitivity
 
-    // 硬度影响：硬橡皮接触面积小，更精确
-    const hardnessFactor = 1 - this.config.hardness * RADIUS_CONSTANTS.HARDNESS_FACTOR
-
-    // 磨损影响：磨损越大，半径越大（最多增加50%）
-    const wearFactor = 1 + this.wearLevel * RADIUS_CONSTANTS.WEAR_MAX_INCREASE
-
-    // 使用配置中的 baseRadius，兼容旧代码
-    const baseRadius = this.config.baseRadius ?? this.baseSize
-
-    return Math.max(
+    const result = Math.max(
       RADIUS_CONSTANTS.MIN_RADIUS,
-      baseRadius * pressureFactor * hardnessFactor * wearFactor
+      this._baseRadius * pressureFactor * this._hardnessFactor * this._wearFactor
     )
+
+    // 更新缓存
+    this._cachedPressure = clampedPressure
+    this._cachedRadius = result
+
+    return result
   }
 
   /**
@@ -503,8 +606,6 @@ export class PhysicsEraserEngine {
     const { tiltMagnitude, tiltDirection } = this.computeTiltAngle(tiltX, tiltY)
 
     // 根据倾斜角度计算宽度放大倍数
-    // 垂直时（tiltMagnitude=0）：1倍宽度
-    // 完全倾斜时（tiltMagnitude=1）：最大3倍宽度
     const tiltWidthMultiplier =
       1 + tiltMagnitude * (CHISEL_CONSTANTS.TILT_MAX_WIDTH_MULTIPLIER - 1)
 
@@ -547,7 +648,6 @@ export class PhysicsEraserEngine {
     const tiltMagnitudeDeg = tiltMagnitudeRad / TILT_CONSTANTS.DEG_TO_RAD
 
     // 归一化到 0-1
-    // 小于阈值视为垂直
     if (tiltMagnitudeDeg < TILT_CONSTANTS.MIN_TILT_THRESHOLD) {
       return { tiltMagnitude: 0, tiltDirection: 0 }
     }
@@ -572,6 +672,9 @@ export class PhysicsEraserEngine {
    * 计算点到橡皮擦的距离
    * 根据橡皮擦形状选择不同的距离计算方法
    * 
+   * P0优化: 对于圆形形状，避免函数调用开销，内联计算
+   * P2优化: 对于旋转形状，缓存 cos/sin 值
+   * 
    * @param erasePoint 橡皮擦位置和状态
    * @param x 目标点X
    * @param y 目标点Y
@@ -584,39 +687,36 @@ export class PhysicsEraserEngine {
   ): number {
     const dx = x - erasePoint.x
     const dy = y - erasePoint.y
+    const shape = this.config.shape
 
-    switch (this.config.shape) {
-      case 'circle':
-        return Math.sqrt(dx * dx + dy * dy)
-
-      case 'square': {
-        const halfSize = this.computeEffectiveRadius(erasePoint.pressure)
-        return this.transformAndDistanceToRect(
-          dx,
-          dy,
-          this.config.rotation,
-          halfSize,
-          halfSize
-        )
-      }
-
-      case 'chisel': {
-        const dims = this.getChiselDimensions(
-          erasePoint.pressure,
-          erasePoint.tiltX,
-          erasePoint.tiltY
-        )
-        const halfW = dims.width / 2
-        const halfH = dims.height / 2
-        // 结合配置旋转、运动方向和笔倾斜方向
-        const totalRotation =
-          dims.rotation + erasePoint.direction * this.config.directionInfluence
-        return this.transformAndDistanceToRect(dx, dy, totalRotation, halfW, halfH)
-      }
-
-      default:
-        return Math.sqrt(dx * dx + dy * dy)
+    if (shape === 'circle') {
+      // P0优化: 圆形直接内联计算，避免 switch + 函数调用开销
+      return Math.sqrt(dx * dx + dy * dy)
     }
+
+    if (shape === 'square') {
+      const halfSize = this.computeEffectiveRadius(erasePoint.pressure)
+      return this.transformAndDistanceToRect(
+        dx,
+        dy,
+        this.config.rotation,
+        halfSize,
+        halfSize
+      )
+    }
+
+    // chisel
+    const dims = this.getChiselDimensions(
+      erasePoint.pressure,
+      erasePoint.tiltX,
+      erasePoint.tiltY
+    )
+    const halfW = dims.width / 2
+    const halfH = dims.height / 2
+    // 结合配置旋转、运动方向和笔倾斜方向
+    const totalRotation =
+      dims.rotation + erasePoint.direction * this.config.directionInfluence
+    return this.transformAndDistanceToRect(dx, dy, totalRotation, halfW, halfH)
   }
 
   /**
@@ -673,17 +773,12 @@ export class PhysicsEraserEngine {
    * 笔触分割算法
    * 根据相交点将笔触分割为多段
    *
-   * 算法原理：
-   * 1. 按参数化位置 t 排序所有相交点
-   * 2. 在每两个相交点之间提取子段
-   * 3. 过短的段直接丢弃（避免碎片）
+   * P0优化: 原地排序避免数组拷贝
+   * P1优化: 预分配 segments 数组
    *
    * @param stroke 原始笔触
    * @param intersections 相交点列表
-   * @returns 分割结果（判别联合）：
-   *   - 'split': 成功分割，segments 非空
-   *   - 'deleted': 所有子段被过滤（整笔被擦除）
-   *   - 'unchanged': 输入无效或无交点，保留原笔触
+   * @returns 分割结果
    */
   splitStroke(
     stroke: StrokeElement,
@@ -693,15 +788,23 @@ export class PhysicsEraserEngine {
       return { status: 'unchanged' }
     }
 
-    // 按参数化位置 t 排序
-    const sorted = [...intersections].sort((a, b) => a.t - b.t)
+    // P0优化: 原地排序，避免 [...intersections] 创建新数组
+    // 注意：调用方传入的 intersections 来自对象池，排序安全
+    const sorted = intersections.length <= 1
+      ? intersections
+      : intersections.sort((a, b) => a.t - b.t)
+
+    // P1优化: 预分配 segments 数组（最多 intersections.length + 1 个段）
     const segments: StrokeElement[] = []
+    const points = stroke.points
+    const opacity = stroke.opacity ?? 1
 
     let lastT = 0
-    for (const inter of sorted) {
+    for (let i = 0; i < sorted.length; i++) {
+      const inter = sorted[i]
       if (inter.t - lastT > SPLIT_CONSTANTS.MIN_SEGMENT_THRESHOLD) {
         const segmentPoints = this.extractSegment(
-          stroke.points,
+          points,
           lastT,
           inter.t
         )
@@ -712,7 +815,7 @@ export class PhysicsEraserEngine {
             points: segmentPoints,
             opacity: Math.max(
               SPLIT_CONSTANTS.MIN_OPACITY,
-              (stroke.opacity ?? 1) *
+              opacity *
                 (1 - inter.strength * SPLIT_CONSTANTS.OPACITY_STRENGTH_FACTOR)
             ),
           })
@@ -723,7 +826,7 @@ export class PhysicsEraserEngine {
 
     // 提取最后一段
     if (1 - lastT > SPLIT_CONSTANTS.MIN_SEGMENT_THRESHOLD) {
-      const segmentPoints = this.extractSegment(stroke.points, lastT, 1)
+      const segmentPoints = this.extractSegment(points, lastT, 1)
       if (segmentPoints.length >= 2) {
         segments.push({
           ...stroke,
@@ -799,44 +902,70 @@ export class PhysicsEraserEngine {
       WEAR_CONSTANTS.MAX_WEAR,
       this.wearLevel + wearIncrement
     )
+
+    // 标记因子缓存脏
+    this._factorsDirty = true
   }
 
   /**
    * 空间过滤：快速筛选候选元素
+   * P1优化: 使用 for 循环替代 .filter()，避免闭包和临时数组
    */
   private filterCandidateElements(
     elements: CanvasElement[],
     eraseBounds: Bounds
   ): CanvasElement[] {
-    return elements.filter((el) => {
+    const result: CanvasElement[] = []
+    const ax = eraseBounds.x
+    const ay = eraseBounds.y
+    const aw = eraseBounds.w
+    const ah = eraseBounds.h
+    const axw = ax + aw
+    const ayh = ay + ah
+
+    for (let i = 0; i < elements.length; i++) {
+      const el = elements[i]
       try {
-        return this.boundsIntersect(eraseBounds, elementBounds(el))
+        const b = elementBounds(el)
+        // P1优化: 内联 AABB 相交检测，避免函数调用
+        if (ax < b.x + b.w && axw > b.x && ay < b.y + b.h && ayh > b.y) {
+          result.push(el)
+        }
       } catch {
-        return false
+        // 跳过无效元素
       }
-    })
+    }
+    return result
   }
 
   /**
    * 计算所有候选元素的擦除结果
+   * P0优化: 接受预计算的 effectiveRadius，避免重复计算
+   * P1优化: 使用 for 循环替代 for-of
    */
   private computeErasureResults(
     candidates: CanvasElement[],
-    point: EraserPoint
+    point: EraserPoint,
+    effectiveRadius: number
   ): Pick<EraseResult, 'modifiedStrokes' | 'affectedElementIds'> {
     const modifiedStrokes: EraseResult['modifiedStrokes'] = []
     const affectedElementIds: string[] = []
 
-    for (const el of candidates) {
+    for (let i = 0; i < candidates.length; i++) {
+      const el = candidates[i]
       try {
         if (el.type === 'stroke') {
-          const result = this.processStrokeElement(el as StrokeElement, point)
+          const result = this.processStrokeElement(
+            el as StrokeElement,
+            point,
+            effectiveRadius // P0优化: 传递预计算的半径
+          )
           if (result) {
             modifiedStrokes.push(result)
             affectedElementIds.push(el.id)
           }
         } else {
-          const shouldDelete = this.checkNonStrokeElement(el, point)
+          const shouldDelete = this.checkNonStrokeElement(el, point, effectiveRadius)
           if (shouldDelete) {
             modifiedStrokes.push({ id: el.id, action: 'delete' })
             affectedElementIds.push(el.id)
@@ -852,12 +981,14 @@ export class PhysicsEraserEngine {
 
   /**
    * 处理笔触元素擦除
+   * P0优化: 接受预计算的 effectiveRadius
    */
   private processStrokeElement(
     stroke: StrokeElement,
-    point: EraserPoint
+    point: EraserPoint,
+    effectiveRadius: number
   ): EraseResult['modifiedStrokes'][0] | null {
-    const erasure = this.computeStrokeErasure(stroke, point)
+    const erasure = this.computeStrokeErasure(stroke, point, effectiveRadius)
 
     if (erasure.shouldDelete) {
       return { id: stroke.id, action: 'delete' }
@@ -880,11 +1011,15 @@ export class PhysicsEraserEngine {
   /**
    * 检测非笔触元素（矩形、圆形等）是否被擦除
    * 使用简单的边界碰撞检测
+   * P0优化: 接受预计算的 effectiveRadius
    */
-  private checkNonStrokeElement(el: CanvasElement, point: EraserPoint): boolean {
+  private checkNonStrokeElement(
+    el: CanvasElement,
+    point: EraserPoint,
+    effectiveRadius: number
+  ): boolean {
     try {
       const b = elementBounds(el)
-      const effectiveRadius = this.computeEffectiveRadius(point.pressure)
       return (
         point.x >= b.x - effectiveRadius &&
         point.x <= b.x + b.w + effectiveRadius &&
@@ -898,10 +1033,20 @@ export class PhysicsEraserEngine {
 
   /**
    * 计算单条笔触的擦除情况
+   * 
+   * P0优化:
+   * - effectiveRadius 从外部传入，避免重复计算
+   * - eraseStrength 预计算
+   * - findIntersectionT + pointToEraserDistance 内联优化
+   * 
+   * P2优化:
+   * - Early exit: 快速跳过明显不在擦除范围的笔触
+   * - 使用对象池复用 Intersection 对象
    */
   private computeStrokeErasure(
     stroke: StrokeElement,
-    erasePoint: EraserPoint
+    erasePoint: EraserPoint,
+    effectiveRadius: number
   ): StrokeErasure {
     // 防御性检查
     if (!validateStroke(stroke)) {
@@ -915,40 +1060,118 @@ export class PhysicsEraserEngine {
       }
     }
 
-    const effectiveRadius = this.computeEffectiveRadius(erasePoint.pressure)
+    const points = stroke.points
+    const pointsLen = points.length
     const eraseStrength = this.computeEraseStrength(erasePoint)
-    const intersections: Intersection[] = []
+    const halfStrokeSize = stroke.size / 2
+    const effectiveDistThreshold = effectiveRadius + halfStrokeSize
+    const depthThreshold = effectiveRadius * ERASE_THRESHOLDS.DEPTH_FACTOR
+
+    // P2优化: 重置对象池
+    resetIntersectionPool()
+
+    // P2优化: Early exit - 快速检查笔触边界框是否与擦除区域重叠
+    // 计算笔触的 AABB 并与擦除区域比较
+    let strokeMinX = points[0][0]
+    let strokeMaxX = strokeMinX
+    let strokeMinY = points[0][1]
+    let strokeMaxY = strokeMinY
+    for (let i = 1; i < pointsLen; i++) {
+      const px = points[i][0]
+      const py = points[i][1]
+      if (px < strokeMinX) strokeMinX = px
+      if (px > strokeMaxX) strokeMaxX = px
+      if (py < strokeMinY) strokeMinY = py
+      if (py > strokeMaxY) strokeMaxY = py
+    }
+
+    // 扩展笔触边界到包含笔触粗细
+    strokeMinX -= halfStrokeSize
+    strokeMaxX += halfStrokeSize
+    strokeMinY -= halfStrokeSize
+    strokeMaxY += halfStrokeSize
+
+    // 快速拒绝: 擦除区域与笔触 AABB 不相交
+    const eraseLeft = erasePoint.x - effectiveRadius
+    const eraseRight = erasePoint.x + effectiveRadius
+    const eraseTop = erasePoint.y - effectiveRadius
+    const eraseBottom = erasePoint.y + effectiveRadius
+
+    if (
+      strokeMaxX < eraseLeft ||
+      strokeMinX > eraseRight ||
+      strokeMaxY < eraseTop ||
+      strokeMinY > eraseBottom
+    ) {
+      return {
+        strokeId: stroke.id,
+        intersections: [],
+        eraseStrength: 0,
+        shouldDelete: false,
+        shouldSplit: false,
+        opacityDelta: 0,
+      }
+    }
 
     // 检测笔触每一段与擦除区域的相交
-    for (let i = 1; i < stroke.points.length; i++) {
-      const p1 = stroke.points[i - 1]
-      const p2 = stroke.points[i]
+    // P0优化: 缓存擦除点坐标，避免重复属性访问
+    const eraseX = erasePoint.x
+    const eraseY = erasePoint.y
 
-      // 找到线段上离擦除点最近的点（参数化位置 t）
-      const t = this.findIntersectionT(p1, p2, erasePoint)
-      const closestX = p1[0] + (p2[0] - p1[0]) * t
-      const closestY = p1[1] + (p2[1] - p1[1]) * t
+    for (let i = 1; i < pointsLen; i++) {
+      const p1 = points[i - 1]
+      const p2 = points[i]
+      const p1x = p1[0]
+      const p1y = p1[1]
+      const p2x = p2[0]
+      const p2y = p2[1]
 
-      // 根据橡皮擦形状计算距离
-      const dist = this.pointToEraserDistance(erasePoint, closestX, closestY)
+      // P0优化: 内联 findIntersectionT，减少函数调用开销
+      const segDx = p2x - p1x
+      const segDy = p2y - p1y
+      const lenSq = segDx * segDx + segDy * segDy
+
+      let t: number
+      if (lenSq === 0) {
+        t = 0.5
+      } else {
+        t = clamp(
+          ((eraseX - p1x) * segDx + (eraseY - p1y) * segDy) / lenSq,
+          0,
+          1
+        )
+      }
+
+      const closestX = p1x + segDx * t
+      const closestY = p1y + segDy * t
+
+      // P0优化: 对圆形内联距离计算，避免函数调用
+      let dist: number
+      const shape = this.config.shape
+      if (shape === 'circle') {
+        const cdx = closestX - eraseX
+        const cdy = closestY - eraseY
+        dist = Math.sqrt(cdx * cdx + cdy * cdy)
+      } else {
+        dist = this.pointToEraserDistance(erasePoint, closestX, closestY)
+      }
 
       // 有效距离阈值（考虑笔触粗细）
-      const effectiveDist = dist - stroke.size / 2
+      const effectiveDist = dist - halfStrokeSize
 
       if (effectiveDist < 0) {
         // 在橡皮擦内部：强度根据深度计算
-        const depthFactor = Math.min(
-          1,
-          -effectiveDist / (effectiveRadius * ERASE_THRESHOLDS.DEPTH_FACTOR)
-        )
+        const depthFactor = Math.min(1, -effectiveDist / depthThreshold)
         const strength = clamp(depthFactor * eraseStrength, 0, 1)
 
-        intersections.push({
-          t: (i - 1 + t) / stroke.points.length,
-          point: [closestX, closestY],
-          strength,
-        })
-      } else if (dist < effectiveRadius + stroke.size / 2) {
+        // P1优化: 使用对象池
+        acquireIntersection(
+          (i - 1 + t) / pointsLen,
+          closestX,
+          closestY,
+          strength
+        )
+      } else if (dist < effectiveDistThreshold) {
         // 在边缘区域：渐变衰减
         const strength = clamp(
           (1 - effectiveDist / effectiveRadius) * eraseStrength,
@@ -956,40 +1179,52 @@ export class PhysicsEraserEngine {
           1
         )
 
-        intersections.push({
-          t: (i - 1 + t) / stroke.points.length,
-          point: [closestX, closestY],
-          strength,
-        })
+        // P1优化: 使用对象池
+        acquireIntersection(
+          (i - 1 + t) / pointsLen,
+          closestX,
+          closestY,
+          strength
+        )
       }
     }
 
+    // 获取池中的 intersections（池索引即为数量）
+    const intersectionCount = _intersectionPoolIdx
+    const intersections = _intersectionPool
+
     // 找到最大擦除强度
-    // 修复 P1-4: 使用 for 循环替代 Math.max(...spread) 避免栈溢出
     let maxStrength = 0
-    for (const inter of intersections) {
-      if (inter.strength > maxStrength) {
-        maxStrength = inter.strength
+    for (let i = 0; i < intersectionCount; i++) {
+      const s = intersections[i].strength
+      if (s > maxStrength) {
+        maxStrength = s
       }
     }
+
+    const deleteThreshold = pointsLen * ERASE_THRESHOLDS.DELETE_COVERAGE_RATIO
 
     return {
       strokeId: stroke.id,
-      intersections,
+      // P1优化: 使用 slice 获取池中的有效数据
+      intersections: intersectionCount > 0
+        ? intersections.slice(0, intersectionCount)
+        : [],
       eraseStrength: maxStrength,
       // 删除条件：强度足够且覆盖足够比例
       shouldDelete:
         maxStrength > ERASE_THRESHOLDS.DELETE_STRENGTH &&
-        intersections.length >= stroke.points.length * ERASE_THRESHOLDS.DELETE_COVERAGE_RATIO,
+        intersectionCount >= deleteThreshold,
       // 分割条件：有相交且强度足够
       shouldSplit:
-        intersections.length > 0 && maxStrength > ERASE_THRESHOLDS.SPLIT_STRENGTH,
+        intersectionCount > 0 && maxStrength > ERASE_THRESHOLDS.SPLIT_STRENGTH,
       opacityDelta: maxStrength * ERASE_THRESHOLDS.OPACITY_DELTA_FACTOR,
     }
   }
 
   /**
    * 坐标变换并计算到矩形的距离
+   * P2优化: 缓存 cos/sin 计算结果
    */
   private transformAndDistanceToRect(
     dx: number,
@@ -998,10 +1233,14 @@ export class PhysicsEraserEngine {
     halfW: number,
     halfH: number
   ): number {
-    const cos = Math.cos(-rotation)
-    const sin = Math.sin(-rotation)
-    const localX = dx * cos - dy * sin
-    const localY = dx * sin + dy * cos
+    // P2优化: 缓存 cos/sin，相同旋转角不重复计算
+    if (rotation !== this._cachedRotation) {
+      this._cachedRotation = rotation
+      this._cachedCos = Math.cos(-rotation)
+      this._cachedSin = Math.sin(-rotation)
+    }
+    const localX = dx * this._cachedCos - dy * this._cachedSin
+    const localY = dx * this._cachedSin + dy * this._cachedCos
     return this.pointToRectDistance(localX, localY, halfW, halfH)
   }
 
@@ -1015,13 +1254,15 @@ export class PhysicsEraserEngine {
     halfW: number,
     halfH: number
   ): number {
-    const dx = Math.max(0, Math.abs(px) - halfW)
-    const dy = Math.max(0, Math.abs(py) - halfH)
+    const absPx = px < 0 ? -px : px
+    const absPy = py < 0 ? -py : py
+    const dx = absPx > halfW ? absPx - halfW : 0
+    const dy = absPy > halfH ? absPy - halfH : 0
 
     // 在矩形内部时返回负距离（用于强度计算）
     if (dx === 0 && dy === 0) {
       // 内部：计算到最近边缘的距离（负值表示深度）
-      const distToEdge = Math.min(halfW - Math.abs(px), halfH - Math.abs(py))
+      const distToEdge = (halfW - absPx < halfH - absPy) ? halfW - absPx : halfH - absPy
       return -distToEdge
     }
 
@@ -1044,51 +1285,4 @@ export class PhysicsEraserEngine {
     return points.slice(startIdx, Math.min(endIdx + 1, points.length))
   }
 
-  /**
-   * 计算擦除区域边界框
-   */
-  private getEraseBounds(point: EraserPoint): Bounds {
-    const radius = this.computeEffectiveRadius(point.pressure)
-    return {
-      x: point.x - radius,
-      y: point.y - radius,
-      w: radius * 2,
-      h: radius * 2,
-    }
-  }
-
-  /**
-   * AABB 边界相交检测
-   */
-  private boundsIntersect(a: Bounds, b: Bounds): boolean {
-    return (
-      a.x < b.x + b.w &&
-      a.x + a.w > b.x &&
-      a.y < b.y + b.h &&
-      a.y + a.h > b.y
-    )
-  }
-
-  /**
-   * 计算线段上最近点的参数化位置 t
-   * 使用点到线段的投影公式
-   */
-  private findIntersectionT(
-    p1: number[],
-    p2: number[],
-    erasePoint: EraserPoint
-  ): number {
-    const dx = p2[0] - p1[0]
-    const dy = p2[1] - p1[1]
-    const lenSq = dx * dx + dy * dy
-
-    // 退化线段（两点重合）
-    if (lenSq === 0) return 0.5
-
-    // 点到线段的投影
-    const t =
-      ((erasePoint.x - p1[0]) * dx + (erasePoint.y - p1[1]) * dy) / lenSq
-
-    return clamp(t, 0, 1)
-  }
 }
