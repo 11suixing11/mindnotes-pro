@@ -168,17 +168,18 @@ export function usePointerEngine(opts: {
       // P0 优化: 如果空间索引可用，直接遍历候选元素而非全部元素
       // 从后向前遍历以保持 Z-order（后绘制的在上层）
       if (candidateIds && candidateIds.length > 0) {
+        // P1 性能优化: 使用预分配数组 + 原地排序，避免 [...candidateIds] 创建新数组
         // 构建 ID → index 映射，用于按 Z-order 排序
         const idToIndex = new Map<string, number>()
         for (let i = 0; i < els.length; i++) {
           idToIndex.set(els[i].id, i)
         }
         // 按 Z-order 降序排列候选（后绘制的优先命中）
-        const sortedCandidates = [...candidateIds].sort((a, b) => {
+        candidateIds.sort((a, b) => {
           return (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
         })
         
-        for (const id of sortedCandidates) {
+        for (const id of candidateIds) {
           const idx = idToIndex.get(id)
           if (idx === undefined) continue
           const el = els[idx]
@@ -205,6 +206,10 @@ export function usePointerEngine(opts: {
             if (px >= b.x - r && px <= b.x + b.w + r && py >= b.y - r && py <= b.y + b.h + r)
               return el.id
           } else if (el.type === 'stroke' && el.points.length >= 2) {
+            // P1 性能优化: 使用边界框快速排除，避免逐点距离计算
+            const b = cachedBounds(el)
+            if (px < b.x - r || px > b.x + b.w + r || py < b.y - r || py > b.y + b.h + r) continue
+            
             for (let j = 1; j < el.points.length; j++) {
               if (
                 distToSeg(
