@@ -1,7 +1,6 @@
 import { useRef, useCallback } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
-import { useShallow } from 'zustand/react/shallow'
 import { useThemeStore } from '../../store/useThemeStore'
 import type { DrawState } from './useCanvasRenderer'
 import { useTextEditor } from './useTextEditor'
@@ -111,8 +110,9 @@ export default function Canvas() {
   }, [])
 
   const { isDarkMode } = useThemeStore()
-  const { bgColor } = useAppStore(useShallow((s) => ({ bgColor: s.bgColor })))
-  const { viewBox } = useViewStore(useShallow((s) => ({ viewBox: s.viewBox })))
+  // P1-1/P1-2 性能优化: 移除不必要的订阅
+  // - bgColor: 已由 drawCanvasBackground() 绘制，CSS 重复
+  // - viewBox: 仅 text editor 需要，且仅在 editingText 非空时读取
 
   return (
     <>
@@ -134,7 +134,6 @@ export default function Canvas() {
           style={{
             touchAction: 'none',
             cursor: getCursor(),
-            backgroundColor: bgColor,
             width: '100%',
             height: '100%',
           }}
@@ -143,6 +142,8 @@ export default function Canvas() {
           (() => {
             const rect = canvasRef.current?.getBoundingClientRect()
             if (!rect) return null
+            // P1-1 性能优化: 仅在需要时读取 viewBox，避免订阅导致的频繁重渲染
+            const viewBox = useViewStore.getState().viewBox
             const screenX = (editingText.x - viewBox.x) * viewBox.zoom + rect.left
             const screenY = (editingText.y - viewBox.y) * viewBox.zoom + rect.top
             return (
