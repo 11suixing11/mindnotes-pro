@@ -76,8 +76,20 @@ export interface CanvasFolder {
   expanded: boolean
 }
 
+// P0 性能优化: 笔触边界缓存 - 避免每帧遍历所有点计算边界
+const strokeBoundsCache = new WeakMap<StrokeElement, { x: number; y: number; w: number; h: number }>()
+
+/** 清除笔触边界缓存（用于元素更新后） */
+export function invalidateStrokeBounds(el: StrokeElement): void {
+  strokeBoundsCache.delete(el)
+}
+
 export function elementBounds(el: CanvasElement): { x: number; y: number; w: number; h: number } {
   if (el.type === 'stroke') {
+    // P0: 检查缓存
+    const cached = strokeBoundsCache.get(el)
+    if (cached) return cached
+    
     let minX = Infinity,
       minY = Infinity,
       maxX = -Infinity,
@@ -89,7 +101,9 @@ export function elementBounds(el: CanvasElement): { x: number; y: number; w: num
       if (p[0] > maxX) maxX = p[0]
       if (p[1] > maxY) maxY = p[1]
     }
-    return { x: minX - 5, y: minY - 5, w: maxX - minX + 10, h: maxY - minY + 10 }
+    const bounds = { x: minX - 5, y: minY - 5, w: maxX - minX + 10, h: maxY - minY + 10 }
+    strokeBoundsCache.set(el, bounds)
+    return bounds
   }
   if (el.type === 'shape') {
     return {
