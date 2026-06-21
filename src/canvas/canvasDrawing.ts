@@ -10,14 +10,121 @@ import { getImage } from './canvasUtils'
 import getStroke from 'perfect-freehand'
 
 // ==================== 性能缓存层 (P0 优化) ====================
-// Perfect-Freehand 笔触缓存 - 避免每帧重复计算昂贵的描边路径
-interface StrokeCacheValue {
-  outline: number[][]
-  lastAccess: number
+// P0 优化: 真正的 O(1) LRU 缓存实现 - 使用双向链表 + Map
+// 替代原来的 O(n) 线性扫描，大缓存场景下性能提升显著
+class LRUCache<K, V> {
+  private cache: Map<K, { value: V; prev: K | null; next: K | null; lastAccess: number }>
+  private head: K | null = null
+  private tail: K | null = null
+  private maxSize: number
+  private ttl: number
+
+  constructor(maxSize: number, ttl: number) {
+    this.cache = new Map()
+    this.maxSize = maxSize
+    this.ttl = ttl
+  }
+
+  get(key: K): V | null {
+    const entry = this.cache.get(key)
+    if (!entry) return null
+    
+    const now = Date.now()
+    if (now - entry.lastAccess > this.ttl) {
+      this.delete(key)
+      return null
+    }
+    
+    // 移动到头部 (O(1) 操作)
+    this.moveToHead(key, entry)
+    entry.lastAccess = now
+    return entry.value
+  }
+
+  set(key: K, value: V): void {
+    const existing = this.cache.get(key)
+    if (existing) {
+      existing.value = value
+      existing.lastAccess = Date.now()
+      this.moveToHead(key, existing)
+      return
+    }
+
+    // 缓存已满，删除最久未使用的 (O(1) 操作)
+    if (this.cache.size >= this.maxSize && this.tail !== null) {
+      this.delete(this.tail)
+    }
+
+    const entry = { value, prev: null, next: this.head, lastAccess: Date.now() }
+    this.cache.set(key, entry)
+    
+    if (this.head !== null) {
+      const headEntry = this.cache.get(this.head)
+      if (headEntry) headEntry.prev = key
+    }
+    this.head = key
+    
+    if (this.tail === null) {
+      this.tail = key
+    }
+  }
+
+  private moveToHead(key: K, entry: { prev: K | null; next: K | null }): void {
+    if (key === this.head) return
+
+    // 从当前位置移除
+    if (entry.prev !== null) {
+      const prevEntry = this.cache.get(entry.prev)
+      if (prevEntry) prevEntry.next = entry.next
+    }
+    if (entry.next !== null) {
+      const nextEntry = this.cache.get(entry.next)
+      if (nextEntry) nextEntry.prev = entry.prev
+    }
+    
+    if (key === this.tail && entry.prev !== null) {
+      this.tail = entry.prev
+    }
+
+    // 移动到头部
+    entry.prev = null
+    entry.next = this.head
+    
+    if (this.head !== null) {
+      const headEntry = this.cache.get(this.head)
+      if (headEntry) headEntry.prev = key
+    }
+    this.head = key
+  }
+
+  private delete(key: K): void {
+    const entry = this.cache.get(key)
+    if (!entry) return
+
+    if (entry.prev !== null) {
+      const prevEntry = this.cache.get(entry.prev)
+      if (prevEntry) prevEntry.next = entry.next
+    }
+    if (entry.next !== null) {
+      const nextEntry = this.cache.get(entry.next)
+      if (nextEntry) nextEntry.prev = entry.prev
+    }
+
+    if (key === this.head) this.head = entry.next
+    if (key === this.tail) this.tail = entry.prev
+
+    this.cache.delete(key)
+  }
+
+  size(): number {
+    return this.cache.size
+  }
 }
-const strokeOutlineCache = new Map<string, StrokeCacheValue>()
+
+// Perfect-Freehand 笔触缓存 - 避免每帧重复计算昂贵的描边路径
 const STROKE_CACHE_MAX_SIZE = 200
 const STROKE_CACHE_TTL = 60000 // 60秒
+const strokeOutlineCache = new LRUCache<string, number[][]>(STROKE_CACHE_MAX_SIZE, STROKE_CACHE_TTL)
 
 function getStrokeCacheKey(el: StrokeElement): string {
   return `${el.id}:${el.points.length}:${el.size}`
@@ -28,11 +135,7 @@ function getCachedStrokeOutline(el: StrokeElement): number[][] | null {
 
   const key = getStrokeCacheKey(el)
   const cached = strokeOutlineCache.get(key)
-
-  if (cached && Date.now() - cached.lastAccess < STROKE_CACHE_TTL) {
-    cached.lastAccess = Date.now()
-    return cached.outline
-  }
+  if (cached) return cached
 
   try {
     const outline = getStroke(el.points, {
@@ -41,21 +144,7 @@ function getCachedStrokeOutline(el: StrokeElement): number[][] | null {
       smoothing: 0.5,
       streamline: 0.5,
     })
-
-    // LRU 缓存清理 - P0 优化: O(n) 线性扫描替代 O(n log n) sort
-    if (strokeOutlineCache.size >= STROKE_CACHE_MAX_SIZE) {
-      let oldestTime = Infinity
-      let oldestKey = ''
-      for (const [k, v] of strokeOutlineCache.entries()) {
-        if (v.lastAccess < oldestTime) {
-          oldestTime = v.lastAccess
-          oldestKey = k
-        }
-      }
-      strokeOutlineCache.delete(oldestKey)
-    }
-
-    strokeOutlineCache.set(key, { outline, lastAccess: Date.now() })
+    strokeOutlineCache.set(key, outline)
     return outline
   } catch {
     return null
@@ -63,24 +152,17 @@ function getCachedStrokeOutline(el: StrokeElement): number[][] | null {
 }
 
 // 文本换行缓存 - 避免每次渲染都进行昂贵的 measureText 计算
-interface TextCacheValue {
-  lines: string[]
-  lastAccess: number
-}
-const textWrapCache = new Map<string, TextCacheValue>()
 const TEXT_CACHE_MAX_SIZE = 100
 const TEXT_CACHE_TTL = 30000 // 30秒
+const textWrapCache = new LRUCache<string, string[]>(TEXT_CACHE_MAX_SIZE, TEXT_CACHE_TTL)
+
 function getTextCacheKey(el: TextElement): string {
   return `${el.id}:${el.content.length}:${el.width}:${el.fontSize}`
 }
 function getCachedTextWrap(el: TextElement, ctx: CanvasRenderingContext2D): string[] {
   const key = getTextCacheKey(el)
   const cached = textWrapCache.get(key)
-
-  if (cached && Date.now() - cached.lastAccess < TEXT_CACHE_TTL) {
-    cached.lastAccess = Date.now()
-    return cached.lines
-  }
+  if (cached) return cached
 
   const rawLines = el.content.split('\n')
   const wrappedLines: string[] = []
@@ -102,20 +184,7 @@ function getCachedTextWrap(el: TextElement, ctx: CanvasRenderingContext2D): stri
     wrappedLines.push(current)
   }
 
-  // LRU 缓存清理 - P0 优化: O(n) 线性扫描替代 O(n log n) sort
-  if (textWrapCache.size >= TEXT_CACHE_MAX_SIZE) {
-    let oldestTime = Infinity
-    let oldestKey = ''
-    for (const [k, v] of textWrapCache.entries()) {
-      if (v.lastAccess < oldestTime) {
-        oldestTime = v.lastAccess
-        oldestKey = k
-      }
-    }
-    textWrapCache.delete(oldestKey)
-  }
-
-  textWrapCache.set(key, { lines: wrappedLines, lastAccess: Date.now() })
+  textWrapCache.set(key, wrappedLines)
   return wrappedLines
 }
 // 小地图边界缓存 - 避免每次渲染都遍历所有元素计算边界
