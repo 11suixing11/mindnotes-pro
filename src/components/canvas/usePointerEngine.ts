@@ -679,12 +679,29 @@ export function usePointerEngine(opts: {
         return
       }
       if (curTool === 'eraser') {
+        // 跟踪擦除轨迹用于拖尾渲染
+        const trail = eraserTrailRef.current
+        const now = performance.now()
+        trail.push({ x: pos.x, y: pos.y, time: now })
+        // 只保留最近 300ms 的轨迹点
+        while (trail.length > 0 && now - trail[0].time > 300) trail.shift()
+        if (trail.length > 40) trail.splice(0, trail.length - 40)
+        
         if (drawingRef.current) eraseAt(pos.x, pos.y, undefined, e)
         scheduleRedraw()
         return
       }
       if (!drawingRef.current) return
-      if (curTool === 'pen') currentPtsRef.current.push([pos.x, pos.y])
+      if (curTool === 'pen') {
+        // 跟踪笔触速度
+        if (currentPtsRef.current.length > 0) {
+          const last = currentPtsRef.current[currentPtsRef.current.length - 1]
+          const dx = pos.x - last[0]
+          const dy = pos.y - last[1]
+          penVelocityRef.current = Math.sqrt(dx * dx + dy * dy)
+        }
+        currentPtsRef.current.push([pos.x, pos.y])
+      }
       else if (shapeStartRef.current && currentShapeRef.current) {
         let w = pos.x - shapeStartRef.current.x,
           h = pos.y - shapeStartRef.current.y
@@ -745,6 +762,7 @@ export function usePointerEngine(opts: {
             addElement(el)
           }
           currentPtsRef.current = []
+          penVelocityRef.current = 0
         } else if (curTool === 'eraser') {
           if (preEraseSnapshotRef.current && erasedRef.current.size > 0) {
             useAppStore.getState().batchErase(preEraseSnapshotRef.current, [])
@@ -1052,6 +1070,10 @@ export function usePointerEngine(opts: {
     }
   }
 
+  // 擦除轨迹跟踪（用于光标拖尾渲染）
+  const eraserTrailRef = useRef<{ x: number; y: number; time: number }[]>([])
+  const penVelocityRef = useRef(0)
+
   // getDrawState for renderer
   const getDrawState = useCallback(
     () => ({
@@ -1068,6 +1090,8 @@ export function usePointerEngine(opts: {
       showGrid: useViewStore.getState().showGrid ?? false,
       showRulers: false,
       gridSize: 20,
+      eraserTrail: eraserTrailRef.current,
+      penVelocity: penVelocityRef.current,
     }),
     [snapLinesRef]
   )
