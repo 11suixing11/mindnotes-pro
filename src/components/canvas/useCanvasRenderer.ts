@@ -29,6 +29,10 @@ export interface DrawState {
   showGrid: boolean
   showRulers: boolean
   gridSize: number
+  /** 最近的擦除轨迹点（用于拖尾渲染） */
+  eraserTrail: { x: number; y: number; time: number }[]
+  /** 笔触绘制时的速度（用于笔触光标反馈） */
+  penVelocity: number
 }
 export function useCanvasRenderer(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
@@ -163,19 +167,104 @@ export function useCanvasRenderer(
     if (ds.drawing && ds.tool === 'pen' && ds.currentPts.length > 1)
       drawStrokeRaw(ctx, ds.currentPts, ds.color, ds.size, ds.brush, dark)
     if (ds.currentShape) drawElement(ctx, ds.currentShape, dark)
+    
+    // 笔触绘制时：显示大小预览光标（半透明圆圈）
+    if (ds.tool === 'pen' && ds.mousePos && !ds.drawing) {
+      const penR = ds.size / 2
+      const baseColor = dark ? '200,160,176' : '176,125,110'
+      ctx.beginPath()
+      ctx.arc(ds.mousePos.x, ds.mousePos.y, penR, 0, Math.PI * 2)
+      ctx.strokeStyle = `rgba(${baseColor}, 0.4)`
+      ctx.lineWidth = 1 / vb.zoom
+      ctx.stroke()
+      ctx.fillStyle = `rgba(${baseColor}, 0.06)`
+      ctx.fill()
+      // 中心点
+      ctx.beginPath()
+      ctx.arc(ds.mousePos.x, ds.mousePos.y, 1.5 / vb.zoom, 0, Math.PI * 2)
+      ctx.fillStyle = `rgba(${baseColor}, 0.6)`
+      ctx.fill()
+    }
+    
+    // 增强的橡皮擦光标
     if (ds.tool === 'eraser' && ds.mousePos) {
       const r = ds.size * 2 + 10
-      ctx.strokeStyle = dark ? 'rgba(200,160,176,0.5)' : 'rgba(176,125,110,0.35)'
-      ctx.lineWidth = 1.5 / vb.zoom
-      ctx.setLineDash([5 / vb.zoom, 5 / vb.zoom])
+      const baseColor = dark ? '200,160,176' : '176,125,110'
+      const x = ds.mousePos.x
+      const y = ds.mousePos.y
+      
+      // 擦除拖尾效果
+      if (ds.eraserTrail.length >= 2) {
+        const now = performance.now()
+        ctx.lineCap = 'round'
+        ctx.lineJoin = 'round'
+        for (let i = 1; i < ds.eraserTrail.length; i++) {
+          const p0 = ds.eraserTrail[i - 1]
+          const p1 = ds.eraserTrail[i]
+          const age = (now - p1.time) / 400 // 400ms fade
+          if (age > 1) continue
+          const alpha = Math.max(0, 0.18 * (1 - age))
+          ctx.beginPath()
+          ctx.moveTo(p0.x, p0.y)
+          ctx.lineTo(p1.x, p1.y)
+          ctx.strokeStyle = `rgba(${baseColor}, ${alpha})`
+          ctx.lineWidth = (r * 0.6) * (1 - age * 0.3)
+          ctx.stroke()
+        }
+      }
+      
+      // 外圈：虚线指示擦除范围
+      ctx.strokeStyle = `rgba(${baseColor}, 0.35)`
+      ctx.lineWidth = 1.2 / vb.zoom
+      ctx.setLineDash([4 / vb.zoom, 4 / vb.zoom])
       ctx.beginPath()
-      ctx.arc(ds.mousePos.x, ds.mousePos.y, r, 0, Math.PI * 2)
+      ctx.arc(x, y, r, 0, Math.PI * 2)
       ctx.stroke()
       ctx.setLineDash([])
-      ctx.fillStyle = dark ? 'rgba(200,160,176,0.04)' : 'rgba(176,125,110,0.04)'
+      
+      // 内圈：实线指示精确范围
+      ctx.strokeStyle = `rgba(${baseColor}, 0.55)`
+      ctx.lineWidth = 1.5 / vb.zoom
       ctx.beginPath()
-      ctx.arc(ds.mousePos.x, ds.mousePos.y, r, 0, Math.PI * 2)
+      ctx.arc(x, y, r * 0.55, 0, Math.PI * 2)
+      ctx.stroke()
+      
+      // 中心十字准星
+      const crossSize = 4 / vb.zoom
+      ctx.strokeStyle = `rgba(${baseColor}, 0.7)`
+      ctx.lineWidth = 1.2 / vb.zoom
+      ctx.beginPath()
+      ctx.moveTo(x - crossSize, y)
+      ctx.lineTo(x + crossSize, y)
+      ctx.moveTo(x, y - crossSize)
+      ctx.lineTo(x, y + crossSize)
+      ctx.stroke()
+      
+      // 中心点
+      ctx.beginPath()
+      ctx.arc(x, y, 1.8 / vb.zoom, 0, Math.PI * 2)
+      ctx.fillStyle = `rgba(${baseColor}, 0.65)`
       ctx.fill()
+      
+      // 柔和光晕填充
+      const glowGrad = ctx.createRadialGradient(x, y, 0, x, y, r)
+      glowGrad.addColorStop(0, `rgba(${baseColor}, 0.06)`)
+      glowGrad.addColorStop(0.6, `rgba(${baseColor}, 0.03)`)
+      glowGrad.addColorStop(1, `rgba(${baseColor}, 0)`)
+      ctx.fillStyle = glowGrad
+      ctx.beginPath()
+      ctx.arc(x, y, r, 0, Math.PI * 2)
+      ctx.fill()
+      
+      // 绘制中：外圈脉冲动画效果
+      if (ds.drawing) {
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 120)
+        ctx.strokeStyle = `rgba(${baseColor}, ${0.15 + pulse * 0.15})`
+        ctx.lineWidth = 2 / vb.zoom
+        ctx.beginPath()
+        ctx.arc(x, y, r * (1.05 + pulse * 0.08), 0, Math.PI * 2)
+        ctx.stroke()
+      }
     }
     ctx.restore()
     if (ds.marquee) {
