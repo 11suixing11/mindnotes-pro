@@ -57,6 +57,8 @@ const STRENGTH_CONSTANTS = {
   HARDNESS_MULTIPLIER: 0.3,
   /** 最大强度 */
   MAX_STRENGTH: 1,
+  /** 最小速度贡献值 */
+  MIN_VELOCITY_CONTRIB: 0.05,
 } as const
 
 /** 凿形橡皮擦比例常量 */
@@ -127,11 +129,13 @@ function clamp(value: number, min: number, max: number): number {
  * 生成唯一ID（用于分割后的新笔触）
  */
 function generateStrokeId(): string {
-  return `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+  // 使用8位随机字符（约43亿种组合），大幅降低碰撞概率
+  return `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
 /**
  * 验证擦除点参数合法性
+ * 修复 P0-1: 完整校验所有数值字段的 NaN/Finite
  */
 function validateErasePoint(point: EraserPoint): boolean {
   return (
@@ -140,10 +144,12 @@ function validateErasePoint(point: EraserPoint): boolean {
     typeof point.pressure === 'number' &&
     typeof point.velocity === 'number' &&
     typeof point.direction === 'number' &&
-    !Number.isNaN(point.x) &&
-    !Number.isNaN(point.y) &&
     Number.isFinite(point.x) &&
-    Number.isFinite(point.y)
+    Number.isFinite(point.y) &&
+    Number.isFinite(point.pressure) &&
+    Number.isFinite(point.velocity) &&
+    Number.isFinite(point.direction) &&
+    point.pressure >= 0 && point.pressure <= 1
   )
 }
 
@@ -634,7 +640,7 @@ export class PhysicsEraserEngine {
     // 速度贡献: 高斯分布，最优速度约 2px/ms
     const velocityDiff = velocity - STRENGTH_CONSTANTS.OPTIMAL_VELOCITY
     const velocityContrib = Math.max(
-      0.05, // 确保最小强度，速度极快也不会完全失效
+      STRENGTH_CONSTANTS.MIN_VELOCITY_CONTRIB,
       Math.exp(
         -Math.pow(velocityDiff, 2) / STRENGTH_CONSTANTS.VELOCITY_VARIANCE
       )
@@ -955,10 +961,13 @@ export class PhysicsEraserEngine {
     }
 
     // 找到最大擦除强度
-    const maxStrength =
-      intersections.length > 0
-        ? Math.max(...intersections.map((i) => i.strength))
-        : 0
+    // 修复 P1-4: 使用 for 循环替代 Math.max(...spread) 避免栈溢出
+    let maxStrength = 0
+    for (const inter of intersections) {
+      if (inter.strength > maxStrength) {
+        maxStrength = inter.strength
+      }
+    }
 
     return {
       strokeId: stroke.id,
