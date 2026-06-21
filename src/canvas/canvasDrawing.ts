@@ -42,10 +42,16 @@ function getCachedStrokeOutline(el: StrokeElement): number[][] | null {
       streamline: 0.5,
     })
 
-    // LRU 缓存清理
+    // LRU 缓存清理 - P0 优化: O(n) 线性扫描替代 O(n log n) sort
     if (strokeOutlineCache.size >= STROKE_CACHE_MAX_SIZE) {
-      const oldestKey = Array.from(strokeOutlineCache.entries())
-        .sort((a, b) => a[1].lastAccess - b[1].lastAccess)[0][0]
+      let oldestTime = Infinity
+      let oldestKey = ''
+      for (const [k, v] of strokeOutlineCache.entries()) {
+        if (v.lastAccess < oldestTime) {
+          oldestTime = v.lastAccess
+          oldestKey = k
+        }
+      }
       strokeOutlineCache.delete(oldestKey)
     }
 
@@ -96,10 +102,16 @@ function getCachedTextWrap(el: TextElement, ctx: CanvasRenderingContext2D): stri
     wrappedLines.push(current)
   }
 
-  // LRU 缓存清理
+  // LRU 缓存清理 - P0 优化: O(n) 线性扫描替代 O(n log n) sort
   if (textWrapCache.size >= TEXT_CACHE_MAX_SIZE) {
-    const oldestKey = Array.from(textWrapCache.entries())
-      .sort((a, b) => a[1].lastAccess - b[1].lastAccess)[0][0]
+    let oldestTime = Infinity
+    let oldestKey = ''
+    for (const [k, v] of textWrapCache.entries()) {
+      if (v.lastAccess < oldestTime) {
+        oldestTime = v.lastAccess
+        oldestKey = k
+      }
+    }
     textWrapCache.delete(oldestKey)
   }
 
@@ -163,6 +175,14 @@ let cachedMonetGridParams: {
   gridSize: number
   dotSize: number
 } | null = null
+
+// P0-6 优化: Canvas Background Gradient 缓存 - 避免每帧创建新的 CanvasGradient 对象
+interface CachedGradient {
+  key: string
+  gradients: CanvasGradient[]
+  canvasSize: { w: number; h: number }
+}
+let cachedBgGradients: CachedGradient | null = null
 // ==================== 导出函数 ====================
 export function drawElement(
   ctx: CanvasRenderingContext2D,
@@ -500,14 +520,23 @@ export function drawMonetGrid(
   ctx.fill(cachedMonetGridPath)
   ctx.restore()
 }
-export function drawCanvasBackground(
+// P0-6 优化: 使用缓存的 CanvasGradient 对象，避免每帧重新创建
+function getOrCreateBgGradients(
   ctx: CanvasRenderingContext2D,
   canvasSize: { w: number; h: number },
-  bgColor: string,
   isDarkMode: boolean
-) {
-  ctx.fillStyle = bgColor
-  ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+): CanvasGradient[] {
+  const cacheKey = `${isDarkMode}:${canvasSize.w}:${canvasSize.h}`
+  if (
+    cachedBgGradients &&
+    cachedBgGradients.key === cacheKey &&
+    cachedBgGradients.canvasSize.w === canvasSize.w &&
+    cachedBgGradients.canvasSize.h === canvasSize.h
+  ) {
+    return cachedBgGradients.gradients
+  }
+
+  const gradients: CanvasGradient[] = []
   if (isDarkMode) {
     const g1 = ctx.createRadialGradient(
       canvasSize.w * 0.12,
@@ -520,8 +549,8 @@ export function drawCanvasBackground(
     g1.addColorStop(0, 'rgba(122,104,144,0.10)')
     g1.addColorStop(0.6, 'rgba(122,104,144,0.03)')
     g1.addColorStop(1, 'transparent')
-    ctx.fillStyle = g1
-    ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+    gradients.push(g1)
+
     const g2 = ctx.createRadialGradient(
       canvasSize.w * 0.82,
       canvasSize.h * 0.72,
@@ -533,8 +562,8 @@ export function drawCanvasBackground(
     g2.addColorStop(0, 'rgba(88,112,128,0.08)')
     g2.addColorStop(0.6, 'rgba(88,112,128,0.02)')
     g2.addColorStop(1, 'transparent')
-    ctx.fillStyle = g2
-    ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+    gradients.push(g2)
+
     const g3 = ctx.createRadialGradient(
       canvasSize.w * 0.5,
       canvasSize.h * 0.45,
@@ -545,8 +574,7 @@ export function drawCanvasBackground(
     )
     g3.addColorStop(0, 'rgba(152,128,88,0.06)')
     g3.addColorStop(1, 'transparent')
-    ctx.fillStyle = g3
-    ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+    gradients.push(g3)
   } else {
     const g1 = ctx.createRadialGradient(
       canvasSize.w * 0.12,
@@ -559,8 +587,8 @@ export function drawCanvasBackground(
     g1.addColorStop(0, 'rgba(184,160,208,0.16)')
     g1.addColorStop(0.5, 'rgba(184,160,208,0.05)')
     g1.addColorStop(1, 'transparent')
-    ctx.fillStyle = g1
-    ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+    gradients.push(g1)
+
     const g2 = ctx.createRadialGradient(
       canvasSize.w * 0.82,
       canvasSize.h * 0.72,
@@ -572,8 +600,8 @@ export function drawCanvasBackground(
     g2.addColorStop(0, 'rgba(144,180,208,0.14)')
     g2.addColorStop(0.5, 'rgba(144,180,208,0.04)')
     g2.addColorStop(1, 'transparent')
-    ctx.fillStyle = g2
-    ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+    gradients.push(g2)
+
     const g3 = ctx.createRadialGradient(
       canvasSize.w * 0.55,
       canvasSize.h * 0.4,
@@ -585,8 +613,8 @@ export function drawCanvasBackground(
     g3.addColorStop(0, 'rgba(208,184,136,0.10)')
     g3.addColorStop(0.5, 'rgba(208,184,136,0.03)')
     g3.addColorStop(1, 'transparent')
-    ctx.fillStyle = g3
-    ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+    gradients.push(g3)
+
     const g4 = ctx.createRadialGradient(
       canvasSize.w * 0.7,
       canvasSize.h * 0.2,
@@ -598,7 +626,26 @@ export function drawCanvasBackground(
     g4.addColorStop(0, 'rgba(212,152,152,0.10)')
     g4.addColorStop(0.5, 'rgba(212,152,152,0.03)')
     g4.addColorStop(1, 'transparent')
-    ctx.fillStyle = g4
+    gradients.push(g4)
+  }
+
+  cachedBgGradients = { key: cacheKey, gradients, canvasSize: { ...canvasSize } }
+  return gradients
+}
+
+export function drawCanvasBackground(
+  ctx: CanvasRenderingContext2D,
+  canvasSize: { w: number; h: number },
+  bgColor: string,
+  isDarkMode: boolean
+) {
+  ctx.fillStyle = bgColor
+  ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
+
+  // P0-6 优化: 使用缓存的 gradients，避免每帧重新创建
+  const gradients = getOrCreateBgGradients(ctx, canvasSize, isDarkMode)
+  for (const g of gradients) {
+    ctx.fillStyle = g
     ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
   }
 }
