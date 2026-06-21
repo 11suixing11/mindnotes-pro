@@ -47,11 +47,16 @@ export function useCanvasRenderer(
   const rafRef = useRef<number>(0)
   const redrawRef = useRef<() => void>(() => {})
   
-  // P1 优化: selectedIds 缓存，避免每次渲染都创建新 Set
+  // P1-1 优化: selectedIds 缓存，使用引用比较避免字符串拼接
   const selectedIdsCacheRef = useRef<Set<string>>(new Set())
-  const lastSelectedIdsRef = useRef<string>('')
-  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
-  const [canvasSize, setCanvasSize] = useState({ w: window.innerWidth, h: window.innerHeight })
+  const lastSelectedIdsArrRef = useRef<string[]>([])
+  // P2-2: dpr 改为 ref，极少变化
+  const dprRef = useRef(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
+  const dpr = dprRef.current
+  // P2-1: canvasSize 改用 ref 避免 React 重渲染，配合手动 redraw
+  const canvasSizeRef = useRef({ w: window.innerWidth, h: window.innerHeight })
+  const [, forceUpdate] = useState(0)
+  const canvasSize = canvasSizeRef.current
   function cachedBounds(el: CanvasElement) {
     const cache = boundsCacheRef.current
     let b = cache.get(el.id)
@@ -61,14 +66,13 @@ export function useCanvasRenderer(
     }
     return b
   }
-  // P1 优化: 获取缓存的 selectedIds Set
+  // P1-1 优化: 获取缓存的 selectedIds Set (引用比较)
   function getCachedSelectedIds(): Set<string> {
     const selectedIds = useAppStore.getState().selectedIds
-    const cacheKey = selectedIds.join(',')
     
-    if (cacheKey !== lastSelectedIdsRef.current) {
+    if (selectedIds !== lastSelectedIdsArrRef.current) {
       selectedIdsCacheRef.current = new Set(selectedIds)
-      lastSelectedIdsRef.current = cacheKey
+      lastSelectedIdsArrRef.current = selectedIds
     }
     
     return selectedIdsCacheRef.current
@@ -326,7 +330,13 @@ export function useCanvasRenderer(
     const obs = new ResizeObserver((entries) => {
       for (const e of entries) {
         const { width, height } = e.contentRect
-        if (width > 0 && height > 0) setCanvasSize({ w: Math.round(width), h: Math.round(height) })
+        if (width > 0 && height > 0) {
+          const w = Math.round(width), h = Math.round(height)
+          if (canvasSizeRef.current.w !== w || canvasSizeRef.current.h !== h) {
+            canvasSizeRef.current = { w, h }
+            forceUpdate(n => n + 1)  // 触发一次重渲染以更新依赖 canvasSize 的 callbacks
+          }
+        }
       }
     })
     obs.observe(el)
@@ -343,10 +353,12 @@ export function useCanvasRenderer(
     let prevRefMap = new Map<string, CanvasElement>()
     for (const e of prevElements) prevRefMap.set(e.id, e)
     
+    // P0-5: subscribe 仅处理 elements 变化，非 elements 变化快速退出
     const unsub = useAppStore.subscribe((s) => {
       const currElements = s.elements
+      if (currElements === prevElements) return  // 快速退出：非 elements 变化
       
-      if (currElements !== prevElements) {
+      {  // elements 变化处理块
         elementsDirtyRef.current = true
         
         // P0-2 优化: 使用引用比较而非全量 Map 创建
@@ -393,10 +405,16 @@ export function useCanvasRenderer(
     window.addEventListener('image-loaded', h)
     return () => window.removeEventListener('image-loaded', h)
   }, [redraw])
-  // Subscribe to showGrid changes to trigger redraw
+  // P1-6: 仅订阅 viewBox/showGrid 变化触发重绘
   useEffect(() => {
-    const unsub = useViewStore.subscribe(() => {
-      scheduleRedraw()
+    let prevVB = useViewStore.getState().viewBox
+    let prevGrid = useViewStore.getState().showGrid
+    const unsub = useViewStore.subscribe((s) => {
+      if (s.viewBox !== prevVB || s.showGrid !== prevGrid) {
+        prevVB = s.viewBox
+        prevGrid = s.showGrid
+        scheduleRedraw()
+      }
     })
     return unsub
   }, [scheduleRedraw])

@@ -10,6 +10,19 @@ import { drawElement } from '../../canvas/canvasDrawing'
 // 物理擦除引擎集成
 import { useEraserStore, type EraserPoint } from '../../eraser'
 
+// P2-3: 模块级常量，避免每次渲染重建
+const CURSOR_MAP: Record<string, string> = {
+  select: 'default',
+  pen: 'crosshair',
+  eraser: 'none',
+  pan: 'grab',
+  text: 'text',
+  rectangle: 'crosshair',
+  circle: 'crosshair',
+  arrow: 'crosshair',
+  line: 'crosshair',
+}
+
 export function usePointerEngine(opts: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>
   cachedBounds: (el: CanvasElement) => { x: number; y: number; w: number; h: number }
@@ -57,48 +70,16 @@ export function usePointerEngine(opts: {
       setSelectedIds: s.setSelectedIds,
     }))
   )
-  const { startPan, updatePan, endPan, isPanning } = useViewStore(
+  const { startPan, updatePan, endPan } = useViewStore(
     useShallow((s) => ({
       startPan: s.startPan,
       updatePan: s.updatePan,
       endPan: s.endPan,
-      isPanning: s.isPanning,
     }))
   )
 
-  // Value refs for use inside event handlers
-  const tool = useAppStore((s) => s.tool)
-  const color = useAppStore((s) => s.color)
-  const size = useAppStore((s) => s.size)
-  const brush = useAppStore((s) => s.brush)
-  const fillColor = useAppStore((s) => s.fillColor)
-  const viewBox = useViewStore((s) => s.viewBox)
-
-  const toolRef = useRef(tool)
-  const colorRef = useRef(color)
-  const sizeRef = useRef(size)
-  const brushRef = useRef(brush)
-  const fillColorRef = useRef(fillColor)
-  const viewBoxRef = useRef(viewBox)
-
-  useEffect(() => {
-    toolRef.current = tool
-  }, [tool])
-  useEffect(() => {
-    colorRef.current = color
-  }, [color])
-  useEffect(() => {
-    sizeRef.current = size
-  }, [size])
-  useEffect(() => {
-    brushRef.current = brush
-  }, [brush])
-  useEffect(() => {
-    fillColorRef.current = fillColor
-  }, [fillColor])
-  useEffect(() => {
-    viewBoxRef.current = viewBox
-  }, [viewBox])
+  // P0-3 优化: 移除独立 selector，改为在 handler 内用 getState() 读取
+  // 避免任何 store 变化都触发整个 hook 重渲染
 
   // Drawing state
   const drawingRef = useRef(false)
@@ -134,7 +115,7 @@ export function usePointerEngine(opts: {
       const canvas = canvasRef.current
       if (!canvas) return { x: 0, y: 0 }
       const rect = canvas.getBoundingClientRect()
-      const vb = viewBoxRef.current
+      const vb = useViewStore.getState().viewBox
       let cx: number, cy: number
       if ('touches' in e && e.touches.length > 0) {
         cx = e.touches[0].clientX
@@ -151,11 +132,26 @@ export function usePointerEngine(opts: {
     [canvasRef]
   )
 
+  // P0-1: 缓存 idToIndex Map，避免每次 hitTest 重建
+  const idToIndexCacheRef = useRef<{ els: CanvasElement[]; map: Map<string, number> }>({
+    els: [],
+    map: new Map(),
+  })
+
   const hitTest = useCallback(
     (px: number, py: number): string | null => {
-      const r = 12 / (viewBoxRef.current.zoom || 1)
+      const r = 12 / (useViewStore.getState().viewBox.zoom || 1)
       const state = useAppStore.getState()
       const els = state.elements
+      
+      // P0-1: 使用缓存的 idToIndex，仅在 elements 引用变化时重建
+      const cache = idToIndexCacheRef.current
+      if (cache.els !== els) {
+        const map = new Map<string, number>()
+        for (let i = 0; i < els.length; i++) map.set(els[i].id, i)
+        idToIndexCacheRef.current = { els, map }
+      }
+      const idToIndex = idToIndexCacheRef.current.map
       
       // P0 性能优化: 先用空间索引快速筛选候选元素（O(log n)）
       const candidateIds = state.spatialIndex?.search({
@@ -168,13 +164,7 @@ export function usePointerEngine(opts: {
       // P0 优化: 如果空间索引可用，直接遍历候选元素而非全部元素
       // 从后向前遍历以保持 Z-order（后绘制的在上层）
       if (candidateIds && candidateIds.length > 0) {
-        // P1 性能优化: 使用预分配数组 + 原地排序，避免 [...candidateIds] 创建新数组
-        // 构建 ID → index 映射，用于按 Z-order 排序
-        const idToIndex = new Map<string, number>()
-        for (let i = 0; i < els.length; i++) {
-          idToIndex.set(els[i].id, i)
-        }
-        // 按 Z-order 降序排列候选（后绘制的优先命中）
+        // P0-1: 使用缓存的 idToIndex 排序，避免每次重建
         candidateIds.sort((a, b) => {
           return (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
         })
@@ -287,12 +277,12 @@ export function usePointerEngine(opts: {
       id: string
       bounds: { x: number; y: number; w: number; h: number }
     } | null => {
-      const selIds = useAppStore.getState().selectedIds
+      const state = useAppStore.getState()
+      const selIds = state.selectedIds
       if (selIds.length === 0) return null
-      const hr = 10 / (viewBoxRef.current.zoom || 1)
-      const els = useAppStore.getState().elements
+      const hr = 10 / (useViewStore.getState().viewBox.zoom || 1)
       for (const selId of selIds) {
-        const el = els.find((e) => e.id === selId)
+        const el = state.idToElement.get(selId)
         if (!el) continue
         const b = cachedBounds(el)
         const corners: [number, number][] = [
@@ -316,23 +306,25 @@ export function usePointerEngine(opts: {
    */
   const eraseAtSimple = useCallback(
     (x: number, y: number) => {
-      const r = sizeRef.current * 2 + 10,
+      const r = useAppStore.getState().size * 2 + 10,
         r2 = r * r
       const state = useAppStore.getState()
       
-      // P1 性能优化: 使用空间索引预筛选擦除候选元素
+      // P0-2 优化: 使用空间索引预筛选，直接遍历候选而非全部元素
       const candidateIds = state.spatialIndex?.search({
         x: x - r,
         y: y - r,
         w: r * 2,
         h: r * 2,
       })
-      const candidateSet = candidateIds ? new Set(candidateIds) : null
       
-      for (const el of state.elements) {
-        if (erasedRef.current.has(el.id)) continue
-        // P1 优化: 跳过空间索引筛选外的元素
-        if (candidateSet && !candidateSet.has(el.id)) continue
+      // P0-2: 直接遍历候选 ID，通过 idToElement O(1) 查找
+      const iterateIds = candidateIds ?? state.elements.map(e => e.id)
+      
+      for (const id of iterateIds) {
+        if (erasedRef.current.has(id)) continue
+        const el = state.idToElement.get(id)
+        if (!el) continue
         
         if (el.type === 'stroke') {
           const segments: number[][][] = []
@@ -403,7 +395,7 @@ export function usePointerEngine(opts: {
       }
 
       // 设置橡皮擦大小
-      eraserStore.engine.setBaseSize(sizeRef.current)
+      eraserStore.engine.setBaseSize(useAppStore.getState().size)
 
       // 执行物理擦除
       const result = eraserStore.addErasePoint(erasePoint, state.elements)
@@ -455,11 +447,11 @@ export function usePointerEngine(opts: {
     (e: MouseEvent | TouchEvent) => {
       e.preventDefault()
       const pos = getPos(e)
-      const curTool = toolRef.current,
-        curColor = colorRef.current,
-        curSize = sizeRef.current,
-        curFillColor = fillColorRef.current,
-        curVB = viewBoxRef.current
+      const curTool = useAppStore.getState().tool,
+        curColor = useAppStore.getState().color,
+        curSize = useAppStore.getState().size,
+        curFillColor = useAppStore.getState().fillColor,
+        curVB = useViewStore.getState().viewBox
       if (curTool === 'pan') {
         const cx = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
         const cy = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
@@ -469,7 +461,7 @@ export function usePointerEngine(opts: {
       if (curTool === 'select') {
         const h = hitHandle(pos.x, pos.y)
         if (h) {
-          const el = useAppStore.getState().elements.find((e) => e.id === h.id)
+          const el = useAppStore.getState().idToElement.get(h.id)
           if (el)
             resizeRef.current = {
               ...h,
@@ -521,7 +513,7 @@ export function usePointerEngine(opts: {
           const screenY = (pos.y - curVB.y) * curVB.zoom + rect.top
           const hitEl = hitTest(pos.x, pos.y)
           const existing = hitEl
-            ? (useAppStore.getState().elements.find((e) => e.id === hitEl && e.type === 'text') as
+            ? (useAppStore.getState().idToElement.get(hitEl) as
                 | TextElement
                 | undefined)
             : undefined
@@ -591,7 +583,7 @@ export function usePointerEngine(opts: {
         particleSystem.updatePointerPosition(pos.x, pos.y, 1 / 60)
       }
 
-      const curTool = toolRef.current
+      const curTool = useAppStore.getState().tool
       if (curTool === 'select' && resizeRef.current) {
         const { handle, id, startX, startY, origBounds: ob } = resizeRef.current
         const anchors: [number, number][] = [
@@ -675,7 +667,7 @@ export function usePointerEngine(opts: {
         scheduleRedraw()
         return
       }
-      if (curTool === 'pan' && isPanning) {
+      if (curTool === 'pan' && useViewStore.getState().isPanning) {
         const cx = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
         const cy = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
         updatePan(cx, cy)
@@ -687,9 +679,18 @@ export function usePointerEngine(opts: {
         const trail = eraserTrailRef.current
         const now = performance.now()
         trail.push({ x: pos.x, y: pos.y, time: now })
-        // 只保留最近 300ms 的轨迹点
-        while (trail.length > 0 && now - trail[0].time > 300) trail.shift()
-        if (trail.length > 40) trail.splice(0, trail.length - 40)
+        // P1-5: 使用头指针代替 shift() 避免 O(n) 数组移动
+        let head = eraserTrailHeadRef.current
+        while (head < trail.length && now - trail[head].time > 300) head++
+        if (head > 20) {
+          trail.splice(0, head)
+          head = 0
+        }
+        if (trail.length - head > 40) {
+          trail.splice(0, trail.length - 40)
+          head = 0
+        }
+        eraserTrailHeadRef.current = head
         
         if (drawingRef.current) eraseAt(pos.x, pos.y, undefined, e)
         scheduleRedraw()
@@ -726,7 +727,6 @@ export function usePointerEngine(opts: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       getPos,
-      isPanning,
       updatePan,
       scheduleRedraw,
       moveElementById,
@@ -742,12 +742,12 @@ export function usePointerEngine(opts: {
   const handleEnd = useCallback(
     (e: MouseEvent | TouchEvent) => {
       e.preventDefault()
-      const curColor = colorRef.current,
-        curSize = sizeRef.current,
-        curBrush = brushRef.current
+      const curColor = useAppStore.getState().color,
+        curSize = useAppStore.getState().size,
+        curBrush = useAppStore.getState().brush
       if (drawingRef.current) {
         drawingRef.current = false
-        const curTool = toolRef.current
+        const curTool = useAppStore.getState().tool
         if (curTool === 'pen') {
           if (currentPtsRef.current.length >= 1) {
             let pts = currentPtsRef.current
@@ -768,9 +768,8 @@ export function usePointerEngine(opts: {
           currentPtsRef.current = []
           penVelocityRef.current = 0
         } else if (curTool === 'eraser') {
-          if (preEraseSnapshotRef.current && erasedRef.current.size > 0) {
-            useAppStore.getState().batchErase(preEraseSnapshotRef.current, [])
-          }
+          // P0-4: 增量快照模式 - batchErase 不再需要全量快照
+          erasedRef.current.clear()
           preEraseSnapshotRef.current = null
           currentPtsRef.current = []
         } else if (currentShapeRef.current) {
@@ -782,7 +781,7 @@ export function usePointerEngine(opts: {
         scheduleRedraw()
         return
       }
-      const curTool = toolRef.current
+      const curTool = useAppStore.getState().tool
       if (curTool === 'select') {
         if (marqueeRef.current) {
           const m = marqueeRef.current
@@ -827,7 +826,7 @@ export function usePointerEngine(opts: {
         }
         const resizeCur = resizeRef.current
         if (resizeCur?.origElement) {
-          const afterEl = useAppStore.getState().elements.find((e) => e.id === resizeCur.id)
+          const afterEl = useAppStore.getState().idToElement.get(resizeCur.id)
           if (afterEl) {
             const origEl = resizeCur.origElement
             useAppStore.getState().pushUndo({
@@ -895,16 +894,16 @@ export function usePointerEngine(opts: {
 
     // Double-click to edit text
     const onDblClick = (e: MouseEvent) => {
-      if (toolRef.current !== 'select') return
+      if (useAppStore.getState().tool !== 'select') return
       const pos = getPos(e)
       const hitId = hitTest(pos.x, pos.y)
       if (!hitId) return
-      const el = useAppStore.getState().elements.find((el) => el.id === hitId)
+      const el = useAppStore.getState().idToElement.get(hitId)
       if (el && el.type === 'text') {
         const canvas = canvasRef.current
         if (!canvas) return
         const rect = canvas.getBoundingClientRect()
-        const vb = viewBoxRef.current
+        const vb = useViewStore.getState().viewBox
         const screenX = (el.x - vb.x) * vb.zoom + rect.left
         const screenY = (el.y - vb.y) * vb.zoom + rect.top
         startEditText(el.x, el.y, screenX, screenY, el.color, {
@@ -1013,25 +1012,15 @@ export function usePointerEngine(opts: {
     }
   }, [canvasRef, scheduleRedraw])
 
-  // Cursor
-  const cursorMap: Record<string, string> = {
-    select: 'default',
-    pen: 'crosshair',
-    eraser: 'none',
-    pan: 'grab',
-    text: 'text',
-    rectangle: 'crosshair',
-    circle: 'crosshair',
-    arrow: 'crosshair',
-    line: 'crosshair',
-  }
+  // Cursor (P2-3: 使用模块级常量，避免每次渲染重建)
+  const cursorMap = CURSOR_MAP
   function getCursor() {
-    if (isPanning) return 'grabbing'
-    if (toolRef.current === 'select' && mouseRef.current) {
+    if (useViewStore.getState().isPanning) return 'grabbing'
+    if (useAppStore.getState().tool === 'select' && mouseRef.current) {
       const h = hitHandle(mouseRef.current.x, mouseRef.current.y)
       if (h) return ['nwse-resize', 'nesw-resize', 'nesw-resize', 'nwse-resize'][h.handle]
     }
-    return cursorMap[toolRef.current] ?? 'crosshair'
+    return cursorMap[useAppStore.getState().tool] ?? 'crosshair'
   }
 
   // Copy to clipboard
@@ -1076,6 +1065,7 @@ export function usePointerEngine(opts: {
 
   // 擦除轨迹跟踪（用于光标拖尾渲染）
   const eraserTrailRef = useRef<{ x: number; y: number; time: number }[]>([])
+  const eraserTrailHeadRef = useRef(0)
   const penVelocityRef = useRef(0)
 
   // getDrawState for renderer
@@ -1087,10 +1077,10 @@ export function usePointerEngine(opts: {
       mousePos: mouseRef.current,
       marquee: marqueeRef.current,
       snapLines: snapLinesRef.current,
-      tool: toolRef.current,
-      color: colorRef.current,
-      size: sizeRef.current,
-      brush: brushRef.current,
+      tool: useAppStore.getState().tool,
+      color: useAppStore.getState().color,
+      size: useAppStore.getState().size,
+      brush: useAppStore.getState().brush,
       showGrid: useViewStore.getState().showGrid ?? false,
       showRulers: false,
       gridSize: 20,
