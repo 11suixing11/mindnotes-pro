@@ -18,6 +18,12 @@ class MockPath2D {
   lineTo = vi.fn()
   arc = vi.fn()
   closePath = vi.fn()
+  quadraticCurveTo = vi.fn()
+  bezierCurveTo = vi.fn()
+  rect = vi.fn()
+  ellipse = vi.fn()
+  roundRect = vi.fn()
+  addPath = vi.fn()
 }
 
 if (typeof globalThis.Path2D === 'undefined') {
