@@ -87,7 +87,6 @@ export function usePointerEngine(opts: {
   const shapeStartRef = useRef<{ x: number; y: number } | null>(null)
   const currentShapeRef = useRef<ShapeElement | null>(null)
   const erasedRef = useRef<Set<string>>(new Set())
-  const preEraseSnapshotRef = useRef<CanvasElement[] | null>(null)
   
   // P0 修复: 擦除轨迹跟踪（用于光标拖尾渲染）- 移到开头，在 handleMove 使用前声明
   const eraserTrailRef = useRef<{ x: number; y: number; time: number }[]>([])
@@ -540,9 +539,8 @@ export function usePointerEngine(opts: {
       erasedRef.current = new Set()
       if (curTool === 'pen') currentPtsRef.current = [[pos.x, pos.y]]
       else if (curTool === 'eraser') {
-        preEraseSnapshotRef.current = useAppStore
-          .getState()
-          .elements.map((el) => ({ ...el }) as CanvasElement)
+        // P1-4 性能优化: 删除无用的全量快照克隆
+        // batchErase 不再需要 preEraseSnapshot，避免每次擦除开始时克隆所有元素
         eraseAt(pos.x, pos.y, undefined, e)
       } else {
         shapeStartRef.current = pos
@@ -582,13 +580,15 @@ export function usePointerEngine(opts: {
       const pos = getPos(e)
       mouseRef.current = pos
 
-      // 更新粒子系统指针位置（用于气流效果）
-      const { particleSystem, particlesEnabled } = useEraserStore.getState()
-      if (particlesEnabled && particleSystem) {
-        particleSystem.updatePointerPosition(pos.x, pos.y, 1 / 60)
-      }
-
+      // P1-5 性能优化: 仅在橡皮擦工具时更新粒子系统指针位置
+      // 避免每次 mousemove（60fps）都调用，即使不在擦除模式
       const curTool = useAppStore.getState().tool
+      if (curTool === 'eraser') {
+        const { particleSystem, particlesEnabled } = useEraserStore.getState()
+        if (particlesEnabled && particleSystem) {
+          particleSystem.updatePointerPosition(pos.x, pos.y, 1 / 60)
+        }
+      }
       if (curTool === 'select' && resizeRef.current) {
         const { handle, id, startX, startY, origBounds: ob } = resizeRef.current
         const anchors: [number, number][] = [
@@ -773,9 +773,8 @@ export function usePointerEngine(opts: {
           currentPtsRef.current = []
           penVelocityRef.current = 0
         } else if (curTool === 'eraser') {
-          // P0-4: 增量快照模式 - batchErase 不再需要全量快照
+          // P1-4 性能优化: 删除无用的全量快照克隆
           erasedRef.current.clear()
-          preEraseSnapshotRef.current = null
           currentPtsRef.current = []
         } else if (currentShapeRef.current) {
           if (Math.abs(currentShapeRef.current.w) > 2 || Math.abs(currentShapeRef.current.h) > 2)

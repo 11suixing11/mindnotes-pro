@@ -23,9 +23,19 @@ interface StoreRef {
 let _saveTimer: ReturnType<typeof setTimeout> | null = null
 let _storeRef: StoreRef | null = null
 
-// P0 性能优化: 保存哈希缓存，避免无变化的存储写入
-let _lastSaveHash: string = ''
+// P0 性能优化: 使用 generation 计数器替代内容哈希
+// 彻底解决中间元素修改无法被检测的问题（数据丢失bug）
+let _saveGeneration: number = 0
+let _lastSavedGeneration: number = -1
 let _lastSaveTime: number = 0
+
+/**
+ * P0 修复: 递增保存 generation 计数器
+ * 每次 mutation 调用此函数标记内容已修改
+ */
+export function incrementSaveGeneration(): void {
+  _saveGeneration++
+}
 
 /**
  * Initialize the save manager with a reference to the store.
@@ -44,23 +54,7 @@ export function clearSaveTimer(): void {
   }
 }
 
-/**
- * P0 性能优化: 快速计算内容哈希
- * 用于检测是否真的需要写入存储
- * 修复: 之前的哈希太弱，无法检测中间元素的修改
- */
-function computeContentHash(elements: CanvasElement[], bgColor: string): string {
-  // 改进的哈希算法：
-  // 1. 元素数量
-  // 2. 最后几个元素的 ID（防止只修改中间元素）
-  // 3. 最后几个元素的 updatedAt 时间戳（如果有）
-  // 4. 背景色
-  // 这比完整序列化快得多，且能可靠检测所有变化
-  const lastElements = elements.slice(-5)
-  const lastIds = lastElements.map(e => e.id).join(',')
-  const lastTimestamps = lastElements.map(e => (e as any).updatedAt || '0').join(',')
-  return `${elements.length}:${lastIds}:${lastTimestamps}:${bgColor}`
-}
+
 
 /**
  * Schedule a save after the configured delay.
@@ -97,9 +91,9 @@ export async function saveDocNow(): Promise<void> {
   
   if (!currentDocId) return
   
-  // P0 性能优化: 跳过无变化的保存
-  const currentHash = computeContentHash(elements, bgColor)
-  if (currentHash === _lastSaveHash) {
+  // P0 修复: 使用 generation 计数器检测变化
+  // 彻底解决中间元素修改无法被检测的数据丢失bug
+  if (_saveGeneration === _lastSavedGeneration) {
     // 内容未变化，直接标记为已保存
     _storeRef.setState({ saveStatus: 'saved' })
     setTimeout(() => {
@@ -126,7 +120,7 @@ export async function saveDocNow(): Promise<void> {
   })
   
   // 更新缓存
-  _lastSaveHash = currentHash
+  _lastSavedGeneration = _saveGeneration
   _lastSaveTime = now
   
   // P1 性能优化: 增量更新文档列表，避免每次都重新获取所有文档
@@ -164,7 +158,7 @@ export async function saveDocNow(): Promise<void> {
  * P1 性能优化: 强制重置缓存（用于导入/导出等场景）
  */
 export function resetSaveCache(): void {
-  _lastSaveHash = ''
+  _lastSavedGeneration = -1
   _lastSaveTime = 0
 }
 

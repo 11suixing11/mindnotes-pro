@@ -1,7 +1,7 @@
 import type { CanvasElement, UndoAction } from '../types'
 import { moveElement, resizeElement } from '../types'
 import { shallowClone, snapshot } from '../helpers'
-import { scheduleSave } from '../saveManager'
+import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import { MAX_HISTORY } from './history'
 import { SpatialIndex } from '../../eraser/SpatialIndex'
 
@@ -54,6 +54,7 @@ export function createCanvasElementsSlice(
     setSelectedIds: (ids) => set({ selectedIds: ids }),
 
     addElement: (el) => {
+      incrementSaveGeneration()
       const st = get()
       const action: UndoAction = { type: 'add', ids: [el.id], els: [shallowClone(el)] }
       set({
@@ -68,6 +69,7 @@ export function createCanvasElementsSlice(
     },
 
     addElements: (els) => {
+      incrementSaveGeneration()
       const st = get()
       const action: UndoAction = {
         type: 'add',
@@ -88,6 +90,7 @@ export function createCanvasElementsSlice(
     },
 
     updateElement: (id, update) => {
+      incrementSaveGeneration()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => ({
         elements: s.elements.map((el: CanvasElement) => {
@@ -105,6 +108,7 @@ export function createCanvasElementsSlice(
     },
 
     removeElement: (id) => {
+      incrementSaveGeneration()
       const st = get()
       const idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
       if (idx < 0) return
@@ -128,6 +132,7 @@ export function createCanvasElementsSlice(
     },
 
     removeElements: (ids) => {
+      incrementSaveGeneration()
       const st = get()
       const idSet = new Set(ids)
       const items: { el: CanvasElement; index: number }[] = []
@@ -152,25 +157,24 @@ export function createCanvasElementsSlice(
     moveElementById: (id, dx, dy) => {
       // P0 性能优化: 跳过无意义的移动
       if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return
+      incrementSaveGeneration()
       
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
         // P0 性能优化: 快速路径 - 从 idToElement 直接查找 O(1)
-        const targetEl = idToElement.get(id)
-        if (!targetEl) return s
+        // P0-3 修复: 使用 index-based 替换替代全量 map
+        const idx = s.elements.findIndex((e: CanvasElement) => e.id === id)
+        if (idx < 0) return s
         
-        return {
-          elements: s.elements.map((el: CanvasElement) => {
-            if (el.id === id) {
-              const newEl = moveElement(el, dx, dy)
-              // P0 优化: 同步更新 ID 映射
-              idToElement.set(id, newEl)
-              spatialIndex.update(newEl)
-              return newEl
-            }
-            return el
-          }),
-        }
+        const next = [...s.elements]
+        const newEl = moveElement(next[idx], dx, dy)
+        next[idx] = newEl
+        
+        // P0 优化: 同步更新 ID 映射
+        idToElement.set(id, newEl)
+        spatialIndex.update(newEl)
+        
+        return { elements: next }
       })
       scheduleSave()
     },
@@ -179,6 +183,7 @@ export function createCanvasElementsSlice(
       // P0 性能优化: 跳过无意义的移动
       if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return
       if (ids.length === 0) return
+      incrementSaveGeneration()
       
       const idSet = new Set(ids)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -193,18 +198,22 @@ export function createCanvasElementsSlice(
         }
         if (!hasMatch) return s
         
-        return {
-          elements: s.elements.map((el: CanvasElement) => {
-            if (idSet.has(el.id)) {
-              const newEl = moveElement(el, dx, dy)
-              // P0 优化: 同步更新 ID 映射
-              idToElement.set(el.id, newEl)
-              spatialIndex.update(newEl)
-              return newEl
-            }
-            return el
-          }),
+        // P0-3 修复: 使用 index-based 替换替代全量 map
+        const next = [...s.elements]
+        let changed = false
+        for (let i = 0; i < next.length; i++) {
+          const el = next[i]
+          if (idSet.has(el.id)) {
+            const newEl = moveElement(el, dx, dy)
+            next[i] = newEl
+            idToElement.set(el.id, newEl)
+            spatialIndex.update(newEl)
+            changed = true
+          }
         }
+        if (!changed) return s
+        
+        return { elements: next }
       })
       scheduleSave()
     },
@@ -212,30 +221,30 @@ export function createCanvasElementsSlice(
     resizeElementById: (id, ax, ay, sx, sy) => {
       // P0 性能优化: 跳过无意义的缩放
       if (Math.abs(sx - 1) < 0.001 && Math.abs(sy - 1) < 0.001) return
+      incrementSaveGeneration()
       
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
         // P0 性能优化: 快速路径 - 从 idToElement 直接查找 O(1)
-        const targetEl = idToElement.get(id)
-        if (!targetEl) return s
+        // P0-3 修复: 使用 index-based 替换替代全量 map
+        const idx = s.elements.findIndex((e: CanvasElement) => e.id === id)
+        if (idx < 0) return s
         
-        return {
-          elements: s.elements.map((el: CanvasElement) => {
-            if (el.id === id) {
-              const newEl = resizeElement(el, ax, ay, sx, sy)
-              // P0 优化: 同步更新 ID 映射
-              idToElement.set(id, newEl)
-              spatialIndex.update(newEl)
-              return newEl
-            }
-            return el
-          }),
-        }
+        const next = [...s.elements]
+        const newEl = resizeElement(next[idx], ax, ay, sx, sy)
+        next[idx] = newEl
+        
+        // P0 优化: 同步更新 ID 映射
+        idToElement.set(id, newEl)
+        spatialIndex.update(newEl)
+        
+        return { elements: next }
       })
       scheduleSave()
     },
 
     clearAll: () => {
+      incrementSaveGeneration()
       const st = get()
       const action: UndoAction = { type: 'clear', snapshot: snapshot(st.elements) }
       set({
@@ -259,6 +268,7 @@ export function createCanvasElementsSlice(
     },
 
     paste: () => {
+      incrementSaveGeneration()
       const { clipboard, elements } = get()
       if (clipboard.length === 0) return
       const now = Date.now()
@@ -285,6 +295,7 @@ export function createCanvasElementsSlice(
     },
 
     batchErase: (beforeSnap, _added) => {
+      incrementSaveGeneration()
       const action: UndoAction = {
         type: 'erase',
         before: beforeSnap.map(shallowClone),
