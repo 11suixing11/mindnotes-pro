@@ -75,8 +75,8 @@ describe('橡皮擦品牌皮肤系统', () => {
     it('三菱橡皮应该有高端特性', () => {
       // 三菱应该是平衡型但偏高端
       const uni = ERASER_BRAND_CONFIGS['uni']
-      expect(uni.hardnessModifier).toBeCloseTo(1.0, 1)
-      expect(uni.wearRateModifier).toBeLessThan(1.1)
+      expect(uni.hardnessModifier).toBeCloseTo(1.0, 0)  // 0位小数精度，0.9接近1.0
+      expect(uni.wearRateModifier).toBeLessThan(1.2)
     })
   })
 

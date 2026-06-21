@@ -299,8 +299,21 @@ export function usePointerEngine(opts: {
       const r = sizeRef.current * 2 + 10,
         r2 = r * r
       const state = useAppStore.getState()
+      
+      // P1 性能优化: 使用空间索引预筛选擦除候选元素
+      const candidateIds = state.spatialIndex?.search({
+        x: x - r,
+        y: y - r,
+        w: r * 2,
+        h: r * 2,
+      })
+      const candidateSet = candidateIds ? new Set(candidateIds) : null
+      
       for (const el of state.elements) {
         if (erasedRef.current.has(el.id)) continue
+        // P1 优化: 跳过空间索引筛选外的元素
+        if (candidateSet && !candidateSet.has(el.id)) continue
+        
         if (el.type === 'stroke') {
           const segments: number[][][] = []
           let cur: number[][] = []
