@@ -96,6 +96,9 @@ export function createDocManagementSlice(
         loaded: true,
       })
 
+      // 初始化空间索引
+      get().spatialIndex?.bulkLoad(current?.elements ?? [])
+
       removeMigratedData()
     },
 
@@ -124,6 +127,8 @@ export function createDocManagementSlice(
         redoStack: [],
         selectedIds: [],
       })
+      // 新文档，清空空间索引
+      get().spatialIndex?.clear()
       return id
     },
 
@@ -141,6 +146,8 @@ export function createDocManagementSlice(
           redoStack: doc.redoStack ?? [],
           selectedIds: [],
         })
+        // 加载新文档，重建空间索引
+        get().spatialIndex?.bulkLoad(doc.elements)
         useViewStore.getState().resetView()
       }
     },
@@ -171,6 +178,8 @@ export function createDocManagementSlice(
           undoStack: [],
           redoStack: [],
         })
+        // 删除当前文档后加载第一个文档，重建空间索引
+        get().spatialIndex?.bulkLoad(first?.elements ?? [])
       } else {
         set({ docs })
       }
