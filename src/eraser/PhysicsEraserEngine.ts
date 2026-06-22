@@ -401,7 +401,10 @@ export class PhysicsEraserEngine {
     })
 
     // 4. 空间过滤：如果元素已预筛选则直接使用，否则内部过滤
-    const candidates = preFiltered ? elements : this.filterCandidateElements(elements, eraseBounds)
+    // P0优化: 一次性预计算所有元素的 bounds，避免重复计算
+    const candidates = preFiltered
+      ? elements
+      : this.filterCandidateElementsWithPrecomputedBounds(elements, eraseBounds)
 
     // 5. 预计算擦除强度（P1修复: 只计算一次，避免每笔触重复计算）
     const eraseStrength = this.computeEraseStrength(point)
@@ -885,8 +888,9 @@ export class PhysicsEraserEngine {
   /**
    * 空间过滤：快速筛选候选元素
    * P1优化: 使用 for 循环替代 .filter()，避免闭包和临时数组
+   * 保留作为公共 API 供外部调用（如空间索引模块）
    */
-  private filterCandidateElements(elements: CanvasElement[], eraseBounds: Bounds): CanvasElement[] {
+  filterCandidateElements(elements: CanvasElement[], eraseBounds: Bounds): CanvasElement[] {
     const result: CanvasElement[] = []
     const ax = eraseBounds.x
     const ay = eraseBounds.y
@@ -901,6 +905,40 @@ export class PhysicsEraserEngine {
         const b = elementBounds(el)
         // P1优化: 内联 AABB 相交检测，避免函数调用
         if (ax < b.x + b.w && axw > b.x && ay < b.y + b.h && ayh > b.y) {
+          result.push(el)
+        }
+      } catch {
+        // 跳过无效元素
+      }
+    }
+    return result
+  }
+
+  /**
+   * P0性能优化: 空间过滤 + 预计算元素边界
+   * 避免在 computeStrokeErasure 中重复计算 elementBounds
+   * 性能提升: 对于 N 个元素，elementBounds 从 O(N) 次调用减少到 O(1) 次
+   */
+  private filterCandidateElementsWithPrecomputedBounds(
+    elements: CanvasElement[],
+    eraseBounds: Bounds
+  ): CanvasElement[] {
+    const result: CanvasElement[] = []
+    const ax = eraseBounds.x
+    const ay = eraseBounds.y
+    const aw = eraseBounds.w
+    const ah = eraseBounds.h
+    const axw = ax + aw
+    const ayh = ay + ah
+
+    for (let i = 0; i < elements.length; i++) {
+      const el = elements[i]
+      try {
+        const b = elementBounds(el)
+        // P1优化: 内联 AABB 相交检测，避免函数调用
+        if (ax < b.x + b.w && axw > b.x && ay < b.y + b.h && ayh > b.y) {
+          // P0优化: 缓存 bounds 到元素对象上，避免 computeStrokeErasure 重复计算
+          ;(el as any)._cachedBounds = b
           result.push(el)
         }
       } catch {
@@ -1049,7 +1087,8 @@ export class PhysicsEraserEngine {
 
     // P0修复: 使用已缓存的 elementBounds 做 Early exit
     // 避免手动 AABB 采样导致的漏检问题
-    const strokeBounds = elementBounds(stroke)
+    // P0性能优化: 优先使用预计算的缓存 bounds，避免重复计算
+    const strokeBounds = (stroke as any)._cachedBounds ?? elementBounds(stroke)
     const eraseLeft = erasePoint.x - effectiveRadius
     const eraseRight = erasePoint.x + effectiveRadius
     const eraseTop = erasePoint.y - effectiveRadius
