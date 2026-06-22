@@ -137,10 +137,17 @@ export async function saveDocNow(): Promise<void> {
     redoStack,
   }
 
-  // 在内存中更新文档列表
-  const docs = currentDocs
-    .map((doc) => (doc.id === currentDocId ? updatedDoc : doc))
-    .sort((a, b) => b.updatedAt - a.updatedAt)
+  // P0 性能优化: 避免每次保存都 O(n log n) 全量排序
+  // 策略：当前修改的文档一定是最新的，直接移到最前面即可 O(n)
+  let docs: CanvasDoc[]
+  const existingIndex = currentDocs.findIndex((d) => d.id === currentDocId)
+  if (existingIndex >= 0) {
+    // 文档已存在：移到最前面
+    docs = [updatedDoc, ...currentDocs.slice(0, existingIndex), ...currentDocs.slice(existingIndex + 1)]
+  } else {
+    // 新文档：插入到最前面
+    docs = [updatedDoc, ...currentDocs]
+  }
 
   _storeRef.setState({ docs, saveStatus: 'saved' })
 
