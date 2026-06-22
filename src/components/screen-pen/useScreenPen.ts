@@ -19,6 +19,76 @@ export function useScreenPen() {
   const [isDrawing, setIsDrawing] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
+  // P1 修复: 使用 ref 模式避免 React hooks 依赖循环
+  const strokesRef = useRef(strokes)
+  const currentStrokeRef = useRef(currentStroke)
+  const colorRef = useRef(color)
+  const sizeRef = useRef(size)
+  const opacityRef = useRef(opacity)
+  const toolRef = useRef(tool)
+
+  // 同步 refs
+  useEffect(() => { strokesRef.current = strokes }, [strokes])
+  useEffect(() => { currentStrokeRef.current = currentStroke }, [currentStroke])
+  useEffect(() => { colorRef.current = color }, [color])
+  useEffect(() => { sizeRef.current = size }, [size])
+  useEffect(() => { opacityRef.current = opacity }, [opacity])
+  useEffect(() => { toolRef.current = tool }, [tool])
+
+  // Draw a single stroke (无依赖，放在最前面)
+  const drawStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: ScreenPenStroke) => {
+    if (stroke.points.length < 2) return
+    ctx.save()
+    ctx.globalAlpha = stroke.opacity
+    ctx.strokeStyle = stroke.color
+    ctx.lineWidth = stroke.size
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    if (stroke.tool === 'eraser') {
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.strokeStyle = 'rgba(0,0,0,1)'
+    } else if (stroke.tool === 'highlighter') {
+      ctx.globalAlpha = 0.3
+      ctx.lineWidth = stroke.size * 3
+    }
+    ctx.beginPath()
+    ctx.moveTo(stroke.points[0][0], stroke.points[0][1])
+    for (let i = 1; i < stroke.points.length; i++) {
+      const p0 = stroke.points[i - 1]
+      const p1 = stroke.points[i]
+      const midX = (p0[0] + p1[0]) / 2
+      const midY = (p0[1] + p1[1]) / 2
+      ctx.quadraticCurveTo(p0[0], p0[1], midX, midY)
+    }
+    ctx.stroke()
+    ctx.restore()
+  }, [])
+
+  // P1 修复: Redraw all strokes - 使用 ref 消除依赖
+  const redrawAll = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const dpr = window.devicePixelRatio
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    // Draw all strokes
+    for (const stroke of strokesRef.current) {
+      drawStroke(ctx, stroke)
+    }
+    // Draw current stroke
+    if (currentStrokeRef.current.length > 1) {
+      drawStroke(ctx, {
+        points: currentStrokeRef.current,
+        color: colorRef.current,
+        size: sizeRef.current,
+        opacity: opacityRef.current,
+        tool: toolRef.current,
+      })
+    }
+  }, [drawStroke])
+
   // Create overlay canvas when enabled
   useEffect(() => {
     if (!enabled) {
@@ -29,7 +99,6 @@ export function useScreenPen() {
       }
       return
     }
-
     // Create full-screen overlay canvas
     const canvas = document.createElement('canvas')
     canvas.id = 'screen-pen-overlay'
@@ -47,10 +116,8 @@ export function useScreenPen() {
     canvas.height = window.innerHeight * window.devicePixelRatio
     canvas.style.width = window.innerWidth + 'px'
     canvas.style.height = window.innerHeight + 'px'
-
     document.body.appendChild(canvas)
     canvasRef.current = canvas
-
     // Handle resize
     const handleResize = () => {
       if (canvasRef.current) {
@@ -62,7 +129,6 @@ export function useScreenPen() {
       }
     }
     window.addEventListener('resize', handleResize)
-
     return () => {
       window.removeEventListener('resize', handleResize)
       if (canvasRef.current) {
@@ -70,90 +136,24 @@ export function useScreenPen() {
         canvasRef.current = null
       }
     }
-  }, [enabled])
-
-  // Redraw all strokes
-  const redrawAll = useCallback(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    const dpr = window.devicePixelRatio
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-    // Draw all strokes
-    for (const stroke of strokes) {
-      drawStroke(ctx, stroke)
-    }
-
-    // Draw current stroke
-    if (currentStroke.length > 1) {
-      drawStroke(ctx, {
-        points: currentStroke,
-        color,
-        size,
-        opacity,
-        tool,
-      })
-    }
-  }, [strokes, currentStroke, color, size, opacity, tool])
-
-  // Draw a single stroke
-  const drawStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: ScreenPenStroke) => {
-    if (stroke.points.length < 2) return
-
-    ctx.save()
-    ctx.globalAlpha = stroke.opacity
-    ctx.strokeStyle = stroke.color
-    ctx.lineWidth = stroke.size
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-
-    if (stroke.tool === 'eraser') {
-      ctx.globalCompositeOperation = 'destination-out'
-      ctx.strokeStyle = 'rgba(0,0,0,1)'
-    } else if (stroke.tool === 'highlighter') {
-      ctx.globalAlpha = 0.3
-      ctx.lineWidth = stroke.size * 3
-    }
-
-    ctx.beginPath()
-    ctx.moveTo(stroke.points[0][0], stroke.points[0][1])
-
-    for (let i = 1; i < stroke.points.length; i++) {
-      const p0 = stroke.points[i - 1]
-      const p1 = stroke.points[i]
-      const midX = (p0[0] + p1[0]) / 2
-      const midY = (p0[1] + p1[1]) / 2
-      ctx.quadraticCurveTo(p0[0], p0[1], midX, midY)
-    }
-
-    ctx.stroke()
-    ctx.restore()
-  }, [])
+  }, [enabled, redrawAll])
 
   // Handle pointer events
   useEffect(() => {
     if (!enabled) return
-
     const handlePointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return
       setIsDrawing(true)
       setCurrentStroke([[e.clientX, e.clientY]])
     }
-
     const handlePointerMove = (e: PointerEvent) => {
       if (!isDrawing) return
       setCurrentStroke((prev) => [...prev, [e.clientX, e.clientY]])
       redrawAll()
     }
-
     const handlePointerUp = () => {
       if (!isDrawing) return
       setIsDrawing(false)
-
       if (currentStroke.length > 1) {
         const newStroke: ScreenPenStroke = {
           points: currentStroke,
@@ -167,11 +167,9 @@ export function useScreenPen() {
       setCurrentStroke([])
       redrawAll()
     }
-
     window.addEventListener('pointerdown', handlePointerDown)
     window.addEventListener('pointermove', handlePointerMove)
     window.addEventListener('pointerup', handlePointerUp)
-
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown)
       window.removeEventListener('pointermove', handlePointerMove)
@@ -205,36 +203,29 @@ export function useScreenPen() {
         e.preventDefault()
         toggle()
       }
-
       // Only handle shortcuts when enabled
       if (!enabled) return
-
       // Escape to disable
       if (e.key === 'Escape') {
         setEnabled(false)
       }
-
       // Ctrl+Z to undo
       if (e.ctrlKey && e.key === 'z') {
         e.preventDefault()
         undo()
       }
-
       // Delete to clear all
       if (e.key === 'Delete') {
         clearAll()
       }
-
       // Number keys for tool selection
       if (e.key === '1') setTool('pen')
       if (e.key === '2') setTool('highlighter')
       if (e.key === '3') setTool('eraser')
-
       // Bracket keys for size
       if (e.key === '[') setSize((prev) => Math.max(1, prev - 2))
       if (e.key === ']') setSize((prev) => Math.min(20, prev + 2))
     }
-
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [enabled, toggle, undo, clearAll])

@@ -352,7 +352,7 @@ export function drawStrokeEl(
     // 原: O(n) 次绘制 → 优化后: O(n/GROUP_SIZE) 次，典型场景 n=100 → 5-10 次
     const GROUP_SIZE = 12 // 每组最多线段数，平衡性能与视觉效果
     const WIDTH_BUCKETS = 8 // 线宽分桶数
-    
+
     interface Segment {
       x1: number
       y1: number
@@ -360,27 +360,29 @@ export function drawStrokeEl(
       y2: number
       widthFactor: number
     }
-    
+
     const segments: Segment[] = []
     for (let i = 1; i < pts.length; i++) {
-      const p = pts[i - 1], c = pts[i]
+      const p = pts[i - 1],
+        c = pts[i]
       const angle = Math.atan2(c[1] - p[1], c[0] - p[0]) - Math.PI / 4
       const wf = 0.3 + 0.7 * Math.abs(Math.sin(angle))
       segments.push({ x1: p[0], y1: p[1], x2: c[0], y2: c[1], widthFactor: wf })
     }
-    
+
     // 按线宽因子分桶，相似线宽的线段合并绘制
     for (let bucket = 0; bucket < WIDTH_BUCKETS; bucket++) {
       const minWf = bucket / WIDTH_BUCKETS
       const maxWf = (bucket + 1) / WIDTH_BUCKETS
-      const bucketSegments = segments.filter(s => s.widthFactor >= minWf && s.widthFactor < maxWf)
-      
+      const bucketSegments = segments.filter((s) => s.widthFactor >= minWf && s.widthFactor < maxWf)
+
       if (bucketSegments.length === 0) continue
-      
+
       // 计算该桶平均线宽（加权平均）
-      const avgWf = bucketSegments.reduce((sum, s) => sum + s.widthFactor, 0) / bucketSegments.length
+      const avgWf =
+        bucketSegments.reduce((sum, s) => sum + s.widthFactor, 0) / bucketSegments.length
       ctx.lineWidth = el.size * (0.3 + 0.7 * avgWf)
-      
+
       // 分组批量绘制
       for (let g = 0; g < bucketSegments.length; g += GROUP_SIZE) {
         ctx.beginPath()
