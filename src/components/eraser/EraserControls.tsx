@@ -2,9 +2,9 @@ import { useShallow } from 'zustand/react/shallow'
 import { useState } from 'react'
 import { useEraserStore } from '../../eraser/eraserStore'
 import type { EraserShape, EraserPresetType, EraserBrandType } from '../../eraser/types'
-import { 
-  ERASER_PRESET_LABELS, 
-  ERASER_PRESET_DESCRIPTIONS, 
+import {
+  ERASER_PRESET_LABELS,
+  ERASER_PRESET_DESCRIPTIONS,
   ERASER_BRAND_LABELS,
   ERASER_BRAND_ICONS,
   ERASER_BRAND_CONFIGS,
@@ -20,7 +20,7 @@ const shapeLabels: Record<EraserShape, string> = {
 export default function EraserControls() {
   const [showShortcutSettings, setShowShortcutSettings] = useState(false)
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
-  
+
   const {
     eraserConfig,
     eraserPreset,
@@ -100,47 +100,56 @@ export default function EraserControls() {
   }
 
   return (
-    <div className="eraser-controls panel" style={{ 
-      position: 'absolute',
-      top: '80px',
-      right: '16px',
-      padding: '12px',
-      borderRadius: '12px',
-      background: 'var(--bg-1)',
-      border: '1px solid var(--border)',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-      minWidth: '200px',
-      zIndex: 100,
-    }}>
-      <div style={{ 
-        fontSize: '12px', 
-        fontWeight: 600, 
-        color: 'var(--text-2)',
-        marginBottom: '12px',
-        letterSpacing: '0.5px',
-      }}>
+    <div
+      className="eraser-controls panel"
+      style={{
+        position: 'absolute',
+        top: '80px',
+        right: '16px',
+        padding: '12px',
+        borderRadius: '12px',
+        background: 'var(--bg-1)',
+        border: '1px solid var(--border)',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+        minWidth: '200px',
+        zIndex: 100,
+      }}
+    >
+      <div
+        style={{
+          fontSize: '12px',
+          fontWeight: 600,
+          color: 'var(--text-2)',
+          marginBottom: '12px',
+          letterSpacing: '0.5px',
+        }}
+      >
         橡皮擦
       </div>
 
       {/* 橡皮擦大小 - 主功能 */}
       <div style={{ marginBottom: '12px' }}>
-        <div style={{ 
-          fontSize: '11px', 
-          color: 'var(--text-3)', 
-          marginBottom: '6px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
+        <div
+          style={{
+            fontSize: '11px',
+            color: 'var(--text-3)',
+            marginBottom: '6px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           <span>大小</span>
-          <span style={{ 
-            fontSize: '10px', 
-            color: 'var(--primary)',
-            fontWeight: 600,
-            background: 'var(--primary-bg)',
-            padding: '2px 6px',
-            borderRadius: '4px',
-          }}>
+          <span
+            style={{
+              fontSize: '10px',
+              color: 'var(--primary)',
+              fontWeight: 600,
+              background: 'var(--primary-bg)',
+              padding: '2px 6px',
+              borderRadius: '4px',
+            }}
+          >
             {currentSize}px
           </span>
         </div>
@@ -184,13 +193,15 @@ export default function EraserControls() {
             border: none;
           }
         `}</style>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          fontSize: '10px',
-          color: 'var(--text-4)',
-          marginTop: '2px',
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: '10px',
+            color: 'var(--text-4)',
+            marginTop: '2px',
+          }}
+        >
           <span>小</span>
           <span>中</span>
           <span>大</span>
@@ -222,26 +233,34 @@ export default function EraserControls() {
 
       {/* 高级设置面板 */}
       {showAdvancedSettings && (
-        <div style={{
-          marginTop: '12px',
-          paddingTop: '12px',
-          borderTop: '1px solid var(--border)',
-        }}>
+        <div
+          style={{
+            marginTop: '12px',
+            paddingTop: '12px',
+            borderTop: '1px solid var(--border)',
+          }}
+        >
           {/* 橡皮品牌选择 */}
           <div style={{ marginBottom: '12px' }}>
-            <div style={{ 
-              fontSize: '11px', 
-              color: 'var(--text-3)', 
-              marginBottom: '6px' 
-            }}>
+            <div
+              style={{
+                fontSize: '11px',
+                color: 'var(--text-3)',
+                marginBottom: '6px',
+              }}
+            >
               橡皮品牌
             </div>
-            <div style={{ 
-              display: 'flex', 
-              gap: '4px',
-              flexWrap: 'wrap',
-            }}>
-              {(['default', 'sakura', 'faber-castell', 'staedtler', 'uni'] as EraserBrandType[]).map((brand) => (
+            <div
+              style={{
+                display: 'flex',
+                gap: '4px',
+                flexWrap: 'wrap',
+              }}
+            >
+              {(
+                ['default', 'sakura', 'faber-castell', 'staedtler', 'uni'] as EraserBrandType[]
+              ).map((brand) => (
                 <button
                   key={brand}
                   onClick={() => handleBrandChange(brand)}
@@ -252,12 +271,16 @@ export default function EraserControls() {
                     padding: '6px 4px',
                     fontSize: '14px',
                     borderRadius: '6px',
-                    border: currentBrand === brand ? '2px solid var(--primary)' : '1px solid var(--border)',
+                    border:
+                      currentBrand === brand
+                        ? '2px solid var(--primary)'
+                        : '1px solid var(--border)',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
-                    background: currentBrand === brand 
-                      ? ERASER_BRAND_CONFIGS[brand].primaryColor + '20' 
-                      : 'var(--bg-2)',
+                    background:
+                      currentBrand === brand
+                        ? ERASER_BRAND_CONFIGS[brand].primaryColor + '20'
+                        : 'var(--bg-2)',
                     color: 'var(--text-2)',
                     fontWeight: currentBrand === brand ? 600 : 400,
                     display: 'flex',
@@ -277,18 +300,22 @@ export default function EraserControls() {
 
           {/* 橡皮预设选择 */}
           <div style={{ marginBottom: '12px' }}>
-            <div style={{ 
-              fontSize: '11px', 
-              color: 'var(--text-3)', 
-              marginBottom: '6px' 
-            }}>
+            <div
+              style={{
+                fontSize: '11px',
+                color: 'var(--text-3)',
+                marginBottom: '6px',
+              }}
+            >
               橡皮类型
             </div>
-            <div style={{ 
-              display: 'flex', 
-              gap: '4px',
-              flexDirection: 'column',
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: '4px',
+                flexDirection: 'column',
+              }}
+            >
               {(['2b', '4b', '6b'] as EraserPresetType[]).map((preset) => (
                 <button
                   key={preset}
@@ -310,11 +337,13 @@ export default function EraserControls() {
                   }}
                 >
                   <span>{ERASER_PRESET_LABELS[preset]}</span>
-                  <span style={{ 
-                    fontSize: '10px', 
-                    opacity: 0.7,
-                    fontWeight: 400,
-                  }}>
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      opacity: 0.7,
+                      fontWeight: 400,
+                    }}
+                  >
                     {ERASER_PRESET_DESCRIPTIONS[preset]}
                   </span>
                 </button>
@@ -324,17 +353,21 @@ export default function EraserControls() {
 
           {/* 形状选择 */}
           <div style={{ marginBottom: '12px' }}>
-            <div style={{ 
-              fontSize: '11px', 
-              color: 'var(--text-3)', 
-              marginBottom: '6px' 
-            }}>
+            <div
+              style={{
+                fontSize: '11px',
+                color: 'var(--text-3)',
+                marginBottom: '6px',
+              }}
+            >
               橡皮擦形状
             </div>
-            <div style={{ 
-              display: 'flex', 
-              gap: '4px',
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: '4px',
+              }}
+            >
               {(['circle', 'square', 'chisel'] as EraserShape[]).map((shape) => (
                 <button
                   key={shape}
@@ -360,65 +393,83 @@ export default function EraserControls() {
 
           {/* 磨损程度 */}
           <div style={{ marginBottom: '12px' }}>
-            <div style={{ 
-              fontSize: '11px', 
-              color: 'var(--text-3)', 
-              marginBottom: '6px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}>
+            <div
+              style={{
+                fontSize: '11px',
+                color: 'var(--text-3)',
+                marginBottom: '6px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
               <span>磨损程度</span>
-              <span style={{ 
-                fontSize: '10px', 
-                color: wearLevel > 0.7 ? 'var(--danger)' : 'var(--text-3)',
-                fontWeight: 500,
-              }}>
+              <span
+                style={{
+                  fontSize: '10px',
+                  color: wearLevel > 0.7 ? 'var(--danger)' : 'var(--text-3)',
+                  fontWeight: 500,
+                }}
+              >
                 {Math.round(wearLevel * 100)}%
               </span>
             </div>
-            <div style={{
-              width: '100%',
-              height: '8px',
-              background: 'var(--bg-2)',
-              borderRadius: '4px',
-              overflow: 'hidden',
-              position: 'relative',
-            }}>
-              <div style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                height: '100%',
-                width: `${wearLevel * 100}%`,
-                background: wearLevel > 0.7 
-                  ? 'linear-gradient(90deg, var(--danger), #ff6b6b)' 
-                  : wearLevel > 0.3 
-                    ? 'linear-gradient(90deg, var(--warning), #feca57)'
-                    : 'linear-gradient(90deg, var(--success), #48dbfb)',
+            <div
+              style={{
+                width: '100%',
+                height: '8px',
+                background: 'var(--bg-2)',
                 borderRadius: '4px',
-                transition: 'width 0.3s ease',
-              }} />
+                overflow: 'hidden',
+                position: 'relative',
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  height: '100%',
+                  width: `${wearLevel * 100}%`,
+                  background:
+                    wearLevel > 0.7
+                      ? 'linear-gradient(90deg, var(--danger), #ff6b6b)'
+                      : wearLevel > 0.3
+                        ? 'linear-gradient(90deg, var(--warning), #feca57)'
+                        : 'linear-gradient(90deg, var(--success), #48dbfb)',
+                  borderRadius: '4px',
+                  transition: 'width 0.3s ease',
+                }}
+              />
             </div>
-            <div style={{
-              fontSize: '10px',
-              color: 'var(--text-3)',
-              marginTop: '4px',
-              fontStyle: 'italic',
-            }}>
-              {wearLevel < 0.1 ? '✨ 全新' : 
-               wearLevel < 0.3 ? '状态良好' :
-               wearLevel < 0.6 ? '有些磨损' :
-               wearLevel < 0.8 ? '磨损较严重' : '该削橡皮了！'}
+            <div
+              style={{
+                fontSize: '10px',
+                color: 'var(--text-3)',
+                marginTop: '4px',
+                fontStyle: 'italic',
+              }}
+            >
+              {wearLevel < 0.1
+                ? '✨ 全新'
+                : wearLevel < 0.3
+                  ? '状态良好'
+                  : wearLevel < 0.6
+                    ? '有些磨损'
+                    : wearLevel < 0.8
+                      ? '磨损较严重'
+                      : '该削橡皮了！'}
             </div>
           </div>
 
           {/* 撤销/重做按钮 */}
-          <div style={{
-            display: 'flex',
-            gap: '6px',
-            marginBottom: '8px',
-          }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: '6px',
+              marginBottom: '8px',
+            }}
+          >
             <button
               onClick={handleUndoWear}
               disabled={!canUndoWear()}

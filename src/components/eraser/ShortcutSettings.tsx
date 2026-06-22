@@ -27,7 +27,11 @@ export const ShortcutSettings: React.FC<{ onClose: () => void }> = ({ onClose })
   const checkConflict = useCallback(
     (newKey: string, excludeKey: keyof ShortcutMap): string | null => {
       for (const [key, config] of Object.entries(shortcuts)) {
-        if (key !== excludeKey && config.enabled && config.key.toLowerCase() === newKey.toLowerCase()) {
+        if (
+          key !== excludeKey &&
+          config.enabled &&
+          config.key.toLowerCase() === newKey.toLowerCase()
+        ) {
           return `与"${config.description}"冲突`
         }
       }
@@ -275,9 +279,7 @@ export const ShortcutSettings: React.FC<{ onClose: () => void }> = ({ onClose })
         >
           恢复默认
         </button>
-        <div style={{ fontSize: '11px', color: '#A1887F' }}>
-          点击按键可修改
-        </div>
+        <div style={{ fontSize: '11px', color: '#A1887F' }}>点击按键可修改</div>
       </div>
     </div>
   )

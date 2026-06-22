@@ -96,7 +96,7 @@ describe('EraserParticleSystem', () => {
 
     it('禁用时不应该发射粒子', () => {
       particleSystem.setEnabled(false)
-      
+
       const params: ParticleEmitParams = {
         x: 100,
         y: 100,
@@ -125,7 +125,7 @@ describe('EraserParticleSystem', () => {
       particleSystem.emit(params)
       const particles = particleSystem.getParticles()
 
-      particles.forEach(p => {
+      particles.forEach((p) => {
         // 粒子应该在发射位置附近
         expect(Math.abs(p.x - 100)).toBeLessThan(50)
         expect(Math.abs(p.y - 200)).toBeLessThan(50)
@@ -232,10 +232,10 @@ describe('EraserParticleSystem', () => {
   describe('启用/禁用控制', () => {
     it('setEnabled应该改变启用状态', () => {
       expect(particleSystem.isEnabled()).toBe(true)
-      
+
       particleSystem.setEnabled(false)
       expect(particleSystem.isEnabled()).toBe(false)
-      
+
       particleSystem.setEnabled(true)
       expect(particleSystem.isEnabled()).toBe(true)
     })
@@ -352,7 +352,7 @@ describe('EraserParticleSystem', () => {
       }
 
       particleSystem.emit(params)
-      
+
       // 不应该抛出异常
       expect(() => particleSystem.update(-0.1)).not.toThrow()
     })

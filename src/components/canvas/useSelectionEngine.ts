@@ -29,7 +29,7 @@ export function useSelectionEngine(
       bestDistY = SNAP_THRESHOLD
     const linesX: number[] = [],
       linesY: number[] = []
-    
+
     // P1 性能优化: 使用空间索引缩小对齐检测范围
     // 只检测移动边界附近的元素，而非全部元素
     const expand = SNAP_THRESHOLD * 2 + Math.max(movingBounds.w, movingBounds.h)
@@ -39,15 +39,15 @@ export function useSelectionEngine(
       w: movingBounds.w + expand * 2,
       h: movingBounds.h + expand * 2,
     })
-    
+
     // 使用候选集或降级到全量遍历
     const candidateSet = nearIds ? new Set(nearIds) : null
-    
+
     for (const el of els) {
       if (excludeIds.has(el.id)) continue
       // P1 优化: 跳过不在候选集中的元素
       if (candidateSet && !candidateSet.has(el.id)) continue
-      
+
       const b = cachedBounds(el)
       const oe = {
         left: b.x,

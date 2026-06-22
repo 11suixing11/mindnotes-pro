@@ -9,16 +9,31 @@ describe('SpatialIndex', () => {
     index = new SpatialIndex()
   })
 
-  const createStroke = (id: string, x: number, y: number, w: number = 50, h: number = 50): StrokeElement => ({
+  const createStroke = (
+    id: string,
+    x: number,
+    y: number,
+    w: number = 50,
+    h: number = 50
+  ): StrokeElement => ({
     type: 'stroke',
     id,
-    points: [[x, y], [x + w, y + h]],
+    points: [
+      [x, y],
+      [x + w, y + h],
+    ],
     color: '#000',
     size: 2,
     brush: 'pen',
   })
 
-  const createShape = (id: string, x: number, y: number, w: number = 50, h: number = 50): ShapeElement => ({
+  const createShape = (
+    id: string,
+    x: number,
+    y: number,
+    w: number = 50,
+    h: number = 50
+  ): ShapeElement => ({
     type: 'shape',
     id,
     kind: 'rectangle',
@@ -34,7 +49,7 @@ describe('SpatialIndex', () => {
     it('insert - 插入单个元素', () => {
       const stroke = createStroke('s1', 100, 100)
       index.insert(stroke)
-      
+
       const results = index.search({ x: 90, y: 90, w: 30, h: 30 })
       expect(results).toContain('s1')
     })
@@ -43,7 +58,7 @@ describe('SpatialIndex', () => {
       index.insert(createStroke('s1', 100, 100))
       index.insert(createStroke('s2', 200, 200))
       index.insert(createStroke('s3', 300, 300))
-      
+
       const results = index.search({ x: 0, y: 0, w: 500, h: 500 })
       expect(results).toHaveLength(3)
       expect(results).toContain('s1')
@@ -55,11 +70,11 @@ describe('SpatialIndex', () => {
       const stroke = createStroke('s1', 100, 100)
       index.insert(stroke)
       index.remove('s1')
-      
+
       // 重新插入
       index.setElementProvider(() => [stroke])
       index.insert(stroke)
-      
+
       const results = index.search({ x: 90, y: 90, w: 30, h: 30 })
       expect(results).toContain('s1')
     })
@@ -70,9 +85,9 @@ describe('SpatialIndex', () => {
         createStroke('s2', 200, 200),
         createStroke('s3', 300, 300),
       ]
-      
+
       index.bulkLoad(strokes)
-      
+
       const results = index.search({ x: 90, y: 90, w: 30, h: 30 })
       expect(results).toContain('s1')
       expect(results).not.toContain('s2')
@@ -83,9 +98,9 @@ describe('SpatialIndex', () => {
       for (let i = 0; i < 100; i++) {
         strokes.push(createStroke(`s${i}`, i * 10, i * 10))
       }
-      
+
       index.bulkLoad(strokes)
-      
+
       const results = index.search({ x: -1000, y: -1000, w: 5000, h: 5000 })
       expect(results).toHaveLength(100)
     })
@@ -94,7 +109,7 @@ describe('SpatialIndex', () => {
       const stroke = createStroke('s1', 100, 100)
       index.insert(stroke)
       index.clear()
-      
+
       const results = index.search({ x: 90, y: 90, w: 30, h: 30 })
       expect(results).toHaveLength(0)
     })
@@ -104,7 +119,7 @@ describe('SpatialIndex', () => {
       index.insert(createStroke('s2', 200, 200))
       index.remove('s1')
       index.clear()
-      
+
       const stats = index.getRebuildStats()
       expect(stats.pendingDeletes).toBe(0)
       expect(stats.totalEntries).toBe(0)
@@ -116,7 +131,7 @@ describe('SpatialIndex', () => {
       const stroke = createStroke('s1', 100, 100)
       index.insert(stroke)
       index.remove('s1')
-      
+
       const results = index.search({ x: 90, y: 90, w: 30, h: 30 })
       expect(results).not.toContain('s1')
     })
@@ -125,7 +140,7 @@ describe('SpatialIndex', () => {
       index.insert(createStroke('s1', 100, 100))
       index.insert(createStroke('s2', 200, 200))
       index.remove('s1')
-      
+
       const results = index.search({ x: 190, y: 190, w: 30, h: 30 })
       expect(results).toContain('s2')
       expect(results).not.toContain('s1')
@@ -135,7 +150,7 @@ describe('SpatialIndex', () => {
       index.insert(createStroke('s1', 100, 100))
       index.remove('s1')
       index.remove('s1') // 重复删除
-      
+
       const stats = index.getRebuildStats()
       expect(stats.pendingDeletes).toBe(1) // 只计数一次
     })
@@ -150,7 +165,7 @@ describe('SpatialIndex', () => {
       index.insert(createStroke('s1', 100, 100))
       index.insert(createStroke('s2', 200, 200))
       index.remove('s1')
-      
+
       const stats = index.getRebuildStats()
       expect(stats.pendingDeletes).toBe(1)
       expect(stats.deleteRatio).toBeCloseTo(0.5) // 1/2 = 50%
@@ -159,11 +174,11 @@ describe('SpatialIndex', () => {
     it('update - 先删后插', () => {
       index.insert(createStroke('s1', 100, 100))
       index.update(createStroke('s1', 300, 300))
-      
+
       // 旧位置查不到
       const oldResults = index.search({ x: 90, y: 90, w: 30, h: 30 })
       expect(oldResults).not.toContain('s1')
-      
+
       // 新位置能查到
       const newResults = index.search({ x: 290, y: 290, w: 30, h: 30 })
       expect(newResults).toContain('s1')
@@ -176,25 +191,25 @@ describe('SpatialIndex', () => {
       for (let i = 0; i < 10; i++) {
         elements.push(createStroke(`s${i}`, i * 100, i * 100))
       }
-      
+
       // 设置元素提供者
       index.setElementProvider(() => elements)
       index.bulkLoad(elements)
-      
+
       // 删除 3/10 = 30% (> 20% 阈值)
       index.remove('s0')
       index.remove('s1')
       index.remove('s2')
-      
+
       // 下次查询应触发重建
       const results = index.search({ x: -1000, y: -1000, w: 5000, h: 5000 })
-      
+
       // 重建后应该能查到剩余 7 个元素
       expect(results).toHaveLength(7)
       expect(results).not.toContain('s0')
       expect(results).not.toContain('s1')
       expect(results).not.toContain('s2')
-      
+
       const stats = index.getRebuildStats()
       expect(stats.rebuildCount).toBe(1)
       expect(stats.pendingDeletes).toBe(0) // 重建后清除
@@ -206,15 +221,15 @@ describe('SpatialIndex', () => {
       for (let i = 0; i < 10; i++) {
         elements.push(createStroke(`s${i}`, i * 100, i * 100))
       }
-      
+
       index.setElementProvider(() => elements)
       index.bulkLoad(elements)
-      
+
       // 删除 1/10 = 10% (< 20% 阈值)
       index.remove('s0')
-      
+
       index.search({ x: 0, y: 0, w: 1000, h: 1000 })
-      
+
       const stats = index.getRebuildStats()
       expect(stats.rebuildCount).toBe(0) // 不应重建
       expect(stats.pendingDeletes).toBe(1) // 仍在等待
@@ -223,15 +238,15 @@ describe('SpatialIndex', () => {
     it('没有 elementProvider 时不触发自动重建', () => {
       const elements = [createStroke('s1', 100, 100), createStroke('s2', 200, 200)]
       index.bulkLoad(elements)
-      
+
       // 不设置 elementProvider
       index.remove('s1')
-      
+
       // 不应报错，只是不会自动重建
       const results = index.search({ x: 0, y: 0, w: 500, h: 500 })
       expect(results).toContain('s2')
       expect(results).not.toContain('s1')
-      
+
       const stats = index.getRebuildStats()
       expect(stats.rebuildCount).toBe(0)
       expect(stats.pendingDeletes).toBe(1) // 仍然保留删除标记
@@ -242,22 +257,22 @@ describe('SpatialIndex', () => {
       for (let i = 0; i < 10; i++) {
         elements.push(createStroke(`s${i}`, i * 100, i * 100))
       }
-      
+
       index.setElementProvider(() => elements)
       index.bulkLoad(elements)
-      
+
       // 删除 3/10 = 30%
       index.remove('s0')
       index.remove('s1')
       index.remove('s2')
-      
+
       const visible = index.queryVisible(0, 0, 2000, 2000)
-      
+
       expect(visible.size).toBe(7)
       expect(visible.has('s0')).toBe(false)
       expect(visible.has('s1')).toBe(false)
       expect(visible.has('s2')).toBe(false)
-      
+
       const stats = index.getRebuildStats()
       expect(stats.rebuildCount).toBe(1)
     })
@@ -267,21 +282,21 @@ describe('SpatialIndex', () => {
       for (let i = 0; i < 10; i++) {
         elements.push(createStroke(`s${i}`, i * 100, i * 100))
       }
-      
+
       index.setElementProvider(() => elements)
       index.bulkLoad(elements)
-      
+
       // 第一次重建
       index.remove('s0')
       index.remove('s1')
       index.remove('s2')
       index.search({ x: 0, y: 0, w: 5000, h: 5000 })
-      
+
       // 第二次重建
       index.remove('s3')
       index.remove('s4')
       index.search({ x: 0, y: 0, w: 5000, h: 5000 })
-      
+
       const stats = index.getRebuildStats()
       expect(stats.rebuildCount).toBe(2)
     })
@@ -295,24 +310,21 @@ describe('SpatialIndex', () => {
         createStroke('s3', 1000, 1000), // 视口外
       ]
       index.bulkLoad(strokes)
-      
+
       const visible = index.queryVisible(0, 0, 300, 300)
-      
+
       expect(visible.has('s1')).toBe(true)
       expect(visible.has('s2')).toBe(true)
       expect(visible.has('s3')).toBe(false)
     })
 
     it('过滤掉已删除元素', () => {
-      const strokes = [
-        createStroke('s1', 100, 100),
-        createStroke('s2', 200, 200),
-      ]
+      const strokes = [createStroke('s1', 100, 100), createStroke('s2', 200, 200)]
       index.bulkLoad(strokes)
       index.remove('s1')
-      
+
       const visible = index.queryVisible(0, 0, 300, 300)
-      
+
       expect(visible.has('s1')).toBe(false)
       expect(visible.has('s2')).toBe(true)
     })
@@ -330,11 +342,11 @@ describe('SpatialIndex', () => {
         createStroke('s2', 150, 150),
         createStroke('s3', 500, 500),
       ]
-      
+
       index.bulkLoad(strokes)
-      
+
       const results = index.search({ x: 50, y: 50, w: 150, h: 150 })
-      
+
       expect(results).toContain('s1')
       expect(results).toContain('s2')
       expect(results).not.toContain('s3')
@@ -343,7 +355,7 @@ describe('SpatialIndex', () => {
     it('search - 边界相交', () => {
       const stroke = createStroke('s1', 100, 100, 50, 50)
       index.insert(stroke)
-      
+
       const results = index.search({ x: 145, y: 145, w: 20, h: 20 })
       expect(results).toContain('s1')
     })
@@ -351,7 +363,7 @@ describe('SpatialIndex', () => {
     it('search - 完全不相交', () => {
       const stroke = createStroke('s1', 100, 100)
       index.insert(stroke)
-      
+
       const results = index.search({ x: 500, y: 500, w: 50, h: 50 })
       expect(results).not.toContain('s1')
     })
@@ -359,10 +371,10 @@ describe('SpatialIndex', () => {
     it('search - 支持不同元素类型', () => {
       const stroke = createStroke('s1', 100, 100)
       const shape = createShape('sh1', 200, 200)
-      
+
       index.insert(stroke)
       index.insert(shape)
-      
+
       const results = index.search({ x: 0, y: 0, w: 500, h: 500 })
       expect(results).toContain('s1')
       expect(results).toContain('sh1')
@@ -384,18 +396,15 @@ describe('SpatialIndex', () => {
     it('极小查询区域', () => {
       const stroke = createStroke('s1', 100, 100)
       index.insert(stroke)
-      
+
       const results = index.search({ x: 100, y: 100, w: 1, h: 1 })
       expect(results).toContain('s1')
     })
 
     it('极大查询区域', () => {
-      const strokes = [
-        createStroke('s1', 100, 100),
-        createStroke('s2', 200, 200),
-      ]
+      const strokes = [createStroke('s1', 100, 100), createStroke('s2', 200, 200)]
       index.bulkLoad(strokes)
-      
+
       const results = index.search({ x: -1000, y: -1000, w: 2000, h: 2000 })
       expect(results.length).toBe(2)
     })
@@ -403,7 +412,7 @@ describe('SpatialIndex', () => {
     it('负坐标元素', () => {
       const stroke = createStroke('s1', -200, -200)
       index.insert(stroke)
-      
+
       const results = index.search({ x: -250, y: -250, w: 100, h: 100 })
       expect(results).toContain('s1')
     })
@@ -413,7 +422,7 @@ describe('SpatialIndex', () => {
       const s2 = createStroke('s2', 100, 100, 50, 50)
       index.insert(s1)
       index.insert(s2)
-      
+
       const results = index.search({ x: 90, y: 90, w: 70, h: 70 })
       expect(results).toHaveLength(2)
       expect(results).toContain('s1')
@@ -425,7 +434,7 @@ describe('SpatialIndex', () => {
       index.insert(createStroke('s2', 200, 200))
       index.remove('s1')
       index.remove('s2')
-      
+
       const results = index.search({ x: 0, y: 0, w: 500, h: 500 })
       expect(results).toHaveLength(0)
     })
@@ -445,7 +454,7 @@ describe('SpatialIndex', () => {
       index.insert(createStroke('s1', 100, 100))
       index.insert(createStroke('s2', 200, 200))
       index.remove('s1')
-      
+
       const stats = index.getRebuildStats()
       expect(stats.pendingDeletes).toBe(1)
       expect(stats.totalEntries).toBe(2)
@@ -462,15 +471,15 @@ describe('SpatialIndex', () => {
       ]
       index.setElementProvider(() => elements)
       index.bulkLoad(elements)
-      
+
       // 删除 3/5 = 60% > 20%
       index.remove('s1')
       index.remove('s2')
       index.remove('s3')
-      
+
       // 触发重建
       index.search({ x: 0, y: 0, w: 1000, h: 1000 })
-      
+
       const stats = index.getRebuildStats()
       expect(stats.rebuildCount).toBe(1)
       expect(stats.pendingDeletes).toBe(0)
@@ -485,13 +494,13 @@ describe('SpatialIndex', () => {
       for (let i = 0; i < 100; i++) {
         strokes.push(createStroke(`s${i}`, i * 10, i * 10))
       }
-      
+
       index.bulkLoad(strokes)
-      
+
       const start = performance.now()
       const results = index.search({ x: 0, y: 0, w: 100, h: 100 })
       const end = performance.now()
-      
+
       expect(end - start).toBeLessThan(5)
       expect(results.length).toBeGreaterThan(0)
     })
@@ -501,13 +510,13 @@ describe('SpatialIndex', () => {
       for (let i = 0; i < 1000; i++) {
         strokes.push(createStroke(`s${i}`, (i % 100) * 10, Math.floor(i / 100) * 10))
       }
-      
+
       index.bulkLoad(strokes)
-      
+
       const start = performance.now()
       const results = index.search({ x: 0, y: 0, w: 100, h: 100 })
       const end = performance.now()
-      
+
       expect(end - start).toBeLessThan(10)
       expect(results.length).toBeGreaterThan(0)
     })
@@ -517,11 +526,11 @@ describe('SpatialIndex', () => {
       for (let i = 0; i < 5000; i++) {
         strokes.push(createStroke(`s${i}`, Math.random() * 10000, Math.random() * 10000))
       }
-      
+
       const start = performance.now()
       index.bulkLoad(strokes)
       const end = performance.now()
-      
+
       expect(end - start).toBeLessThan(100) // 5000元素应在100ms内完成
     })
 
@@ -530,18 +539,18 @@ describe('SpatialIndex', () => {
       for (let i = 0; i < 1000; i++) {
         elements.push(createStroke(`s${i}`, i * 10, i * 10))
       }
-      
+
       index.setElementProvider(() => elements)
       index.bulkLoad(elements)
-      
+
       // 删除 30%
       for (let i = 0; i < 300; i++) {
         index.remove(`s${i}`)
       }
-      
+
       // 触发重建
       index.search({ x: 0, y: 0, w: 10000, h: 10000 })
-      
+
       const stats = index.getRebuildStats()
       expect(stats.rebuildCount).toBe(1)
       expect(stats.lastRebuildDuration).toBeLessThan(50) // 重建应在50ms内完成
@@ -564,7 +573,7 @@ describe('PerformanceMonitor', () => {
 
     it('recordFrame - 记录帧时间', () => {
       monitor.recordFrame()
-      
+
       expect(monitor.getAverageFPS()).toBeGreaterThan(0)
     })
 
@@ -572,7 +581,7 @@ describe('PerformanceMonitor', () => {
       for (let i = 0; i < 10; i++) {
         monitor.recordFrame()
       }
-      
+
       const level = monitor.getPerformanceLevel()
       expect(['high', 'medium', 'low']).toContain(level)
     })
@@ -585,7 +594,7 @@ describe('PerformanceMonitor', () => {
       for (let i = 0; i < 50; i++) {
         monitor.recordFrame()
       }
-      
+
       // 内部 fpsHistory 应该限制在30
       const avg = monitor.getAverageFPS()
       expect(avg).toBeGreaterThan(0)
@@ -604,7 +613,7 @@ describe('PerformanceMonitor', () => {
       monitor.recordFrame()
       monitor.recordFrame()
       monitor.reset()
-      
+
       expect(monitor.getAverageFPS()).toBe(60)
     })
   })

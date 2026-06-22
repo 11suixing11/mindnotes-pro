@@ -1,18 +1,18 @@
 /**
  * 物理擦除引擎模块
- * 
+ *
  * 实现压力感应、方向纹理、像素级擦除、分层处理
- * 
+ *
  * 使用示例:
  * ```typescript
  * import { PhysicsEraserEngine, useEraserStore } from './eraser'
- * 
+ *
  * // 核心引擎
  * const engine = new PhysicsEraserEngine()
  * engine.startErase(point)
  * const result = engine.addErasePoint(point, elements)
  * engine.endErase()
- * 
+ *
  * // Zustand集成
  * const { startErase, addErasePoint, endErase } = useEraserStore()
  * ```

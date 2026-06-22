@@ -141,7 +141,7 @@ export default function App() {
           <ToastContainer />
           <ConfirmModal />
           <ScreenPenControls screenPen={screenPen} />
-          
+
           {/* 橡皮擦控制面板 - 仅在橡皮擦工具时显示 */}
           {tool === 'eraser' && <EraserControls />}
 

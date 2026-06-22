@@ -46,7 +46,7 @@ export function useCanvasRenderer(
   )
   const rafRef = useRef<number>(0)
   const redrawRef = useRef<() => void>(() => {})
-  
+
   // P1-1 优化: selectedIds 缓存，使用引用比较避免字符串拼接
   const selectedIdsCacheRef = useRef<Set<string>>(new Set())
   const lastSelectedIdsArrRef = useRef<string[]>([])
@@ -69,12 +69,12 @@ export function useCanvasRenderer(
   // P1-1 优化: 获取缓存的 selectedIds Set (引用比较)
   function getCachedSelectedIds(): Set<string> {
     const selectedIds = useAppStore.getState().selectedIds
-    
+
     if (selectedIds !== lastSelectedIdsArrRef.current) {
       selectedIdsCacheRef.current = new Set(selectedIds)
       lastSelectedIdsArrRef.current = selectedIds
     }
-    
+
     return selectedIdsCacheRef.current
   }
   const getOrCreateEC = useCallback(() => {
@@ -93,7 +93,7 @@ export function useCanvasRenderer(
     const ec = getOrCreateEC()
     const ctx = ec.getContext('2d')
     if (!ctx) return
-    
+
     const st = useAppStore.getState()
     const els = st.elements
     const selSet = getCachedSelectedIds() // P1 优化: 使用缓存的 Set
@@ -109,11 +109,11 @@ export function useCanvasRenderer(
       vt = vb.y,
       vw = canvasSize.w / vb.zoom,
       vh = canvasSize.h / vb.zoom
-    
+
     // P0 性能优化: 使用空间索引进行 O(log n) 视口裁剪
     // 大画布场景下（1000+ 元素），性能提升 10-100x
     const visibleIds = st.spatialIndex?.queryVisible(vl, vt, vw, vh)
-    
+
     if (visibleIds && visibleIds.size > 0) {
       // P0 优化: 使用 idToElement O(1) 查找，只遍历视口内元素
       // 复杂度从 O(n) → O(k)，大画布场景提升 10-100x
@@ -133,7 +133,7 @@ export function useCanvasRenderer(
         if (selSet.has(el.id)) drawSelBox(ctx, cachedBounds(el), dark, vb.zoom)
       }
     }
-    
+
     ctx.restore()
     elementsDirtyRef.current = false
   }, [dpr, canvasSize, getOrCreateEC])
@@ -160,18 +160,18 @@ export function useCanvasRenderer(
     const ec = getOrCreateEC()
     if (elementsDirtyRef.current) renderElementsToCache()
     ctx.drawImage(ec, 0, 0, ec.width, ec.height, 0, 0, canvasSize.w, canvasSize.h)
-    
+
     // P1 优化: 合并 save/restore，只做一次 transform 应用
     ctx.save()
     ctx.scale(vb.zoom, vb.zoom)
     ctx.translate(-vb.x, -vb.y)
-    
+
     // 渲染橡皮屑粒子
     eraserParticleSystem.render(ctx)
     if (ds.drawing && ds.tool === 'pen' && ds.currentPts.length > 1)
       drawStrokeRaw(ctx, ds.currentPts, ds.color, ds.size, ds.brush, dark)
     if (ds.currentShape) drawElement(ctx, ds.currentShape, dark)
-    
+
     // 笔触绘制时：显示大小预览光标（半透明圆圈）
     if (ds.tool === 'pen' && ds.mousePos && !ds.drawing) {
       const penR = ds.size / 2
@@ -189,14 +189,14 @@ export function useCanvasRenderer(
       ctx.fillStyle = `rgba(${baseColor}, 0.6)`
       ctx.fill()
     }
-    
+
     // 增强的橡皮擦光标
     if (ds.tool === 'eraser' && ds.mousePos) {
       const r = ds.size * 2 + 10
       const baseColor = dark ? '200,160,176' : '176,125,110'
       const x = ds.mousePos.x
       const y = ds.mousePos.y
-      
+
       // 擦除拖尾效果
       if (ds.eraserTrail.length >= 2) {
         const now = performance.now()
@@ -212,11 +212,11 @@ export function useCanvasRenderer(
           ctx.moveTo(p0.x, p0.y)
           ctx.lineTo(p1.x, p1.y)
           ctx.strokeStyle = `rgba(${baseColor}, ${alpha})`
-          ctx.lineWidth = (r * 0.6) * (1 - age * 0.3)
+          ctx.lineWidth = r * 0.6 * (1 - age * 0.3)
           ctx.stroke()
         }
       }
-      
+
       // 外圈：虚线指示擦除范围
       ctx.strokeStyle = `rgba(${baseColor}, 0.35)`
       ctx.lineWidth = 1.2 / vb.zoom
@@ -225,14 +225,14 @@ export function useCanvasRenderer(
       ctx.arc(x, y, r, 0, Math.PI * 2)
       ctx.stroke()
       ctx.setLineDash([])
-      
+
       // 内圈：实线指示精确范围
       ctx.strokeStyle = `rgba(${baseColor}, 0.55)`
       ctx.lineWidth = 1.5 / vb.zoom
       ctx.beginPath()
       ctx.arc(x, y, r * 0.55, 0, Math.PI * 2)
       ctx.stroke()
-      
+
       // 中心十字准星
       const crossSize = 4 / vb.zoom
       ctx.strokeStyle = `rgba(${baseColor}, 0.7)`
@@ -243,13 +243,13 @@ export function useCanvasRenderer(
       ctx.moveTo(x, y - crossSize)
       ctx.lineTo(x, y + crossSize)
       ctx.stroke()
-      
+
       // 中心点
       ctx.beginPath()
       ctx.arc(x, y, 1.8 / vb.zoom, 0, Math.PI * 2)
       ctx.fillStyle = `rgba(${baseColor}, 0.65)`
       ctx.fill()
-      
+
       // 柔和光晕填充
       const glowGrad = ctx.createRadialGradient(x, y, 0, x, y, r)
       glowGrad.addColorStop(0, `rgba(${baseColor}, 0.06)`)
@@ -259,7 +259,7 @@ export function useCanvasRenderer(
       ctx.beginPath()
       ctx.arc(x, y, r, 0, Math.PI * 2)
       ctx.fill()
-      
+
       // 绘制中：外圈脉冲动画效果
       if (ds.drawing) {
         const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 120)
@@ -331,10 +331,11 @@ export function useCanvasRenderer(
       for (const e of entries) {
         const { width, height } = e.contentRect
         if (width > 0 && height > 0) {
-          const w = Math.round(width), h = Math.round(height)
+          const w = Math.round(width),
+            h = Math.round(height)
           if (canvasSizeRef.current.w !== w || canvasSizeRef.current.h !== h) {
             canvasSizeRef.current = { w, h }
-            forceUpdate(n => n + 1)  // 触发一次重渲染以更新依赖 canvasSize 的 callbacks
+            forceUpdate((n) => n + 1) // 触发一次重渲染以更新依赖 canvasSize 的 callbacks
           }
         }
       }
@@ -349,18 +350,19 @@ export function useCanvasRenderer(
   // P0-2 优化: 避免每帧创建完整 Map，使用引用比较 + Set 差集
   useEffect(() => {
     let prevElements = useAppStore.getState().elements
-    let prevIdSet = new Set(prevElements.map(e => e.id))
-    let prevRefMap = new Map<string, CanvasElement>()
+    let prevIdSet = new Set(prevElements.map((e) => e.id))
+    const prevRefMap = new Map<string, CanvasElement>()
     for (const e of prevElements) prevRefMap.set(e.id, e)
-    
+
     // P0-5: subscribe 仅处理 elements 变化，非 elements 变化快速退出
     const unsub = useAppStore.subscribe((s) => {
       const currElements = s.elements
-      if (currElements === prevElements) return  // 快速退出：非 elements 变化
-      
-      {  // elements 变化处理块
+      if (currElements === prevElements) return // 快速退出：非 elements 变化
+
+      {
+        // elements 变化处理块
         elementsDirtyRef.current = true
-        
+
         // P0-2 优化: 使用引用比较而非全量 Map 创建
         // 只在元素引用变化时才失效缓存
         const currIdSet = new Set<string>()
@@ -372,14 +374,14 @@ export function useCanvasRenderer(
             boundsCacheRef.current.delete(el.id)
           }
         }
-        
+
         // 移除已删除元素的缓存
         for (const id of prevIdSet) {
           if (!currIdSet.has(id)) {
             boundsCacheRef.current.delete(id)
           }
         }
-        
+
         // P0-4 优化: 增量更新 prevRefMap，避免每次都重建完整 Map
         // 只添加新元素，删除已移除的元素
         for (const el of currElements) {
@@ -395,12 +397,12 @@ export function useCanvasRenderer(
         prevElements = currElements
         prevIdSet = currIdSet
       }
-      
+
       // 调度重绘（已通过 raf 合并）
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(() => redrawRef.current())
     })
-    
+
     return () => {
       unsub()
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
@@ -432,12 +434,12 @@ export function useCanvasRenderer(
     let lastTime = performance.now()
     let particleRafId: number
     let running = false
-    
+
     function updateParticles() {
       const now = performance.now()
       const deltaTime = Math.min((now - lastTime) / 1000, 0.1) // 限制最大delta防止跳帧
       lastTime = now
-      
+
       if (eraserParticleSystem.getParticleCount() > 0) {
         eraserParticleSystem.update(deltaTime)
         particleRafId = requestAnimationFrame(updateParticles)
@@ -446,7 +448,7 @@ export function useCanvasRenderer(
         running = false
       }
     }
-    
+
     // 监听粒子发射事件，唤醒循环
     function onParticlesEmitted() {
       if (!running) {
@@ -455,14 +457,14 @@ export function useCanvasRenderer(
         particleRafId = requestAnimationFrame(updateParticles)
       }
     }
-    
+
     // 每次重绘时检查是否有粒子需要更新
     const unsub = useAppStore.subscribe(() => {
       if (eraserParticleSystem.getParticleCount() > 0 && !running) {
         onParticlesEmitted()
       }
     })
-    
+
     return () => {
       cancelAnimationFrame(particleRafId)
       unsub()

@@ -1,5 +1,16 @@
-import type { EraserConfig, EraserPresetType, EraserShape, EraserBrandType, ShortcutMap } from './types'
-import { ERASER_PRESET_CONFIGS, ERASER_BRAND_CONFIGS, DEFAULT_ERASER_CONFIG, DEFAULT_SHORTCUTS } from './types'
+import type {
+  EraserConfig,
+  EraserPresetType,
+  EraserShape,
+  EraserBrandType,
+  ShortcutMap,
+} from './types'
+import {
+  ERASER_PRESET_CONFIGS,
+  ERASER_BRAND_CONFIGS,
+  DEFAULT_ERASER_CONFIG,
+  DEFAULT_SHORTCUTS,
+} from './types'
 
 const STORAGE_KEY = 'mindnotes-eraser-preferences'
 
@@ -52,7 +63,7 @@ export function saveEraserPreferences(prefs: Partial<EraserUserPreferences>): vo
   try {
     const current = loadEraserPreferences()
     const updated: Partial<EraserUserPreferences> = { ...current }
-    
+
     // 只更新非undefined的值
     if (prefs.preset !== undefined) updated.preset = prefs.preset
     if (prefs.brand !== undefined) updated.brand = prefs.brand
@@ -62,7 +73,7 @@ export function saveEraserPreferences(prefs: Partial<EraserUserPreferences>): vo
     if (prefs.rotation !== undefined) updated.rotation = prefs.rotation
     if (prefs.particlesEnabled !== undefined) updated.particlesEnabled = prefs.particlesEnabled
     if (prefs.shortcuts !== undefined) updated.shortcuts = prefs.shortcuts
-    
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
   } catch {
     // localStorage不可用，静默失败
@@ -86,7 +97,7 @@ export function getMergedShortcuts(prefs: EraserUserPreferences): ShortcutMap {
 export function getEraserConfigFromPreferences(prefs: EraserUserPreferences): EraserConfig {
   const baseConfig = ERASER_PRESET_CONFIGS[prefs.preset]
   const brandConfig = ERASER_BRAND_CONFIGS[prefs.brand]
-  
+
   return {
     ...baseConfig,
     shape: prefs.shape,

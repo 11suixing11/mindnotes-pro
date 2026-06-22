@@ -17,7 +17,7 @@ describe('PhysicsEraserEngine', () => {
       const r1 = engine.computeEffectiveRadius(0)
       const r2 = engine.computeEffectiveRadius(0.5)
       const r3 = engine.computeEffectiveRadius(1)
-      
+
       expect(r1).toBeLessThan(r2)
       expect(r2).toBeLessThan(r3)
     })
@@ -27,11 +27,11 @@ describe('PhysicsEraserEngine', () => {
       const hardEngine = new PhysicsEraserEngine({ hardness: 0.9 })
       softEngine.setBaseSize(10)
       hardEngine.setBaseSize(10)
-      
+
       // 硬橡皮半径更小（更精确）
       const softR = softEngine.computeEffectiveRadius(0.5)
       const hardR = hardEngine.computeEffectiveRadius(0.5)
-      
+
       expect(hardR).toBeLessThan(softR)
     })
 
@@ -49,7 +49,7 @@ describe('PhysicsEraserEngine', () => {
       const s1 = engine.computeEraseStrength(createPoint(0.1))
       const s2 = engine.computeEraseStrength(createPoint(0.5))
       const s3 = engine.computeEraseStrength(createPoint(1))
-      
+
       // 压力越大，强度越高
       expect(s1).toBeLessThan(s2)
       expect(s2).toBeLessThan(s3)
@@ -69,21 +69,25 @@ describe('PhysicsEraserEngine', () => {
       const sOptimal = engine.computeEraseStrength(createPoint(2))
       const sSlow = engine.computeEraseStrength(createPoint(0.1))
       const sFast = engine.computeEraseStrength(createPoint(10))
-      
+
       expect(sOptimal).toBeGreaterThan(sSlow)
       expect(sOptimal).toBeGreaterThan(sFast)
     })
 
     it('computeEraseStrength - 边界值不溢出', () => {
       const createPoint = (pressure: number, velocity: number): EraserPoint => ({
-        x: 100, y: 100, pressure, velocity,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure,
+        velocity,
+        direction: 0,
+        timestamp: Date.now(),
       })
 
       // 极端参数也不会超过 [0, 1] 范围
       const sMax = engine.computeEraseStrength(createPoint(1, 2))
       const sMin = engine.computeEraseStrength(createPoint(0, 100))
-      
+
       expect(sMax).toBeLessThanOrEqual(1)
       expect(sMin).toBeGreaterThanOrEqual(0)
     })
@@ -94,7 +98,11 @@ describe('PhysicsEraserEngine', () => {
       type: 'stroke',
       id: 'test-stroke',
       points: [
-        [0, 0], [50, 0], [100, 0], [150, 0], [200, 0],
+        [0, 0],
+        [50, 0],
+        [100, 0],
+        [150, 0],
+        [200, 0],
       ],
       color: '#000',
       size: 2,
@@ -109,12 +117,10 @@ describe('PhysicsEraserEngine', () => {
 
     it('splitStroke - 单点分割', () => {
       const stroke = createTestStroke()
-      const intersections: Intersection[] = [
-        { t: 0.5, point: [100, 0], strength: 0.8 }
-      ]
+      const intersections: Intersection[] = [{ t: 0.5, point: [100, 0], strength: 0.8 }]
 
       const result = engine.splitStroke(stroke, intersections)
-      
+
       // 应该分割成2段
       expect(result.status).toBe('split')
       if (result.status === 'split') {
@@ -132,7 +138,7 @@ describe('PhysicsEraserEngine', () => {
       ]
 
       const result = engine.splitStroke(stroke, intersections)
-      
+
       // 应该分割成3段
       expect(result.status).toBe('split')
       if (result.status === 'split') {
@@ -148,7 +154,7 @@ describe('PhysicsEraserEngine', () => {
       ]
 
       const result = engine.splitStroke(stroke, intersections)
-      
+
       // 距离小于0.05应该合并，只产生2段
       expect(result.status).toBe('split')
       if (result.status === 'split') {
@@ -158,13 +164,11 @@ describe('PhysicsEraserEngine', () => {
 
     it('splitStroke - 生成新ID不重复', () => {
       const stroke = createTestStroke()
-      const intersections: Intersection[] = [
-        { t: 0.5, point: [100, 0], strength: 0.8 }
-      ]
+      const intersections: Intersection[] = [{ t: 0.5, point: [100, 0], strength: 0.8 }]
 
       const result1 = engine.splitStroke(stroke, intersections)
       const result2 = engine.splitStroke(stroke, intersections)
-      
+
       // 两次调用ID应该不同
       expect(result1.status).toBe('split')
       expect(result2.status).toBe('split')
@@ -176,13 +180,11 @@ describe('PhysicsEraserEngine', () => {
     it('splitStroke - 透明度渐变', () => {
       const stroke = createTestStroke()
       stroke.opacity = 1
-      
-      const intersections: Intersection[] = [
-        { t: 0.5, point: [100, 0], strength: 0.8 }
-      ]
+
+      const intersections: Intersection[] = [{ t: 0.5, point: [100, 0], strength: 0.8 }]
 
       const result = engine.splitStroke(stroke, intersections)
-      
+
       // 第一段应该有透明度降低
       expect(result.status).toBe('split')
       if (result.status === 'split') {
@@ -204,8 +206,12 @@ describe('PhysicsEraserEngine', () => {
       }
 
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 0.5, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
 
       // 不应该抛出异常
@@ -225,8 +231,12 @@ describe('PhysicsEraserEngine', () => {
       }
 
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 0.5, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
 
       // 不应该抛出异常
@@ -251,12 +261,16 @@ describe('PhysicsEraserEngine', () => {
 
     it('空元素数组', () => {
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 0.5, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
 
       const result = engine.addErasePoint(point, [])
-      
+
       expect(result.modifiedStrokes).toEqual([])
       expect(result.affectedElementIds).toEqual([])
     })
@@ -266,7 +280,11 @@ describe('PhysicsEraserEngine', () => {
     const createStrokeAt = (x: number, y: number): StrokeElement => ({
       type: 'stroke',
       id: `stroke-${x}-${y}`,
-      points: [[x - 20, y], [x, y], [x + 20, y]],
+      points: [
+        [x - 20, y],
+        [x, y],
+        [x + 20, y],
+      ],
       color: '#000',
       size: 2,
       brush: 'pen',
@@ -274,8 +292,12 @@ describe('PhysicsEraserEngine', () => {
 
     it('startErase - 初始化轨迹', () => {
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 0.5, velocity: 0,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 0,
+        direction: 0,
+        timestamp: Date.now(),
       }
 
       engine.startErase(point)
@@ -283,8 +305,22 @@ describe('PhysicsEraserEngine', () => {
     })
 
     it('addErasePoint - 追加轨迹', () => {
-      const p1: EraserPoint = { x: 100, y: 100, pressure: 0.5, velocity: 0, direction: 0, timestamp: 1 }
-      const p2: EraserPoint = { x: 110, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 2 }
+      const p1: EraserPoint = {
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 0,
+        direction: 0,
+        timestamp: 1,
+      }
+      const p2: EraserPoint = {
+        x: 110,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: 2,
+      }
 
       engine.startErase(p1)
       engine.addErasePoint(p2, [])
@@ -294,8 +330,12 @@ describe('PhysicsEraserEngine', () => {
 
     it('endErase - 清空轨迹', () => {
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 0.5, velocity: 0,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 0,
+        direction: 0,
+        timestamp: Date.now(),
       }
 
       engine.startErase(point)
@@ -307,8 +347,12 @@ describe('PhysicsEraserEngine', () => {
     it('命中笔触产生分割动作', () => {
       const stroke = createStrokeAt(100, 100)
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 1, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
 
       engine.startErase(point)
@@ -322,8 +366,12 @@ describe('PhysicsEraserEngine', () => {
   describe('橡皮擦形状支持', () => {
     it('圆形橡皮擦：中心点距离为0', () => {
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 0.5, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
       const dist = engine.pointToEraserDistance(point, 100, 100)
       expect(dist).toBe(0)
@@ -333,8 +381,12 @@ describe('PhysicsEraserEngine', () => {
       const engine = new PhysicsEraserEngine({ shape: 'circle' })
       engine.setBaseSize(10)
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 1, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
       const radius = engine.computeEffectiveRadius(1)
       const dist = engine.pointToEraserDistance(point, 100 + radius, 100)
@@ -353,8 +405,12 @@ describe('PhysicsEraserEngine', () => {
       const engine = new PhysicsEraserEngine({ shape: 'chisel', rotation: 0 })
       engine.setBaseSize(10)
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 1, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
       const dist = engine.pointToEraserDistance(point, 100, 100)
       // 内部点距离为负数
@@ -365,8 +421,12 @@ describe('PhysicsEraserEngine', () => {
       const engine = new PhysicsEraserEngine({ shape: 'chisel', rotation: 0 })
       engine.setBaseSize(10)
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 1, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
       const dims = engine.getChiselDimensions(1)
 
@@ -383,16 +443,16 @@ describe('PhysicsEraserEngine', () => {
       const engine = new PhysicsEraserEngine({ shape: 'square', rotation: Math.PI / 4 })
       engine.setBaseSize(10)
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 1, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
       // 旋转45度后，对角线方向的点应该在内部
       const size = engine.computeEffectiveRadius(1)
-      const dist = engine.pointToEraserDistance(
-        point,
-        100 + size * 0.5,
-        100 + size * 0.5
-      )
+      const dist = engine.pointToEraserDistance(point, 100 + size * 0.5, 100 + size * 0.5)
       expect(dist).toBeLessThan(0)
     })
 
@@ -405,12 +465,20 @@ describe('PhysicsEraserEngine', () => {
       engine.setBaseSize(20) // 大一点更容易测试
 
       const pointH: EraserPoint = {
-        x: 100, y: 100, pressure: 1, velocity: 2,
-        direction: 0, timestamp: Date.now(), // 水平向右
+        x: 100,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(), // 水平向右
       }
       const pointV: EraserPoint = {
-        x: 100, y: 100, pressure: 1, velocity: 2,
-        direction: Math.PI / 2, timestamp: Date.now(), // 垂直向下
+        x: 100,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: Math.PI / 2,
+        timestamp: Date.now(), // 垂直向下
       }
 
       const dims = engine.getChiselDimensions(1)
@@ -443,8 +511,22 @@ describe('PhysicsEraserEngine', () => {
       const engine = new PhysicsEraserEngine({ wearRate: 1 })
       engine.setBaseSize(10)
 
-      const p1: EraserPoint = { x: 100, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 1 }
-      const p2: EraserPoint = { x: 200, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 2 }
+      const p1: EraserPoint = {
+        x: 100,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: 1,
+      }
+      const p2: EraserPoint = {
+        x: 200,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: 2,
+      }
 
       engine.startErase(p1)
       engine.addErasePoint(p2, [])
@@ -455,16 +537,44 @@ describe('PhysicsEraserEngine', () => {
     it('磨损程度与移动距离成正比', () => {
       const engine1 = new PhysicsEraserEngine({ wearRate: 1 })
       engine1.setBaseSize(10)
-      const p1a: EraserPoint = { x: 100, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 1 }
-      const p1b: EraserPoint = { x: 150, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 2 }
+      const p1a: EraserPoint = {
+        x: 100,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: 1,
+      }
+      const p1b: EraserPoint = {
+        x: 150,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: 2,
+      }
       engine1.startErase(p1a)
       engine1.addErasePoint(p1b, [])
       const wear1 = engine1.getWearLevel()
 
       const engine2 = new PhysicsEraserEngine({ wearRate: 1 })
       engine2.setBaseSize(10)
-      const p2a: EraserPoint = { x: 100, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 1 }
-      const p2b: EraserPoint = { x: 200, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 2 }
+      const p2a: EraserPoint = {
+        x: 100,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: 1,
+      }
+      const p2b: EraserPoint = {
+        x: 200,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: 2,
+      }
       engine2.startErase(p2a)
       engine2.addErasePoint(p2b, [])
       const wear2 = engine2.getWearLevel()
@@ -476,16 +586,44 @@ describe('PhysicsEraserEngine', () => {
     it('磨损程度与压力成正比', () => {
       const engine1 = new PhysicsEraserEngine({ wearRate: 1 })
       engine1.setBaseSize(10)
-      const p1a: EraserPoint = { x: 100, y: 100, pressure: 0.2, velocity: 2, direction: 0, timestamp: 1 }
-      const p1b: EraserPoint = { x: 200, y: 100, pressure: 0.2, velocity: 2, direction: 0, timestamp: 2 }
+      const p1a: EraserPoint = {
+        x: 100,
+        y: 100,
+        pressure: 0.2,
+        velocity: 2,
+        direction: 0,
+        timestamp: 1,
+      }
+      const p1b: EraserPoint = {
+        x: 200,
+        y: 100,
+        pressure: 0.2,
+        velocity: 2,
+        direction: 0,
+        timestamp: 2,
+      }
       engine1.startErase(p1a)
       engine1.addErasePoint(p1b, [])
       const wear1 = engine1.getWearLevel()
 
       const engine2 = new PhysicsEraserEngine({ wearRate: 1 })
       engine2.setBaseSize(10)
-      const p2a: EraserPoint = { x: 100, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 1 }
-      const p2b: EraserPoint = { x: 200, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 2 }
+      const p2a: EraserPoint = {
+        x: 100,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: 1,
+      }
+      const p2b: EraserPoint = {
+        x: 200,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: 2,
+      }
       engine2.startErase(p2a)
       engine2.addErasePoint(p2b, [])
       const wear2 = engine2.getWearLevel()
@@ -497,16 +635,44 @@ describe('PhysicsEraserEngine', () => {
     it('硬橡皮磨损更慢', () => {
       const softEngine = new PhysicsEraserEngine({ hardness: 0.1, wearRate: 1 })
       softEngine.setBaseSize(10)
-      const p1a: EraserPoint = { x: 100, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 1 }
-      const p1b: EraserPoint = { x: 200, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 2 }
+      const p1a: EraserPoint = {
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: 1,
+      }
+      const p1b: EraserPoint = {
+        x: 200,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: 2,
+      }
       softEngine.startErase(p1a)
       softEngine.addErasePoint(p1b, [])
       const softWear = softEngine.getWearLevel()
 
       const hardEngine = new PhysicsEraserEngine({ hardness: 0.9, wearRate: 1 })
       hardEngine.setBaseSize(10)
-      const p2a: EraserPoint = { x: 100, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 1 }
-      const p2b: EraserPoint = { x: 200, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 2 }
+      const p2a: EraserPoint = {
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: 1,
+      }
+      const p2b: EraserPoint = {
+        x: 200,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: 2,
+      }
       hardEngine.startErase(p2a)
       hardEngine.addErasePoint(p2b, [])
       const hardWear = hardEngine.getWearLevel()
@@ -526,7 +692,14 @@ describe('PhysicsEraserEngine', () => {
 
       for (let i = 0; i < 100; i++) {
         x += 100
-        const p: EraserPoint = { x, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: i + 1 }
+        const p: EraserPoint = {
+          x,
+          y: 100,
+          pressure: 1,
+          velocity: 2,
+          direction: 0,
+          timestamp: i + 1,
+        }
         engine.addErasePoint(p, [])
       }
 
@@ -538,8 +711,22 @@ describe('PhysicsEraserEngine', () => {
       const engine = new PhysicsEraserEngine({ wearRate: 1 })
       engine.setBaseSize(10)
 
-      const p1: EraserPoint = { x: 100, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 1 }
-      const p2: EraserPoint = { x: 200, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 2 }
+      const p1: EraserPoint = {
+        x: 100,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: 1,
+      }
+      const p2: EraserPoint = {
+        x: 200,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: 2,
+      }
 
       engine.startErase(p1)
       engine.addErasePoint(p2, [])
@@ -557,8 +744,22 @@ describe('PhysicsEraserEngine', () => {
       const radiusNew = engine.computeEffectiveRadius(1)
 
       // 模拟磨损
-      const p1: EraserPoint = { x: 100, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 1 }
-      const p2: EraserPoint = { x: 500, y: 100, pressure: 1, velocity: 2, direction: 0, timestamp: 2 }
+      const p1: EraserPoint = {
+        x: 100,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: 1,
+      }
+      const p2: EraserPoint = {
+        x: 500,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: 2,
+      }
       engine.startErase(p1)
       engine.addErasePoint(p2, [])
 
@@ -572,16 +773,44 @@ describe('PhysicsEraserEngine', () => {
     it('wearRate 配置影响磨损速度', () => {
       const engineSlow = new PhysicsEraserEngine({ wearRate: 0.5 })
       engineSlow.setBaseSize(10)
-      const p1a: EraserPoint = { x: 100, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 1 }
-      const p1b: EraserPoint = { x: 200, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 2 }
+      const p1a: EraserPoint = {
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: 1,
+      }
+      const p1b: EraserPoint = {
+        x: 200,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: 2,
+      }
       engineSlow.startErase(p1a)
       engineSlow.addErasePoint(p1b, [])
       const wearSlow = engineSlow.getWearLevel()
 
       const engineFast = new PhysicsEraserEngine({ wearRate: 2 })
       engineFast.setBaseSize(10)
-      const p2a: EraserPoint = { x: 100, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 1 }
-      const p2b: EraserPoint = { x: 200, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 2 }
+      const p2a: EraserPoint = {
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: 1,
+      }
+      const p2b: EraserPoint = {
+        x: 200,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: 2,
+      }
       engineFast.startErase(p2a)
       engineFast.addErasePoint(p2b, [])
       const wearFast = engineFast.getWearLevel()
@@ -625,8 +854,12 @@ describe('PhysicsEraserEngine', () => {
 
     it('速度为0时擦除强度不为0', () => {
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 0.5, velocity: 0,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 0,
+        direction: 0,
+        timestamp: Date.now(),
       }
       const strength = engine.computeEraseStrength(point)
       expect(strength).toBeGreaterThan(0)
@@ -634,8 +867,12 @@ describe('PhysicsEraserEngine', () => {
 
     it('速度极快时擦除强度降低但不为0', () => {
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 0.5, velocity: 100,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 100,
+        direction: 0,
+        timestamp: Date.now(),
       }
       const strength = engine.computeEraseStrength(point)
       expect(strength).toBeGreaterThan(0)
@@ -659,8 +896,12 @@ describe('PhysicsEraserEngine', () => {
   describe('异常输入优雅降级', () => {
     it('null 元素数组不抛出异常', () => {
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 0.5, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
       expect(() => {
         engine.addErasePoint(point, null as any)
@@ -669,8 +910,12 @@ describe('PhysicsEraserEngine', () => {
 
     it('undefined 元素数组不抛出异常', () => {
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 0.5, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
       expect(() => {
         engine.addErasePoint(point, undefined as any)
@@ -678,7 +923,14 @@ describe('PhysicsEraserEngine', () => {
     })
 
     it('无效擦除点不抛出异常', () => {
-      const invalidPoint = { x: NaN, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: Date.now() }
+      const invalidPoint = {
+        x: NaN,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
+      }
       expect(() => {
         engine.startErase(invalidPoint as any)
       }).not.toThrow()
@@ -686,13 +938,27 @@ describe('PhysicsEraserEngine', () => {
 
     it('包含无效元素的数组优雅处理', () => {
       const point: EraserPoint = {
-        x: 100, y: 100, pressure: 0.5, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
       const elements = [
         null,
         undefined,
-        { type: 'stroke', id: 'test', points: [[100, 100], [150, 100]], color: '#000', size: 2, brush: 'pen' },
+        {
+          type: 'stroke',
+          id: 'test',
+          points: [
+            [100, 100],
+            [150, 100],
+          ],
+          color: '#000',
+          size: 2,
+          brush: 'pen',
+        },
       ]
       expect(() => {
         engine.addErasePoint(point, elements as any)
@@ -723,7 +989,11 @@ describe('PhysicsEraserEngine', () => {
         strokes.push({
           type: 'stroke',
           id: `stroke-${i}`,
-          points: [[i * 10, 100], [i * 10 + 5, 100], [i * 10 + 10, 100]],
+          points: [
+            [i * 10, 100],
+            [i * 10 + 5, 100],
+            [i * 10 + 10, 100],
+          ],
           color: '#000',
           size: 2,
           brush: 'pen',
@@ -735,14 +1005,18 @@ describe('PhysicsEraserEngine', () => {
     it('100元素场景不卡顿', () => {
       const elements = createManyStrokes(100)
       const point: EraserPoint = {
-        x: 500, y: 100, pressure: 1, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 500,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
       const start = performance.now()
       engine.startErase(point)
       const result = engine.addErasePoint(point, elements)
       const duration = performance.now() - start
-      
+
       expect(duration).toBeLessThan(50) // 50ms以内完成
       expect(result.affectedElementIds.length).toBeGreaterThanOrEqual(0)
     })
@@ -750,14 +1024,18 @@ describe('PhysicsEraserEngine', () => {
     it('1000元素场景不卡顿', () => {
       const elements = createManyStrokes(1000)
       const point: EraserPoint = {
-        x: 5000, y: 100, pressure: 1, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 5000,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
       const start = performance.now()
       engine.startErase(point)
       const result = engine.addErasePoint(point, elements)
       const duration = performance.now() - start
-      
+
       expect(duration).toBeLessThan(100) // 100ms以内完成
       expect(result.affectedElementIds.length).toBeGreaterThanOrEqual(0)
     })
@@ -765,16 +1043,20 @@ describe('PhysicsEraserEngine', () => {
     it('连续擦除100次内存稳定', () => {
       const elements = createManyStrokes(100)
       const point: EraserPoint = {
-        x: 500, y: 100, pressure: 1, velocity: 2,
-        direction: 0, timestamp: Date.now(),
+        x: 500,
+        y: 100,
+        pressure: 1,
+        velocity: 2,
+        direction: 0,
+        timestamp: Date.now(),
       }
-      
+
       engine.startErase(point)
       for (let i = 0; i < 100; i++) {
         engine.addErasePoint({ ...point, x: 500 + i }, elements)
       }
       engine.endErase()
-      
+
       // 不抛出异常即为通过
       expect(true).toBe(true)
     })
@@ -785,7 +1067,10 @@ describe('PhysicsEraserEngine', () => {
       const stroke: StrokeElement = {
         type: 'stroke',
         id: 'test-stroke',
-        points: [[100, 100], [200, 150]],
+        points: [
+          [100, 100],
+          [200, 150],
+        ],
         color: '#000',
         size: 2,
         brush: 'pen',
@@ -805,25 +1090,46 @@ describe('PhysicsEraserEngine', () => {
 
   describe('并发擦除测试', () => {
     it('多次startErase正确重置状态', () => {
-      const p1: EraserPoint = { x: 100, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 1 }
-      const p2: EraserPoint = { x: 200, y: 200, pressure: 0.5, velocity: 2, direction: 0, timestamp: 2 }
-      
+      const p1: EraserPoint = {
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: 1,
+      }
+      const p2: EraserPoint = {
+        x: 200,
+        y: 200,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: 2,
+      }
+
       engine.startErase(p1)
       engine.addErasePoint(p2, [])
       expect(engine.getTrail()).toHaveLength(2)
-      
+
       // 重新开始应该重置轨迹
       engine.startErase(p1)
       expect(engine.getTrail()).toHaveLength(1)
     })
 
     it('endErase后可以重新开始', () => {
-      const p1: EraserPoint = { x: 100, y: 100, pressure: 0.5, velocity: 2, direction: 0, timestamp: 1 }
-      
+      const p1: EraserPoint = {
+        x: 100,
+        y: 100,
+        pressure: 0.5,
+        velocity: 2,
+        direction: 0,
+        timestamp: 1,
+      }
+
       engine.startErase(p1)
       engine.endErase()
       expect(engine.getTrail()).toHaveLength(0)
-      
+
       engine.startErase(p1)
       expect(engine.getTrail()).toHaveLength(1)
     })

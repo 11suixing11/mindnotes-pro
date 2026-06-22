@@ -71,17 +71,20 @@ function drawEraserGlow(
   // 磨损增加不透明度
   const baseOpacity = 0.1 + wearLevel * 0.2
   gradient.addColorStop(0, `rgba(${wearColor.r}, ${wearColor.g}, ${wearColor.b}, ${baseOpacity})`)
-  gradient.addColorStop(1, `rgba(${wearColor.r}, ${wearColor.g}, ${wearColor.b}, ${baseOpacity + 0.2})`)
+  gradient.addColorStop(
+    1,
+    `rgba(${wearColor.r}, ${wearColor.g}, ${wearColor.b}, ${baseOpacity + 0.2})`
+  )
 
   ctx.strokeStyle = gradient
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
 
   // 压力感应线宽 + 磨损增加半径
-  const avgPressure =
-    trail.reduce((sum, p) => sum + p.pressure, 0) / trail.length
+  const avgPressure = trail.reduce((sum, p) => sum + p.pressure, 0) / trail.length
   const wearRadiusIncrease = 1 + wearLevel * 0.5 // 磨损最多增加50%半径
-  ctx.lineWidth = (baseSize * 2 * avgPressure * (1 - config.hardness * 0.3) * wearRadiusIncrease) / 2
+  ctx.lineWidth =
+    (baseSize * 2 * avgPressure * (1 - config.hardness * 0.3) * wearRadiusIncrease) / 2
 
   ctx.beginPath()
   ctx.moveTo(trail[0].x, trail[0].y)
@@ -233,12 +236,7 @@ function drawRectCursor(
   const borderWidth = 1.5 + wearLevel * 2
   ctx.strokeStyle = `rgba(${color}, ${0.4 + wearLevel * 0.3})`
   ctx.lineWidth = borderWidth
-  ctx.strokeRect(
-    -finalHalfW * 0.7,
-    -finalHalfH * 0.7,
-    finalHalfW * 1.4,
-    finalHalfH * 1.4
-  )
+  ctx.strokeRect(-finalHalfW * 0.7, -finalHalfH * 0.7, finalHalfW * 1.4, finalHalfH * 1.4)
 
   // 中心点
   const centerSize = 2 + wearLevel * 2
@@ -250,12 +248,7 @@ function drawRectCursor(
   // 磨损指示器
   if (wearLevel > 0.3) {
     ctx.fillStyle = `rgba(128, 128, 128, ${0.2 + wearLevel * 0.3})`
-    ctx.fillRect(
-      -finalHalfW * 0.6,
-      finalHalfH * 0.5,
-      finalHalfW * 1.2 * wearLevel,
-      3
-    )
+    ctx.fillRect(-finalHalfW * 0.6, finalHalfH * 0.5, finalHalfW * 1.2 * wearLevel, 3)
   }
 }
 
