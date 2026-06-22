@@ -23,7 +23,7 @@ describe('userPreferences - 用户偏好持久化', () => {
   describe('默认值', () => {
     it('没有存储数据时应该返回默认偏好', () => {
       const prefs = loadEraserPreferences()
-      
+
       expect(prefs.preset).toBe('4b')
       expect(prefs.brand).toBe('default')
       expect(prefs.shape).toBe('circle')
@@ -35,7 +35,7 @@ describe('userPreferences - 用户偏好持久化', () => {
 
     it('默认值应该包含所有字段', () => {
       const prefs = loadEraserPreferences()
-      
+
       expect(prefs).toHaveProperty('preset')
       expect(prefs).toHaveProperty('brand')
       expect(prefs).toHaveProperty('shape')
@@ -72,10 +72,10 @@ describe('userPreferences - 用户偏好持久化', () => {
 
     it('应该正确存储到localStorage', () => {
       saveEraserPreferences({ preset: '2b', brand: 'faber-castell' })
-      
+
       const stored = localStorage.getItem(STORAGE_KEY)
       expect(stored).toBeTruthy()
-      
+
       const parsed = JSON.parse(stored!)
       expect(parsed.preset).toBe('2b')
       expect(parsed.brand).toBe('faber-castell')
@@ -84,12 +84,12 @@ describe('userPreferences - 用户偏好持久化', () => {
     it('部分保存应该合并而不是覆盖', () => {
       // 先保存一些值
       saveEraserPreferences({ preset: '6b', shape: 'square' })
-      
+
       // 再保存另一些值
       saveEraserPreferences({ audioEnabled: false })
-      
+
       const loaded = loadEraserPreferences()
-      
+
       // 旧值应该保留
       expect(loaded.preset).toBe('6b')
       expect(loaded.shape).toBe('square')
@@ -128,10 +128,10 @@ describe('userPreferences - 用户偏好持久化', () => {
     it('brand应该可以独立修改', () => {
       // 设置其他偏好
       saveEraserPreferences({ preset: '6b', audioEnabled: false })
-      
+
       // 只修改品牌
       saveEraserPreferences({ brand: 'staedtler' })
-      
+
       const loaded = loadEraserPreferences()
       expect(loaded.preset).toBe('6b') // 保持不变
       expect(loaded.audioEnabled).toBe(false) // 保持不变
@@ -146,7 +146,7 @@ describe('userPreferences - 用户偏好持久化', () => {
 
       clearEraserPreferences()
       const loaded = loadEraserPreferences()
-      
+
       // 应该恢复默认值
       expect(loaded.preset).toBe('4b')
       expect(loaded.brand).toBe('default')
@@ -171,14 +171,18 @@ describe('userPreferences - 用户偏好持久化', () => {
         shortcuts: {},
       }
       const config = getEraserConfigFromPreferences(prefs)
-      
+
       expect(config.shape).toBe('square')
       expect(config.baseRadius).toBe(15)
       expect(config.audioEnabled).toBe(false)
       expect(config.rotation).toBe(30)
       // 预设的硬度等参数应该来自2B配置
-      expect(config.hardness).toBe(ERASER_PRESET_CONFIGS['2b'].hardness * ERASER_BRAND_CONFIGS['default'].hardnessModifier)
-      expect(config.wearRate).toBe(ERASER_PRESET_CONFIGS['2b'].wearRate * ERASER_BRAND_CONFIGS['default'].wearRateModifier)
+      expect(config.hardness).toBe(
+        ERASER_PRESET_CONFIGS['2b'].hardness * ERASER_BRAND_CONFIGS['default'].hardnessModifier
+      )
+      expect(config.wearRate).toBe(
+        ERASER_PRESET_CONFIGS['2b'].wearRate * ERASER_BRAND_CONFIGS['default'].wearRateModifier
+      )
     })
 
     it('4B预设应该生成对应配置', () => {
@@ -193,8 +197,10 @@ describe('userPreferences - 用户偏好持久化', () => {
         shortcuts: {},
       }
       const config = getEraserConfigFromPreferences(prefs)
-      
-      expect(config.hardness).toBe(ERASER_PRESET_CONFIGS['4b'].hardness * ERASER_BRAND_CONFIGS['default'].hardnessModifier)
+
+      expect(config.hardness).toBe(
+        ERASER_PRESET_CONFIGS['4b'].hardness * ERASER_BRAND_CONFIGS['default'].hardnessModifier
+      )
     })
 
     it('6B预设应该生成对应配置', () => {
@@ -209,8 +215,10 @@ describe('userPreferences - 用户偏好持久化', () => {
         shortcuts: {},
       }
       const config = getEraserConfigFromPreferences(prefs)
-      
-      expect(config.hardness).toBe(ERASER_PRESET_CONFIGS['6b'].hardness * ERASER_BRAND_CONFIGS['default'].hardnessModifier)
+
+      expect(config.hardness).toBe(
+        ERASER_PRESET_CONFIGS['6b'].hardness * ERASER_BRAND_CONFIGS['default'].hardnessModifier
+      )
     })
 
     it('品牌修正系数应该正确应用', () => {
@@ -225,7 +233,7 @@ describe('userPreferences - 用户偏好持久化', () => {
         shortcuts: {},
       }
       const config = getEraserConfigFromPreferences(prefs)
-      
+
       // 樱花橡皮应该更软、更耐用（磨损更慢）
       expect(config.hardness).toBeLessThan(ERASER_PRESET_CONFIGS['4b'].hardness)
       expect(config.wearRate).toBeLessThan(ERASER_PRESET_CONFIGS['4b'].wearRate)
@@ -311,7 +319,7 @@ describe('userPreferences - 用户偏好持久化', () => {
 
     it('JSON解析失败应该返回默认值', () => {
       localStorage.setItem(STORAGE_KEY, 'invalid json {{{')
-      
+
       const prefs = loadEraserPreferences()
       expect(prefs.preset).toBe('4b') // 应该返回默认值
       expect(prefs.brand).toBe('default') // 应该返回默认值
@@ -344,7 +352,7 @@ describe('userPreferences - 用户偏好持久化', () => {
     it('保存空对象应该不改变现有值', () => {
       saveEraserPreferences({ preset: '6b', brand: 'sakura' })
       saveEraserPreferences({}) // 空对象
-      
+
       const loaded = loadEraserPreferences()
       expect(loaded.preset).toBe('6b') // 应该保持不变
       expect(loaded.brand).toBe('sakura') // 应该保持不变
@@ -353,7 +361,7 @@ describe('userPreferences - 用户偏好持久化', () => {
     it('保存undefined值应该被忽略', () => {
       saveEraserPreferences({ preset: '6b', brand: 'sakura' })
       saveEraserPreferences({ preset: undefined as any, brand: undefined as any })
-      
+
       const loaded = loadEraserPreferences()
       expect(loaded.preset).toBe('6b') // 应该保持不变
       expect(loaded.brand).toBe('sakura') // 应该保持不变
@@ -364,7 +372,7 @@ describe('userPreferences - 用户偏好持久化', () => {
         baseRadius: 0,
         rotation: 360,
       })
-      
+
       const loaded = loadEraserPreferences()
       expect(loaded.baseRadius).toBe(0)
       expect(loaded.rotation).toBe(360)
@@ -390,10 +398,10 @@ describe('userPreferences - 用户偏好持久化', () => {
     it('particlesEnabled应该可以独立修改', () => {
       // 设置其他偏好
       saveEraserPreferences({ preset: '6b', audioEnabled: false })
-      
+
       // 只修改粒子开关
       saveEraserPreferences({ particlesEnabled: false })
-      
+
       const loaded = loadEraserPreferences()
       expect(loaded.preset).toBe('6b') // 保持不变
       expect(loaded.audioEnabled).toBe(false) // 保持不变

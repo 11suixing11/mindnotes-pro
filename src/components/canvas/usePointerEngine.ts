@@ -87,12 +87,12 @@ export function usePointerEngine(opts: {
   const shapeStartRef = useRef<{ x: number; y: number } | null>(null)
   const currentShapeRef = useRef<ShapeElement | null>(null)
   const erasedRef = useRef<Set<string>>(new Set())
-  
+
   // P0 修复: 擦除轨迹跟踪（用于光标拖尾渲染）- 移到开头，在 handleMove 使用前声明
   const eraserTrailRef = useRef<{ x: number; y: number; time: number }[]>([])
   const eraserTrailHeadRef = useRef(0)
   const penVelocityRef = useRef(0)
-  
+
   // 物理擦除状态
   const lastErasePointRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const dragRef = useRef<{
@@ -147,7 +147,7 @@ export function usePointerEngine(opts: {
       const r = 12 / (useViewStore.getState().viewBox.zoom || 1)
       const state = useAppStore.getState()
       const els = state.elements
-      
+
       // P0-1: 使用缓存的 idToIndex，仅在 elements 引用变化时重建
       const cache = idToIndexCacheRef.current
       if (cache.els !== els) {
@@ -156,7 +156,7 @@ export function usePointerEngine(opts: {
         idToIndexCacheRef.current = { els, map }
       }
       const idToIndex = idToIndexCacheRef.current.map
-      
+
       // P0 性能优化: 先用空间索引快速筛选候选元素（O(log n)）
       const candidateIds = state.spatialIndex?.search({
         x: px - r,
@@ -164,7 +164,7 @@ export function usePointerEngine(opts: {
         w: r * 2,
         h: r * 2,
       })
-      
+
       // P0 优化: 如果空间索引可用，直接遍历候选元素而非全部元素
       // 从后向前遍历以保持 Z-order（后绘制的在上层）
       if (candidateIds && candidateIds.length > 0) {
@@ -172,12 +172,12 @@ export function usePointerEngine(opts: {
         candidateIds.sort((a, b) => {
           return (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
         })
-        
+
         for (const id of candidateIds) {
           const idx = idToIndex.get(id)
           if (idx === undefined) continue
           const el = els[idx]
-          
+
           // 精确检测
           if (el.type === 'image') {
             if (
@@ -203,7 +203,7 @@ export function usePointerEngine(opts: {
             // P1 性能优化: 使用边界框快速排除，避免逐点距离计算
             const b = cachedBounds(el)
             if (px < b.x - r || px > b.x + b.w + r || py < b.y - r || py > b.y + b.h + r) continue
-            
+
             // P1 性能优化: 使用平方距离比较，避免 Math.sqrt 开销
             const threshold = r + el.size / 2
             const thresholdSq = threshold * threshold
@@ -224,7 +224,7 @@ export function usePointerEngine(opts: {
         }
         return null
       }
-      
+
       // 降级: 空间索引不可用时用原有的 O(n) 遍历
       for (let i = els.length - 1; i >= 0; i--) {
         const el = els[i]
@@ -313,7 +313,7 @@ export function usePointerEngine(opts: {
       const r = useAppStore.getState().size * 2 + 10,
         r2 = r * r
       const state = useAppStore.getState()
-      
+
       // P0-2 优化: 使用空间索引预筛选，直接遍历候选而非全部元素
       const candidateIds = state.spatialIndex?.search({
         x: x - r,
@@ -321,15 +321,15 @@ export function usePointerEngine(opts: {
         w: r * 2,
         h: r * 2,
       })
-      
+
       // P0-2: 直接遍历候选 ID，通过 idToElement O(1) 查找
-      const iterateIds = candidateIds ?? state.elements.map(e => e.id)
-      
+      const iterateIds = candidateIds ?? state.elements.map((e) => e.id)
+
       for (const id of iterateIds) {
         if (erasedRef.current.has(id)) continue
         const el = state.idToElement.get(id)
         if (!el) continue
-        
+
         if (el.type === 'stroke') {
           const segments: number[][][] = []
           let cur: number[][] = []
@@ -371,12 +371,12 @@ export function usePointerEngine(opts: {
     (x: number, y: number, pressure: number = 0.5, e?: MouseEvent | TouchEvent) => {
       const state = useAppStore.getState()
       const eraserStore = useEraserStore.getState()
-      
+
       // 计算速度
       const now = performance.now()
       let velocity = 0
       let direction = 0
-      
+
       if (lastErasePointRef.current) {
         const dx = x - lastErasePointRef.current.x
         const dy = y - lastErasePointRef.current.y
@@ -411,7 +411,7 @@ export function usePointerEngine(opts: {
         // 应用擦除结果
         for (const modified of result.modifiedStrokes) {
           if (erasedRef.current.has(modified.id)) continue
-          
+
           if (modified.action === 'delete') {
             erasedRef.current.add(modified.id)
             removeElement(modified.id)
@@ -517,9 +517,7 @@ export function usePointerEngine(opts: {
           const screenY = (pos.y - curVB.y) * curVB.zoom + rect.top
           const hitEl = hitTest(pos.x, pos.y)
           const existing = hitEl
-            ? (useAppStore.getState().idToElement.get(hitEl) as
-                | TextElement
-                | undefined)
+            ? (useAppStore.getState().idToElement.get(hitEl) as TextElement | undefined)
             : undefined
           if (existing)
             startEditText(
@@ -696,7 +694,7 @@ export function usePointerEngine(opts: {
           head = 0
         }
         eraserTrailHeadRef.current = head
-        
+
         if (drawingRef.current) eraseAt(pos.x, pos.y, undefined, e)
         scheduleRedraw()
         return
@@ -711,8 +709,7 @@ export function usePointerEngine(opts: {
           penVelocityRef.current = Math.sqrt(dx * dx + dy * dy)
         }
         currentPtsRef.current.push([pos.x, pos.y])
-      }
-      else if (shapeStartRef.current && currentShapeRef.current) {
+      } else if (shapeStartRef.current && currentShapeRef.current) {
         let w = pos.x - shapeStartRef.current.x,
           h = pos.y - shapeStartRef.current.y
         const shift = 'shiftKey' in e && (e as MouseEvent).shiftKey

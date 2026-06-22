@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  ERASER_BRAND_CONFIGS,
-  ERASER_BRAND_LABELS,
-  ERASER_BRAND_ICONS,
-} from '../types'
+import { ERASER_BRAND_CONFIGS, ERASER_BRAND_LABELS, ERASER_BRAND_ICONS } from '../types'
 import type { EraserBrandType } from '../types'
 
 describe('橡皮擦品牌皮肤系统', () => {
@@ -19,7 +15,7 @@ describe('橡皮擦品牌皮肤系统', () => {
     })
 
     it('每个品牌应该有完整的配置', () => {
-      Object.values(ERASER_BRAND_CONFIGS).forEach(config => {
+      Object.values(ERASER_BRAND_CONFIGS).forEach((config) => {
         expect(config).toHaveProperty('name')
         expect(config).toHaveProperty('displayName')
         expect(config).toHaveProperty('description')
@@ -35,21 +31,21 @@ describe('橡皮擦品牌皮肤系统', () => {
     })
 
     it('硬度修正系数应该在合理范围内', () => {
-      Object.values(ERASER_BRAND_CONFIGS).forEach(config => {
+      Object.values(ERASER_BRAND_CONFIGS).forEach((config) => {
         expect(config.hardnessModifier).toBeGreaterThan(0)
         expect(config.hardnessModifier).toBeLessThanOrEqual(2)
       })
     })
 
     it('磨损速率修正系数应该在合理范围内', () => {
-      Object.values(ERASER_BRAND_CONFIGS).forEach(config => {
+      Object.values(ERASER_BRAND_CONFIGS).forEach((config) => {
         expect(config.wearRateModifier).toBeGreaterThan(0)
         expect(config.wearRateModifier).toBeLessThanOrEqual(2)
       })
     })
 
     it('摩擦系数应该在合理范围内', () => {
-      Object.values(ERASER_BRAND_CONFIGS).forEach(config => {
+      Object.values(ERASER_BRAND_CONFIGS).forEach((config) => {
         expect(config.frictionModifier).toBeGreaterThan(0)
         expect(config.frictionModifier).toBeLessThanOrEqual(2)
       })
@@ -58,24 +54,27 @@ describe('橡皮擦品牌皮肤系统', () => {
 
   describe('品牌特性差异化', () => {
     it('樱花橡皮应该更软', () => {
-      expect(ERASER_BRAND_CONFIGS['sakura'].hardnessModifier)
-        .toBeLessThan(ERASER_BRAND_CONFIGS['default'].hardnessModifier)
+      expect(ERASER_BRAND_CONFIGS['sakura'].hardnessModifier).toBeLessThan(
+        ERASER_BRAND_CONFIGS['default'].hardnessModifier
+      )
     })
 
     it('辉柏嘉橡皮应该更耐磨', () => {
-      expect(ERASER_BRAND_CONFIGS['faber-castell'].wearRateModifier)
-        .toBeLessThan(ERASER_BRAND_CONFIGS['default'].wearRateModifier)
+      expect(ERASER_BRAND_CONFIGS['faber-castell'].wearRateModifier).toBeLessThan(
+        ERASER_BRAND_CONFIGS['default'].wearRateModifier
+      )
     })
 
     it('施德楼橡皮应该更硬', () => {
-      expect(ERASER_BRAND_CONFIGS['staedtler'].hardnessModifier)
-        .toBeGreaterThan(ERASER_BRAND_CONFIGS['default'].hardnessModifier)
+      expect(ERASER_BRAND_CONFIGS['staedtler'].hardnessModifier).toBeGreaterThan(
+        ERASER_BRAND_CONFIGS['default'].hardnessModifier
+      )
     })
 
     it('三菱橡皮应该有高端特性', () => {
       // 三菱应该是平衡型但偏高端
       const uni = ERASER_BRAND_CONFIGS['uni']
-      expect(uni.hardnessModifier).toBeCloseTo(1.0, 0)  // 0位小数精度，0.9接近1.0
+      expect(uni.hardnessModifier).toBeCloseTo(1.0, 0) // 0位小数精度，0.9接近1.0
       expect(uni.wearRateModifier).toBeLessThan(1.2)
     })
   })
@@ -92,13 +91,13 @@ describe('橡皮擦品牌皮肤系统', () => {
     })
 
     it('每个品牌都应该有标签', () => {
-      Object.keys(ERASER_BRAND_CONFIGS).forEach(brand => {
+      Object.keys(ERASER_BRAND_CONFIGS).forEach((brand) => {
         expect(ERASER_BRAND_LABELS[brand as EraserBrandType]).toBeTruthy()
       })
     })
 
     it('每个品牌都应该有图标', () => {
-      Object.keys(ERASER_BRAND_CONFIGS).forEach(brand => {
+      Object.keys(ERASER_BRAND_CONFIGS).forEach((brand) => {
         expect(ERASER_BRAND_ICONS[brand as EraserBrandType]).toBeTruthy()
       })
     })
@@ -106,7 +105,7 @@ describe('橡皮擦品牌皮肤系统', () => {
 
   describe('品牌颜色配置', () => {
     it('每个品牌应该有独特的主颜色', () => {
-      const colors = Object.values(ERASER_BRAND_CONFIGS).map(c => c.primaryColor)
+      const colors = Object.values(ERASER_BRAND_CONFIGS).map((c) => c.primaryColor)
       const uniqueColors = new Set(colors)
       expect(uniqueColors.size).toBe(colors.length)
     })
@@ -131,15 +130,15 @@ describe('橡皮擦品牌皮肤系统', () => {
 
   describe('粒子颜色配置', () => {
     it('每个品牌应该有粒子颜色数组', () => {
-      Object.values(ERASER_BRAND_CONFIGS).forEach(config => {
+      Object.values(ERASER_BRAND_CONFIGS).forEach((config) => {
         expect(Array.isArray(config.particleColors)).toBe(true)
         expect(config.particleColors.length).toBeGreaterThan(0)
       })
     })
 
     it('粒子颜色应该是有效的CSS颜色', () => {
-      Object.values(ERASER_BRAND_CONFIGS).forEach(config => {
-        config.particleColors.forEach(color => {
+      Object.values(ERASER_BRAND_CONFIGS).forEach((config) => {
+        config.particleColors.forEach((color) => {
           expect(color).toMatch(/^#|^rgb|^hsl/)
         })
       })

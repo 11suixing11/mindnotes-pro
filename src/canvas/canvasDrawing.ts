@@ -28,13 +28,13 @@ class LRUCache<K, V> {
   get(key: K): V | null {
     const entry = this.cache.get(key)
     if (!entry) return null
-    
+
     const now = Date.now()
     if (now - entry.lastAccess > this.ttl) {
       this.delete(key)
       return null
     }
-    
+
     // 移动到头部 (O(1) 操作)
     this.moveToHead(key, entry)
     entry.lastAccess = now
@@ -57,13 +57,13 @@ class LRUCache<K, V> {
 
     const entry = { value, prev: null, next: this.head, lastAccess: Date.now() }
     this.cache.set(key, entry)
-    
+
     if (this.head !== null) {
       const headEntry = this.cache.get(this.head)
       if (headEntry) headEntry.prev = key
     }
     this.head = key
-    
+
     if (this.tail === null) {
       this.tail = key
     }
@@ -81,7 +81,7 @@ class LRUCache<K, V> {
       const nextEntry = this.cache.get(entry.next)
       if (nextEntry) nextEntry.prev = entry.prev
     }
-    
+
     if (key === this.tail && entry.prev !== null) {
       this.tail = entry.prev
     }
@@ -89,7 +89,7 @@ class LRUCache<K, V> {
     // 移动到头部
     entry.prev = null
     entry.next = this.head
-    
+
     if (this.head !== null) {
       const headEntry = this.cache.get(this.head)
       if (headEntry) headEntry.prev = key
@@ -800,7 +800,13 @@ export function drawZoomLevel(
 }
 // Grid Path2D 缓存 - 避免每帧重建网格路径
 let cachedGridPath: Path2D | null = null
-let cachedGridParams: { startX: number; startY: number; endX: number; endY: number; step: number } | null = null
+let cachedGridParams: {
+  startX: number
+  startY: number
+  endX: number
+  endY: number
+  step: number
+} | null = null
 
 export function drawGrid(
   ctx: CanvasRenderingContext2D,

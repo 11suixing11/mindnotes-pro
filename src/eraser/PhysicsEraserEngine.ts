@@ -154,7 +154,8 @@ function validateErasePoint(point: EraserPoint): boolean {
     Number.isFinite(point.pressure) &&
     Number.isFinite(point.velocity) &&
     Number.isFinite(point.direction) &&
-    point.pressure >= 0 && point.pressure <= 1
+    point.pressure >= 0 &&
+    point.pressure <= 1
   )
 }
 
@@ -162,11 +163,7 @@ function validateErasePoint(point: EraserPoint): boolean {
  * 验证笔触参数合法性
  */
 function validateStroke(stroke: StrokeElement): boolean {
-  return (
-    stroke != null &&
-    Array.isArray(stroke.points) &&
-    stroke.points.length >= 2
-  )
+  return stroke != null && Array.isArray(stroke.points) && stroke.points.length >= 2
 }
 
 // ============================================
@@ -212,7 +209,7 @@ function resetIntersectionPool(): void {
 
 /**
  * 物理擦除引擎核心类
- * 
+ *
  * 实现业界领先的物理模拟擦除系统：
  * - 压力感应擦除强度（重压擦净/轻压擦淡）
  * - 方向纹理模拟（橡皮擦角度影响擦除效果）
@@ -221,12 +218,12 @@ function resetIntersectionPool(): void {
  * - 橡皮磨损模拟（越用越钝，可削橡皮）
  * - 三种橡皮擦形状（圆形/方形/凿形）
  * - 实时参数化音效反馈
- * 
+ *
  * 设计原则：
  * 1. 物理真实：所有公式基于真实橡皮物理特性
  * 2. 性能优先：O(log n) 空间索引 + 增量更新 + 对象池复用
  * 3. 向后兼容：双模式切换，不破坏现有功能
- * 
+ *
  * 性能优化历史：
  * - v1: 基础实现
  * - v2: 空间索引集成
@@ -350,7 +347,7 @@ export class PhysicsEraserEngine {
   /**
    * 添加擦除点并执行擦除计算
    * 这是核心入口方法，每帧调用一次
-   * 
+   *
    * @param point 当前擦除点（含压力、速度、方向信息）
    * @param elements 画布所有元素（或已预筛选的候选元素）
    * @param preFiltered 如果为 true，跳过内部空间过滤（调用方已通过空间索引预筛选）
@@ -404,9 +401,7 @@ export class PhysicsEraserEngine {
     })
 
     // 4. 空间过滤：如果元素已预筛选则直接使用，否则内部过滤
-    const candidates = preFiltered
-      ? elements
-      : this.filterCandidateElements(elements, eraseBounds)
+    const candidates = preFiltered ? elements : this.filterCandidateElements(elements, eraseBounds)
 
     // 5. 预计算擦除强度（P1修复: 只计算一次，避免每笔触重复计算）
     const eraseStrength = this.computeEraseStrength(point)
@@ -557,15 +552,15 @@ export class PhysicsEraserEngine {
 
   /**
    * 物理公式: 有效擦除半径
-   * 
+   *
    * 基于真实橡皮物理特性：
    * - 压力越大，橡皮形变越大，接触面积越大
    * - 硬度越高，形变越小，接触面积越小
    * - 磨损越大，橡皮变钝，接触面积越大
-   * 
+   *
    * P0优化: 压力缓存 - 相同压力值直接返回缓存结果
    * P0优化: 因子缓存 - 硬度/磨损因子预计算
-   * 
+   *
    * @param pressure 笔触压力 0-1
    * @returns 有效擦除半径（像素）
    */
@@ -586,9 +581,7 @@ export class PhysicsEraserEngine {
     // 压力影响：非线性，重压快速饱和
     const pressureFactor =
       RADIUS_CONSTANTS.PRESSURE_BASE +
-      clampedPressure *
-        RADIUS_CONSTANTS.PRESSURE_MULTIPLIER *
-        this.config.pressureSensitivity
+      clampedPressure * RADIUS_CONSTANTS.PRESSURE_MULTIPLIER * this.config.pressureSensitivity
 
     const result = Math.max(
       RADIUS_CONSTANTS.MIN_RADIUS,
@@ -618,8 +611,7 @@ export class PhysicsEraserEngine {
     const { tiltMagnitude, tiltDirection } = this.computeTiltAngle(tiltX, tiltY)
 
     // 根据倾斜角度计算宽度放大倍数
-    const tiltWidthMultiplier =
-      1 + tiltMagnitude * (CHISEL_CONSTANTS.TILT_MAX_WIDTH_MULTIPLIER - 1)
+    const tiltWidthMultiplier = 1 + tiltMagnitude * (CHISEL_CONSTANTS.TILT_MAX_WIDTH_MULTIPLIER - 1)
 
     const baseWidth = effectiveSize * tiltWidthMultiplier
     const baseHeight = effectiveSize * CHISEL_CONSTANTS.HEIGHT_RATIO
@@ -636,7 +628,7 @@ export class PhysicsEraserEngine {
 
   /**
    * 计算压感笔的倾斜程度和方向
-   * 
+   *
    * @param tiltX PointerEvent.tiltX (-90~90度)
    * @param tiltY PointerEvent.tiltY (-90~90度)
    * @returns tiltMagnitude 0-1（0=垂直，1=完全倾斜）
@@ -665,11 +657,7 @@ export class PhysicsEraserEngine {
     }
 
     // 映射到 0-1 范围
-    const normalizedMagnitude = clamp(
-      tiltMagnitudeDeg / CHISEL_CONSTANTS.FULL_TILT_ANGLE,
-      0,
-      1
-    )
+    const normalizedMagnitude = clamp(tiltMagnitudeDeg / CHISEL_CONSTANTS.FULL_TILT_ANGLE, 0, 1)
 
     // 计算倾斜方向
     const tiltDirection = Math.atan2(tiltYRad, tiltXRad)
@@ -683,20 +671,16 @@ export class PhysicsEraserEngine {
   /**
    * 计算点到橡皮擦的距离
    * 根据橡皮擦形状选择不同的距离计算方法
-   * 
+   *
    * P0优化: 对于圆形形状，避免函数调用开销，内联计算
    * P2优化: 对于旋转形状，缓存 cos/sin 值
-   * 
+   *
    * @param erasePoint 橡皮擦位置和状态
    * @param x 目标点X
    * @param y 目标点Y
    * @returns 距离（内部为负，外部为正）
    */
-  pointToEraserDistance(
-    erasePoint: EraserPoint,
-    x: number,
-    y: number
-  ): number {
+  pointToEraserDistance(erasePoint: EraserPoint, x: number, y: number): number {
     const dx = x - erasePoint.x
     const dy = y - erasePoint.y
     const shape = this.config.shape
@@ -708,38 +692,27 @@ export class PhysicsEraserEngine {
 
     if (shape === 'square') {
       const halfSize = this.computeEffectiveRadius(erasePoint.pressure)
-      return this.transformAndDistanceToRect(
-        dx,
-        dy,
-        this.config.rotation,
-        halfSize,
-        halfSize
-      )
+      return this.transformAndDistanceToRect(dx, dy, this.config.rotation, halfSize, halfSize)
     }
 
     // chisel
-    const dims = this.getChiselDimensions(
-      erasePoint.pressure,
-      erasePoint.tiltX,
-      erasePoint.tiltY
-    )
+    const dims = this.getChiselDimensions(erasePoint.pressure, erasePoint.tiltX, erasePoint.tiltY)
     const halfW = dims.width / 2
     const halfH = dims.height / 2
     // 结合配置旋转、运动方向和笔倾斜方向
-    const totalRotation =
-      dims.rotation + erasePoint.direction * this.config.directionInfluence
+    const totalRotation = dims.rotation + erasePoint.direction * this.config.directionInfluence
     return this.transformAndDistanceToRect(dx, dy, totalRotation, halfW, halfH)
   }
 
   /**
    * 物理公式: 擦除强度
-   * 
+   *
    * 综合四个维度计算：
    * 1. 压力：重压擦得干净（非线性）
    * 2. 速度：太快擦不干净，太慢也擦不干净（高斯分布）
    * 3. 摩擦：摩擦系数直接影响
    * 4. 硬度：硬橡皮擦得干净但费力
-   * 
+   *
    * @param point 擦除点状态
    * @returns 擦除强度 0-1
    */
@@ -750,16 +723,13 @@ export class PhysicsEraserEngine {
 
     // 压力贡献: 非线性，重压快速饱和
     const pressureContrib =
-      Math.pow(pressure, STRENGTH_CONSTANTS.PRESSURE_EXPONENT) *
-      this.config.pressureSensitivity
+      Math.pow(pressure, STRENGTH_CONSTANTS.PRESSURE_EXPONENT) * this.config.pressureSensitivity
 
     // 速度贡献: 高斯分布，最优速度约 2px/ms
     const velocityDiff = velocity - STRENGTH_CONSTANTS.OPTIMAL_VELOCITY
     const velocityContrib = Math.max(
       STRENGTH_CONSTANTS.MIN_VELOCITY_CONTRIB,
-      Math.exp(
-        -Math.pow(velocityDiff, 2) / STRENGTH_CONSTANTS.VELOCITY_VARIANCE
-      )
+      Math.exp(-Math.pow(velocityDiff, 2) / STRENGTH_CONSTANTS.VELOCITY_VARIANCE)
     )
 
     // 摩擦系数
@@ -770,11 +740,7 @@ export class PhysicsEraserEngine {
       STRENGTH_CONSTANTS.HARDNESS_BASE +
       this.config.hardness * STRENGTH_CONSTANTS.HARDNESS_MULTIPLIER
 
-    return clamp(
-      pressureContrib * velocityContrib * frictionContrib * hardnessContrib,
-      0,
-      1
-    )
+    return clamp(pressureContrib * velocityContrib * frictionContrib * hardnessContrib, 0, 1)
   }
 
   // ==========================================
@@ -792,19 +758,15 @@ export class PhysicsEraserEngine {
    * @param intersections 相交点列表
    * @returns 分割结果
    */
-  splitStroke(
-    stroke: StrokeElement,
-    intersections: Intersection[]
-  ): SplitStrokeResult {
+  splitStroke(stroke: StrokeElement, intersections: Intersection[]): SplitStrokeResult {
     if (!validateStroke(stroke) || intersections.length === 0) {
       return { status: 'unchanged' }
     }
 
     // P0优化: 原地排序，避免 [...intersections] 创建新数组
     // 注意：调用方传入的 intersections 来自对象池，排序安全
-    const sorted = intersections.length <= 1
-      ? intersections
-      : intersections.sort((a, b) => a.t - b.t)
+    const sorted =
+      intersections.length <= 1 ? intersections : intersections.sort((a, b) => a.t - b.t)
 
     // P1优化: 预分配 segments 数组（最多 intersections.length + 1 个段）
     const segments: StrokeElement[] = []
@@ -815,11 +777,7 @@ export class PhysicsEraserEngine {
     for (let i = 0; i < sorted.length; i++) {
       const inter = sorted[i]
       if (inter.t - lastT > SPLIT_CONSTANTS.MIN_SEGMENT_THRESHOLD) {
-        const segmentPoints = this.extractSegment(
-          points,
-          lastT,
-          inter.t
-        )
+        const segmentPoints = this.extractSegment(points, lastT, inter.t)
         if (segmentPoints.length >= 2) {
           segments.push({
             ...stroke,
@@ -827,8 +785,7 @@ export class PhysicsEraserEngine {
             points: segmentPoints,
             opacity: Math.max(
               SPLIT_CONSTANTS.MIN_OPACITY,
-              opacity *
-                (1 - inter.strength * SPLIT_CONSTANTS.OPACITY_STRENGTH_FACTOR)
+              opacity * (1 - inter.strength * SPLIT_CONSTANTS.OPACITY_STRENGTH_FACTOR)
             ),
           })
         }
@@ -900,24 +857,16 @@ export class PhysicsEraserEngine {
 
     // 压力越大磨损越快
     const pressureFactor =
-      WEAR_CONSTANTS.PRESSURE_BASE +
-      point.pressure * WEAR_CONSTANTS.PRESSURE_MULTIPLIER
+      WEAR_CONSTANTS.PRESSURE_BASE + point.pressure * WEAR_CONSTANTS.PRESSURE_MULTIPLIER
 
     // 硬度越高磨损越慢
     const hardnessFactor = 1 - this.config.hardness * WEAR_CONSTANTS.HARDNESS_FACTOR
 
     // 计算磨损增量
     const wearIncrement =
-      dist *
-      pressureFactor *
-      hardnessFactor *
-      this.config.wearRate *
-      WEAR_CONSTANTS.RATE_SCALE
+      dist * pressureFactor * hardnessFactor * this.config.wearRate * WEAR_CONSTANTS.RATE_SCALE
 
-    const newWearLevel = Math.min(
-      WEAR_CONSTANTS.MAX_WEAR,
-      this.wearLevel + wearIncrement
-    )
+    const newWearLevel = Math.min(WEAR_CONSTANTS.MAX_WEAR, this.wearLevel + wearIncrement)
 
     // P1修复: 只在磨损实际变化时标记缓存脏
     // 避免每帧都标记 dirty 导致半径缓存永不命中
@@ -931,10 +880,7 @@ export class PhysicsEraserEngine {
    * 空间过滤：快速筛选候选元素
    * P1优化: 使用 for 循环替代 .filter()，避免闭包和临时数组
    */
-  private filterCandidateElements(
-    elements: CanvasElement[],
-    eraseBounds: Bounds
-  ): CanvasElement[] {
+  private filterCandidateElements(elements: CanvasElement[], eraseBounds: Bounds): CanvasElement[] {
     const result: CanvasElement[] = []
     const ax = eraseBounds.x
     const ay = eraseBounds.y
@@ -1058,12 +1004,12 @@ export class PhysicsEraserEngine {
 
   /**
    * 计算单条笔触的擦除情况
-   * 
+   *
    * P0优化:
    * - effectiveRadius 从外部传入，避免重复计算
    * - eraseStrength 预计算
    * - findIntersectionT + pointToEraserDistance 内联优化
-   * 
+   *
    * P2优化:
    * - Early exit: 快速跳过明显不在擦除范围的笔触
    * - 使用对象池复用 Intersection 对象
@@ -1142,11 +1088,7 @@ export class PhysicsEraserEngine {
       if (lenSq === 0) {
         t = 0.5
       } else {
-        t = clamp(
-          ((eraseX - p1x) * segDx + (eraseY - p1y) * segDy) / lenSq,
-          0,
-          1
-        )
+        t = clamp(((eraseX - p1x) * segDx + (eraseY - p1y) * segDy) / lenSq, 0, 1)
       }
 
       const closestX = p1x + segDx * t
@@ -1172,27 +1114,13 @@ export class PhysicsEraserEngine {
         const strength = clamp(depthFactor * eraseStrength, 0, 1)
 
         // P1优化: 使用对象池
-        acquireIntersection(
-          (i - 1 + t) / pointsLen,
-          closestX,
-          closestY,
-          strength
-        )
+        acquireIntersection((i - 1 + t) / pointsLen, closestX, closestY, strength)
       } else if (dist < effectiveDistThreshold) {
         // 在边缘区域：渐变衰减
-        const strength = clamp(
-          (1 - effectiveDist / effectiveRadius) * eraseStrength,
-          0,
-          1
-        )
+        const strength = clamp((1 - effectiveDist / effectiveRadius) * eraseStrength, 0, 1)
 
         // P1优化: 使用对象池
-        acquireIntersection(
-          (i - 1 + t) / pointsLen,
-          closestX,
-          closestY,
-          strength
-        )
+        acquireIntersection((i - 1 + t) / pointsLen, closestX, closestY, strength)
       }
     }
 
@@ -1223,11 +1151,9 @@ export class PhysicsEraserEngine {
       eraseStrength: maxStrength,
       // 删除条件：强度足够且覆盖足够比例
       shouldDelete:
-        maxStrength > ERASE_THRESHOLDS.DELETE_STRENGTH &&
-        intersectionCount >= deleteThreshold,
+        maxStrength > ERASE_THRESHOLDS.DELETE_STRENGTH && intersectionCount >= deleteThreshold,
       // 分割条件：有相交且强度足够
-      shouldSplit:
-        intersectionCount > 0 && maxStrength > ERASE_THRESHOLDS.SPLIT_STRENGTH,
+      shouldSplit: intersectionCount > 0 && maxStrength > ERASE_THRESHOLDS.SPLIT_STRENGTH,
       opacityDelta: maxStrength * ERASE_THRESHOLDS.OPACITY_DELTA_FACTOR,
     }
   }
@@ -1258,12 +1184,7 @@ export class PhysicsEraserEngine {
    * 计算点到轴对齐矩形的距离
    * 点在矩形内返回负数（表示深度），在外部返回正数
    */
-  private pointToRectDistance(
-    px: number,
-    py: number,
-    halfW: number,
-    halfH: number
-  ): number {
+  private pointToRectDistance(px: number, py: number, halfW: number, halfH: number): number {
     const absPx = px < 0 ? -px : px
     const absPy = py < 0 ? -py : py
     const dx = absPx > halfW ? absPx - halfW : 0
@@ -1272,7 +1193,7 @@ export class PhysicsEraserEngine {
     // 在矩形内部时返回负距离（用于强度计算）
     if (dx === 0 && dy === 0) {
       // 内部：计算到最近边缘的距离（负值表示深度）
-      const distToEdge = (halfW - absPx < halfH - absPy) ? halfW - absPx : halfH - absPy
+      const distToEdge = halfW - absPx < halfH - absPy ? halfW - absPx : halfH - absPy
       return -distToEdge
     }
 
@@ -1285,14 +1206,9 @@ export class PhysicsEraserEngine {
    * @param startT 起始参数化位置 0-1
    * @param endT 结束参数化位置 0-1
    */
-  private extractSegment(
-    points: number[][],
-    startT: number,
-    endT: number
-  ): number[][] {
+  private extractSegment(points: number[][], startT: number, endT: number): number[][] {
     const startIdx = Math.floor(startT * points.length)
     const endIdx = Math.ceil(endT * points.length)
     return points.slice(startIdx, Math.min(endIdx + 1, points.length))
   }
-
 }

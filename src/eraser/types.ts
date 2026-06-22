@@ -9,31 +9,31 @@ export type EraserPresetType = '2b' | '4b' | '6b'
 
 export interface EraserConfig {
   // 物理参数
-  hardness: number        // 橡皮硬度 0-1 (0=软, 1=硬)
-  friction: number        // 摩擦系数 0-1
-  wearRate: number        // 磨损速率 0-1
+  hardness: number // 橡皮硬度 0-1 (0=软, 1=硬)
+  friction: number // 摩擦系数 0-1
+  wearRate: number // 磨损速率 0-1
   shape: EraserShape
-  rotation: number        // 橡皮旋转角度 (凿形有效)
-  baseRadius: number      // 基础擦除半径
-  
+  rotation: number // 橡皮旋转角度 (凿形有效)
+  baseRadius: number // 基础擦除半径
+
   // 行为参数
-  pressureSensitivity: number  // 压感灵敏度 0-1
-  directionInfluence: number   // 方向影响 0-1
+  pressureSensitivity: number // 压感灵敏度 0-1
+  directionInfluence: number // 方向影响 0-1
   overlapMode: 'topmost' | 'all' | 'layered'
-  
+
   // 音效
-  audioEnabled: boolean  // 音效开关
+  audioEnabled: boolean // 音效开关
 }
 
 export interface EraserPoint {
   x: number
   y: number
-  pressure: number      // 0-1 压力
-  velocity: number      // 移动速度 px/ms
-  direction: number     // 运动方向弧度
+  pressure: number // 0-1 压力
+  velocity: number // 移动速度 px/ms
+  direction: number // 运动方向弧度
   timestamp: number
-  tiltX?: number        // 笔倾斜X角度 -90~90度 (Apple Pencil)
-  tiltY?: number        // 笔倾斜Y角度 -90~90度 (Apple Pencil)
+  tiltX?: number // 笔倾斜X角度 -90~90度 (Apple Pencil)
+  tiltY?: number // 笔倾斜Y角度 -90~90度 (Apple Pencil)
 }
 
 export interface Bounds {
@@ -53,16 +53,16 @@ export interface StrokeErasure {
 }
 
 export interface Intersection {
-  t: number              // 沿笔触的参数化位置 0-1
+  t: number // 沿笔触的参数化位置 0-1
   point: [number, number]
-  strength: number       // 擦除强度 0-1
+  strength: number // 擦除强度 0-1
 }
 
 export interface EraseResult {
   modifiedStrokes: {
     id: string
     action: 'keep' | 'split' | 'delete'
-    segments?: StrokeElement[]      // 分割后的新笔触
+    segments?: StrokeElement[] // 分割后的新笔触
   }[]
   affectedElementIds: string[]
   trail: EraserPoint[]
@@ -93,44 +93,44 @@ export interface BoundsEntry {
 
 export interface EraserParticle {
   id: string
-  x: number              // 当前位置X
-  y: number              // 当前位置Y
-  vx: number             // 速度X
-  vy: number             // 速度Y
-  size: number           // 粒子大小
-  rotation: number       // 旋转角度
-  rotationSpeed: number  // 旋转速度
-  color: string          // 粒子颜色
-  opacity: number        // 透明度
-  life: number           // 剩余生命值 0-1
-  maxLife: number        // 最大生命值
-  mass: number           // 质量（影响重力）
+  x: number // 当前位置X
+  y: number // 当前位置Y
+  vx: number // 速度X
+  vy: number // 速度Y
+  size: number // 粒子大小
+  rotation: number // 旋转角度
+  rotationSpeed: number // 旋转速度
+  color: string // 粒子颜色
+  opacity: number // 透明度
+  life: number // 剩余生命值 0-1
+  maxLife: number // 最大生命值
+  mass: number // 质量（影响重力）
 }
 
 export interface ParticleSystemConfig {
-  enabled: boolean              // 粒子系统开关
-  maxParticles: number          // 最大粒子数量
-  particlesPerErase: number     // 每次擦除产生的粒子数
-  baseSize: number              // 基础粒子大小
-  sizeVariance: number          // 大小随机变化范围
-  speedMin: number              // 最小初速度
-  speedMax: number              // 最大初速度
-  gravity: number               // 重力加速度
-  friction: number              // 空气阻力
-  lifeMin: number               // 最小生命周期（秒）
-  lifeMax: number               // 最大生命周期（秒）
-  fadeOutStart: number          // 开始淡出的生命比例
-  rotationSpeedMax: number      // 最大旋转速度
+  enabled: boolean // 粒子系统开关
+  maxParticles: number // 最大粒子数量
+  particlesPerErase: number // 每次擦除产生的粒子数
+  baseSize: number // 基础粒子大小
+  sizeVariance: number // 大小随机变化范围
+  speedMin: number // 最小初速度
+  speedMax: number // 最大初速度
+  gravity: number // 重力加速度
+  friction: number // 空气阻力
+  lifeMin: number // 最小生命周期（秒）
+  lifeMax: number // 最大生命周期（秒）
+  fadeOutStart: number // 开始淡出的生命比例
+  rotationSpeedMax: number // 最大旋转速度
 }
 
 export interface ParticleEmitParams {
-  x: number              // 发射中心X
-  y: number              // 发射中心Y
-  direction: number      // 擦除方向（弧度）
-  pressure: number       // 擦除压力 0-1
-  velocity: number       // 擦除速度
-  count: number          // 发射粒子数量
-  spread: number         // 扩散角度（弧度）
+  x: number // 发射中心X
+  y: number // 发射中心Y
+  direction: number // 擦除方向（弧度）
+  pressure: number // 擦除压力 0-1
+  velocity: number // 擦除速度
+  count: number // 发射粒子数量
+  spread: number // 扩散角度（弧度）
 }
 
 // 默认粒子系统配置
@@ -152,11 +152,11 @@ export const DEFAULT_PARTICLE_CONFIG: ParticleSystemConfig = {
 
 // 橡皮屑颜色调色板（Monet风格）
 export const PARTICLE_COLORS = [
-  '#E8DFD8',  // 浅米色
-  '#D4C4B5',  // 米色
-  '#C9B8A8',  // 深米色
-  '#F5EFEA',  // 极浅米
-  '#E0D5CD',  // 灰米色
+  '#E8DFD8', // 浅米色
+  '#D4C4B5', // 米色
+  '#C9B8A8', // 深米色
+  '#F5EFEA', // 极浅米
+  '#E0D5CD', // 灰米色
 ]
 
 // 橡皮擦品牌皮肤类型
@@ -168,23 +168,23 @@ export interface EraserBrandConfig {
   name: string
   displayName: string
   description: string
-  
+
   // 视觉外观
-  primaryColor: string      // 主体颜色
-  secondaryColor: string    // 辅助颜色
-  borderColor: string       // 边框颜色
-  cursorColor: string       // 光标颜色
-  particleColors: string[]  // 橡皮屑颜色
-  
+  primaryColor: string // 主体颜色
+  secondaryColor: string // 辅助颜色
+  borderColor: string // 边框颜色
+  cursorColor: string // 光标颜色
+  particleColors: string[] // 橡皮屑颜色
+
   // 物理特性（叠加到预设上）
-  hardnessModifier: number   // 硬度修正系数
-  wearRateModifier: number   // 磨损速率修正系数
-  frictionModifier: number   // 摩擦修正系数
-  
+  hardnessModifier: number // 硬度修正系数
+  wearRateModifier: number // 磨损速率修正系数
+  frictionModifier: number // 摩擦修正系数
+
   // 音效特性
   audioFrequencyBase: number // 基础频率
   audioWaveform: OscillatorType // 波形类型
-  
+
   // 品牌风格
   texture: 'smooth' | 'matte' | 'glossy'
 }
@@ -221,15 +221,15 @@ export const ERASER_BRAND_SAKURA: EraserBrandConfig = {
   name: 'sakura',
   displayName: '樱花',
   description: 'Sakura 日本品质',
-  primaryColor: '#FFB7C5',  // 樱花粉
+  primaryColor: '#FFB7C5', // 樱花粉
   secondaryColor: '#FFD1DC',
   borderColor: '#FF91A4',
   cursorColor: 'rgba(255, 183, 197, 0.7)',
   particleColors: ['#FFE4E9', '#FFD1DC', '#FFB7C5', '#FFC0CB', '#FFEBEE'],
-  hardnessModifier: 0.95,    // 樱花橡皮偏软一点
-  wearRateModifier: 0.9,     // 更耐用
-  frictionModifier: 0.95,    // 更顺滑
-  audioFrequencyBase: 450,   // 更高音调
+  hardnessModifier: 0.95, // 樱花橡皮偏软一点
+  wearRateModifier: 0.9, // 更耐用
+  frictionModifier: 0.95, // 更顺滑
+  audioFrequencyBase: 450, // 更高音调
   audioWaveform: 'sine',
   texture: 'matte',
 }
@@ -244,15 +244,15 @@ export const ERASER_BRAND_FABER_CASTELL: EraserBrandConfig = {
   name: 'faber-castell',
   displayName: '辉柏嘉',
   description: 'Faber-Castell 德国品质',
-  primaryColor: '#1E88E5',  // 辉柏嘉蓝
+  primaryColor: '#1E88E5', // 辉柏嘉蓝
   secondaryColor: '#64B5F6',
   borderColor: '#1565C0',
   cursorColor: 'rgba(30, 136, 229, 0.7)',
   particleColors: ['#BBDEFB', '#90CAF9', '#64B5F6', '#42A5F5', '#E3F2FD'],
-  hardnessModifier: 1.1,     // 偏硬
-  wearRateModifier: 0.85,    // 非常耐用
-  frictionModifier: 1.05,    // 摩擦力略大
-  audioFrequencyBase: 350,   // 更低沉
+  hardnessModifier: 1.1, // 偏硬
+  wearRateModifier: 0.85, // 非常耐用
+  frictionModifier: 1.05, // 摩擦力略大
+  audioFrequencyBase: 350, // 更低沉
   audioWaveform: 'triangle',
   texture: 'glossy',
 }
@@ -267,14 +267,14 @@ export const ERASER_BRAND_STAEDTLER: EraserBrandConfig = {
   name: 'staedtler',
   displayName: '施德楼',
   description: 'Staedtler 德国专业',
-  primaryColor: '#FFC107',  // 施德楼黄
+  primaryColor: '#FFC107', // 施德楼黄
   secondaryColor: '#FFD54F',
   borderColor: '#FF8F00',
   cursorColor: 'rgba(255, 193, 7, 0.7)',
   particleColors: ['#FFF8E1', '#FFECB3', '#FFE082', '#FFD54F', '#FFF3E0'],
-  hardnessModifier: 1.05,    // 适中偏硬
-  wearRateModifier: 0.95,    // 耐用
-  frictionModifier: 1.0,     // 标准
+  hardnessModifier: 1.05, // 适中偏硬
+  wearRateModifier: 0.95, // 耐用
+  frictionModifier: 1.0, // 标准
   audioFrequencyBase: 380,
   audioWaveform: 'square',
   texture: 'matte',
@@ -290,14 +290,14 @@ export const ERASER_BRAND_UNI: EraserBrandConfig = {
   name: 'uni',
   displayName: '三菱',
   description: 'Uni 日本专业',
-  primaryColor: '#4CAF50',  // 三菱绿
+  primaryColor: '#4CAF50', // 三菱绿
   secondaryColor: '#81C784',
   borderColor: '#2E7D32',
   cursorColor: 'rgba(76, 175, 80, 0.7)',
   particleColors: ['#E8F5E9', '#C8E6C9', '#A5D6A7', '#81C784', '#E0F2F1'],
-  hardnessModifier: 0.9,     // 偏软
-  wearRateModifier: 1.1,     // 磨损略快
-  frictionModifier: 0.9,     // 非常顺滑
+  hardnessModifier: 0.9, // 偏软
+  wearRateModifier: 1.1, // 磨损略快
+  frictionModifier: 0.9, // 非常顺滑
   audioFrequencyBase: 420,
   audioWaveform: 'sine',
   texture: 'smooth',
@@ -305,29 +305,29 @@ export const ERASER_BRAND_UNI: EraserBrandConfig = {
 
 // 品牌配置映射
 export const ERASER_BRAND_CONFIGS: Record<EraserBrandType, EraserBrandConfig> = {
-  'default': ERASER_BRAND_DEFAULT,
-  'sakura': ERASER_BRAND_SAKURA,
+  default: ERASER_BRAND_DEFAULT,
+  sakura: ERASER_BRAND_SAKURA,
   'faber-castell': ERASER_BRAND_FABER_CASTELL,
-  'staedtler': ERASER_BRAND_STAEDTLER,
-  'uni': ERASER_BRAND_UNI,
+  staedtler: ERASER_BRAND_STAEDTLER,
+  uni: ERASER_BRAND_UNI,
 }
 
 // 品牌显示名称
 export const ERASER_BRAND_LABELS: Record<EraserBrandType, string> = {
-  'default': '经典',
-  'sakura': '樱花',
+  default: '经典',
+  sakura: '樱花',
   'faber-castell': '辉柏嘉',
-  'staedtler': '施德楼',
-  'uni': '三菱',
+  staedtler: '施德楼',
+  uni: '三菱',
 }
 
 // 品牌图标（emoji）
 export const ERASER_BRAND_ICONS: Record<EraserBrandType, string> = {
-  'default': '⚪',
-  'sakura': '🌸',
+  default: '⚪',
+  sakura: '🌸',
   'faber-castell': '🔵',
-  'staedtler': '🟡',
-  'uni': '🟢',
+  staedtler: '🟡',
+  uni: '🟢',
 }
 
 /**
@@ -418,10 +418,10 @@ export const ERASER_PRESET_DESCRIPTIONS: Record<EraserPresetType, string> = {
 
 // ==================== 快捷键配置类型 ====================
 export interface ShortcutConfig {
-  key: string           // 快捷键按键
-  enabled: boolean      // 是否启用
-  description: string   // 功能描述
-  category: 'shape' | 'preset' | 'action' | 'size'  // 分类
+  key: string // 快捷键按键
+  enabled: boolean // 是否启用
+  description: string // 功能描述
+  category: 'shape' | 'preset' | 'action' | 'size' // 分类
 }
 
 export interface ShortcutMap {
@@ -429,18 +429,18 @@ export interface ShortcutMap {
   shapeCircle: ShortcutConfig
   shapeSquare: ShortcutConfig
   shapeChisel: ShortcutConfig
-  
+
   // 预设切换
   preset2b: ShortcutConfig
   preset4b: ShortcutConfig
   preset6b: ShortcutConfig
-  
+
   // 操作
   resetWear: ShortcutConfig
   toggleAudio: ShortcutConfig
   undoWear: ShortcutConfig
   redoWear: ShortcutConfig
-  
+
   // 大小调整
   sizeIncrease: ShortcutConfig
   sizeDecrease: ShortcutConfig
@@ -452,18 +452,18 @@ export const DEFAULT_SHORTCUTS: ShortcutMap = {
   shapeCircle: { key: '1', enabled: true, description: '圆形橡皮擦', category: 'shape' },
   shapeSquare: { key: '2', enabled: true, description: '方形橡皮擦', category: 'shape' },
   shapeChisel: { key: '3', enabled: true, description: '凿形橡皮擦', category: 'shape' },
-  
+
   // 预设切换
   preset2b: { key: 'q', enabled: true, description: '2B硬橡皮', category: 'preset' },
   preset4b: { key: 'w', enabled: true, description: '4B中性', category: 'preset' },
   preset6b: { key: 'e', enabled: true, description: '6B软橡皮', category: 'preset' },
-  
+
   // 操作
   resetWear: { key: 'r', enabled: true, description: '削橡皮（重置磨损）', category: 'action' },
   toggleAudio: { key: 'm', enabled: true, description: '开关音效', category: 'action' },
   undoWear: { key: 'z', enabled: true, description: '撤销磨损', category: 'action' },
   redoWear: { key: 'y', enabled: true, description: '重做磨损', category: 'action' },
-  
+
   // 大小调整
   sizeIncrease: { key: ']', enabled: true, description: '增大橡皮擦', category: 'size' },
   sizeDecrease: { key: '[', enabled: true, description: '减小橡皮擦', category: 'size' },

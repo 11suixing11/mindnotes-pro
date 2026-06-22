@@ -2,21 +2,14 @@
  * 橡皮屑粒子系统
  * 模拟真实擦除时产生的橡皮屑飞散效果
  * 支持气流交互：快速移动鼠标/笔可以吹走橡皮屑
- * 
+ *
  * 性能优化说明：
  * - 使用 Path2D 批量渲染，避免每个粒子调用 save/restore
  * - 按颜色分组渲染，减少 fillStyle 切换开销
  * - 使用贝塞尔曲线近似旋转椭圆，避免逐粒子变换
  */
-import type {
-  EraserParticle,
-  ParticleSystemConfig,
-  ParticleEmitParams,
-} from './types'
-import {
-  DEFAULT_PARTICLE_CONFIG,
-  PARTICLE_COLORS,
-} from './types'
+import type { EraserParticle, ParticleSystemConfig, ParticleEmitParams } from './types'
+import { DEFAULT_PARTICLE_CONFIG, PARTICLE_COLORS } from './types'
 
 // 粒子ID计数器
 let particleIdCounter = 0
@@ -102,7 +95,7 @@ export class EraserParticleSystem {
   /**
    * 更新指针位置，用于计算气流
    */
-  updatePointerPosition(x: number, y: number, deltaTime: number = 1/60): void {
+  updatePointerPosition(x: number, y: number, deltaTime: number = 1 / 60): void {
     if (!this.windEnabled) return
 
     const dt = Math.max(deltaTime, MIN_DELTA_TIME)
@@ -149,10 +142,7 @@ export class EraserParticleSystem {
     if (!this.config.enabled) return
     if (this.particles.length >= this.config.maxParticles) return
 
-    const emitCount = Math.min(
-      params.count,
-      this.config.maxParticles - this.particles.length
-    )
+    const emitCount = Math.min(params.count, this.config.maxParticles - this.particles.length)
 
     for (let i = 0; i < emitCount; i++) {
       const particle = this.createParticle(params)
@@ -196,19 +186,9 @@ export class EraserParticleSystem {
   /**
    * 初始化粒子属性
    */
-  private initializeParticle(
-    particle: EraserParticle,
-    params: ParticleEmitParams
-  ): EraserParticle {
-    const {
-      baseSize,
-      sizeVariance,
-      speedMin,
-      speedMax,
-      lifeMin,
-      lifeMax,
-      rotationSpeedMax,
-    } = this.config
+  private initializeParticle(particle: EraserParticle, params: ParticleEmitParams): EraserParticle {
+    const { baseSize, sizeVariance, speedMin, speedMax, lifeMin, lifeMax, rotationSpeedMax } =
+      this.config
 
     // 随机方向（在扩散角度范围内）
     const angleOffset = (Math.random() - 0.5) * params.spread
@@ -411,15 +391,7 @@ export class EraserParticleSystem {
         const ry = size * ELLIPSE_Y_SCALE
 
         // 添加主粒子到路径
-        this.addRotatedEllipseToPath(
-          mainPath,
-          particle.x,
-          particle.y,
-          rx,
-          ry,
-          cos,
-          sin
-        )
+        this.addRotatedEllipseToPath(mainPath, particle.x, particle.y, rx, ry, cos, sin)
 
         // 添加阴影粒子到路径（只在透明度足够时绘制）
         if (particle.opacity > 0.3) {
@@ -487,25 +459,23 @@ export class EraserParticleSystem {
 
     path.moveTo(right.x, right.y)
     path.bezierCurveTo(
-      rightBottomCp.x, rightBottomCp.y,
-      bottomRightCp.x, bottomRightCp.y,
-      bottom.x, bottom.y
+      rightBottomCp.x,
+      rightBottomCp.y,
+      bottomRightCp.x,
+      bottomRightCp.y,
+      bottom.x,
+      bottom.y
     )
     path.bezierCurveTo(
-      bottomLeftCp.x, bottomLeftCp.y,
-      leftBottomCp.x, leftBottomCp.y,
-      left.x, left.y
+      bottomLeftCp.x,
+      bottomLeftCp.y,
+      leftBottomCp.x,
+      leftBottomCp.y,
+      left.x,
+      left.y
     )
-    path.bezierCurveTo(
-      leftTopCp.x, leftTopCp.y,
-      topLeftCp.x, topLeftCp.y,
-      top.x, top.y
-    )
-    path.bezierCurveTo(
-      topRightCp.x, topRightCp.y,
-      rightTopCp.x, rightTopCp.y,
-      right.x, right.y
-    )
+    path.bezierCurveTo(leftTopCp.x, leftTopCp.y, topLeftCp.x, topLeftCp.y, top.x, top.y)
+    path.bezierCurveTo(topRightCp.x, topRightCp.y, rightTopCp.x, rightTopCp.y, right.x, right.y)
     path.closePath()
   }
 

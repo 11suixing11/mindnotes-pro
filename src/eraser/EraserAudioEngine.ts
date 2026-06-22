@@ -13,7 +13,7 @@ export class EraserAudioEngine {
   private oscillator: OscillatorNode | null = null
   private gainNode: GainNode | null = null
   private filterNode: BiquadFilterNode | null = null
-  
+
   private isPlaying: boolean = false
   private config: EraserConfig
   private audioEnabled: boolean = true
@@ -35,7 +35,7 @@ export class EraserAudioEngine {
    */
   private initAudio(): void {
     if (this.audioContext) return
-    
+
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
     } catch (e) {
@@ -50,11 +50,11 @@ export class EraserAudioEngine {
   private getWaveformForShape(shape: EraserShape): OscillatorType {
     switch (shape) {
       case 'circle':
-        return 'sine'      // 圆形：柔和正弦波
+        return 'sine' // 圆形：柔和正弦波
       case 'square':
-        return 'square'    // 方形：硬朗方波
+        return 'square' // 方形：硬朗方波
       case 'chisel':
-        return 'sawtooth'  // 凿形：粗糙锯齿波
+        return 'sawtooth' // 凿形：粗糙锯齿波
       default:
         return 'sine'
     }
@@ -97,7 +97,7 @@ export class EraserAudioEngine {
    */
   startErase(point: EraserPoint, wearLevel: number): void {
     if (!this.audioEnabled) return
-    
+
     this.initAudio()
     if (!this.audioContext) return
 
@@ -154,24 +154,16 @@ export class EraserAudioEngine {
       this.oscillator.frequency.setTargetAtTime(
         targetFreq,
         this.audioContext.currentTime,
-        0.02  // 平滑时间常数
+        0.02 // 平滑时间常数
       )
 
       // 实时更新音量（压力）
       const targetVol = this.getVolumeForPressure(point.pressure)
-      this.gainNode.gain.setTargetAtTime(
-        targetVol,
-        this.audioContext.currentTime,
-        0.02
-      )
+      this.gainNode.gain.setTargetAtTime(targetVol, this.audioContext.currentTime, 0.02)
 
       // 实时更新滤波（磨损）
       const targetFilter = this.getFilterFrequency(wearLevel)
-      this.filterNode.frequency.setTargetAtTime(
-        targetFilter,
-        this.audioContext.currentTime,
-        0.1
-      )
+      this.filterNode.frequency.setTargetAtTime(targetFilter, this.audioContext.currentTime, 0.1)
     } catch (e) {
       // 静默失败
     }
@@ -186,10 +178,7 @@ export class EraserAudioEngine {
     try {
       if (this.gainNode && this.audioContext) {
         // 淡出（避免爆音）
-        this.gainNode.gain.linearRampToValueAtTime(
-          0,
-          this.audioContext.currentTime + 0.1
-        )
+        this.gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 0.1)
       }
 
       // 延迟停止振荡器，让淡出完成
@@ -220,7 +209,7 @@ export class EraserAudioEngine {
    */
   playSharpenSound(): void {
     if (!this.audioEnabled) return
-    
+
     this.initAudio()
     if (!this.audioContext) return
 

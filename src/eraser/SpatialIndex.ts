@@ -116,12 +116,7 @@ export class SpatialIndex {
    * search 和 queryVisible 共享此内核，消除 80% 代码重复
    * 原地过滤已删除元素，避免创建新数组
    */
-  private searchCore(
-    minX: number,
-    minY: number,
-    maxX: number,
-    maxY: number
-  ): string[] {
+  private searchCore(minX: number, minY: number, maxX: number, maxY: number): string[] {
     this.rebuildIfNeeded()
     const results: string[] = []
     const searchBounds = { minX, minY, maxX, maxY }
@@ -146,12 +141,7 @@ export class SpatialIndex {
    * 在查询前检查删除率，必要时自动重建
    */
   search(bounds: { x: number; y: number; w: number; h: number }): string[] {
-    return this.searchCore(
-      bounds.x,
-      bounds.y,
-      bounds.x + bounds.w,
-      bounds.y + bounds.h
-    )
+    return this.searchCore(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h)
   }
 
   /**
@@ -159,12 +149,7 @@ export class SpatialIndex {
    * 使用空间索引进行 O(log n) 视口内元素筛选，替代 O(n) 全量遍历
    * 返回视口内的元素 ID 集合，用于渲染裁剪
    */
-  queryVisible(
-    vx: number,
-    vy: number,
-    vw: number,
-    vh: number
-  ): Set<string> {
+  queryVisible(vx: number, vy: number, vw: number, vh: number): Set<string> {
     const results = this.searchCore(vx, vy, vx + vw, vy + vh)
     return new Set(results)
   }
@@ -399,12 +384,7 @@ export class SpatialIndex {
     a: { minX: number; minY: number; maxX: number; maxY: number },
     b: { minX: number; minY: number; maxX: number; maxY: number }
   ): boolean {
-    return (
-      a.minX <= b.maxX &&
-      a.maxX >= b.minX &&
-      a.minY <= b.maxY &&
-      a.maxY >= b.minY
-    )
+    return a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY
   }
 }
 

@@ -1,11 +1,11 @@
 /**
  * Canvas 渲染性能优化模块
- * 
+ *
  * 实现:
  * 1. 脏矩形裁剪 - 只重绘被修改的区域，智能合并重叠区域
  * 2. 对象池复用 - 减少GC压力
  * 3. 批量渲染 - 减少Canvas上下文切换
- * 
+ *
  * 性能优化记录:
  * - v1: 基础脏矩形实现
  * - v2: 添加智能合并算法，限制最大脏矩形数量
@@ -29,7 +29,7 @@ export class DirtyRectManager {
   private dirtyRects: Rect[] = []
   private mergedRect: Rect | null = null
   private enabled = true
-  
+
   /** 最大脏矩形数量，超过则合并 */
   private readonly MAX_DIRTY_RECTS = 8
   /** 矩形间距小于此值则合并 */
@@ -42,15 +42,15 @@ export class DirtyRectManager {
    */
   addDirtyRect(rect: Rect): void {
     if (!this.enabled) return
-    
+
     // 过滤过小的区域
     if (rect.width < this.MIN_RECT_SIZE && rect.height < this.MIN_RECT_SIZE) {
       return
     }
-    
+
     this.dirtyRects.push({ ...rect })
     this.mergedRect = null // 标记需要重新合并
-    
+
     // 超过最大数量则立即合并
     if (this.dirtyRects.length > this.MAX_DIRTY_RECTS) {
       this.mergeAll()
@@ -78,13 +78,13 @@ export class DirtyRectManager {
   private mergeAll(): void {
     if (this.dirtyRects.length <= 1) return
 
-    let merged = [...this.dirtyRects]
+    const merged = [...this.dirtyRects]
     let changed = true
-    
+
     // 迭代合并直到没有变化或达到目标数量
     while (changed && merged.length > this.MAX_DIRTY_RECTS) {
       changed = false
-      
+
       for (let i = 0; i < merged.length && !changed; i++) {
         for (let j = i + 1; j < merged.length && !changed; j++) {
           if (this.shouldMerge(merged[i], merged[j])) {
@@ -95,7 +95,7 @@ export class DirtyRectManager {
         }
       }
     }
-    
+
     this.dirtyRects = merged
   }
 
@@ -105,10 +105,10 @@ export class DirtyRectManager {
   private shouldMerge(a: Rect, b: Rect): boolean {
     // 相交则合并
     if (rectsIntersect(a, b)) return true
-    
+
     // 距离很近则合并
-    const dx = Math.abs((a.x + a.width / 2) - (b.x + b.width / 2))
-    const dy = Math.abs((a.y + a.height / 2) - (b.y + b.height / 2))
+    const dx = Math.abs(a.x + a.width / 2 - (b.x + b.width / 2))
+    const dy = Math.abs(a.y + a.height / 2 - (b.y + b.height / 2))
     return dx < this.MERGE_DISTANCE && dy < this.MERGE_DISTANCE
   }
 
@@ -117,28 +117,28 @@ export class DirtyRectManager {
    */
   getMergedRect(): Rect | null {
     if (this.dirtyRects.length === 0) return null
-    
+
     if (this.mergedRect) return this.mergedRect
-    
+
     let minX = Infinity
     let minY = Infinity
     let maxX = -Infinity
     let maxY = -Infinity
-    
+
     for (const rect of this.dirtyRects) {
       minX = Math.min(minX, rect.x)
       minY = Math.min(minY, rect.y)
       maxX = Math.max(maxX, rect.x + rect.width)
       maxY = Math.max(maxY, rect.y + rect.height)
     }
-    
+
     this.mergedRect = {
       x: Math.floor(minX),
       y: Math.floor(minY),
       width: Math.ceil(maxX - minX),
       height: Math.ceil(maxY - minY),
     }
-    
+
     return this.mergedRect
   }
 
@@ -180,11 +180,7 @@ export class ObjectPool<T> {
   private createFn: () => T
   private resetFn: (obj: T) => void
   private maxSize: number
-  constructor(
-    createFn: () => T,
-    resetFn: (obj: T) => void,
-    maxSize = 100
-  ) {
+  constructor(createFn: () => T, resetFn: (obj: T) => void, maxSize = 100) {
     this.createFn = createFn
     this.resetFn = resetFn
     this.maxSize = maxSize
@@ -224,7 +220,11 @@ export class ObjectPool<T> {
  */
 export const pointPool = new ObjectPool<number[]>(
   () => [0, 0, 0],
-  (p) => { p[0] = 0; p[1] = 0; p[2] = 0 },
+  (p) => {
+    p[0] = 0
+    p[1] = 0
+    p[2] = 0
+  },
   200 // 增大池大小
 )
 /**
@@ -232,7 +232,12 @@ export const pointPool = new ObjectPool<number[]>(
  */
 export const rectPool = new ObjectPool<Rect>(
   () => ({ x: 0, y: 0, width: 0, height: 0 }),
-  (r) => { r.x = 0; r.y = 0; r.width = 0; r.height = 0 },
+  (r) => {
+    r.x = 0
+    r.y = 0
+    r.width = 0
+    r.height = 0
+  },
   100
 )
 /**
@@ -262,15 +267,15 @@ export class BatchRenderer {
   flush(): void {
     if (this.flushing) return
     this.flushing = true
-    
+
     // 按优先级排序，高优先级先执行
     this.pendingOperations.sort((a, b) => b.priority - a.priority)
-    
+
     for (const { op } of this.pendingOperations) {
       op()
     }
     this.pendingOperations = []
-    
+
     this.flushing = false
   }
   /**
@@ -306,7 +311,7 @@ export class ResourceCleanupManager {
   setTimeout(handler: () => void, delay: number): number {
     const id = window.setTimeout(() => {
       handler()
-      this.timers = this.timers.filter(t => t !== id)
+      this.timers = this.timers.filter((t) => t !== id)
     }, delay)
     this.timers.push(id)
     return id
@@ -378,12 +383,7 @@ export function unionRect(a: Rect, b: Rect): Rect {
  * 检查两个矩形是否相交
  */
 export function rectsIntersect(a: Rect, b: Rect): boolean {
-  return (
-    a.x < b.x + b.width &&
-    a.x + a.width > b.x &&
-    a.y < b.y + b.height &&
-    a.y + a.height > b.y
-  )
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y
 }
 /**
  * 计算矩形面积

@@ -158,22 +158,22 @@ export function createCanvasElementsSlice(
       // P0 性能优化: 跳过无意义的移动
       if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return
       incrementSaveGeneration()
-      
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
         // P0 性能优化: 快速路径 - 从 idToElement 直接查找 O(1)
         // P0-3 修复: 使用 index-based 替换替代全量 map
         const idx = s.elements.findIndex((e: CanvasElement) => e.id === id)
         if (idx < 0) return s
-        
+
         const next = [...s.elements]
         const newEl = moveElement(next[idx], dx, dy)
         next[idx] = newEl
-        
+
         // P0 优化: 同步更新 ID 映射
         idToElement.set(id, newEl)
         spatialIndex.update(newEl)
-        
+
         return { elements: next }
       })
       scheduleSave()
@@ -184,7 +184,7 @@ export function createCanvasElementsSlice(
       if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return
       if (ids.length === 0) return
       incrementSaveGeneration()
-      
+
       const idSet = new Set(ids)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
@@ -197,7 +197,7 @@ export function createCanvasElementsSlice(
           }
         }
         if (!hasMatch) return s
-        
+
         // P0-3 修复: 使用 index-based 替换替代全量 map
         const next = [...s.elements]
         let changed = false
@@ -212,7 +212,7 @@ export function createCanvasElementsSlice(
           }
         }
         if (!changed) return s
-        
+
         return { elements: next }
       })
       scheduleSave()
@@ -222,22 +222,22 @@ export function createCanvasElementsSlice(
       // P0 性能优化: 跳过无意义的缩放
       if (Math.abs(sx - 1) < 0.001 && Math.abs(sy - 1) < 0.001) return
       incrementSaveGeneration()
-      
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
         // P0 性能优化: 快速路径 - 从 idToElement 直接查找 O(1)
         // P0-3 修复: 使用 index-based 替换替代全量 map
         const idx = s.elements.findIndex((e: CanvasElement) => e.id === id)
         if (idx < 0) return s
-        
+
         const next = [...s.elements]
         const newEl = resizeElement(next[idx], ax, ay, sx, sy)
         next[idx] = newEl
-        
+
         // P0 优化: 同步更新 ID 映射
         idToElement.set(id, newEl)
         spatialIndex.update(newEl)
-        
+
         return { elements: next }
       })
       scheduleSave()
