@@ -114,24 +114,10 @@ export class SpatialIndex {
    */
   private searchCore(minX: number, minY: number, maxX: number, maxY: number): string[] {
     this.rebuildIfNeeded()
+    const seen = new Set<string>()
     const results: string[] = []
     const searchBounds = { minX, minY, maxX, maxY }
-    this.searchNode(this.root, searchBounds, results)
-    // 快速路径：无删除标记时直接去重返回
-    if (this.deletedIds.size === 0) {
-      return [...new Set(results)]
-    }
-    // P0 优化: 原地过滤已删除元素，避免 filter 创建新数组
-    let writeIdx = 0
-    const seen = new Set<string>()
-    for (let i = 0; i < results.length; i++) {
-      const id = results[i]
-      if (!this.deletedIds.has(id) && !seen.has(id)) {
-        seen.add(id)
-        results[writeIdx++] = id
-      }
-    }
-    results.length = writeIdx
+    this.searchNode(this.root, searchBounds, results, seen, this.deletedIds)
     return results
   }
   /**
@@ -328,19 +314,26 @@ export class SpatialIndex {
   private searchNode(
     node: RTreeNode,
     bounds: { minX: number; minY: number; maxX: number; maxY: number },
-    results: string[]
+    results: string[],
+    seen: Set<string>,
+    deletedIds: Set<string>
   ): void {
     // P1 优化: 使用显式栈替代递归，避免大数据量时栈溢出
+    // P1 优化: 搜索时直接去重和过滤已删除元素，避免事后 O(k) 处理
     const stack: RTreeNode[] = [node]
     while (stack.length > 0) {
       const current = stack.pop()!
       if (!this.overlaps(current, bounds)) continue
       if (current.leaf) {
-        // 叶子节点：收集匹配的条目
+        // 叶子节点：收集匹配的条目，直接去重和过滤
         for (let i = 0; i < current.children.length; i++) {
           const child = current.children[i]
           if (this.overlaps(child, bounds)) {
-            results.push((child as BoundsEntry).id)
+            const id = (child as BoundsEntry).id
+            if (!deletedIds.has(id) && !seen.has(id)) {
+              seen.add(id)
+              results.push(id)
+            }
           }
         }
       } else {
