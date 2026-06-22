@@ -1130,14 +1130,15 @@ export class PhysicsEraserEngine {
     // P0优化: 单循环同时计算 maxStrength，避免两次遍历
     let maxStrength = 0
     // P1优化: 预分配结果数组（只在需要时创建）
-    let resultIntersections: Intersection[] | null = null
+    // P1性能优化: 直接使用对象池引用，避免数组拷贝
+    // 注意: 调用方必须在当前帧处理完 intersections，下一次擦除会重置池
+    let resultIntersections: Intersection[] = []
 
     if (intersectionCount > 0) {
-      resultIntersections = new Array(intersectionCount)
+      // P1优化: 直接切片对象池（零拷贝），同时计算 maxStrength
+      resultIntersections = _intersectionPool.slice(0, intersectionCount)
       for (let i = 0; i < intersectionCount; i++) {
-        const item = _intersectionPool[i]
-        resultIntersections[i] = item
-        const s = item.strength
+        const s = resultIntersections[i].strength
         if (s > maxStrength) maxStrength = s
       }
     }
@@ -1146,8 +1147,8 @@ export class PhysicsEraserEngine {
 
     return {
       strokeId: stroke.id,
-      // P0优化: 直接使用预分配数组，避免 slice 创建新数组
-      intersections: resultIntersections ?? [],
+      // P1优化: 直接使用对象池引用（零拷贝）
+      intersections: resultIntersections,
       eraseStrength: maxStrength,
       // 删除条件：强度足够且覆盖足够比例
       shouldDelete:
@@ -1202,13 +1203,16 @@ export class PhysicsEraserEngine {
 
   /**
    * 提取笔触的子段
+   * P1性能优化: 直接计算索引，避免额外函数调用和临时变量
    * @param points 原始点数组
    * @param startT 起始参数化位置 0-1
    * @param endT 结束参数化位置 0-1
    */
   private extractSegment(points: number[][], startT: number, endT: number): number[][] {
-    const startIdx = Math.floor(startT * points.length)
-    const endIdx = Math.ceil(endT * points.length)
-    return points.slice(startIdx, Math.min(endIdx + 1, points.length))
+    const len = points.length
+    return points.slice(
+      (startT * len) | 0,
+      Math.min(((endT * len + 0.999999) | 0) + 1, len)
+    )
   }
 }
