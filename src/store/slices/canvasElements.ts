@@ -13,6 +13,9 @@ export interface CanvasElementsState {
   // P0 性能优化: ID → 元素 映射，O(1) 查找
   // 大画布场景下渲染性能提升 10-100x
   idToElement: Map<string, CanvasElement>
+  // P0-2 性能优化: ID → 数组索引 映射，O(1) 查找
+  // 解决 moveElementById/resizeElementById 中 findIndex O(n) 问题
+  idToIndex: Map<string, number>
 }
 
 export interface CanvasElementsActions {
@@ -41,6 +44,8 @@ export function createCanvasElementsSlice(
   const spatialIndex = new SpatialIndex()
   // P0 性能优化: ID → 元素 映射，O(1) 查找
   const idToElement = new Map<string, CanvasElement>()
+  // P0-2 性能优化: ID → 数组索引 映射，O(1) 查找
+  const idToIndex = new Map<string, number>()
 
   return {
     // State
@@ -49,6 +54,7 @@ export function createCanvasElementsSlice(
     clipboard: [],
     spatialIndex,
     idToElement,
+    idToIndex,
 
     // Actions
     setSelectedIds: (ids) => set({ selectedIds: ids }),
@@ -57,6 +63,7 @@ export function createCanvasElementsSlice(
       incrementSaveGeneration()
       const st = get()
       const action: UndoAction = { type: 'add', ids: [el.id], els: [shallowClone(el)] }
+      const newIndex = st.elements.length
       set({
         elements: [...st.elements, el],
         undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
@@ -64,6 +71,7 @@ export function createCanvasElementsSlice(
       })
       // P0 优化: 同步更新 ID 映射
       idToElement.set(el.id, el)
+      idToIndex.set(el.id, newIndex)
       spatialIndex.insert(el)
       scheduleSave()
     },
@@ -76,14 +84,16 @@ export function createCanvasElementsSlice(
         ids: els.map((e) => e.id),
         els: els.map(shallowClone),
       }
+      const baseIndex = st.elements.length
       set({
         elements: [...st.elements, ...els],
         undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
       // P0 优化: 同步更新 ID 映射
-      els.forEach((el) => {
+      els.forEach((el, i) => {
         idToElement.set(el.id, el)
+        idToIndex.set(el.id, baseIndex + i)
         spatialIndex.insert(el)
       })
       scheduleSave()
@@ -110,8 +120,13 @@ export function createCanvasElementsSlice(
     removeElement: (id) => {
       incrementSaveGeneration()
       const st = get()
-      const idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
-      if (idx < 0) return
+      // P0-2 优化: 使用 idToIndex O(1) 查找替代 findIndex O(n)
+      // fallback: 如果 idToIndex 中找不到，回退到 findIndex（兼容测试环境和历史数据）
+      let idx: number | undefined = idToIndex.get(id)
+      if (idx === undefined) {
+        idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
+      }
+      if (idx === undefined || idx < 0) return
       const el = st.elements[idx]
       const action: UndoAction = {
         type: 'remove',
@@ -127,6 +142,11 @@ export function createCanvasElementsSlice(
       })
       // P0 优化: 同步更新 ID 映射
       idToElement.delete(id)
+      idToIndex.delete(id)
+      // P0-2 优化: 更新删除位置之后所有元素的索引
+      for (let i = idx; i < next.length; i++) {
+        idToIndex.set(next[i].id, i)
+      }
       spatialIndex.remove(id)
       scheduleSave()
     },
@@ -140,8 +160,9 @@ export function createCanvasElementsSlice(
         if (idSet.has(el.id)) items.push({ el: shallowClone(el), index: i })
       })
       const action: UndoAction = { type: 'remove', items }
+      const newElements = st.elements.filter((e: CanvasElement) => !idSet.has(e.id))
       set({
-        elements: st.elements.filter((e: CanvasElement) => !idSet.has(e.id)),
+        elements: newElements,
         undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
         selectedIds: [],
@@ -149,8 +170,14 @@ export function createCanvasElementsSlice(
       // P0 优化: 同步更新 ID 映射
       ids.forEach((id) => {
         idToElement.delete(id)
+        idToIndex.delete(id)
         spatialIndex.remove(id)
       })
+      // P0-2 优化: 重建所有元素的索引（因为批量删除后位置全部变化）
+      idToIndex.clear()
+      for (let i = 0; i < newElements.length; i++) {
+        idToIndex.set(newElements[i].id, i)
+      }
       scheduleSave()
     },
 
@@ -159,16 +186,20 @@ export function createCanvasElementsSlice(
       if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return
       incrementSaveGeneration()
 
+      const st = get()
+      // P0-2 优化: 使用 idToIndex O(1) 查找替代 findIndex O(n)
+      // fallback: 如果 idToIndex 中找不到，回退到 findIndex（兼容测试环境和历史数据）
+      let idx: number | undefined = idToIndex.get(id)
+      if (idx === undefined) {
+        idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
+      }
+      if (idx === undefined || idx < 0) return
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
-        // P0 性能优化: 快速路径 - 从 idToElement 直接查找 O(1)
-        // P0-3 修复: 使用 index-based 替换替代全量 map
-        const idx = s.elements.findIndex((e: CanvasElement) => e.id === id)
-        if (idx < 0) return s
-
         const next = [...s.elements]
-        const newEl = moveElement(next[idx], dx, dy)
-        next[idx] = newEl
+        const newEl = moveElement(next[idx!], dx, dy)
+        next[idx!] = newEl
 
         // P0 优化: 同步更新 ID 映射
         idToElement.set(id, newEl)
@@ -223,16 +254,20 @@ export function createCanvasElementsSlice(
       if (Math.abs(sx - 1) < 0.001 && Math.abs(sy - 1) < 0.001) return
       incrementSaveGeneration()
 
+      const st = get()
+      // P0-2 优化: 使用 idToIndex O(1) 查找替代 findIndex O(n)
+      // fallback: 如果 idToIndex 中找不到，回退到 findIndex（兼容测试环境和历史数据）
+      let idx: number | undefined = idToIndex.get(id)
+      if (idx === undefined) {
+        idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
+      }
+      if (idx === undefined || idx < 0) return
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
-        // P0 性能优化: 快速路径 - 从 idToElement 直接查找 O(1)
-        // P0-3 修复: 使用 index-based 替换替代全量 map
-        const idx = s.elements.findIndex((e: CanvasElement) => e.id === id)
-        if (idx < 0) return s
-
         const next = [...s.elements]
-        const newEl = resizeElement(next[idx], ax, ay, sx, sy)
-        next[idx] = newEl
+        const newEl = resizeElement(next[idx!], ax, ay, sx, sy)
+        next[idx!] = newEl
 
         // P0 优化: 同步更新 ID 映射
         idToElement.set(id, newEl)
@@ -255,6 +290,7 @@ export function createCanvasElementsSlice(
       })
       // P0 优化: 同步更新 ID 映射
       idToElement.clear()
+      idToIndex.clear()
       spatialIndex.clear()
       scheduleSave()
     },
@@ -279,6 +315,7 @@ export function createCanvasElementsSlice(
         return moveElement({ ...el, id: newId }, 20, 20)
       })
       const action: UndoAction = { type: 'add', ids: newIds, els: pasted.map(shallowClone) }
+      const baseIndex = elements.length
       set({
         elements: [...elements, ...pasted],
         selectedIds: newIds,
@@ -287,8 +324,9 @@ export function createCanvasElementsSlice(
         redoStack: [],
       })
       // P0 优化: 同步更新 ID 映射
-      pasted.forEach((el: CanvasElement) => {
+      pasted.forEach((el: CanvasElement, i: number) => {
         idToElement.set(el.id, el)
+        idToIndex.set(el.id, baseIndex + i)
         spatialIndex.insert(el)
       })
       scheduleSave()
@@ -310,8 +348,11 @@ export function createCanvasElementsSlice(
       })
       // P0 优化: 重建 ID 映射
       idToElement.clear()
-      for (const el of newElements) {
+      idToIndex.clear()
+      for (let i = 0; i < newElements.length; i++) {
+        const el = newElements[i]
         idToElement.set(el.id, el)
+        idToIndex.set(el.id, i)
       }
       // 擦除操作会改变大量元素，直接重建空间索引
       spatialIndex.bulkLoad(newElements)
