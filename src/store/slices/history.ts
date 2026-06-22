@@ -79,8 +79,12 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
       state.spatialIndex?.bulkLoad(next)
       // P1 修复: 同步 idToElement 映射，防止数据不一致
       state.idToElement?.clear()
-      for (const el of next) {
+      // P0-2 修复: 同步 idToIndex 映射
+      state.idToIndex?.clear()
+      for (let i = 0; i < next.length; i++) {
+        const el = next[i]
         state.idToElement?.set(el.id, el)
+        state.idToIndex?.set(el.id, i)
       }
       scheduleSave()
     },
@@ -135,8 +139,12 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
       state.spatialIndex?.bulkLoad(next)
       // P1 修复: 同步 idToElement 映射，防止数据不一致
       state.idToElement?.clear()
-      for (const el of next) {
+      // P0-2 修复: 同步 idToIndex 映射
+      state.idToIndex?.clear()
+      for (let i = 0; i < next.length; i++) {
+        const el = next[i]
         state.idToElement?.set(el.id, el)
+        state.idToIndex?.set(el.id, i)
       }
       scheduleSave()
     },
