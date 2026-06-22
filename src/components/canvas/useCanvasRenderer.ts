@@ -470,7 +470,9 @@ export function useCanvasRenderer(
     })
 
     return () => {
-      cancelAnimationFrame(particleRafId)
+      if (particleRafId !== null) {
+        cancelAnimationFrame(particleRafId)
+      }
       unsub()
     }
   }, [])
