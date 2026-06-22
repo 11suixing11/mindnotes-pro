@@ -13,6 +13,7 @@ import {
   drawMinimap,
   drawZoomLevel,
   drawGrid,
+  invalidateDrawingCaches,
 } from '../../canvas/canvasDrawing'
 import { eraserParticleSystem } from '../../eraser'
 export interface DrawState {
@@ -362,6 +363,9 @@ export function useCanvasRenderer(
       {
         // elements 变化处理块
         elementsDirtyRef.current = true
+
+        // P1 优化: 元素变化时主动清除绘制缓存（minimap、网格、渐变等）
+        invalidateDrawingCaches()
 
         // P0-2 优化: 使用引用比较而非全量 Map 创建
         // 只在元素引用变化时才失效缓存
