@@ -1150,9 +1150,9 @@ export class PhysicsEraserEngine {
 
     return {
       strokeId: stroke.id,
-      // P0优化: 直接使用池引用（真正零拷贝）
-      // 重要: splitStroke 会自动只处理前 intersectionCount 个有效元素
-      intersections: resultIntersections,
+      // P0修复: 使用 slice 创建实际大小的数组，避免传递整个 512 元素池
+      // 修复对象池排序污染问题 + 过期数据问题
+      intersections: resultIntersections.slice(0, intersectionCount),
       eraseStrength: maxStrength,
       // 删除条件：强度足够且覆盖足够比例
       shouldDelete:

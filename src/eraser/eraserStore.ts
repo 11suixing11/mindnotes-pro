@@ -265,24 +265,31 @@ export const useEraserStore = create<EraserState & EraserActions>()((set, get) =
     })
 
     // 根据ID筛选出候选元素，只对这些元素做精确计算
-    // P0优化: 使用 for 循环构建 Map，避免 .map()/.filter() 产生临时数组
-    const elementMap = new Map<string, CanvasElement>()
-    for (let j = 0; j < elements.length; j++) {
-      elementMap.set(elements[j].id, elements[j])
-    }
+    // P0修复: 避免每次擦除点都创建新 Map，直接双重循环查找
+    // 空间索引返回的 candidateIds 通常很少 (<20)，双重循环比 Map 构建更快
     const candidates: CanvasElement[] = []
     for (let i = 0; i < candidateIds.length; i++) {
-      const el = elementMap.get(candidateIds[i])
-      if (el) candidates.push(el)
+      const id = candidateIds[i]
+      for (let j = 0; j < elements.length; j++) {
+        if (elements[j].id === id) {
+          candidates.push(elements[j])
+          break
+        }
+      }
     }
 
     const result = engine.addErasePoint(point, candidates, true)
 
-    set((state) => ({
-      currentTrail: [...state.currentTrail, point],
+    // P0修复: 直接修改 currentTrail 数组并 push，避免 O(n²) 展开拷贝
+    // Zustand 检测到数组引用不变但内容变化时，需要手动触发更新
+    const state = get()
+    state.currentTrail.push(point)
+
+    set({
+      currentTrail: state.currentTrail,
       lastEraseTime: performance.now(),
       elementsErased: state.elementsErased + result.affectedElementIds.length,
-    }))
+    })
 
     return result
   },
