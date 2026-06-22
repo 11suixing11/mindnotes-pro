@@ -147,11 +147,11 @@ export class SpatialIndex {
   /**
    * P0 性能优化: 视口裁剪查询
    * 使用空间索引进行 O(log n) 视口内元素筛选，替代 O(n) 全量遍历
-   * 返回视口内的元素 ID 集合，用于渲染裁剪
+   * P1 优化: 直接返回数组而非 Set，避免 O(k) 转换开销
+   * 渲染时使用 Array.includes 或 Set.has 由调用方决定
    */
-  queryVisible(vx: number, vy: number, vw: number, vh: number): Set<string> {
-    const results = this.searchCore(vx, vy, vx + vw, vy + vh)
-    return new Set(results)
+  queryVisible(vx: number, vy: number, vw: number, vh: number): string[] {
+    return this.searchCore(vx, vy, vx + vw, vy + vh)
   }
 
   /**

@@ -114,7 +114,7 @@ export function useCanvasRenderer(
     // 大画布场景下（1000+ 元素），性能提升 10-100x
     const visibleIds = st.spatialIndex?.queryVisible(vl, vt, vw, vh)
 
-    if (visibleIds && visibleIds.size > 0) {
+    if (visibleIds && visibleIds.length > 0) {
       // P0 优化: 使用 idToElement O(1) 查找，只遍历视口内元素
       // 复杂度从 O(n) → O(k)，大画布场景提升 10-100x
       for (const id of visibleIds) {
