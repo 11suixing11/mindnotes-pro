@@ -252,6 +252,16 @@ let cachedMonetGridParams: {
   zoom: number
 } | null = null
 
+// Grid Path2D 缓存 - 避免每帧重建网格路径
+let cachedGridPath: Path2D | null = null
+let cachedGridParams: {
+  startX: number
+  startY: number
+  endX: number
+  endY: number
+  step: number
+} | null = null
+
 // P0-6 优化: Canvas Background Gradient 缓存 - 避免每帧创建新的 CanvasGradient 对象
 interface CachedGradient {
   key: string
@@ -849,16 +859,6 @@ export function invalidateDrawingCaches() {
   cachedGridParams = null
   cachedBgGradients = null
 }
-
-// Grid Path2D 缓存 - 避免每帧重建网格路径
-let cachedGridPath: Path2D | null = null
-let cachedGridParams: {
-  startX: number
-  startY: number
-  endX: number
-  endY: number
-  step: number
-} | null = null
 
 export function drawGrid(
   ctx: CanvasRenderingContext2D,
