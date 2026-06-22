@@ -110,15 +110,6 @@ const ERASE_THRESHOLDS = {
 // ============================================
 
 /**
- * 计算两点之间的欧氏距离
- */
-function distance(x1: number, y1: number, x2: number, y2: number): number {
-  const dx = x2 - x1
-  const dy = y2 - y1
-  return Math.sqrt(dx * dx + dy * dy)
-}
-
-/**
  * 将值限制在 [min, max] 范围内
  */
 function clamp(value: number, min: number, max: number): number {
@@ -174,7 +165,8 @@ function validateStroke(stroke: StrokeElement): boolean {
  * Intersection 临时对象池
  * 避免在热循环中频繁创建 Intersection 对象
  */
-const INTERSECTION_POOL_SIZE = 256
+const INTERSECTION_POOL_SIZE = 512 // P0: 2^9，确保位运算安全
+const INTERSECTION_POOL_MASK = INTERSECTION_POOL_SIZE - 1
 const _intersectionPool: Intersection[] = new Array(INTERSECTION_POOL_SIZE)
 let _intersectionPoolIdx = 0
 
@@ -190,13 +182,21 @@ for (let i = 0; i < INTERSECTION_POOL_SIZE; i++) {
 
 function acquireIntersection(t: number, x: number, y: number, strength: number): Intersection {
   // P0修复: 消除条件分支，池溢出时循环复用
-  const idx = _intersectionPoolIdx++ & (INTERSECTION_POOL_SIZE - 1)
+  const idx = _intersectionPoolIdx++ & INTERSECTION_POOL_MASK
   const obj = _intersectionPool[idx]
   obj.t = t
   obj.point[0] = x
   obj.point[1] = y
   obj.strength = strength
   return obj
+}
+
+/**
+ * P0优化: 获取池中的 intersections 视图（零拷贝）
+ * @returns [池引用, 有效长度] - 调用方只遍历前 length 个元素
+ */
+function getIntersectionsView(): readonly [Intersection[], number] {
+  return [_intersectionPool, Math.min(_intersectionPoolIdx, INTERSECTION_POOL_SIZE)]
 }
 
 function resetIntersectionPool(): void {
@@ -845,15 +845,21 @@ export class PhysicsEraserEngine {
    * 更新橡皮磨损程度
    * 磨损与移动距离、压力成正比，与硬度成反比
    * P1修复: 只在磨损实际变化时标记缓存脏，避免缓存永不命中
+   * P1优化: 先判断距离平方，避免不必要的 sqrt 开销
    */
   private updateWearLevel(point: EraserPoint): void {
     if (this.trail.length < 2) return
 
     const prevPoint = this.trail[this.trail.length - 2]
-    const dist = distance(point.x, point.y, prevPoint.x, prevPoint.y)
+    // P1优化: 先计算距离平方做快速拒绝，避免不必要的 sqrt 开销
+    const dx = point.x - prevPoint.x
+    const dy = point.y - prevPoint.y
+    const distSq = dx * dx + dy * dy
 
-    // P1修复: 先判断距离平方，避免不必要的 sqrt 开销
-    if (dist < 0.001) return
+    // 距离平方小于阈值，直接返回（避免 sqrt）
+    if (distSq < 0.000001) return
+
+    const dist = Math.sqrt(distSq)
 
     // 压力越大磨损越快
     const pressureFactor =
@@ -1124,19 +1130,16 @@ export class PhysicsEraserEngine {
       }
     }
 
-    // 获取池中的 intersections（池索引即为数量）
-    const intersectionCount = _intersectionPoolIdx
+    // P0优化: 获取池视图（真正零拷贝，无 slice 无数组创建）
+    const [pool, intersectionCount] = getIntersectionsView()
 
     // P0优化: 单循环同时计算 maxStrength，避免两次遍历
     let maxStrength = 0
-    // P1优化: 预分配结果数组（只在需要时创建）
-    // P1性能优化: 直接使用对象池引用，避免数组拷贝
-    // 注意: 调用方必须在当前帧处理完 intersections，下一次擦除会重置池
-    let resultIntersections: Intersection[] = []
+    // P0性能优化: 直接使用池引用，完全零拷贝
+    // 注意: 调用方必须在当前帧处理完前 intersectionCount 个元素，下一次擦除会重置池
+    const resultIntersections = pool
 
     if (intersectionCount > 0) {
-      // P1优化: 直接切片对象池（零拷贝），同时计算 maxStrength
-      resultIntersections = _intersectionPool.slice(0, intersectionCount)
       for (let i = 0; i < intersectionCount; i++) {
         const s = resultIntersections[i].strength
         if (s > maxStrength) maxStrength = s
@@ -1147,7 +1150,8 @@ export class PhysicsEraserEngine {
 
     return {
       strokeId: stroke.id,
-      // P1优化: 直接使用对象池引用（零拷贝）
+      // P0优化: 直接使用池引用（真正零拷贝）
+      // 重要: splitStroke 会自动只处理前 intersectionCount 个有效元素
       intersections: resultIntersections,
       eraseStrength: maxStrength,
       // 删除条件：强度足够且覆盖足够比例
