@@ -492,14 +492,16 @@ export function usePointerEngine(opts: {
             if (!st.selectedIds.includes(hit)) setSelectedIds([hit])
           }
           const startPositions = new Map<string, { x: number; y: number }>()
-          for (const el of st.elements) {
-            if (ids.includes(el.id)) {
-              if (el.type === 'stroke')
-                startPositions.set(el.id, { x: el.points[0]?.[0] ?? 0, y: el.points[0]?.[1] ?? 0 })
-              else if (el.type === 'shape') startPositions.set(el.id, { x: el.x, y: el.y })
-              else if (el.type === 'text') startPositions.set(el.id, { x: el.x, y: el.y })
-              else if (el.type === 'image') startPositions.set(el.id, { x: el.x, y: el.y })
-            }
+          // P1-6 修复: 使用 idToElement O(1) 查找替代遍历所有 elements
+          // 原实现: 1000 元素 + 选中 5 个 = 1000 * O(5) = 5000 次比较
+          // 新实现: O(ids.length) 次 Map 查找
+          for (const id of ids) {
+            const el = st.idToElement.get(id)
+            if (!el) continue
+            if (el.type === 'stroke')
+              startPositions.set(id, { x: el.points[0]?.[0] ?? 0, y: el.points[0]?.[1] ?? 0 })
+            else if (el.type === 'shape' || el.type === 'text' || el.type === 'image')
+              startPositions.set(id, { x: el.x, y: el.y })
           }
           dragRef.current = { x: pos.x, y: pos.y, id: hit, startPositions }
           scheduleRedraw()
