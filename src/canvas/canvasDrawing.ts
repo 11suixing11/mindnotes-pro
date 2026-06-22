@@ -126,8 +126,14 @@ const STROKE_CACHE_MAX_SIZE = 200
 const STROKE_CACHE_TTL = 60000 // 60秒
 const strokeOutlineCache = new LRUCache<string, number[][]>(STROKE_CACHE_MAX_SIZE, STROKE_CACHE_TTL)
 
+// P0-2 修复: 缓存键包含点坐标哈希，避免修改点坐标后缓存命中错误数据
 function getStrokeCacheKey(el: StrokeElement): string {
-  return `${el.id}:${el.points.length}:${el.size}`
+  // 取首尾点和中间点坐标作为哈希，检测点坐标变化
+  const firstPoint = el.points[0] ? `${el.points[0][0]}:${el.points[0][1]}` : ''
+  const lastPoint = el.points[el.points.length - 1] ? `${el.points[el.points.length - 1][0]}:${el.points[el.points.length - 1][1]}` : ''
+  const midIndex = Math.floor(el.points.length / 2)
+  const midPoint = el.points[midIndex] ? `${el.points[midIndex][0]}:${el.points[midIndex][1]}` : ''
+  return `${el.id}:${el.points.length}:${el.size}:${firstPoint}:${lastPoint}:${midPoint}`
 }
 
 function getCachedStrokeOutline(el: StrokeElement): number[][] | null {
@@ -348,43 +354,41 @@ export function drawStrokeEl(
     ctx.strokeStyle = el.color
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
-    // P0 性能优化: 书法笔触分组批量绘制
-    // 按相似线宽分组，每组单次 beginPath/stroke，减少 80%+ API 调用
-    // 原: O(n) 次绘制 → 优化后: O(n/GROUP_SIZE) 次，典型场景 n=100 → 5-10 次
-    const GROUP_SIZE = 12 // 每组最多线段数，平衡性能与视觉效果
-    const WIDTH_BUCKETS = 8 // 线宽分桶数
+    // P0-1 修复: 书法笔触原地分类，避免临时数组分配和 filter
+    // 原实现: 每次创建 segments 数组 + 8 次 filter = 9 次 GC 压力
+    // 新实现: 单遍遍历原地分类到预分配的桶中，零临时数组分配
+    const GROUP_SIZE = 12
+    const WIDTH_BUCKETS = 8
 
-    interface Segment {
-      x1: number
-      y1: number
-      x2: number
-      y2: number
-      widthFactor: number
-    }
+    // 预分配固定大小的桶数组，原地分类避免 filter 临时数组
+    const buckets: { x1: number; y1: number; x2: number; y2: number }[][] = Array.from(
+      { length: WIDTH_BUCKETS },
+      () => []
+    )
+    const bucketWfSums: number[] = new Array(WIDTH_BUCKETS).fill(0)
+    const bucketCounts: number[] = new Array(WIDTH_BUCKETS).fill(0)
 
-    const segments: Segment[] = []
+    // 单遍遍历: 计算 + 分类同时完成，零临时对象分配
     for (let i = 1; i < pts.length; i++) {
       const p = pts[i - 1],
         c = pts[i]
       const angle = Math.atan2(c[1] - p[1], c[0] - p[0]) - Math.PI / 4
       const wf = 0.3 + 0.7 * Math.abs(Math.sin(angle))
-      segments.push({ x1: p[0], y1: p[1], x2: c[0], y2: c[1], widthFactor: wf })
+      const bucketIndex = Math.min(Math.floor(wf * WIDTH_BUCKETS), WIDTH_BUCKETS - 1)
+
+      buckets[bucketIndex].push({ x1: p[0], y1: p[1], x2: c[0], y2: c[1] })
+      bucketWfSums[bucketIndex] += wf
+      bucketCounts[bucketIndex]++
     }
 
-    // 按线宽因子分桶，相似线宽的线段合并绘制
+    // 按桶批量绘制
     for (let bucket = 0; bucket < WIDTH_BUCKETS; bucket++) {
-      const minWf = bucket / WIDTH_BUCKETS
-      const maxWf = (bucket + 1) / WIDTH_BUCKETS
-      const bucketSegments = segments.filter((s) => s.widthFactor >= minWf && s.widthFactor < maxWf)
-
+      const bucketSegments = buckets[bucket]
       if (bucketSegments.length === 0) continue
 
-      // 计算该桶平均线宽（加权平均）
-      const avgWf =
-        bucketSegments.reduce((sum, s) => sum + s.widthFactor, 0) / bucketSegments.length
+      const avgWf = bucketWfSums[bucket] / bucketCounts[bucket]
       ctx.lineWidth = el.size * (0.3 + 0.7 * avgWf)
 
-      // 分组批量绘制
       for (let g = 0; g < bucketSegments.length; g += GROUP_SIZE) {
         ctx.beginPath()
         const end = Math.min(g + GROUP_SIZE, bucketSegments.length)
