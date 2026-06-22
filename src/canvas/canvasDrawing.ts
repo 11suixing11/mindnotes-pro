@@ -234,7 +234,7 @@ function getCachedMinimapBounds(
   minimapCache = { minX, minY, maxX, maxY, elementCount, lastAccess: now }
   return { minX, minY, maxX, maxY }
 }
-// MonetGrid Path2D 缓存 - 修复 dotSize 变化时缓存不失效问题
+// MonetGrid Path2D 缓存 - P0 修复: 包含 zoom 参数，缩放时正确失效
 let cachedMonetGridPath: Path2D | null = null
 let cachedMonetGridParams: {
   startX: number
@@ -243,6 +243,7 @@ let cachedMonetGridParams: {
   endY: number
   gridSize: number
   dotSize: number
+  zoom: number
 } | null = null
 
 // P0-6 优化: Canvas Background Gradient 缓存 - 避免每帧创建新的 CanvasGradient 对象
@@ -590,8 +591,8 @@ export function drawMonetGrid(
   ctx.save()
   ctx.fillStyle = isDarkMode ? `rgba(160,150,180,${alpha})` : `rgba(155,142,127,${alpha})`
 
-  // P1 性能优化：包含 dotSize 在缓存检查中
-  const currentParams = { startX: sx, startY: sy, endX: ex, endY: ey, gridSize: gs, dotSize }
+  // P0 修复：包含 zoom 参数在缓存检查中，缩放时正确重建网格
+  const currentParams = { startX: sx, startY: sy, endX: ex, endY: ey, gridSize: gs, dotSize, zoom: viewBox.zoom }
   const paramsChanged =
     !cachedMonetGridParams ||
     cachedMonetGridParams.startX !== currentParams.startX ||
@@ -599,7 +600,8 @@ export function drawMonetGrid(
     cachedMonetGridParams.endX !== currentParams.endX ||
     cachedMonetGridParams.endY !== currentParams.endY ||
     cachedMonetGridParams.gridSize !== currentParams.gridSize ||
-    cachedMonetGridParams.dotSize !== currentParams.dotSize
+    cachedMonetGridParams.dotSize !== currentParams.dotSize ||
+    cachedMonetGridParams.zoom !== currentParams.zoom
 
   if (paramsChanged || !cachedMonetGridPath) {
     const path = new Path2D()
@@ -834,6 +836,16 @@ export function drawZoomLevel(
   ctx.fillText(text, canvasSize.w - 16, 22)
   ctx.restore()
 }
+// P1 优化: 导出缓存失效函数 - 元素变化时主动清除缓存
+export function invalidateDrawingCaches() {
+  minimapCache = null
+  cachedMonetGridPath = null
+  cachedMonetGridParams = null
+  cachedGridPath = null
+  cachedGridParams = null
+  cachedBgGradients = null
+}
+
 // Grid Path2D 缓存 - 避免每帧重建网格路径
 let cachedGridPath: Path2D | null = null
 let cachedGridParams: {
