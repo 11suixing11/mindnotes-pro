@@ -268,10 +268,10 @@ describe('SpatialIndex', () => {
 
       const visible = index.queryVisible(0, 0, 2000, 2000)
 
-      expect(visible.size).toBe(7)
-      expect(visible.has('s0')).toBe(false)
-      expect(visible.has('s1')).toBe(false)
-      expect(visible.has('s2')).toBe(false)
+      expect(visible.length).toBe(7)
+      expect(visible.includes('s0')).toBe(false)
+      expect(visible.includes('s1')).toBe(false)
+      expect(visible.includes('s2')).toBe(false)
 
       const stats = index.getRebuildStats()
       expect(stats.rebuildCount).toBe(1)
@@ -313,9 +313,9 @@ describe('SpatialIndex', () => {
 
       const visible = index.queryVisible(0, 0, 300, 300)
 
-      expect(visible.has('s1')).toBe(true)
-      expect(visible.has('s2')).toBe(true)
-      expect(visible.has('s3')).toBe(false)
+      expect(visible.includes('s1')).toBe(true)
+      expect(visible.includes('s2')).toBe(true)
+      expect(visible.includes('s3')).toBe(false)
     })
 
     it('过滤掉已删除元素', () => {
@@ -325,13 +325,13 @@ describe('SpatialIndex', () => {
 
       const visible = index.queryVisible(0, 0, 300, 300)
 
-      expect(visible.has('s1')).toBe(false)
-      expect(visible.has('s2')).toBe(true)
+      expect(visible.includes('s1')).toBe(false)
+      expect(visible.includes('s2')).toBe(true)
     })
 
     it('空索引返回空集合', () => {
       const visible = index.queryVisible(0, 0, 100, 100)
-      expect(visible.size).toBe(0)
+      expect(visible.length).toBe(0)
     })
   })
 
