@@ -793,9 +793,15 @@ export function usePointerEngine(opts: {
             x2 = Math.max(m.startX, m.endX),
             y2 = Math.max(m.startY, m.endY)
           if (x2 - x1 > 3 || y2 - y1 > 3) {
-            const els = useAppStore.getState().elements
+            // P1-2 性能修复: 使用空间索引预筛选框选范围内的元素
+            // 原实现: O(n) 遍历所有元素检测框选命中
+            // 新实现: O(log n) R-tree 查询 + 少量精确检测
+            const st = useAppStore.getState()
+            const candidateIds = st.spatialIndex?.search({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 })
             const hits: string[] = []
-            for (const el of els) {
+            for (const id of candidateIds ?? []) {
+              const el = st.idToElement.get(id)
+              if (!el) continue
               const b = cachedBounds(el)
               if (b.x + b.w >= x1 && b.x <= x2 && b.y + b.h >= y1 && b.y <= y2) hits.push(el.id)
             }
@@ -1028,10 +1034,15 @@ export function usePointerEngine(opts: {
 
   // Copy to clipboard
   async function copySelectedToSystemClipboard() {
-    const selIds = useAppStore.getState().selectedIds
+    const st = useAppStore.getState()
+    const selIds = st.selectedIds
     if (selIds.length === 0) return
-    const els = useAppStore.getState().elements
-    const selEls = els.filter((e) => selIds.includes(e.id))
+    // P1-3 性能修复: 使用 Set.has O(1) 替代 Array.includes O(n)
+    // 原实现: O(els.length * selIds.length) = 1000 * 10 = 10000 次比较
+    // 新实现: O(els.length) = 1000 次哈希查找
+    const selSet = new Set(selIds)
+    const els = st.elements
+    const selEls = els.filter((e) => selSet.has(e.id))
     if (selEls.length === 0) return
     let minX = Infinity,
       minY = Infinity,

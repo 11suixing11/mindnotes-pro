@@ -16,6 +16,7 @@ import { SpatialIndex, PerformanceMonitor } from './SpatialIndex'
 import type { EraserParticleSystem } from './EraserParticleSystem'
 import { getParticleSystem } from './EraserParticleSystem'
 import type { CanvasElement } from '../store/types'
+import { useAppStore } from '../store/appStore'
 import {
   loadEraserPreferences,
   saveEraserPreferences,
@@ -243,7 +244,7 @@ export const useEraserStore = create<EraserState & EraserActions>()((set, get) =
     })
   },
 
-  addErasePoint: (point: EraserPoint, elements: CanvasElement[]) => {
+  addErasePoint: (point: EraserPoint, _elements: CanvasElement[]) => {
     const { engine, eraserMode, performanceMonitor, spatialIndex } = get()
 
     // 记录性能
@@ -264,18 +265,13 @@ export const useEraserStore = create<EraserState & EraserActions>()((set, get) =
       h: effectiveRadius * 2,
     })
 
-    // 根据ID筛选出候选元素，只对这些元素做精确计算
-    // P0修复: 避免每次擦除点都创建新 Map，直接双重循环查找
-    // 空间索引返回的 candidateIds 通常很少 (<20)，双重循环比 Map 构建更快
+    // P0-1 性能修复: 使用 idToElement Map 进行 O(1) 查找，替代 O(candidates * elements) 双重循环
+    // 擦除密集操作时性能提升显著：1000元素 + 20候选 = 从20000次比较降至20次查找
+    const { idToElement } = useAppStore.getState()
     const candidates: CanvasElement[] = []
     for (let i = 0; i < candidateIds.length; i++) {
-      const id = candidateIds[i]
-      for (let j = 0; j < elements.length; j++) {
-        if (elements[j].id === id) {
-          candidates.push(elements[j])
-          break
-        }
-      }
+      const el = idToElement.get(candidateIds[i])
+      if (el) candidates.push(el)
     }
 
     const result = engine.addErasePoint(point, candidates, true)
