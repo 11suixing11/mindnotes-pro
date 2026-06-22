@@ -61,8 +61,14 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         })
         redoAction = action
       } else if (action.type === 'erase') {
-        next = action.before
-        redoAction = action
+        // P0-3 修复: 使用 snapshot 深拷贝，防止后续修改污染 undo/redo 栈数据
+        // 直接引用会导致连续 undo/redo 后数据不一致
+        next = snapshot(action.before)
+        redoAction = {
+          ...action,
+          before: snapshot(action.before),
+          after: snapshot(action.after),
+        }
       } else {
         next = action.snapshot
         redoAction = { type: 'clear', snapshot: snapshot(elements) }
@@ -121,8 +127,13 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         })
         undoAction = action
       } else if (action.type === 'erase') {
-        next = action.after
-        undoAction = action
+        // P0-3 修复: 使用 snapshot 深拷贝，防止后续修改污染 undo/redo 栈数据
+        next = snapshot(action.after)
+        undoAction = {
+          ...action,
+          before: snapshot(action.before),
+          after: snapshot(action.after),
+        }
       } else {
         next = action.snapshot
         undoAction = { type: 'clear', snapshot: snapshot(elements) }
