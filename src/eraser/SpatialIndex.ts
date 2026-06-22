@@ -60,6 +60,11 @@ export class SpatialIndex {
   private readonly QUERY_CACHE_TTL = 16 // ~1帧的时间，避免连续相同查询
   private lastModificationCount = 0
   private modificationCount = 0
+
+  // P1优化: 复用 seen Set 和 results 数组，避免每次查询都分配新对象
+  private readonly _seenSet = new Set<string>()
+  private readonly _resultsArray: string[] = []
+
   constructor() {
     this.root = this.createNode(true)
   }
@@ -156,10 +161,15 @@ export class SpatialIndex {
     }
 
     this.rebuildIfNeeded()
-    const seen = new Set<string>()
-    const results: string[] = []
+
+    // P1优化: 复用 Set 和数组，避免每次查询都分配新对象
+    this._seenSet.clear()
+    this._resultsArray.length = 0
     const searchBounds = { minX, minY, maxX, maxY }
-    this.searchNode(this.root, searchBounds, results, seen, this.deletedIds)
+    this.searchNode(this.root, searchBounds, this._resultsArray, this._seenSet, this.deletedIds)
+
+    // 创建结果副本用于缓存（避免复用数组被修改）
+    const results = [...this._resultsArray]
 
     // P0 优化: 更新缓存
     this.queryCache = {

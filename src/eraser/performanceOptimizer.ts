@@ -89,7 +89,10 @@ export class DirtyRectManager {
         for (let j = i + 1; j < merged.length && !changed; j++) {
           if (this.shouldMerge(merged[i], merged[j])) {
             merged[i] = unionRect(merged[i], merged[j])
-            merged.splice(j, 1)
+            // P1优化: swap-and-pop 替代 splice(j, 1)，O(1) 替代 O(n)
+            // 顺序不重要，只要合并正确即可
+            merged[j] = merged[merged.length - 1]
+            merged.pop()
             changed = true
           }
         }
