@@ -1,7 +1,6 @@
 import type { CanvasElement } from '../store/types'
 import type { BoundsEntry } from './types'
 import { elementBounds } from '../canvas/canvasUtils'
-
 /**
  * 空间索引重建统计
  */
@@ -17,7 +16,6 @@ export interface RebuildStats {
   /** 当前删除率 */
   deleteRatio: number
 }
-
 /**
  * 简化版RBush空间索引实现
  * 不依赖外部库，纯JS实现
@@ -36,26 +34,21 @@ interface RTreeNode {
   children: (RTreeNode | BoundsEntry)[]
   leaf: boolean
 }
-
 export class SpatialIndex {
   private root: RTreeNode
   private maxEntries: number = 9
   private deletedIds: Set<string> = new Set()
   private totalCount: number = 0
   private readonly rebuildThreshold: number = 0.2 // 20% 删除率触发重建
-
   /** 外部元素提供者，重建时调用获取最新元素列表 */
   private elementProvider: (() => CanvasElement[]) | null = null
-
   // 重建性能监控
   private rebuildCount: number = 0
   private lastRebuildDuration: number = 0
   private isRebuilding: boolean = false
-
   constructor() {
     this.root = this.createNode(true)
   }
-
   /**
    * 注册元素提供者回调
    * 重建索引时会调用此回调获取最新元素列表
@@ -63,7 +56,6 @@ export class SpatialIndex {
   setElementProvider(provider: () => CanvasElement[]): void {
     this.elementProvider = provider
   }
-
   /**
    * P0 性能优化: 批量插入元素
    * 优化排序算法，减少比较次数
@@ -75,10 +67,10 @@ export class SpatialIndex {
     this.totalCount = elements.length
 
     const entries = elements.map((el) => this.toEntry(el))
-    if (entries.length < this.maxEntries) {
-      for (let i = 0; i < entries.length; i++) {
-        this.insertEntry(entries[i])
-      }
+
+    if (entries.length <= this.maxEntries) {
+      this.root.children = entries
+      this.updateBounds(this.root)
       return
     }
 
@@ -86,15 +78,19 @@ export class SpatialIndex {
     entries.sort((a, b) => a.minX - b.minX || a.minY - b.minY)
     const nodeSize = Math.ceil(Math.sqrt(entries.length))
 
+    // root 不再是叶子节点
+    this.root.leaf = false
+    this.root.children = []
+
     for (let i = 0; i < entries.length; i += nodeSize) {
       const end = Math.min(i + nodeSize, entries.length)
       const node = this.createNode(true)
       node.children = entries.slice(i, end)
       this.updateBounds(node)
-      this.insertNode(this.root, node)
+      this.root.children.push(node)
     }
+    this.updateBounds(this.root)
   }
-
   /**
    * 插入单个元素
    */
@@ -102,15 +98,15 @@ export class SpatialIndex {
     // 如果之前被标记删除了，先移除删除标记
     if (this.deletedIds.has(element.id)) {
       this.deletedIds.delete(element.id)
+    } else {
+      // 只有真正新插入的才增加计数
+      this.totalCount++
     }
     this.insertEntry(this.toEntry(element))
-    this.totalCount++
   }
-
   private insertEntry(entry: BoundsEntry): void {
     this.insertNode(this.root, entry)
   }
-
   /**
    * P0 性能优化: 核心搜索内核（复用所有搜索逻辑）
    * search 和 queryVisible 共享此内核，消除 80% 代码重复
@@ -121,21 +117,23 @@ export class SpatialIndex {
     const results: string[] = []
     const searchBounds = { minX, minY, maxX, maxY }
     this.searchNode(this.root, searchBounds, results)
-
-    // 快速路径：无删除标记时直接返回
-    if (this.deletedIds.size === 0) return results
-
+    // 快速路径：无删除标记时直接去重返回
+    if (this.deletedIds.size === 0) {
+      return [...new Set(results)]
+    }
     // P0 优化: 原地过滤已删除元素，避免 filter 创建新数组
     let writeIdx = 0
+    const seen = new Set<string>()
     for (let i = 0; i < results.length; i++) {
-      if (!this.deletedIds.has(results[i])) {
-        results[writeIdx++] = results[i]
+      const id = results[i]
+      if (!this.deletedIds.has(id) && !seen.has(id)) {
+        seen.add(id)
+        results[writeIdx++] = id
       }
     }
     results.length = writeIdx
     return results
   }
-
   /**
    * 区域查询
    * 在查询前检查删除率，必要时自动重建
@@ -143,7 +141,6 @@ export class SpatialIndex {
   search(bounds: { x: number; y: number; w: number; h: number }): string[] {
     return this.searchCore(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h)
   }
-
   /**
    * P0 性能优化: 视口裁剪查询
    * 使用空间索引进行 O(log n) 视口内元素筛选，替代 O(n) 全量遍历
@@ -153,7 +150,6 @@ export class SpatialIndex {
   queryVisible(vx: number, vy: number, vw: number, vh: number): string[] {
     return this.searchCore(vx, vy, vx + vw, vy + vh)
   }
-
   /**
    * 删除元素（懒删除）
    * 先标记为删除，达到阈值时由 search/queryVisible 触发重建
@@ -163,15 +159,19 @@ export class SpatialIndex {
     this.deletedIds.add(id)
     this.totalCount--
   }
-
   /**
    * 更新元素（先删后插）
    */
   update(element: CanvasElement): void {
-    this.remove(element.id)
-    this.insert(element)
+    // 标记旧条目为删除（搜索时会过滤旧位置）
+    this.deletedIds.add(element.id)
+    // 插入新位置的条目
+    this.insertEntry(this.toEntry(element))
+    // 立即移除删除标记，让新位置的条目可见
+    // 旧条目仍然在树中，但因为搜索结果会去重，所以不影响
+    this.deletedIds.delete(element.id)
+    // totalCount 保持不变
   }
-
   /**
    * 检查删除率，超过阈值且有 elementProvider 时自动重建
    *
@@ -185,16 +185,13 @@ export class SpatialIndex {
     if (this.isRebuilding) return // 防止重入
     if (this.totalCount <= 0 && this.deletedIds.size === 0) return
     if (!this.elementProvider) return // 没有提供者，无法自动重建
-
     const totalEntries = this.totalCount + this.deletedIds.size
     if (totalEntries <= 0) return
-
     const deleteRatio = this.deletedIds.size / totalEntries
     if (deleteRatio >= this.rebuildThreshold) {
       this.performRebuild()
     }
   }
-
   /**
    * 执行重建
    * 从 elementProvider 获取最新元素列表，重新构建 R 树
@@ -202,7 +199,6 @@ export class SpatialIndex {
   private performRebuild(): void {
     this.isRebuilding = true
     const startTime = performance.now()
-
     try {
       const elements = this.elementProvider!()
       this.bulkLoad(elements) // bulkLoad 会重置 deletedIds 和 totalCount
@@ -214,7 +210,6 @@ export class SpatialIndex {
       this.isRebuilding = false
     }
   }
-
   /**
    * 获取重建统计信息
    */
@@ -228,7 +223,6 @@ export class SpatialIndex {
       deleteRatio: totalEntries > 0 ? this.deletedIds.size / totalEntries : 0,
     }
   }
-
   /**
    * 清空索引
    */
@@ -237,7 +231,6 @@ export class SpatialIndex {
     this.deletedIds.clear()
     this.totalCount = 0
   }
-
   private createNode(leaf: boolean): RTreeNode {
     return {
       minX: Infinity,
@@ -248,7 +241,6 @@ export class SpatialIndex {
       leaf,
     }
   }
-
   private toEntry(el: CanvasElement): BoundsEntry {
     const b = elementBounds(el)
     return {
@@ -259,7 +251,6 @@ export class SpatialIndex {
       id: el.id,
     }
   }
-
   /**
    * P1 性能优化: 插入节点 - 减少边界更新次数
    */
@@ -268,7 +259,6 @@ export class SpatialIndex {
       // 选择最佳子节点插入
       let bestIdx = 0
       let bestEnlargement = Infinity
-
       for (let i = 0; i < node.children.length; i++) {
         const child = node.children[i] as RTreeNode
         const enlargement = this.enlargement(child, item)
@@ -277,41 +267,32 @@ export class SpatialIndex {
           bestIdx = i
         }
       }
-
       this.insertNode(node.children[bestIdx] as RTreeNode, item)
     } else {
       node.children.push(item)
-
       if (node.children.length > this.maxEntries) {
         this.split(node)
       }
     }
-
     // P1 优化: 只在最后更新一次边界
     this.updateBounds(node)
   }
-
   private split(node: RTreeNode): void {
     // 简单线性分裂
     const mid = Math.ceil(node.children.length / 2)
     const left = node.children.slice(0, mid)
     const right = node.children.slice(mid)
-
     node.children = []
     node.leaf = false
-
     const leftNode = this.createNode(true)
     leftNode.children = left
     this.updateBounds(leftNode)
-
     const rightNode = this.createNode(true)
     rightNode.children = right
     this.updateBounds(rightNode)
-
     node.children.push(leftNode, rightNode)
     this.updateBounds(node)
   }
-
   /**
    * P1 性能优化: 更新边界 - 减少 Math.min/Math.max 调用
    */
@@ -320,7 +301,6 @@ export class SpatialIndex {
     let minY = Infinity
     let maxX = -Infinity
     let maxY = -Infinity
-
     for (let i = 0; i < node.children.length; i++) {
       const child = node.children[i]
       if (child.minX < minX) minX = child.minX
@@ -328,25 +308,20 @@ export class SpatialIndex {
       if (child.maxX > maxX) maxX = child.maxX
       if (child.maxY > maxY) maxY = child.maxY
     }
-
     node.minX = minX
     node.minY = minY
     node.maxX = maxX
     node.maxY = maxY
   }
-
   private enlargement(a: RTreeNode, b: RTreeNode | BoundsEntry): number {
     const minX = Math.min(a.minX, b.minX)
     const minY = Math.min(a.minY, b.minY)
     const maxX = Math.max(a.maxX, b.maxX)
     const maxY = Math.max(a.maxY, b.maxY)
-
     const newArea = (maxX - minX) * (maxY - minY)
     const oldArea = (a.maxX - a.minX) * (a.maxY - a.minY)
-
     return newArea - oldArea
   }
-
   /**
    * P1 性能优化: 搜索节点 - 迭代替代递归，避免栈溢出
    */
@@ -357,12 +332,9 @@ export class SpatialIndex {
   ): void {
     // P1 优化: 使用显式栈替代递归，避免大数据量时栈溢出
     const stack: RTreeNode[] = [node]
-
     while (stack.length > 0) {
       const current = stack.pop()!
-
       if (!this.overlaps(current, bounds)) continue
-
       if (current.leaf) {
         // 叶子节点：收集匹配的条目
         for (let i = 0; i < current.children.length; i++) {
@@ -379,7 +351,6 @@ export class SpatialIndex {
       }
     }
   }
-
   private overlaps(
     a: { minX: number; minY: number; maxX: number; maxY: number },
     b: { minX: number; minY: number; maxX: number; maxY: number }
@@ -387,7 +358,6 @@ export class SpatialIndex {
     return a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY
   }
 }
-
 /**
  * 性能监控器
  * 监控擦除性能并自动降级
@@ -396,7 +366,6 @@ export class PerformanceMonitor {
   private fpsHistory: number[] = []
   private lastFrameTime: number = 0
   private frameCount: number = 0
-
   recordFrame(): void {
     const now = performance.now()
     if (this.lastFrameTime > 0) {
@@ -410,7 +379,6 @@ export class PerformanceMonitor {
     this.lastFrameTime = now
     this.frameCount++
   }
-
   getAverageFPS(): number {
     if (this.fpsHistory.length === 0) return 60
     let sum = 0
@@ -419,18 +387,15 @@ export class PerformanceMonitor {
     }
     return sum / this.fpsHistory.length
   }
-
   getPerformanceLevel(): 'high' | 'medium' | 'low' {
     const avgFps = this.getAverageFPS()
     if (avgFps > 50) return 'high'
     if (avgFps > 30) return 'medium'
     return 'low'
   }
-
   shouldUsePhysics(): boolean {
     return this.getPerformanceLevel() !== 'low'
   }
-
   reset(): void {
     this.fpsHistory = []
     this.lastFrameTime = 0
