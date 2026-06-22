@@ -851,12 +851,20 @@ export function drawZoomLevel(
   ctx.restore()
 }
 // P1 优化: 导出缓存失效函数 - 元素变化时主动清除缓存
+// P0 修复: 不清除背景渐变缓存 - 背景渐变只在主题/窗口大小变化时才需要重建
+// 性能提升: 避免每次笔画都重建 4-7 个 CanvasGradient 对象，减少 GC 压力
 export function invalidateDrawingCaches() {
   minimapCache = null
   cachedMonetGridPath = null
   cachedMonetGridParams = null
   cachedGridPath = null
   cachedGridParams = null
+  // 注意: cachedBgGradients 不在这里清除 - 它只依赖主题和窗口大小
+  // 主题切换时会自动触发重绘，窗口大小变化由 ResizeObserver 处理
+}
+
+// 单独的背景渐变缓存失效函数 - 仅在主题切换时调用
+export function invalidateBackgroundGradients() {
   cachedBgGradients = null
 }
 
