@@ -1,6 +1,7 @@
 {
   "name": "mindnotes-pro",
   "version": "3.2.0",
+  "type": "module",
   "description": "A beautiful, local-first whiteboard that feels like painting on real paper.",
   "main": "electron/main.ts",
   "scripts": {
