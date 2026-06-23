@@ -131,6 +131,15 @@ export function useCanvasRenderer(
       'rgba(176,125,110, 0.180)',
     ],
   })
+  // P1 性能优化: 橡皮擦脉冲效果颜色缓存 - 预计算16级alpha值
+  // 性能提升: 脉冲动画每帧减少1次字符串分配，减少 GC 压力
+  const eraserPulseColorCacheRef = useRef<{
+    dark: string[]
+    light: string[]
+  }>({
+    dark: Array.from({ length: 16 }, (_, i) => `rgba(200,160,176, ${(0.15 + (i / 15) * 0.15).toFixed(3)})`),
+    light: Array.from({ length: 16 }, (_, i) => `rgba(176,125,110, ${(0.15 + (i / 15) * 0.15).toFixed(3)})`),
+  })
 
   function cachedBounds(el: CanvasElement) {
     const cache = boundsCacheRef.current
@@ -345,9 +354,12 @@ export function useCanvasRenderer(
       // 绘制中：外圈脉冲动画效果
       if (ds.drawing) {
         const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 120)
-        // P1 优化: 脉冲效果使用预计算RGB，只动态计算alpha
-        const pulseRgb = dark ? '200,160,176' : '176,125,110'
-        ctx.strokeStyle = `rgba(${pulseRgb}, ${0.15 + pulse * 0.15})`
+        // P1 优化: 使用预计算的脉冲颜色缓存，避免每帧字符串分配
+        const pulseColors = dark
+          ? eraserPulseColorCacheRef.current.dark
+          : eraserPulseColorCacheRef.current.light
+        const colorIndex = Math.min(Math.floor(pulse * 15), 15)
+        ctx.strokeStyle = pulseColors[colorIndex]
         ctx.lineWidth = 2 / vb.zoom
         ctx.beginPath()
         ctx.arc(x, y, r * (1.05 + pulse * 0.08), 0, Math.PI * 2)
