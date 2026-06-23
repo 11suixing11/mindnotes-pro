@@ -251,7 +251,7 @@ export class SpatialIndex {
     this.isRebuilding = true
     const startTime = performance.now()
     try {
-      const elements = this.elementProvider!()
+      const elements = this.elementProvider?.() ?? []
       this.bulkLoad(elements) // bulkLoad 会重置 deletedIds 和 totalCount
       this.rebuildCount++
     } catch (error) {
