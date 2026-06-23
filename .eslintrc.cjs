@@ -1,4 +1,4 @@
-﻿export default {
+module.exports = {
   root: true,
   env: {
     browser: true,
@@ -43,7 +43,6 @@
       { prefer: 'type-imports' },
     ],
     '@typescript-eslint/no-non-null-assertion': 'warn',
-
     // --- React ---
     'react-refresh/only-export-components': [
       'warn',
@@ -51,7 +50,6 @@
     ],
     'react-hooks/rules-of-hooks': 'error',
     'react-hooks/exhaustive-deps': 'warn',
-
     // --- General ---
     'no-console': ['warn', { allow: ['warn', 'error'] }],
     'no-debugger': 'error',
@@ -59,7 +57,6 @@
     'no-var': 'error',
     'no-empty': ['error', { allowEmptyCatch: true }],
     'eqeqeq': ['error', 'always', { null: 'ignore' }],
-
     // --- Prettier ---
     'prettier/prettier': 'warn',
   },
