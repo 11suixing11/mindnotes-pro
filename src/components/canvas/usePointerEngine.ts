@@ -137,6 +137,22 @@ export function usePointerEngine(opts: {
     lastMoveTime: 0,
     selectionComplete: false,
   })
+  // P4 新功能: 右键拖拽平移画布 (来源 tldraw v5.0.0 PR #8501)
+  // 匹配 Figma 专业工具交互：右键拖动直接平移，右键点击显示菜单
+  const rightClickPanRef = useRef<{
+    enabled: boolean
+    isPanning: boolean
+    startScreenX: number
+    startScreenY: number
+    moved: boolean
+  }>({
+    enabled: true,
+    isPanning: false,
+    startScreenX: 0,
+    startScreenY: 0,
+    moved: false,
+  })
+  const RIGHT_CLICK_PAN_THRESHOLD = 3 // 像素，超过此距离才进入平移模式
   const mouseRef = useRef<{ x: number; y: number } | null>(null)
 
   const getPos = useCallback(
@@ -481,6 +497,24 @@ export function usePointerEngine(opts: {
         curSize = useAppStore.getState().size,
         curFillColor = useAppStore.getState().fillColor,
         curVB = useViewStore.getState().viewBox
+
+      // P4 新功能: 右键拖拽平移画布 (来源 tldraw v5.0.0 PR #8501)
+      // 检测右键按下，记录起始位置
+      if ('button' in e && (e as MouseEvent).button === 2 && rightClickPanRef.current.enabled) {
+        const screenX = (e as MouseEvent).clientX
+        const screenY = (e as MouseEvent).clientY
+        rightClickPanRef.current = {
+          ...rightClickPanRef.current,
+          isPanning: false,
+          startScreenX: screenX,
+          startScreenY: screenY,
+          moved: false,
+        }
+        // 先启动平移模式，后续在 handleMove 中检测是否真正移动
+        startPan(screenX, screenY)
+        return
+      }
+
       if (curTool === 'pan') {
         const cx = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
         const cy = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
@@ -617,6 +651,32 @@ export function usePointerEngine(opts: {
       e.preventDefault()
       const pos = getPos(e)
       mouseRef.current = pos
+
+      // P4 新功能: 右键拖拽平移画布 (来源 tldraw v5.0.0 PR #8501)
+      // 检测右键拖动，超过阈值则进入平移模式
+      if (
+        'buttons' in e &&
+        (e as MouseEvent).buttons === 2 &&
+        rightClickPanRef.current.enabled &&
+        useViewStore.getState().isPanning
+      ) {
+        const screenX = (e as MouseEvent).clientX
+        const screenY = (e as MouseEvent).clientY
+        const dx = screenX - rightClickPanRef.current.startScreenX
+        const dy = screenY - rightClickPanRef.current.startScreenY
+        const distSq = dx * dx + dy * dy
+
+        if (distSq > RIGHT_CLICK_PAN_THRESHOLD * RIGHT_CLICK_PAN_THRESHOLD) {
+          rightClickPanRef.current.moved = true
+          rightClickPanRef.current.isPanning = true
+        }
+
+        if (rightClickPanRef.current.isPanning) {
+          updatePan(screenX, screenY)
+          scheduleRedraw()
+          return
+        }
+      }
 
       // P1-5 性能优化: 仅在橡皮擦工具时更新粒子系统指针位置
       // 避免每次 mousemove（60fps）都调用，即使不在擦除模式
@@ -883,6 +943,23 @@ export function usePointerEngine(opts: {
   const handleEnd = useCallback(
     (e: MouseEvent | TouchEvent) => {
       e.preventDefault()
+
+      // P4 新功能: 右键拖拽平移画布 (来源 tldraw v5.0.0 PR #8501)
+      // 处理右键释放
+      if ('button' in e && (e as MouseEvent).button === 2 && rightClickPanRef.current.enabled) {
+        if (rightClickPanRef.current.isPanning) {
+          // 如果进行了平移，结束平移模式
+          endPan()
+        }
+        // 重置右键平移状态
+        rightClickPanRef.current = {
+          ...rightClickPanRef.current,
+          isPanning: false,
+          moved: false,
+        }
+        return
+      }
+
       const curColor = useAppStore.getState().color,
         curSize = useAppStore.getState().size,
         curBrush = useAppStore.getState().brush
@@ -1040,6 +1117,15 @@ export function usePointerEngine(opts: {
     canvas.addEventListener('mouseup', onEnd)
     canvas.addEventListener('mouseleave', onEnd)
 
+    // P4 新功能: 右键拖拽平移画布 (来源 tldraw v5.0.0 PR #8501)
+    // 当正在进行右键平移时，阻止默认右键菜单
+    const onContextMenu = (e: MouseEvent) => {
+      if (rightClickPanRef.current.isPanning || rightClickPanRef.current.moved) {
+        e.preventDefault()
+      }
+    }
+    canvas.addEventListener('contextmenu', onContextMenu)
+
     // Double-click to edit text
     const onDblClick = (e: MouseEvent) => {
       if (useAppStore.getState().tool !== 'select') return
@@ -1071,6 +1157,7 @@ export function usePointerEngine(opts: {
       canvas.removeEventListener('mousemove', onMove)
       canvas.removeEventListener('mouseup', onEnd)
       canvas.removeEventListener('mouseleave', onEnd)
+      canvas.removeEventListener('contextmenu', onContextMenu)
       canvas.removeEventListener('wheel', onWheel)
       canvas.removeEventListener('dblclick', onDblClick)
       canvas.removeEventListener('touchstart', onStart)
