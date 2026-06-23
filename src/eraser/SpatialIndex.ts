@@ -218,10 +218,11 @@ export class SpatialIndex {
     this.deletedIds.add(element.id)
     // 插入新位置的条目
     this.insertEntry(this.toEntry(element))
-    // 注意：不删除deletedIds标记！让旧条目保持被删除状态
-    // 新条目会被正确返回，旧条目会被deletedIds过滤
-    // seen Set确保即使有重复也只返回一次
-    // totalCount在remove时--，insert时++，这里保持不变
+    // P0 FIX: 从deletedIds中移除该id，让新条目能被搜索到
+    // 旧条目仍然在R树中，但搜索时seen Set会去重确保只返回一次
+    this.deletedIds.delete(element.id)
+    // totalCount保持不变（旧条目仍在树中，新条目也在树中）
+    // 重建时会自动清理重复条目
   }
   /**
    * 检查删除率，超过阈值且有 elementProvider 时自动重建
