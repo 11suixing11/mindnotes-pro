@@ -141,6 +141,19 @@ export function useCanvasRenderer(
     dark: Array.from({ length: 16 }, (_, i) => `rgba(200,160,176, ${(0.15 + (i / 15) * 0.15).toFixed(3)})`),
     light: Array.from({ length: 16 }, (_, i) => `rgba(176,125,110, ${(0.15 + (i / 15) * 0.15).toFixed(3)})`),
   })
+  // P0 性能优化: 橡皮擦光晕渐变缓存 - 避免每帧创建新的 RadialGradient
+  // 性能提升: 橡皮擦光标渲染减少 1 次渐变对象创建，减少 GC 压力
+  const eraserGlowGradientCacheRef = useRef<{
+    dark: CanvasGradient | null
+    light: CanvasGradient | null
+    lastR: number
+    lastCtx: CanvasRenderingContext2D | null
+  }>({
+    dark: null,
+    light: null,
+    lastR: -1,
+    lastCtx: null,
+  })
 
   function cachedBounds(el: CanvasElement) {
     const cache = boundsCacheRef.current
@@ -359,11 +372,25 @@ export function useCanvasRenderer(
       ctx.fillStyle = colors.center
       ctx.fill()
 
-      // 柔和光晕填充 - 使用缓存的渐变颜色
-      const glowGrad = ctx.createRadialGradient(x, y, 0, x, y, r)
-      glowGrad.addColorStop(0, colors.glow0)
-      glowGrad.addColorStop(0.6, colors.glow6)
-      glowGrad.addColorStop(1, colors.glow1)
+      // P0 性能优化: 使用缓存的光晕渐变，避免每帧创建新的 RadialGradient
+      // 性能提升: 橡皮擦光标渲染减少 1 次渐变对象创建，减少 GC 压力
+      const glowCache = eraserGlowGradientCacheRef.current
+      let glowGrad: CanvasGradient
+      if (glowCache.lastR === r && glowCache.lastCtx === ctx) {
+        glowGrad = dark ? glowCache.dark! : glowCache.light!
+      } else {
+        glowGrad = ctx.createRadialGradient(x, y, 0, x, y, r)
+        glowGrad.addColorStop(0, colors.glow0)
+        glowGrad.addColorStop(0.6, colors.glow6)
+        glowGrad.addColorStop(1, colors.glow1)
+        if (dark) {
+          glowCache.dark = glowGrad
+        } else {
+          glowCache.light = glowGrad
+        }
+        glowCache.lastR = r
+        glowCache.lastCtx = ctx
+      }
       ctx.fillStyle = glowGrad
       ctx.beginPath()
       ctx.arc(x, y, r, 0, Math.PI * 2)
