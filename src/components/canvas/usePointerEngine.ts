@@ -89,8 +89,14 @@ export function usePointerEngine(opts: {
   const erasedRef = useRef<Set<string>>(new Set())
 
   // P0 修复: 擦除轨迹跟踪（用于光标拖尾渲染）- 移到开头，在 handleMove 使用前声明
-  const eraserTrailRef = useRef<{ x: number; y: number; time: number }[]>([])
-  const eraserTrailHeadRef = useRef(0)
+  // P0 性能优化: 使用固定大小环形缓冲区，避免数组 splice/shift 产生的 GC 压力
+  // 原实现: 每次 mousemove 都可能触发 O(n) 数组重排，60fps 下产生大量 GC
+  // 新实现: 环形缓冲区 O(1) 写入，读取时只需遍历有效范围
+  const eraserTrailRef = useRef<{ x: number; y: number; time: number }[]>(
+    Array.from({ length: 64 }, () => ({ x: 0, y: 0, time: 0 }))
+  )
+  const eraserTrailIndexRef = useRef(0)
+  const eraserTrailCountRef = useRef(0)
   const penVelocityRef = useRef(0)
 
   // 物理擦除状态
@@ -680,22 +686,16 @@ export function usePointerEngine(opts: {
         return
       }
       if (curTool === 'eraser') {
-        // 跟踪擦除轨迹用于拖尾渲染
-        const trail = eraserTrailRef.current
+        // P0 性能优化: 环形缓冲区写入擦除轨迹 - O(1) 无 GC
+        // 原实现: 每次 mousemove 可能触发 splice，产生数组重排和 GC
+        // 新实现: 固定大小环形缓冲区，覆盖旧数据，零分配
         const now = performance.now()
-        trail.push({ x: pos.x, y: pos.y, time: now })
-        // P1-5: 使用头指针代替 shift() 避免 O(n) 数组移动
-        let head = eraserTrailHeadRef.current
-        while (head < trail.length && now - trail[head].time > 300) head++
-        if (head > 20) {
-          trail.splice(0, head)
-          head = 0
-        }
-        if (trail.length - head > 40) {
-          trail.splice(0, trail.length - 40)
-          head = 0
-        }
-        eraserTrailHeadRef.current = head
+        const idx = eraserTrailIndexRef.current
+        eraserTrailRef.current[idx].x = pos.x
+        eraserTrailRef.current[idx].y = pos.y
+        eraserTrailRef.current[idx].time = now
+        eraserTrailIndexRef.current = (idx + 1) & 63 // 位运算模 64
+        eraserTrailCountRef.current = Math.min(eraserTrailCountRef.current + 1, 64)
 
         if (drawingRef.current) eraseAt(pos.x, pos.y, undefined, e)
         scheduleRedraw()
@@ -1078,8 +1078,18 @@ export function usePointerEngine(opts: {
   }
 
   // getDrawState for renderer
-  const getDrawState = useCallback(
-    () => ({
+  const getDrawState = useCallback(() => {
+    // P0 性能优化: 从环形缓冲区中过滤有效轨迹点
+    // 只返回最近 300ms 内的点，渲染器无需处理过期数据
+    const now = performance.now()
+    const trail: { x: number; y: number; time: number }[] = []
+    const count = eraserTrailCountRef.current
+    for (let i = 0; i < count; i++) {
+      const idx = (eraserTrailIndexRef.current - count + i + 64) & 63
+      const pt = eraserTrailRef.current[idx]
+      if (now - pt.time <= 300) trail.push(pt)
+    }
+    return {
       drawing: drawingRef.current,
       currentPts: currentPtsRef.current,
       currentShape: currentShapeRef.current,
@@ -1093,11 +1103,10 @@ export function usePointerEngine(opts: {
       showGrid: useViewStore.getState().showGrid ?? false,
       showRulers: false,
       gridSize: 20,
-      eraserTrail: eraserTrailRef.current,
+      eraserTrail: trail,
       penVelocity: penVelocityRef.current,
-    }),
-    [snapLinesRef]
-  )
+    }
+  }, [snapLinesRef])
 
   return { getCursor, copySelectedToSystemClipboard, getDrawState }
 }
