@@ -43,6 +43,45 @@ export function useKeyboardBindings(options: Options = {}) {
         return
       }
 
+      // Plain text paste: Ctrl+Shift+V / Cmd+Shift+V
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'v') {
+        e.preventDefault()
+        const clipReadText = navigator.clipboard?.readText?.bind(navigator.clipboard)
+        if (!clipReadText) return
+        
+        clipReadText()
+          .then((text: string) => {
+            if (!text || text.trim().length === 0) return
+            
+            const center = getViewportCenter()
+            const fontSize = 16
+            // Estimate width based on character count (average 0.6 * fontSize per char)
+            const avgCharWidth = fontSize * 0.6
+            const lineHeight = fontSize * 1.4
+            const lines = text.split('\n')
+            const maxLineLength = Math.max(...lines.map(l => l.length))
+            const width = Math.max(100, Math.min(600, Math.round(maxLineLength * avgCharWidth)))
+            const height = Math.round(lines.length * lineHeight + 16)
+            
+            st.addElement({
+              type: 'text',
+              id: `text-${Date.now()}`,
+              x: center.x - width / 2,
+              y: center.y - height / 2,
+              width,
+              height,
+              content: text,
+              fontSize,
+              color: '#1a1a1a',
+            })
+          })
+          .catch(() => {
+            // Silently fail if clipboard access is denied
+          })
+        return
+      }
+      
+      // Regular paste: Ctrl+V / Cmd+V
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v' && !e.shiftKey) {
         e.preventDefault()
         const clipRead = navigator.clipboard?.read?.bind(navigator.clipboard)

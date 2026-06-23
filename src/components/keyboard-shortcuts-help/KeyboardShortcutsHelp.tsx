@@ -5,6 +5,7 @@ const SHORTCUTS = [
   { keys: ['Ctrl', 'Shift', 'Z'], label: 'Redo' },
   { keys: ['Ctrl', 'C'], label: 'Copy' },
   { keys: ['Ctrl', 'V'], label: 'Paste (image/text)' },
+  { keys: ['Ctrl', 'Shift', 'V'], label: 'Paste as plain text' },
   { keys: ['Ctrl', 'A'], label: 'Select all' },
   { keys: ['Delete'], label: 'Delete selected' },
   { keys: ['1'], label: 'Pen' },
