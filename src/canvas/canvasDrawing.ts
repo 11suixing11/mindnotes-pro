@@ -63,7 +63,19 @@ function getSegmentPool(): { next: () => Segment } {
     segmentPoolIndex = 0
   }
   return {
-    next: () => segmentPool![segmentPoolIndex++],
+    next: () => {
+      // segmentPool 已在 getSegmentPool 入口处懒初始化，此处必然非空
+      // 添加运行时安全检查以防极端情况
+      if (!segmentPool) {
+        segmentPool = Array.from({ length: CALLIGRAPHY_MAX_SEGMENTS }, () => ({
+          x1: 0,
+          y1: 0,
+          x2: 0,
+          y2: 0,
+        }))
+      }
+      return segmentPool[segmentPoolIndex++]
+    },
   }
 }
 
