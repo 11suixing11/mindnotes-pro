@@ -217,7 +217,7 @@ export default function App() {
 
           {hintsVisible && (
             <div className="hints panel">
-              <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
+              <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> Redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
               Copy/Paste · <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all · Scroll to zoom · <kbd>Del</kbd>{' '}
               Delete · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> Screen Pen
             </div>

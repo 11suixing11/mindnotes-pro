@@ -35,6 +35,14 @@ export function useKeyboardBindings(options: Options = {}) {
         else st.undo()
         return
       }
+      // Ctrl+Y / Cmd+Y Redo support (Windows standard)
+      // 竞品对标: Microsoft Whiteboard, Office, VS Code 等主流应用均支持此快捷键
+      // 用户价值: Windows 用户无需改变肌肉记忆，提升操作效率
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y' && !e.shiftKey) {
+        e.preventDefault()
+        st.redo()
+        return
+      }
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
         e.preventDefault()

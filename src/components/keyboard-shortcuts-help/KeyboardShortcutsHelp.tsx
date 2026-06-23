@@ -3,6 +3,7 @@ import { useState, useEffect, memo } from 'react'
 const SHORTCUTS = [
   { keys: ['Ctrl', 'Z'], label: 'Undo' },
   { keys: ['Ctrl', 'Shift', 'Z'], label: 'Redo' },
+  { keys: ['Ctrl', 'Y'], label: 'Redo (Windows)' },
   { keys: ['Ctrl', 'C'], label: 'Copy' },
   { keys: ['Ctrl', 'V'], label: 'Paste (image/text)' },
   { keys: ['Ctrl', 'Shift', 'V'], label: 'Paste as plain text' },
