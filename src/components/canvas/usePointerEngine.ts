@@ -126,6 +126,17 @@ export function usePointerEngine(opts: {
   const marqueeRef = useRef<{ startX: number; startY: number; endX: number; endY: number } | null>(
     null
   )
+  // P3 新功能: Lasso 选择后直接拖拽 (来源 Excalidraw PR #9732)
+  // 用户框选元素后，不需要松开鼠标再点击，可以直接继续拖拽移动
+  const marqueeToDragRef = useRef<{
+    enabled: boolean
+    lastMoveTime: number
+    selectionComplete: boolean
+  }>({
+    enabled: true,
+    lastMoveTime: 0,
+    selectionComplete: false,
+  })
   const mouseRef = useRef<{ x: number; y: number } | null>(null)
 
   const getPos = useCallback(
@@ -664,6 +675,86 @@ export function usePointerEngine(opts: {
         return
       }
       if (curTool === 'select' && marqueeRef.current) {
+        // P3 新功能: Lasso 选择后直接拖拽 (来源 Excalidraw PR #9732)
+        // 检测用户是否想要开始拖拽而不是继续扩大选择区域
+        // 策略: 如果鼠标向选择区域内部移动，说明用户想拖拽而不是继续框选
+        const m = marqueeRef.current
+        const x1 = Math.min(m.startX, m.endX)
+        const y1 = Math.min(m.startY, m.endY)
+        const x2 = Math.max(m.startX, m.endX)
+        const y2 = Math.max(m.startY, m.endY)
+        
+        // 只有当框选区域有一定大小时才触发自动拖拽
+        const marqueeSize = Math.max(x2 - x1, y2 - y1)
+        const now = performance.now()
+        
+        if (marqueeToDragRef.current.enabled && marqueeSize > 20) {
+          // 检测鼠标是否向选择区域内部移动
+          const isMovingInside = 
+            pos.x >= x1 && pos.x <= x2 && 
+            pos.y >= y1 && pos.y <= y2
+          
+          // 检测鼠标移动方向是否是"收缩"而不是"扩大"
+          const prevWidth = x2 - x1
+          const prevHeight = y2 - y1
+          const newX1 = Math.min(m.startX, pos.x)
+          const newY1 = Math.min(m.startY, pos.y)
+          const newX2 = Math.max(m.startX, pos.x)
+          const newY2 = Math.max(m.startY, pos.y)
+          const newWidth = newX2 - newX1
+          const newHeight = newY2 - newY1
+          
+          const isShrinking = newWidth < prevWidth * 0.95 || newHeight < prevHeight * 0.95
+          
+          // 如果鼠标在选择区域内，或者区域在收缩，说明用户想开始拖拽
+          if ((isMovingInside || isShrinking) && now - marqueeToDragRef.current.lastMoveTime > 50) {
+            // 先完成选择
+            const st = useAppStore.getState()
+            const candidateIds = st.spatialIndex?.search({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 })
+            const hits: string[] = []
+            for (const id of candidateIds ?? []) {
+              const el = st.idToElement.get(id)
+              if (!el) continue
+              const b = cachedBounds(el)
+              if (b.x + b.w >= x1 && b.x <= x2 && b.y + b.h >= y1 && b.y <= y2) hits.push(el.id)
+            }
+            
+            if (hits.length > 0) {
+              setSelectedIds(hits)
+              
+              // 立即进入拖拽模式，无缝衔接
+              const startPositions = new Map<string, { x: number; y: number }>()
+              for (const id of hits) {
+                const el = st.idToElement.get(id)
+                if (!el) continue
+                if (el.type === 'stroke')
+                  startPositions.set(id, { x: el.points[0]?.[0] ?? 0, y: el.points[0]?.[1] ?? 0 })
+                else if (el.type === 'shape' || el.type === 'text' || el.type === 'image')
+                  startPositions.set(id, { x: el.x, y: el.y })
+              }
+              
+              const screenX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
+              const screenY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
+              
+              dragRef.current = {
+                x: pos.x,
+                y: pos.y,
+                id: hits[0],
+                startPositions,
+                dragStarted: true, // 直接跳过阈值检测，立即开始拖拽
+                startScreenX: screenX,
+                startScreenY: screenY,
+              }
+              
+              marqueeRef.current = null
+              marqueeToDragRef.current.selectionComplete = true
+              scheduleRedraw()
+              return
+            }
+          }
+        }
+        
+        marqueeToDragRef.current.lastMoveTime = now
         marqueeRef.current = { ...marqueeRef.current, endX: pos.x, endY: pos.y }
         scheduleRedraw()
         return
@@ -895,6 +986,8 @@ export function usePointerEngine(opts: {
         dragRef.current = null
         resizeRef.current = null
         snapLinesRef.current = { x: [], y: [] }
+        // 重置 Lasso 拖拽状态
+        marqueeToDragRef.current.selectionComplete = false
         scheduleRedraw()
         return
       }
