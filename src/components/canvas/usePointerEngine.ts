@@ -101,11 +101,19 @@ export function usePointerEngine(opts: {
 
   // 物理擦除状态
   const lastErasePointRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  // P2-1: 拖动阈值 - 防止选择时意外移动元素
+  // 只有鼠标移动超过 DRAG_THRESHOLD 像素才开始真正拖动
+  // 这是竞品 excalidraw 和 tldraw 都实现的核心 UX 改进
+  const DRAG_THRESHOLD = 4 // 像素，考虑缩放后的实际距离
   const dragRef = useRef<{
     x: number
     y: number
     id: string
     startPositions?: Map<string, { x: number; y: number }>
+    // 拖动阈值状态跟踪
+    dragStarted: boolean
+    startScreenX: number
+    startScreenY: number
   } | null>(null)
   const resizeRef = useRef<{
     handle: number
@@ -509,7 +517,20 @@ export function usePointerEngine(opts: {
             else if (el.type === 'shape' || el.type === 'text' || el.type === 'image')
               startPositions.set(id, { x: el.x, y: el.y })
           }
-          dragRef.current = { x: pos.x, y: pos.y, id: hit, startPositions }
+          // P2-1: 记录屏幕坐标用于拖动阈值检测
+          // 使用屏幕坐标而非世界坐标，确保阈值在所有缩放级别下一致
+          const screenX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
+          const screenY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
+          
+          dragRef.current = { 
+            x: pos.x, 
+            y: pos.y, 
+            id: hit, 
+            startPositions,
+            dragStarted: false,
+            startScreenX: screenX,
+            startScreenY: screenY,
+          }
           scheduleRedraw()
           return
         }
@@ -648,6 +669,24 @@ export function usePointerEngine(opts: {
         return
       }
       if (curTool === 'select' && dragRef.current) {
+        // P2-1: 拖动阈值检测 - 防止选择时意外移动元素
+        // 只有当鼠标移动超过 DRAG_THRESHOLD 像素时才开始真正拖动
+        if (!dragRef.current.dragStarted) {
+          const screenX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
+          const screenY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
+          const dxScreen = screenX - dragRef.current.startScreenX
+          const dyScreen = screenY - dragRef.current.startScreenY
+          const distSq = dxScreen * dxScreen + dyScreen * dyScreen
+          
+          // 移动距离小于阈值时，不执行拖动
+          if (distSq < DRAG_THRESHOLD * DRAG_THRESHOLD) {
+            return
+          }
+          
+          // 超过阈值，标记拖动开始
+          dragRef.current.dragStarted = true
+        }
+        
         let dx = pos.x - dragRef.current.x,
           dy = pos.y - dragRef.current.y
         const st = useAppStore.getState()
@@ -674,7 +713,14 @@ export function usePointerEngine(opts: {
         snapLinesRef.current = { x: snap.linesX, y: snap.linesY }
         if (ids.length > 1) moveElementsById(ids, dx, dy)
         else moveElementById(dragRef.current.id, dx, dy)
-        dragRef.current = { x: pos.x + snap.dx, y: pos.y + snap.dy, id: dragRef.current.id }
+        dragRef.current = { 
+          x: pos.x + snap.dx, 
+          y: pos.y + snap.dy, 
+          id: dragRef.current.id,
+          dragStarted: dragRef.current.dragStarted,
+          startScreenX: dragRef.current.startScreenX,
+          startScreenY: dragRef.current.startScreenY,
+        }
         scheduleRedraw()
         return
       }
