@@ -519,7 +519,7 @@ export function useCanvasRenderer(
   // P0-1 修复 + P1 优化: 粒子系统更新循环 - 无活动粒子时挂起循环，有粒子时恢复
   useEffect(() => {
     let lastTime = performance.now()
-    let particleRafId: number
+    let particleRafId: number | null = null
     let running = false
 
     function updateParticles() {
@@ -533,6 +533,7 @@ export function useCanvasRenderer(
       } else {
         // 无活动粒子，挂起循环等待下次唤醒
         running = false
+        particleRafId = null
       }
     }
 
