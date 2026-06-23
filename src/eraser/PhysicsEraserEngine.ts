@@ -1085,7 +1085,6 @@ export class PhysicsEraserEngine {
     const pointsLen = points.length
     const halfStrokeSize = stroke.size / 2
     const effectiveDistThreshold = effectiveRadius + halfStrokeSize
-    const depthThreshold = effectiveRadius * ERASE_THRESHOLDS.DEPTH_FACTOR
     const deleteThreshold = pointsLen * ERASE_THRESHOLDS.DELETE_COVERAGE_RATIO
 
     // 重置对象池
@@ -1167,9 +1166,10 @@ export class PhysicsEraserEngine {
       const effectiveDist = dist - halfStrokeSize
 
       if (effectiveDist < 0) {
-        // 在橡皮擦内部：强度根据深度计算
-        const depthFactor = Math.min(1, -effectiveDist / depthThreshold)
-        const strength = clamp(depthFactor * eraseStrength, 0, 1)
+        // P1修复: 在笔触内部时使用完整擦除强度
+        // 原逻辑bug: 笔触越细，depthFactor越小，强度越低，导致细笔触难以擦除
+        // 新逻辑: 只要在笔触内部，就使用完整擦除强度
+        const strength = eraseStrength
 
         // P1优化: 使用对象池
         acquireIntersection((i - 1 + t) / pointsLen, closestX, closestY, strength)
