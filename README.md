@@ -1,203 +1,114 @@
 <div align="center">
 <img src=".github/hero.svg" alt="MindNotes Pro" width="100%" />
-
 # MindNotes Pro
 
-**The world's first whiteboard with a physics-based eraser engine.**  
-A beautiful, local-first whiteboard that feels like drawing on real paper.
-
-No cloud. No tracking. No subscriptions. Just open it and draw.
+**一个轻量、快速、本地优先的在线白板。**  
+打开就能画，不用注册，不用联网，数据都在你自己的设备上。
 
 <p>
-  <a href="https://11suixing11.github.io/mindnotes-pro"><img src="https://img.shields.io/badge/✨_Try_the_Physics_Eraser-4A90D9?style=for-the-badge&logo=github&logoColor=white" alt="Try it now" /></a>
+  <a href="https://11suixing11.github.io/mindnotes-pro"><img src="https://img.shields.io/badge/✨_立即体验-4A90D9?style=for-the-badge&logo=github&logoColor=white" alt="Try it now" /></a>
   &nbsp;
-  <a href="#quick-start"><img src="https://img.shields.io/badge/📦_Quick_Start-2ECC71?style=for-the-badge" alt="Quick Start" /></a>
+  <a href="#快速开始"><img src="https://img.shields.io/badge/📦_快速开始-2ECC71?style=for-the-badge" alt="Quick Start" /></a>
 </p>
 
 <p>
   <a href="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml"><img src="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/11suixing11/mindnotes-pro/stargazers"><img src="https://img.shields.io/github/stars/11suixing11/mindnotes-pro?style=social" alt="GitHub Stars" /></a>
-  <a href="https://github.com/11suixing11/mindnotes-pro/network/members"><img src="https://img.shields.io/github/forks/11suixing11/mindnotes-pro?style=social" alt="GitHub Forks" /></a>
+  <a href="https://github.com/11suixing11/mindnotes-pro/network"><img src="https://img.shields.io/github/forks/11suixing11/mindnotes-pro?style=social" alt="GitHub Forks" /></a>
   <img src="https://img.shields.io/badge/version-3.3.0-00C9A7?style=flat-square" alt="Version 3.3.0" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT" /></a>
-  <img src="https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/React-18.x-61DAFB?logo=react&logoColor=white" alt="React" />
-  <img src="https://img.shields.io/badge/deps_only_5-green" alt="Only 5 dependencies" />
 </p>
 
 <p>
-  <strong>🌐 Languages:</strong>
-  <strong>English</strong> ·
-  <a href="README_CN.md">中文</a> ·
+  <strong>🌐 语言:</strong>
+  <a href="README.md">English</a> ·
+  <strong>中文</strong> ·
   <a href="README_JA.md">日本語</a>
 </p>
 </div>
 
 ---
 
-## Table of Contents
+## 目录
 
-- [Why MindNotes Pro?](#-why-mindnotes-pro)
-- [The Physics Eraser — How It Works](#-the-physics-eraser--how-it-works)
-- [Feature Highlights](#-feature-highlights)
-- [Screenshots](#screenshots)
-- [How It Compares](#how-it-compares)
-- [Quick Start](#quick-start)
-- [Keyboard Shortcuts](#keyboard-shortcuts)
-- [Tech Stack](#tech-stack)
-- [Performance](#-performance)
-- [Design Philosophy](#-design-philosophy)
-- [Roadmap](#️-roadmap)
-- [FAQ](#-faq)
-- [Contributing](#-contributing)
-- [Support](#-support)
-- [License](#license)
+- [为什么选 MindNotes Pro?](#为什么选-mindnotes-pro)
+- [功能特性](#功能特性)
+- [截图](#截图)
+- [快速开始](#快速开始)
+- [快捷键](#快捷键)
+- [技术栈](#技术栈)
+- [性能](#性能)
+- [设计理念](#设计理念)
+- [路线图](#路线图)
+- [常见问题](#常见问题)
+- [贡献](#贡献)
+- [支持](#支持)
+- [许可证](#许可证)
 
 ---
 
-## 🏆 Why MindNotes Pro?
+## 为什么选 MindNotes Pro?
 
-<div align="center">
-  <img src=".github/demo.gif" alt="MindNotes Pro Physics Eraser Demo" width="80%" />
-</div>
+市面上白板很多，但大多数要么太重，要么要联网，要么收集你的数据。
 
-> **Every whiteboard has an eraser. None have a physics engine.**
+MindNotes Pro 是一个**简单、快速、尊重隐私**的白板工具：
 
-Most whiteboard apps treat erasing as a binary operation — strokes either exist or they don't. MindNotes Pro reimagines erasing as a **physical interaction** with pressure, friction, wear, and even sound.
-
-**What makes it different:**
-
-| Feature | Traditional Eraser | MindNotes Pro Physics Eraser |
-| --- | --- | --- |
-| Erase behavior | Binary delete | Pressure-sensitive partial erasure |
-| Eraser condition | Always the same | Degrades with use, sharpen to restore |
-| Shape | One-size-fits-all | Circle, square, chisel with rotation |
-| Tilt support | None | Apple Pencil side-erasing |
-| Feedback | Silent | Particle effects + dynamic audio |
-| Realism | "Delete button" | "Feels like a real eraser" |
+- ⚡ **打开就能用** — 不到 1 秒加载完成，不用等，不用注册
+- 📴 **完全离线** — 装成 PWA 后没网也能用
+- 🔒 **数据只在你手里** — 所有内容存在本地 localStorage，永远不会上传到任何服务器
+- 🪶 **只有 5 个运行时依赖** — 没有臃肿的框架，体积小，速度快
+- 🎨 **好看但不花哨** — 莫奈配色，简洁界面，专注于内容而不是工具本身
 
 ---
 
-## 🧽 The Physics Eraser — How It Works
+## 功能特性
 
-The physics eraser is not a gimmick — it's a **custom-built simulation engine** with 1,200+ lines of physics code, 22 rounds of optimization, and its own spatial indexing system.
+### 核心功能
 
-### Core Systems
-
-**1. Pressure Sensing**
-Heavy pressure erases strokes completely. Light pressure fades them gradually. The pressure curve uses a non-linear exponent (`pressure^0.7`) so that heavy pressure saturates quickly — just like pressing a real eraser harder doesn't proportionally increase erasing.
-
-**2. Wear Simulation**
-Every erase action wears down the eraser. Wear is calculated from:
-- **Pressure** — pressing harder wears the eraser faster
-- **Hardness** — harder erasers (2B) last longer than soft ones (6B)
-- **Velocity** — optimal erasing speed minimizes wear
-
-When the eraser gets dull, strokes fade instead of disappearing. Press `R` to "sharpen" it — restoring full erasing power.
-
-**3. Shape Awareness**
-Three eraser shapes with distinct behaviors:
-- **Circle** — uniform erasing in all directions
-- **Square** — wider coverage, rotation affects contact area
-- **Chisel** — precision edge work, ideal for detailed corrections
-
-Each shape has rotation support, and the chisel shape changes behavior based on angle.
-
-**4. Tilt Support (Apple Pencil)**
-When using an Apple Pencil, tilting the pen activates side-erasing — just like tilting a real eraser to use its flat edge. The `tiltX` and `tiltY` values are read directly from the pointer event API.
-
-**5. Particle System**
-A dedicated `EraserParticleSystem` spawns eraser dust particles at the erase point. Particles have:
-- Physics: gravity, air friction, initial velocity based on erase direction
-- Visuals: size variance, rotation, Monet-palette colors
-- Lifecycle: spawn → fly → fade → recycle
-
-Up to 200 particles can exist simultaneously, with automatic recycling for performance.
-
-**6. Audio Engine**
-The `EraserAudioEngine` generates real-time sound using the Web Audio API. Sound characteristics change with:
-- **Pressure** — louder and lower pitch when pressing hard
-- **Speed** — faster erasing = higher frequency
-- **Wear** — duller erasers produce muffled sound
-- **Brand** — each eraser brand has its own waveform and frequency profile
-
-**7. Spatial Indexing**
-An `RBush`-based spatial index accelerates hit-testing from O(n) to O(log n). Combined with dirty-rect optimization and LRU caching, the eraser maintains 60fps even on large canvases.
-
-### Eraser Presets
-
-| Preset | Hardness | Wear Rate | Radius | Best For |
-| --- | --- | --- | --- | --- |
-| **2B** (Hard) | 0.85 | Slow | 8px | Precise detail work |
-| **4B** (Medium) | 0.50 | Medium | 12px | Everyday erasing (default) |
-| **6B** (Soft) | 0.20 | Fast | 18px | Large area, soft blending |
-
-### Brand Skins (Planned)
-
-Each brand skin modifies physics properties and visual appearance:
-
-| Brand | Origin | Color | Specialty |
-| --- | --- | --- | --- |
-| 🌸 Sakura | Japan | Pink | Smooth, durable |
-| 🔵 Faber-Castell | Germany | Blue | Professional, hard-wearing |
-| 🟡 Staedtler | Germany | Yellow | Engineering precision |
-| 🟢 Uni (Mitsubishi) | Japan | Green | Ultra-smooth, artist-grade |
-
----
-
-## ✨ Feature Highlights
-
-> **Why developers and designers are switching to MindNotes Pro:**
-
-<div align="center">
-
-| | Feature | Details |
+| | 功能 | 说明 |
 | ---: | --- | --- |
-| 🎯 | **World's first physics eraser** | 22 rounds of optimization, 1,200+ lines of physics code |
-| 🪶 | **Only 5 runtime dependencies** | React, ReactDOM, Zustand, perfect-freehand, jsPDF |
-| ⚡ | **< 1 second cold start** | No Electron, no bundler bloat — just Vite + pure Canvas |
-| 📲 | **Offline PWA** | Install on any device, works without internet |
-| 🔒 | **Zero cloud dependency** | All data stays in localStorage — nothing ever leaves your device |
-| 🎨 | **Monet-inspired aesthetic** | Watercolor palettes, glassmorphism, paper textures |
-| ✏️ | **6 brush styles** | Pen, highlighter, pencil, calligraphy, dashed, glow |
-| 📝 | **Text annotations** | Inline text on canvas with auto-sizing |
-| 🖼️ | **Image paste** | Paste images directly from clipboard |
-| 🔷 | **Shape tools** | Rectangle, circle, line, arrow — all with fill options |
-| 🖱️ | **Frame selection** | Multi-select, resize, move, snap & align |
-| ↩️ | **Undo/Redo** | Full history with keyboard shortcuts |
-| 🌙 | **Dark mode** | Auto-detects system preference |
-| 📄 | **Export** | PDF (via jsPDF) and PNG export |
-| 🗂️ | **Multi-document** | Folder hierarchy, drag & drop, auto-save |
-| ⌨️ | **Pro shortcuts** | Press `?` in-app for the full cheat sheet |
+| ✏️ | **6 种笔刷** | 钢笔、荧光笔、铅笔、书法笔、虚线、发光笔 |
+| 🔷 | **形状工具** | 矩形、圆形、直线、箭头，支持填充 |
+| 📝 | **文字标注** | 画布上直接输入文字，自动调整大小 |
+| 🖼️ | **图片粘贴** | 剪贴板直接粘贴图片 |
+| 🖱️ | **框选编辑** | 多选、缩放、移动、对齐吸附 |
+| ↩️ | **撤销/重做** | 完整历史记录，支持快捷键 |
+| 🗂️ | **多文档管理** | 文件夹层级，拖拽排序，自动保存 |
+| 📄 | **导出** | 支持导出 PDF 和 PNG |
+| 🌙 | **深色模式** | 自动跟随系统设置 |
 
-</div>
+### 橡皮擦
 
-```bash
-git clone https://github.com/11suixing11/mindnotes-pro && cd mindnotes-pro && npm i && npm run dev
-```
+> 是的，我们的橡皮擦有点不一样，但它只是众多功能中的一个。
+
+- 压感擦除 — 用力擦得干净，轻轻擦变淡
+- 多种形状 — 圆形、方形、斜口，各有用处
+- 磨损效果 — 用久了会变钝，可以"削"一下
+- 粒子和音效 — 擦的时候有点反馈感，挺解压
+
+想体验的话可以试试，不喜欢也完全不影响正常使用。
 
 ---
 
-## Who is this for?
+## 适合谁用？
 
-| You are... | MindNotes Pro helps you... |
+| 你是... | MindNotes Pro 可以帮你... |
 | --- | --- |
-| 🎨 An **artist / sketcher** | Experience the most realistic digital erasing available |
-| 🎓 A **student** | Sketch diagrams and annotate ideas during lectures |
-| 💡 A **designer** | Quickly mock up concepts without opening Figma |
-| 👩‍💻 A **developer** | Whiteboard system designs and architecture |
-| 📋 A **note-taker** | Combine handwriting, shapes, and text on one canvas |
-| 🧠 Anyone who **thinks visually** | Get ideas out of your head and onto a canvas — instantly |
+| 🎓 **学生** | 上课画示意图、记笔记 |
+| 💡 **产品/设计师** | 快速画原型、梳理思路 |
+| 👩‍💻 **开发者** | 画系统架构图、讨论技术方案 |
+| 📋 **笔记爱好者** | 手写 + 形状 + 文字，混合记录 |
+| 🧠 **任何喜欢可视化思考的人** | 把想法从脑子里倒出来 — 就这么简单 |
 
 ---
 
-## Screenshots
+## 截图
 
 <div align="center">
   <table>
     <tr>
-      <td align="center"><strong>☀️ Light Mode</strong></td>
-      <td align="center"><strong>🌙 Dark Mode</strong></td>
+      <td align="center"><strong>☀️ 浅色模式</strong></td>
+      <td align="center"><strong>🌙 深色模式</strong></td>
     </tr>
     <tr>
       <td><img src=".github/mindnotes-light.svg" width="420" /></td>
@@ -208,41 +119,28 @@ git clone https://github.com/11suixing11/mindnotes-pro && cd mindnotes-pro && np
 
 ---
 
-## How it compares
+## 和其他产品比怎么样？
 
-**The physics eraser sets us apart — no one else has this.**
-
-|                          | MindNotes Pro 🏆 |  Excalidraw   |   tldraw   | Drawnix  |   Miro   |
-| ------------------------ | :--------------: | :-----------: | :--------: | :------: | :------: |
-| **Physics Eraser**       |    ✅ **YES**    |      ❌       |     ❌     |    ❌    |    ❌    |
-| **Pressure sensing**     |    ✅ **YES**    |      ❌       |     ❌     |    ❌    |    ❌    |
-| **Wear simulation**      |    ✅ **YES**    |      ❌       |     ❌     |    ❌    |    ❌    |
-| **Eraser particles**     |    ✅ **YES**    |      ❌       |     ❌     |    ❌    |    ❌    |
-| **Audio feedback**       |    ✅ **YES**    |      ❌       |     ❌     |    ❌    |    ❌    |
-| **Open source**          |    ✅ MIT ✅     |    ✅ MIT     | ⚠️ Partial | ✅ MIT   |    ❌    |
-| **Local-first**          |    ✅ **Yes**    |      ❌       |     ❌     |    ❌    |    ❌    |
-| **Runtime deps**         |     **5** 🪶     |      30+      |    50+     |   20+    |   N/A    |
-| **Bundle size**          |   **< 200 KB**   |     ~2 MB     |   ~3 MB    |  ~1.5 MB |   N/A    |
-| **Load time**            |   **< 1s** ⚡    |     3-5s      |    3-5s    |   2-4s   |   5s+    |
-| **Offline PWA**          |    ✅ **Yes**    |      ⚠️       |     ❌     |    ❌    |    ❌    |
-| **Custom aesthetics**    |   ✅ Monet 🎨    | ✅ Hand-drawn |  ⚠️ Basic  | ✅ Clean | ✅ Paid  |
-| **Telemetry / tracking** |   ✅ **None**    |    ⚠️ Some    |  ⚠️ Some   | ✅ None  | ✅ Heavy |
-| **Free forever**         |    ✅ **Yes**    |      ✅       |  ⚠️ Paid   |    ✅    |  ❌ $$$  |
+| | MindNotes Pro | Excalidraw | tldraw | Miro |
+| --- | :---: | :---: | :---: | :---: |
+| **完全开源** | ✅ MIT | ✅ MIT | ⚠️ 部分 | ❌ |
+| **本地优先** | ✅ | ❌ | ❌ | ❌ |
+| **运行时依赖** | **5 个** | 30+ | 50+ | N/A |
+| **打包体积** | **< 200 KB** | ~2 MB | ~3 MB | N/A |
+| **加载速度** | **< 1 秒** | 3-5 秒 | 3-5 秒 | 5 秒+ |
+| **离线可用 (PWA)** | ✅ | ⚠️ | ❌ | ❌ |
+| **无追踪/埋点** | ✅ | ⚠️ 有一些 | ⚠️ 有一些 | ✅ 很多 |
+| **永久免费** | ✅ | ✅ | ⚠️ 付费功能 | ❌ 贵 |
 
 ---
 
-## Quick start
+## 快速开始
 
-### Prerequisites
+### 方式一：直接在线用
 
-- **Node.js** 18+ (LTS recommended)
-- **npm** 9+ (or pnpm / yarn)
+👉 **[打开 MindNotes Pro](https://11suixing11.github.io/mindnotes-pro)** — 不用安装，不用注册，打开就能画。
 
-### Option 1: Use it online
-
-👉 **[Open MindNotes Pro](https://11suixing11.github.io/mindnotes-pro)** — nothing to install, nothing to sign up for. **Try the physics eraser!**
-
-### Option 2: Run locally
+### 方式二：本地运行
 
 ```bash
 git clone https://github.com/11suixing11/mindnotes-pro.git
@@ -251,9 +149,9 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — start drawing in 30 seconds.
+打开 http://localhost:3000 ，30 秒内开始画画。
 
-### Option 3: Deploy your own
+### 方式三：自己部署
 
 <p>
   <a href="https://vercel.com/new/clone?repository-url=https://github.com/11suixing11/mindnotes-pro">
@@ -265,295 +163,160 @@ Open [http://localhost:3000](http://localhost:3000) — start drawing in 30 seco
   </a>
 </p>
 
-### Development commands
+### 开发命令
 
-| Command | Description |
+| 命令 | 说明 |
 | --- | --- |
-| `npm run dev` | Start dev server (http://localhost:3000) |
-| `npm run build` | TypeScript check + Vite production build |
-| `npm run test` | Vitest in watch mode |
-| `npm run test:run` | Vitest single run |
-| `npm run lint` | ESLint check |
+| `npm run dev` | 启动开发服务器 (http://localhost:3000) |
+| `npm run build` | TypeScript 检查 + Vite 生产构建 |
+| `npm run test` | Vitest watch 模式 |
+| `npm run test:run` | Vitest 单次运行 |
+| `npm run lint` | ESLint 检查 |
 
 ---
 
-## Keyboard shortcuts
+## 快捷键
 
-Press `?` in the app to view all shortcuts. The essentials:
+在应用内按 `?` 查看完整快捷键列表。常用的：
 
-| Shortcut | Action |
+| 快捷键 | 功能 |
 | --- | --- |
-| `P` | Pen tool |
-| `E` | Eraser (physics mode) |
-| `S` | Selection tool |
-| `T` | Text tool |
-| `R` / `C` / `L` / `A` | Rectangle / Circle / Line / Arrow |
-| `Space` + drag | Pan canvas |
-| `Ctrl` + `Z` / `Y` | Undo / Redo |
-| `Ctrl` + `A` | Select all |
-| `Ctrl` + `C` / `V` | Copy / Paste |
-| `Ctrl` + `E` | Export menu |
-| `Delete` | Delete selected |
-| `Scroll` | Zoom in/out |
-| `Dark/Light` | Toggle theme |
-
-**Eraser-specific shortcuts:**
-
-| Shortcut | Action |
-| --- | --- |
-| `1` / `2` / `3` | Switch eraser shape (circle / square / chisel) |
-| `Q` / `W` / `E` | Switch eraser preset (2B / 4B / 6B) |
-| `R` | Sharpen eraser (reset wear) |
-| `M` | Toggle eraser sound |
-| `[` / `]` | Adjust eraser size |
+| `P` | 钢笔工具 |
+| `E` | 橡皮擦 |
+| `S` | 选择工具 |
+| `T` | 文字工具 |
+| `R` / `C` / `L` / `A` | 矩形 / 圆形 / 直线 / 箭头 |
+| `空格` + 拖拽 | 平移画布 |
+| `Ctrl` + `Z` / `Y` | 撤销 / 重做 |
+| `Ctrl` + `A` | 全选 |
+| `Ctrl` + `C` / `V` | 复制 / 粘贴 |
+| `Ctrl` + `E` | 导出菜单 |
+| `Delete` | 删除选中内容 |
+| `滚轮` | 缩放 |
 
 ---
 
-## Tech stack
+## 技术栈
 
-| Layer | Choice | Why |
+| 层级 | 选择 | 原因 |
 | --- | --- | --- |
-| UI | React 18 + TypeScript | Type-safe, concurrent features |
-| State | Zustand (6 slices) | Tiny (~1KB), no boilerplate, great DX |
-| Drawing | perfect-freehand + Canvas API | Natural pen strokes, hardware-accelerated |
-| **Eraser** | **Custom Physics Engine + RBush** | **Industry exclusive — 1,200+ lines of physics code** |
-| Audio | Web Audio API | Real-time sound synthesis, no audio files needed |
-| Particles | Custom particle system | 200 concurrent particles at 60fps |
-| Style | Tailwind CSS + Monet palette | Beautiful by default, utility-first |
-| Export | jsPDF (lazy-loaded) | Zero impact on initial bundle |
-| Build | Vite 5 | Instant HMR, optimized chunks |
-| Test | Vitest + Testing Library | 574+ unit tests, 60%+ coverage |
+| UI | React 18 + TypeScript | 类型安全，并发特性 |
+| 状态管理 | Zustand (6 个 slice) | 很小 (~1KB)，没样板代码，开发体验好 |
+| 绘制 | perfect-freehand + Canvas API | 自然的笔触，硬件加速 |
+| 橡皮擦 | 自研物理引擎 + RBush 空间索引 | 做了就做了，反正已经写了 |
+| 音频 | Web Audio API | 实时合成，不用音频文件 |
+| 样式 | Tailwind CSS + 莫奈配色 | 默认就好看，实用优先 |
+| 导出 | jsPDF (懒加载) | 不影响首屏体积 |
+| 构建 | Vite 5 | 秒级 HMR，优化的代码分割 |
+| 测试 | Vitest + Testing Library | 574+ 单元测试，60%+ 覆盖率 |
 
-### Project structure
+### 项目结构
 
 ```
 src/
-├── canvas/                    # Canvas drawing engine & utilities
-│   ├── canvasUtils.ts         # Stroke rendering, hit-testing, bounds
-│   └── useCanvasRenderer.ts   # Main rendering loop hook
-├── eraser/                    # Physics eraser engine (our crown jewel)
-│   ├── PhysicsEraserEngine.ts # Core physics: pressure, wear, strength
-│   ├── SpatialIndex.ts        # RBush-based O(log n) hit-testing
-│   ├── EraserParticleSystem.ts# Particle effects engine
-│   ├── EraserAudioEngine.ts   # Web Audio API sound synthesis
-│   ├── eraserStore.ts         # Eraser state management
-│   ├── eraserRendering.ts     # Eraser cursor & UI rendering
-│   ├── types.ts               # Type definitions & preset configs
-│   ├── performanceOptimizer.ts# Dirty-rect & LRU cache optimization
-│   └── __tests__/             # 39 test files for eraser alone
+├── canvas/                    # 画布绘制引擎 & 工具函数
+│   ├── canvasUtils.ts         # 笔触渲染、碰撞检测、边界计算
+│   └── useCanvasRenderer.ts   # 主渲染循环 hook
+├── eraser/                    # 橡皮擦物理引擎
+│   ├── PhysicsEraserEngine.ts # 核心物理逻辑
+│   ├── SpatialIndex.ts        # 基于 RBush 的空间索引
+│   ├── EraserParticleSystem.ts# 粒子效果
+│   ├── EraserAudioEngine.ts   # 音效引擎
+│   ├── eraserStore.ts         # 橡皮擦状态管理
+│   ├── eraserRendering.ts     # 橡皮擦光标渲染
+│   ├── types.ts               # 类型定义
+│   └── __tests__/             # 单元测试
 ├── components/
-│   ├── canvas/                # Canvas component + hooks
-│   ├── eraser/                # Eraser controls & settings UI
-│   ├── toolbar/               # Tool selection, color picker, brush
-│   ├── sidebar/               # Document/folder management
-│   ├── export-menu/           # PDF/PNG export
-│   └── ...                    # Toast, modals, guides
+│   ├── canvas/                # 画布组件 + hooks
+│   ├── eraser/                # 橡皮擦控制 UI
+│   ├── toolbar/               # 工具栏、颜色选择、笔刷
+│   ├── sidebar/               # 文档/文件夹管理
+│   ├── export-menu/           # PDF/PNG 导出
+│   └── ...                    # Toast、弹窗、辅助线
 ├── store/
-│   ├── slices/                # Zustand slices (6 total)
-│   ├── appStore.ts            # Combined store
-│   ├── saveManager.ts         # Auto-save to localStorage
-│   └── types.ts               # TypeScript types
-└── App.tsx                    # Root component
+│   ├── slices/                # Zustand slices (共 6 个)
+│   ├── appStore.ts            # 组合后的 store
+│   ├── saveManager.ts         # 自动保存到 localStorage
+│   └── types.ts               # TypeScript 类型
+└── App.tsx                    # 根组件
 ```
 
 ---
 
-## 💬 What users say
+## 性能
 
-> _"The physics eraser is insane. I didn't know I needed this until I tried it. Now I can't go back to regular erasers."_
-> — ⭐ Early adopter
-
-> _"Finally, a whiteboard app that's < 200KB. My students love it for sketching diagrams."_
-> — ⭐ Educator
-
-> _"The Monet palette is gorgeous. I switched from Excalidraw for quick mockups."_
-> — ⭐ Designer
-
-> _"Erasing actually feels satisfying now. That particle effect is chef's kiss."_
-> — ⭐ Artist
-
-**Using MindNotes Pro?** [Add your testimonial](https://github.com/11suixing11/mindnotes-pro/discussions/showcase) — we'd love to hear from you!
-
----
-
-## 🚀 Performance
-
-MindNotes Pro is built for speed. Every optimization decision is intentional.
-
-| Metric | Value | How |
+| 指标 | 数值 | 实现方式 |
 | --- | --- | --- |
-| **Bundle size** | < 200 KB gzipped | 5 runtime deps, tree-shaking, code splitting |
-| **Cold start** | < 1 second | Vite build, no framework overhead |
-| **Canvas FPS** | 60fps sustained | Dirty-rect rendering, spatial indexing |
-| **Eraser latency** | < 16ms per frame | O(log n) hit-testing via RBush |
-| **Memory** | ~50MB typical | LRU cache with bounded size |
-| **Lighthouse** | 95+ Performance | PWA-optimized, lazy-loaded exports |
-
-### Key optimizations
-
-- **Spatial indexing** — RBush for O(log n) element lookups instead of O(n) linear scan
-- **Dirty-rect rendering** — only redraws changed regions, not the entire canvas
-- **LRU caching** — bounds cache, gradient cache, path cache with automatic eviction
-- **Stroke boundary cache** — WeakMap-based lazy computation with invalidation
-- **ID→Element mapping** — O(1) element lookup replacing O(n) array search
-- **Batch draw calls** — grouped rendering operations to minimize canvas state changes
-- **Particle recycling** — dead particles are recycled, not garbage-collected
+| **打包体积** | < 200 KB gzipped | 5 个运行时依赖，tree-shaking，代码分割 |
+| **冷启动速度** | < 1 秒 | Vite 构建，无多余框架开销 |
+| **画布帧率** | 稳定 60fps | 脏矩形渲染、空间索引、对象池 |
+| **最大笔触数** | 1000+ 仍流畅 | R 树空间索引 + 视口裁剪 |
 
 ---
 
-## 🎨 Design Philosophy
+## 设计理念
 
-### 1. Local-first, always
-
-Your data belongs to you. MindNotes Pro stores everything in your browser's localStorage. There are no servers, no accounts, no "sign in to save." If you close the browser and come back tomorrow, your work is still there.
-
-### 2. Minimal dependencies, maximum trust
-
-Every dependency is a potential security risk and maintenance burden. We use only 5 runtime packages — each one essential:
-- **react** + **react-dom** — the UI framework
-- **zustand** — state management (~1KB)
-- **perfect-freehand** — natural pen stroke rendering
-- **jspdf** — PDF export (lazy-loaded)
-
-### 3. Beauty is a feature
-
-Inspired by Monet's impressionist palette — watercolor gradients, glassmorphism panels, and paper textures. Digital tools should feel warm and human, not clinical.
-
-### 4. Physics over pixels
-
-The eraser isn't a delete button with a skin. It's a simulation. Pressure matters. Wear accumulates. Sound responds to your actions. This commitment to physical realism is what makes MindNotes Pro feel different.
+1. **内容优先** — 工具应该消失，让用户专注于自己的想法
+2. **简单就是好** — 能少一个功能就少一个，能少一次点击就少一次
+3. **尊重用户** — 不追踪，不埋点，不弹广告，数据是用户自己的
+4. **快就是体验** — 加载快，操作快，响应快，慢就是原罪
+5. **好看但不炫技** — 美观是基础，不是卖点
 
 ---
 
-## 🗺️ Roadmap
+## 路线图
 
-| Version | Feature | Status |
-| --- | --- | --- |
-| v3.3 | 🧽 **Physics Eraser Engine** — 22 rounds of optimization | ✅ **Shipped** |
-| v3.4 | 🎨 **Eraser brand skins** — Sakura, Faber-Castell, etc. | 📋 Planned |
-| v3.4 | ⌨️ **Shortcut customization** — Remap any shortcut | 📋 Planned |
-| v4.0 | 🤝 **Real-time collaboration** — draw together on the same canvas | 🔄 Planning |
-| v4.0 | 🔌 **Plugin system** — extend with custom brushes, shapes, and exports | 🔄 Planning |
-| v4.0 | 📱 **Mobile optimization** — touch gestures, responsive toolbar | 🔄 Planning |
+### 近期
+- [ ] 图层支持
+- [ ] 更多形状（三角形、菱形、五角星）
+- [ ] 手写识别（可选）
+- [ ] 协作功能（可选，需要自建服务端）
 
-> Have ideas for the roadmap? [Open a discussion](https://github.com/11suixing11/mindnotes-pro/discussions) and let us know!
-
----
-
-## ❓ FAQ
-
-<details>
-<summary><strong>Q: Is my data private?</strong></summary>
-
-Yes, completely. All data is stored in your browser's localStorage. Nothing is ever sent to any server. There are no analytics, no tracking scripts, no cookies. You can verify this by opening your browser's Network tab — you'll see zero outbound requests.
-</details>
-
-<details>
-<summary><strong>Q: Does it work offline?</strong></summary>
-
-Yes. MindNotes Pro is a Progressive Web App (PWA). After your first visit, it works completely offline. You can install it from your browser's "Add to Home Screen" or address bar install prompt.
-</details>
-
-<details>
-<summary><strong>Q: What browsers are supported?</strong></summary>
-
-MindNotes Pro works on all modern browsers:
-- ✅ Chrome / Edge 90+
-- ✅ Firefox 90+
-- ✅ Safari 15+
-- ✅ Arc, Brave, Vivaldi
-
-The physics eraser works best with a pressure-sensitive input device (Apple Pencil, Wacom, etc.) but also works with a regular mouse.
-</details>
-
-<details>
-<summary><strong>Q: How much data can it handle?</strong></summary>
-
-localStorage has a ~5MB limit per origin. A typical document with hundreds of strokes uses ~100-500KB. For very large canvases, we're working on IndexedDB support for unlimited storage.
-</details>
-
-<details>
-<summary><strong>Q: Can I use it for commercial purposes?</strong></summary>
-
-Yes. MindNotes Pro is MIT licensed. You can use, modify, and distribute it for any purpose, including commercial use. No attribution required (but appreciated!).
-</details>
-
-<details>
-<summary><strong>Q: How do I contribute?</strong></summary>
-
-We welcome all contributions! Check out [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding conventions, and PR guidelines. Look for [good first issues](https://github.com/11suixing11/mindnotes-pro/labels/good%20first%20issue) if you're new.
-</details>
-
-<details>
-<summary><strong>Q: Why "only 5 dependencies"?</strong></summary>
-
-Every dependency is a supply chain risk, a version conflict waiting to happen, and a bundle size tax. By keeping dependencies minimal, we get: faster installs, smaller bundles, fewer CVEs, and complete understanding of every line of code. The web platform is more capable than you think.
-</details>
-
-<details>
-<summary><strong>Q: Is there a desktop app?</strong></summary>
-
-Not yet, but it's on the roadmap. The architecture already supports Electron/Tauri wrapping. For now, the PWA experience is nearly native — install it from your browser for an app-like experience.
-</details>
+### 想法池
+- [ ] 白板模板库
+- [ ] 插件系统
+- [ ] 更多导出格式（SVG、Markdown）
 
 ---
 
-## 🤝 Contributing
+## 常见问题
 
-**Everyone is welcome.** Whether you're a seasoned open-source contributor or this is your first PR ever — we'd love your help. No contribution is too small: fixing a typo, improving docs, or shipping a feature.
+**Q: 数据存在哪里？安全吗？**  
+A: 所有数据都存在你浏览器的 localStorage 里，永远不会上传到任何服务器。缺点是换浏览器/清缓存会丢，重要内容记得导出备份。
 
-- 🐛 **Found a bug?** → [Open an issue](https://github.com/11suixing11/mindnotes-pro/issues/new?template=bug_report.yml)
-- 💡 **Have an idea?** → [Request a feature](https://github.com/11suixing11/mindnotes-pro/issues/new?template=feature_request.yml)
-- 🔧 **Want to code?** → Check out [CONTRIBUTING.md](CONTRIBUTING.md) — it has everything you need to get started in 5 minutes
-- ⭐ **Like it?** → Star this repo — it genuinely helps others discover the project
+**Q: 能多设备同步吗？**  
+A: 目前不能。这是一个有意的设计取舍 — 为了"完全离线、零服务器、零追踪"，我们放弃了云同步。以后可能会做可选的同步方案。
 
-### Good First Issues 🌱
+**Q: 橡皮擦为什么做这么复杂？**  
+A: 因为做起来有意思，技术上有挑战。但它只是一个功能，不是产品的全部，你不用它也完全不影响使用。
 
-New to open source? We have hand-picked issues for first-time contributors:
-
-👉 **[Browse all Good First Issues](https://github.com/11suixing11/mindnotes-pro/labels/good%20first%20issue)**
-
----
-
-## 💚 Support
-
-If MindNotes Pro is useful to you, here's how you can help the project grow:
-
-| Action | Impact |
-| --- | --- |
-| ⭐ **Star this repo** | Helps others discover the project — **this is the #1 thing you can do** |
-| 🐦 **Share on social media** | Tweet about the physics eraser, post on Reddit, share in your team chat |
-| 🍴 **Fork & customize** | Make it your own, then share back with the community |
-| 🐛 **Report bugs** | [Open an issue](https://github.com/11suixing11/mindnotes-pro/issues/new) — even a one-liner helps |
-| 💬 **Join the discussion** | [GitHub Discussions](https://github.com/11suixing11/mindnotes-pro/discussions) — ideas, questions, showcase your work |
-| 🔧 **Contribute code** | Check [CONTRIBUTING.md](CONTRIBUTING.md) to get started |
+**Q: 手机能用吗？**  
+A: 可以用，但体验不是最优。目前主要针对桌面端和带笔的平板优化。
 
 ---
 
-## Star history
+## 贡献
 
-<div align="center">
-  <a href="https://star-history.com/#11suixing11/mindnotes-pro&Date">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=11suixing11/mindnotes-pro&type=Date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=11suixing11/mindnotes-pro&type=Date" />
-      <img alt="Stargazers over time" src="https://api.star-history.com/svg?repos=11suixing11/mindnotes-pro&type=Date" width="600" />
-    </picture>
-  </a>
-</div>
+欢迎贡献代码、提 issue、或者只是反馈使用体验。
+
+- 发现 bug？[提一个 issue](https://github.com/11suixing11/mindnotes-pro/issues)
+- 有新想法？[开个讨论](https://github.com/11suixing11/mindnotes-pro/discussions)
+- 想写代码？Fork 然后提 PR
 
 ---
 
-## License
+## 支持
 
-[MIT](LICENSE) — use it however you want.
+如果你觉得这个项目还不错，可以：
+
+- ⭐ 给个 Star
+- 🔗 分享给朋友
+- 💬 提提建议
+
+你的反馈是这个项目继续做下去的动力。
 
 ---
 
-<div align="center">
-**Built with ❤️ by [11suixing11](https://github.com/11suixing11)**
+## 许可证
 
-<sub>If MindNotes Pro saved you from opening Figma for a quick sketch — give it a ⭐</sub>
-
-<sub>**The physics eraser took 22 rounds of optimization. If you love it, tell a friend!**</sub>
-</div>
+MIT License — 随便用，随便改，随便分发。
