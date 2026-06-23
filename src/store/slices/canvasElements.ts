@@ -51,16 +51,22 @@ export function createCanvasElementsSlice(
   // P0-2 性能优化: ID → 数组索引 映射，O(1) 查找
   const idToIndex = new Map<string, number>()
   // P0-3 性能优化: 索引脏标记 - 懒更新策略
+  // 使用闭包变量作为内部状态，避免触发 store 更新
+  // 这是安全的，因为索引映射只在 slice 内部使用
   let _indexDirty = false
 
   // P0-3 性能优化: 重建索引（懒更新策略）
   // 只在索引查询失败时调用，避免每次删除都做 O(n) 更新
+  // P0 修复: 正确同步闭包 idToIndex 与 store 中的 idToIndex
   function rebuildIndexIfNeeded() {
     if (!_indexDirty) return
     const st = get()
+    // 同时更新闭包中的 idToIndex 和 store 中的 idToIndex
     idToIndex.clear()
+    st.idToIndex.clear()
     for (let i = 0; i < st.elements.length; i++) {
       idToIndex.set(st.elements[i].id, i)
+      st.idToIndex.set(st.elements[i].id, i)
     }
     _indexDirty = false
   }
@@ -88,9 +94,11 @@ export function createCanvasElementsSlice(
         undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
-      // P0 优化: 同步更新 ID 映射
+      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
       idToElement.set(el.id, el)
+      st.idToElement.set(el.id, el)
       idToIndex.set(el.id, newIndex)
+      st.idToIndex.set(el.id, newIndex)
       spatialIndex.insert(el)
       scheduleSave()
     },
@@ -109,10 +117,12 @@ export function createCanvasElementsSlice(
         undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
-      // P0 优化: 同步更新 ID 映射
+      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
       els.forEach((el, i) => {
         idToElement.set(el.id, el)
+        st.idToElement.set(el.id, el)
         idToIndex.set(el.id, baseIndex + i)
+        st.idToIndex.set(el.id, baseIndex + i)
         spatialIndex.insert(el)
       })
       scheduleSave()
@@ -135,8 +145,9 @@ export function createCanvasElementsSlice(
       // P0 优化: 原地修改数组副本，避免创建全新数组
       const next = [...st.elements]
       next[idx] = newEl
-      // P0 优化: 同步更新 ID 映射
+      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
       idToElement.set(id, newEl)
+      st.idToElement.set(id, newEl)
       spatialIndex.update(newEl)
       set({ elements: next })
       scheduleSave()
@@ -167,9 +178,11 @@ export function createCanvasElementsSlice(
         redoStack: [],
         selectedIds: st.selectedIds.filter((i: string) => i !== id),
       })
-      // P0 优化: 同步更新 ID 映射
+      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
       idToElement.delete(id)
+      st.idToElement.delete(id)
       idToIndex.delete(id)
+      st.idToIndex.delete(id)
       // P0-3 优化: 懒更新策略 - 只标记脏，不立即更新后续所有元素的索引
       // 性能提升: 删除操作从 O(n) → O(1)，大画布场景提升 100x+
       _indexDirty = true
@@ -193,10 +206,12 @@ export function createCanvasElementsSlice(
         redoStack: [],
         selectedIds: [],
       })
-      // P0 优化: 同步更新 ID 映射
+      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
       ids.forEach((id) => {
         idToElement.delete(id)
+        st.idToElement.delete(id)
         idToIndex.delete(id)
+        st.idToIndex.delete(id)
         spatialIndex.remove(id)
       })
       // P0-3 优化: 懒更新策略 - 只标记脏，不立即重建所有索引
@@ -227,8 +242,9 @@ export function createCanvasElementsSlice(
         const newEl = moveElement(next[idx!], dx, dy)
         next[idx!] = newEl
 
-        // P0 优化: 同步更新 ID 映射
+        // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
         idToElement.set(id, newEl)
+        s.idToElement.set(id, newEl)
         spatialIndex.update(newEl)
 
         return { elements: next }
@@ -263,7 +279,9 @@ export function createCanvasElementsSlice(
           if (idSet.has(el.id)) {
             const newEl = moveElement(el, dx, dy)
             next[i] = newEl
+            // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
             idToElement.set(el.id, newEl)
+            s.idToElement.set(el.id, newEl)
             spatialIndex.update(newEl)
             changed = true
           }
@@ -297,8 +315,9 @@ export function createCanvasElementsSlice(
         const newEl = resizeElement(next[idx!], ax, ay, sx, sy)
         next[idx!] = newEl
 
-        // P0 优化: 同步更新 ID 映射
+        // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
         idToElement.set(id, newEl)
+        s.idToElement.set(id, newEl)
         spatialIndex.update(newEl)
 
         return { elements: next }
@@ -316,9 +335,11 @@ export function createCanvasElementsSlice(
         redoStack: [],
         selectedIds: [],
       })
-      // P0 优化: 同步更新 ID 映射
+      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
       idToElement.clear()
+      st.idToElement.clear()
       idToIndex.clear()
+      st.idToIndex.clear()
       spatialIndex.clear()
       // P0-3 优化: 清空后索引干净，重置脏标记
       _indexDirty = false
@@ -335,7 +356,8 @@ export function createCanvasElementsSlice(
 
     paste: () => {
       incrementSaveGeneration()
-      const { clipboard, elements } = get()
+      const st = get()
+      const { clipboard, elements } = st
       if (clipboard.length === 0) return
       const now = Date.now()
       const newIds: string[] = []
@@ -353,10 +375,12 @@ export function createCanvasElementsSlice(
         undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
-      // P0 优化: 同步更新 ID 映射
+      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
       pasted.forEach((el: CanvasElement, i: number) => {
         idToElement.set(el.id, el)
+        st.idToElement.set(el.id, el)
         idToIndex.set(el.id, baseIndex + i)
+        st.idToIndex.set(el.id, baseIndex + i)
         spatialIndex.insert(el)
       })
       scheduleSave()
@@ -364,12 +388,13 @@ export function createCanvasElementsSlice(
 
     batchErase: (beforeSnap, _added) => {
       incrementSaveGeneration()
+      const st = get()
       const action: UndoAction = {
         type: 'erase',
         before: beforeSnap.map(shallowClone),
-        after: get().elements.map(shallowClone),
+        after: st.elements.map(shallowClone),
       }
-      const newElements = get().elements
+      const newElements = st.elements
       set({
         elements: newElements,
         undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
@@ -388,8 +413,11 @@ export function createCanvasElementsSlice(
       // 2. 计算删除的元素（在 before 中但不在 after 中）
       for (const id of beforeIdSet) {
         if (!afterIdSet.has(id)) {
+          // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
           idToElement.delete(id)
+          st.idToElement.delete(id)
           idToIndex.delete(id)
+          st.idToIndex.delete(id)
           spatialIndex.remove(id)
         }
       }
@@ -406,8 +434,11 @@ export function createCanvasElementsSlice(
         const beforeEl = beforeRefMap.get(el.id)
         // 元素是新增的（不在 before 中）或被修改的（引用变化）
         if (!beforeEl || beforeEl !== el) {
+          // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
           idToElement.set(el.id, el)
+          st.idToElement.set(el.id, el)
           idToIndex.set(el.id, i)
+          st.idToIndex.set(el.id, i)
           if (!beforeEl) {
             // 新增元素 - 插入空间索引
             spatialIndex.insert(el)
@@ -418,6 +449,7 @@ export function createCanvasElementsSlice(
         } else {
           // 未变化元素 - 只更新索引
           idToIndex.set(el.id, i)
+          st.idToIndex.set(el.id, i)
         }
       }
 
