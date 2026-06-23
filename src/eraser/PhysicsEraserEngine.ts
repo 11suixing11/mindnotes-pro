@@ -523,7 +523,8 @@ export class PhysicsEraserEngine {
     if (this.wearHistory.length === 0) {
       return false
     }
-    const previousWear = this.wearHistory.pop()!
+    // 已通过 length === 0 检查，pop() 必然返回有效值
+    const previousWear = this.wearHistory.pop() as number
     this.wearRedoStack.push(this.wearLevel)
     this.wearLevel = previousWear
     this._factorsDirty = true
@@ -538,7 +539,8 @@ export class PhysicsEraserEngine {
     if (this.wearRedoStack.length === 0) {
       return false
     }
-    const nextWear = this.wearRedoStack.pop()!
+    // 已通过 length === 0 检查，pop() 必然返回有效值
+    const nextWear = this.wearRedoStack.pop() as number
     this.wearHistory.push(this.wearLevel)
     this.wearLevel = nextWear
     this._factorsDirty = true

@@ -376,8 +376,9 @@ export function useCanvasRenderer(
       // 性能提升: 橡皮擦光标渲染减少 1 次渐变对象创建，减少 GC 压力
       const glowCache = eraserGlowGradientCacheRef.current
       let glowGrad: CanvasGradient
-      if (glowCache.lastR === r && glowCache.lastCtx === ctx) {
-        glowGrad = dark ? glowCache.dark! : glowCache.light!
+      const cachedGradient = dark ? glowCache.dark : glowCache.light
+      if (glowCache.lastR === r && glowCache.lastCtx === ctx && cachedGradient) {
+        glowGrad = cachedGradient
       } else {
         glowGrad = ctx.createRadialGradient(x, y, 0, x, y, r)
         glowGrad.addColorStop(0, colors.glow0)
