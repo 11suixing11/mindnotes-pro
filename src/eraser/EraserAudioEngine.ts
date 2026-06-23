@@ -37,7 +37,7 @@ export class EraserAudioEngine {
     if (this.audioContext) return
 
     try {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      this.audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
     } catch (e) {
       console.warn('Web Audio API not supported, eraser audio disabled')
       this.audioEnabled = false
