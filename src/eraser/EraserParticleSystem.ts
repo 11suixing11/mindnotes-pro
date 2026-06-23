@@ -46,6 +46,8 @@ export class EraserParticleSystem {
   private config: ParticleSystemConfig
   private particlePool: EraserParticle[] = []
   private poolSize: number = 0
+  // P1 FIX: 复用 particlesByColor Map，避免每帧创建新对象
+  private readonly particlesByColor = new Map<string, EraserParticle[]>()
 
   // 气流相关状态
   private pointerX: number = 0
@@ -359,13 +361,13 @@ export class EraserParticleSystem {
     if (!this.config.enabled) return
     if (this.particles.length === 0) return
 
-    // 按颜色分组批量渲染，减少 fillStyle 切换次数
-    const particlesByColor = new Map<string, EraserParticle[]>()
+    // P1 FIX: 复用 Map，避免每帧创建新对象
+    this.particlesByColor.clear()
     for (const particle of this.particles) {
-      let list = particlesByColor.get(particle.color)
+      let list = this.particlesByColor.get(particle.color)
       if (!list) {
         list = []
-        particlesByColor.set(particle.color, list)
+        this.particlesByColor.set(particle.color, list)
       }
       list.push(particle)
     }
@@ -377,7 +379,7 @@ export class EraserParticleSystem {
     const SHADOW_OFFSET_BASE = 1
 
     // 对每种颜色批量渲染
-    for (const [color, particles] of particlesByColor) {
+    for (const [color, particles] of this.particlesByColor) {
       // 主颜色粒子
       const mainPath = new Path2D()
       // 阴影粒子

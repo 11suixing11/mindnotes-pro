@@ -229,8 +229,9 @@ const TEXT_CACHE_MAX_SIZE = 100
 const TEXT_CACHE_TTL = 30000 // 30秒
 const textWrapCache = new LRUCache<string, string[]>(TEXT_CACHE_MAX_SIZE, TEXT_CACHE_TTL)
 
+// P0 FIX: 使用内容前32个字符而非length，避免编辑文本后长度不变时缓存不失效
 function getTextCacheKey(el: TextElement): string {
-  return `${el.id}:${el.content.length}:${el.width}:${el.fontSize}`
+  return `${el.id}:${el.content.slice(0, 32)}:${el.width}:${el.fontSize}`
 }
 function getCachedTextWrap(el: TextElement, ctx: CanvasRenderingContext2D): string[] {
   const key = getTextCacheKey(el)

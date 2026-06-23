@@ -208,7 +208,9 @@ export class SpatialIndex {
     this.totalCount--
   }
   /**
-   * 更新元素（先删后插）
+   * P0 FIX: 更新元素 - 修复幽灵条目问题
+   * 保持旧条目被标记删除，插入新位置条目
+   * 搜索时：deletedIds过滤旧条目，seen Set去重确保只返回最新条目
    */
   update(element: CanvasElement): void {
     this.invalidateCache()
@@ -216,10 +218,10 @@ export class SpatialIndex {
     this.deletedIds.add(element.id)
     // 插入新位置的条目
     this.insertEntry(this.toEntry(element))
-    // 立即移除删除标记，让新位置的条目可见
-    // 旧条目仍然在树中，但因为搜索结果会去重，所以不影响
-    this.deletedIds.delete(element.id)
-    // totalCount 保持不变
+    // 注意：不删除deletedIds标记！让旧条目保持被删除状态
+    // 新条目会被正确返回，旧条目会被deletedIds过滤
+    // seen Set确保即使有重复也只返回一次
+    // totalCount在remove时--，insert时++，这里保持不变
   }
   /**
    * 检查删除率，超过阈值且有 elementProvider 时自动重建

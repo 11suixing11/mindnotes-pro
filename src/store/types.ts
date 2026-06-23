@@ -124,17 +124,14 @@ export function moveElement(el: CanvasElement, dx: number, dy: number): CanvasEl
     const pts = el.points
     const len = pts.length
     const newPts = new Array<number[]>(len)
-    // P0-5 性能优化: 原地修改点数组，避免每次创建新数组对象
-    // 性能提升: 笔触拖拽减少 90% GC 压力，帧率提升 30%+
+    // P0 FIX: 创建新点数组，不修改原数组，避免undo数据污染
+    // 原原地修改会导致undo/redo时旧数据被污染
     for (let i = 0; i < len; i++) {
       const p = pts[i]
-      p[0] += dx
-      p[1] += dy
-      newPts[i] = p
+      newPts[i] = [p[0] + dx, p[1] + dy]
     }
     return { ...el, points: newPts }
   }
-  // P0 优化: shape/text/image 直接修改坐标，减少 spread 开销
   if (el.type === 'shape') return { ...el, x: el.x + dx, y: el.y + dy }
   return { ...el, x: el.x + dx, y: el.y + dy } as CanvasElement
 }
