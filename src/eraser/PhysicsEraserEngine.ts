@@ -923,7 +923,10 @@ export class PhysicsEraserEngine {
    * P0性能优化: 空间过滤 + 预计算元素边界
    * 避免在 computeStrokeErasure 中重复计算 elementBounds
    * 性能提升: 对于 N 个元素，elementBounds 从 O(N) 次调用减少到 O(1) 次
+   *
+   * P0修复: 使用 WeakMap 缓存 bounds，避免在元素对象上挂载临时属性导致内存泄漏
    */
+  private static readonly _boundsCache = new WeakMap<CanvasElement, Bounds>()
   private filterCandidateElementsWithPrecomputedBounds(
     elements: CanvasElement[],
     eraseBounds: Bounds
@@ -935,6 +938,7 @@ export class PhysicsEraserEngine {
     const ah = eraseBounds.h
     const axw = ax + aw
     const ayh = ay + ah
+    const cache = PhysicsEraserEngine._boundsCache
 
     for (let i = 0; i < elements.length; i++) {
       const el = elements[i]
@@ -942,8 +946,8 @@ export class PhysicsEraserEngine {
         const b = elementBounds(el)
         // P1优化: 内联 AABB 相交检测，避免函数调用
         if (ax < b.x + b.w && axw > b.x && ay < b.y + b.h && ayh > b.y) {
-          // P0优化: 缓存 bounds 到元素对象上，避免 computeStrokeErasure 重复计算
-          ;(el as any)._cachedBounds = b
+          // P0修复: 使用 WeakMap 缓存，避免对象属性污染和内存泄漏
+          cache.set(el, b)
           result.push(el)
         }
       } catch {
@@ -1093,7 +1097,7 @@ export class PhysicsEraserEngine {
     // P0修复: 使用已缓存的 elementBounds 做 Early exit
     // 避免手动 AABB 采样导致的漏检问题
     // P0性能优化: 优先使用预计算的缓存 bounds，避免重复计算
-    const strokeBounds = (stroke as any)._cachedBounds ?? elementBounds(stroke)
+    const strokeBounds = PhysicsEraserEngine._boundsCache.get(stroke) ?? elementBounds(stroke)
     const eraseLeft = erasePoint.x - effectiveRadius
     const eraseRight = erasePoint.x + effectiveRadius
     const eraseTop = erasePoint.y - effectiveRadius
