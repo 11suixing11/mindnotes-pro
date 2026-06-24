@@ -252,6 +252,13 @@ export type AlignmentType =
   | 'alignCenterV'
   | 'alignBottom'
 
+// P22 新功能: 元素分布 (来源 Figma / tldraw 标准功能)
+// 专业设计工具标配：选中多个元素后一键等间距分布
+// 用户痛点："手动调整3个按钮间距，调了10次还是不均匀" - 社区高频反馈
+export type DistributionType =
+  | 'distributeH'
+  | 'distributeV'
+
 /**
  * 计算多个元素的公共边界
  * 用于确定对齐的参考基准线
@@ -333,5 +340,79 @@ export function alignElements(
 
     if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return el
     return moveElement(el, dx, dy)
+  })
+}
+
+/**
+ * 分布多个选中元素（等间距分布）
+ * 支持 2 种分布方式：水平分布、垂直分布
+ * 完全对齐 Figma / tldraw 的专业行为
+ * 
+ * 算法：
+ * 1. 计算所有元素的总宽度/高度（最左到最右/最上到最下）
+ * 2. 计算所有元素的宽度/高度之和
+ * 3. 计算可用空白空间 = 总空间 - 元素空间
+ * 4. 计算间距 = 空白空间 / (元素数 - 1)
+ * 5. 按原始顺序重新排列元素，每个元素之间保持相等间距
+ */
+export function distributeElements(
+  elements: CanvasElement[],
+  selectedIds: string[],
+  distribution: DistributionType
+): CanvasElement[] {
+  if (selectedIds.length < 3) return elements
+
+  const selectedSet = new Set(selectedIds)
+  const selectedElements = elements.filter((el) => selectedSet.has(el.id))
+  const bounds = getCommonBounds(selectedElements)
+
+  // 按当前位置排序元素（水平按 x，垂直按 y）
+  const sorted = [...selectedElements].sort((a, b) => {
+    const aBounds = elementBounds(a)
+    const bBounds = elementBounds(b)
+    if (distribution === 'distributeH') {
+      return aBounds.x - bBounds.x
+    } else {
+      return aBounds.y - bBounds.y
+    }
+  })
+
+  // 计算所有元素的总宽度/高度
+  const totalElementSpace = sorted.reduce((sum, el) => {
+    const b = elementBounds(el)
+    return sum + (distribution === 'distributeH' ? b.w : b.h)
+  }, 0)
+
+  // 计算总可用空间
+  const totalSpace = distribution === 'distributeH'
+    ? bounds.maxX - bounds.minX
+    : bounds.maxY - bounds.minY
+
+  // 计算每个间隙的大小
+  const gapCount = sorted.length - 1
+  const gapSize = (totalSpace - totalElementSpace) / gapCount
+
+  // 构建新位置映射
+  const newPositions = new Map<string, { dx: number; dy: number }>()
+  let currentPos = distribution === 'distributeH' ? bounds.minX : bounds.minY
+
+  for (const el of sorted) {
+    const elBounds = elementBounds(el)
+    
+    if (distribution === 'distributeH') {
+      const dx = currentPos - elBounds.x
+      newPositions.set(el.id, { dx, dy: 0 })
+      currentPos += elBounds.w + gapSize
+    } else {
+      const dy = currentPos - elBounds.y
+      newPositions.set(el.id, { dx: 0, dy })
+      currentPos += elBounds.h + gapSize
+    }
+  }
+
+  return elements.map((el) => {
+    const pos = newPositions.get(el.id)
+    if (!pos || (Math.abs(pos.dx) < 0.01 && Math.abs(pos.dy) < 0.01)) return el
+    return moveElement(el, pos.dx, pos.dy)
   })
 }

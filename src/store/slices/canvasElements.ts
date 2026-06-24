@@ -1,5 +1,5 @@
-import type { AlignmentType, CanvasElement, UndoAction } from '../types'
-import { alignElements, moveElement, resizeElement, rotateElement } from '../types'
+import type { AlignmentType, DistributionType, CanvasElement, UndoAction } from '../types'
+import { alignElements, distributeElements, moveElement, resizeElement, rotateElement } from '../types'
 import { shallowClone, snapshot } from '../helpers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import { MAX_HISTORY } from './history'
@@ -45,6 +45,7 @@ export interface CanvasElementsActions {
   groupSelected: () => void
   ungroupSelected: () => void
   alignSelected: (alignment: AlignmentType) => void
+  distributeSelected: (distribution: DistributionType) => void
   batchErase: (beforeSnap: CanvasElement[], added: CanvasElement[]) => void
 }
 
@@ -682,6 +683,62 @@ export function createCanvasElementsSlice(
       }
 
       // 构建撤销操作：记录对齐前的位置
+      const action: UndoAction = {
+        type: 'move',
+        deltas: beforeMove.map((el: CanvasElement) => ({ id: el.id, dx: 0, dy: 0 })),
+      }
+
+      set({
+        elements: next,
+        selectedIds,
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        redoStack: [],
+      })
+
+      scheduleSave()
+    },
+
+    // P22 新功能: 元素分布 (来源 Figma / tldraw 标准功能)
+    // 专业设计工具标配：选中多个元素后一键等间距分布
+    // 支持 2 种分布方式：水平分布、垂直分布
+    distributeSelected: (distribution) => {
+      incrementSaveGeneration()
+      const st = get()
+      const { elements, selectedIds } = st
+      if (selectedIds.length < 3) return
+
+      // 记录分布前的位置用于撤销
+      const selSet = new Set(selectedIds)
+      const beforeMove = elements
+        .filter((el: CanvasElement) => selSet.has(el.id))
+        .map((el: CanvasElement) => shallowClone(el))
+
+      // 执行分布
+      const next = distributeElements(elements, selectedIds, distribution)
+
+      // 检查是否有实际变化
+      let hasChanges = false
+      for (let i = 0; i < elements.length; i++) {
+        if (elements[i] !== next[i]) {
+          hasChanges = true
+          break
+        }
+      }
+      if (!hasChanges) return
+
+      // 更新 ID 映射和空间索引
+      for (let i = 0; i < next.length; i++) {
+        const el = next[i]
+        if (selSet.has(el.id)) {
+          idToElement.set(el.id, el)
+          st.idToElement.set(el.id, el)
+          idToIndex.set(el.id, i)
+          st.idToIndex.set(el.id, i)
+          spatialIndex.update(el)
+        }
+      }
+
+      // 构建撤销操作：记录分布前的位置
       const action: UndoAction = {
         type: 'move',
         deltas: beforeMove.map((el: CanvasElement) => ({ id: el.id, dx: 0, dy: 0 })),

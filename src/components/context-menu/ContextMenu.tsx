@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore } from '../../store/appStore'
-import type { AlignmentType } from '../../store/types'
+import type { AlignmentType, DistributionType } from '../../store/types'
 
 interface ContextMenuProps {
   x: number
@@ -24,6 +24,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const hasSelection = selectedIds.length > 0
   const hasMultipleSelection = selectedIds.length > 1
   const hasGroupableSelection = selectedIds.length >= 2
+  const hasDistributableSelection = selectedIds.length >= 3
 
   // 检查是否选中了组中的元素（通过 groupId 属性）
   const selectedElements = elements.filter((el) => selectedIds.includes(el.id))
@@ -37,6 +38,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const groupSelected = useAppStore((s) => s.groupSelected)
   const ungroupSelected = useAppStore((s) => s.ungroupSelected)
   const alignSelected = useAppStore((s) => s.alignSelected)
+  const distributeSelected = useAppStore((s) => s.distributeSelected)
   const setSelectedIds = useAppStore((s) => s.setSelectedIds)
   const clearAll = useAppStore((s) => s.clearAll)
 
@@ -101,6 +103,11 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
 
   const handleAlign = (alignment: AlignmentType) => {
     alignSelected(alignment)
+    onClose()
+  }
+
+  const handleDistribute = (distribution: DistributionType) => {
+    distributeSelected(distribution)
     onClose()
   }
 
@@ -189,6 +196,19 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
             menuY={pos.y}
             menuWidth={pos.menuWidth}
             onAlign={handleAlign}
+          />
+        </>
+      )}
+
+      {/* 分布子菜单 */}
+      {hasDistributableSelection && (
+        <>
+          <MenuSeparator />
+          <DistributeSubmenu
+            menuX={pos.x}
+            menuY={pos.y}
+            menuWidth={pos.menuWidth}
+            onDistribute={handleDistribute}
           />
         </>
       )}
@@ -349,4 +369,71 @@ const AlignSubmenu = React.forwardRef<HTMLDivElement, AlignSubmenuProps>(
 )
 
 AlignSubmenu.displayName = 'AlignSubmenu'
-export { AlignSubmenu }
+
+interface DistributeSubmenuProps {
+  menuX: number
+  menuY: number
+  menuWidth: number
+  onDistribute: (distribution: DistributionType) => void
+}
+
+function DistributeSubmenu({ menuX, menuY, menuWidth, onDistribute }: DistributeSubmenuProps) {
+  const submenuX = menuX + menuWidth + SUBMENU_OFFSET
+
+  const distributeActions: { label: string; distribution: DistributionType }[] = [
+    { label: '水平分布', distribution: 'distributeH' },
+    { label: '垂直分布', distribution: 'distributeV' },
+  ]
+
+  return createPortal(
+    <div
+      className="context-menu-submenu"
+      style={{
+        position: 'fixed',
+        left: submenuX,
+        top: menuY + MENU_PADDING + 6 * MENU_ITEM_HEIGHT + 24,
+        minWidth: 140,
+        background: 'var(--bg-1)',
+        border: '1px solid var(--border-1)',
+        borderRadius: 8,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+        padding: MENU_PADDING,
+        zIndex: 100000,
+      }}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {distributeActions.map(({ label, distribution }) => (
+        <button
+          key={distribution}
+          onClick={() => onDistribute(distribution)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            width: '100%',
+            height: MENU_ITEM_HEIGHT,
+            padding: '0 12px',
+            border: 'none',
+            background: 'transparent',
+            borderRadius: 6,
+            cursor: 'pointer',
+            fontSize: 13,
+            color: 'var(--text-1)',
+            textAlign: 'left',
+            transition: 'background 0.1s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--bg-2)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>,
+    document.body
+  )
+}
+
+export { AlignSubmenu, DistributeSubmenu }
