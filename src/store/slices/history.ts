@@ -32,6 +32,11 @@ function getAffectedElementIds(action: UndoAction): string[] {
       return action.beforeUngroup.map((g) => g.id)
     case 'clear':
       return action.snapshot.map((e) => e.id)
+    // P24: 锁定/解锁撤销支持
+    case 'lock':
+      return action.elementIds
+    case 'unlock':
+      return action.elementIds
     default:
       return []
   }
@@ -162,6 +167,36 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           type: 'ungroup',
           groupIds: [...action.groupIds],
           beforeUngroup: action.beforeUngroup.map((g: { id: string; oldGroupId?: string }) => ({ ...g })),
+        }
+      } else if (action.type === 'lock') {
+        // P24: 撤销锁定 - 恢复元素的锁定状态
+        const restoreMap = new Map(action.beforeLock.map((item) => [item.id, item.wasLocked]))
+        next = elements.map((el: CanvasElement) => {
+          if (restoreMap.has(el.id)) {
+            const wasLocked = restoreMap.get(el.id)
+            return { ...el, locked: wasLocked }
+          }
+          return el
+        })
+        redoAction = {
+          type: 'lock',
+          elementIds: [...action.elementIds],
+          beforeLock: action.beforeLock.map((item) => ({ ...item })),
+        }
+      } else if (action.type === 'unlock') {
+        // P24: 撤销解锁 - 恢复元素的锁定状态
+        const restoreMap = new Map(action.beforeUnlock.map((item) => [item.id, item.wasLocked]))
+        next = elements.map((el: CanvasElement) => {
+          if (restoreMap.has(el.id)) {
+            const wasLocked = restoreMap.get(el.id)
+            return { ...el, locked: wasLocked }
+          }
+          return el
+        })
+        redoAction = {
+          type: 'unlock',
+          elementIds: [...action.elementIds],
+          beforeUnlock: action.beforeUnlock.map((item) => ({ ...item })),
         }
       } else {
         next = action.snapshot
@@ -294,6 +329,34 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           type: 'ungroup',
           groupIds: [...action.groupIds],
           beforeUngroup: action.beforeUngroup.map((g: { id: string; oldGroupId?: string }) => ({ ...g })),
+        }
+      } else if (action.type === 'lock') {
+        // P24: 重做锁定 - 重新应用锁定状态
+        const idSet = new Set(action.elementIds)
+        next = elements.map((el: CanvasElement) => {
+          if (idSet.has(el.id)) {
+            return { ...el, locked: true }
+          }
+          return el
+        })
+        undoAction = {
+          type: 'lock',
+          elementIds: [...action.elementIds],
+          beforeLock: action.beforeLock.map((item) => ({ ...item })),
+        }
+      } else if (action.type === 'unlock') {
+        // P24: 重做解锁 - 重新应用解锁状态
+        const idSet = new Set(action.elementIds)
+        next = elements.map((el: CanvasElement) => {
+          if (idSet.has(el.id)) {
+            return { ...el, locked: false }
+          }
+          return el
+        })
+        undoAction = {
+          type: 'unlock',
+          elementIds: [...action.elementIds],
+          beforeUnlock: action.beforeUnlock.map((item) => ({ ...item })),
         }
       } else {
         next = action.snapshot

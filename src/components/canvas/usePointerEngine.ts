@@ -264,6 +264,9 @@ export function usePointerEngine(opts: {
           if (idx === undefined) continue
           const el = els[idx]
 
+          // P24: 跳过锁定的元素，无法选中
+          if (el.locked) continue
+
           // 精确检测
           if (el.type === 'image') {
             if (
@@ -314,6 +317,8 @@ export function usePointerEngine(opts: {
       // 降级: 空间索引不可用时用原有的 O(n) 遍历
       for (let i = els.length - 1; i >= 0; i--) {
         const el = els[i]
+        // P24: 跳过锁定的元素，无法选中
+        if (el.locked) continue
         if (el.type === 'image') {
           if (
             px >= el.x - r &&
