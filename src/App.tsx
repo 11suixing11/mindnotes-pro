@@ -81,6 +81,12 @@ export default function App() {
         e.preventDefault()
         setShortcutsOpen((v) => !v)
       }
+      // P9 新功能: Ctrl+D 快速复制 (Excalidraw / Figma / tldraw 标准快捷键)
+      // 专业设计软件标准交互：一键复制选中元素
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+        e.preventDefault()
+        useAppStore.getState().duplicateSelected()
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -218,8 +224,8 @@ export default function App() {
           {hintsVisible && (
             <div className="hints panel">
               <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> Redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
-              Copy/Paste · <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all · Scroll to zoom · <kbd>Del</kbd>{' '}
-              Delete · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> Screen Pen
+              Copy/Paste · <kbd>Ctrl</kbd>+<kbd>D</kbd> Duplicate · <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all · Scroll to zoom ·{' '}
+              <kbd>Del</kbd> Delete · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> Screen Pen
             </div>
           )}
 
