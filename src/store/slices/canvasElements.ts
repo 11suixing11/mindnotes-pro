@@ -281,6 +281,17 @@ export function createCanvasElementsSlice(
       incrementSaveGeneration()
 
       const idSet = new Set(ids)
+      // P21 修复: 为批量移动添加撤销支持
+      // 问题: 之前键盘微调后无法撤销，用户体验断裂
+      // 解决方案: 移动前保存原始元素快照，创建 clear 类型的撤销动作
+      const st = get()
+      const originalSnapshot = st.elements.map((e: CanvasElement) => 
+        idSet.has(e.id) ? shallowClone(e) : e
+      )
+      const undoAction: UndoAction = {
+        type: 'clear',
+        snapshot: originalSnapshot,
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
         // P0 性能优化: 快速检查是否有元素需要移动 - 使用 idToElement O(1) 检查
@@ -326,7 +337,11 @@ export function createCanvasElementsSlice(
           }
         }
 
-        return { elements: next }
+        return {
+          elements: next,
+          undoStack: [...s.undoStack.slice(-MAX_HISTORY), undoAction],
+          redoStack: [],
+        }
       })
       scheduleSave()
     },

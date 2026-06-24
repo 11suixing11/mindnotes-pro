@@ -189,11 +189,20 @@ export function useKeyboardBindings(options: Options = {}) {
         return
       }
 
-      // Arrow key nudging for selected elements
+      // P21 新功能: 键盘微调（Keyboard Nudge）- 符合 Figma / Excalidraw / tldraw 行业标准
+      // 竞品对标:
+      // - Excalidraw: 方向键 1px, Ctrl+方向键 10px
+      // - Figma: 方向键 1px, Shift+方向键 10px
+      // - tldraw: 方向键 1px, Ctrl+方向键 10px
+      // 用户价值: 像素级精确调整，专业用户无需鼠标即可完成精细排版
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         if (st.selectedIds.length > 0) {
           e.preventDefault()
-          const step = e.shiftKey ? 10 : 1
+          // 标准步长: 方向键 = 1px, Ctrl/Cmd = 10px, Shift = 50px
+          let step = 1
+          if (e.ctrlKey || e.metaKey) step = 10
+          else if (e.shiftKey) step = 50
+          
           const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
           const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
           st.moveElementsById(st.selectedIds, dx, dy)
