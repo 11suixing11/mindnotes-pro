@@ -357,16 +357,57 @@ function getShapeCacheKey(el: ShapeElement): string {
   return `${el.kind}:${el.x.toFixed(1)}:${el.y.toFixed(1)}:${el.w.toFixed(1)}:${el.h.toFixed(1)}:${rx.toFixed(2)}`
 }
 // ==================== 导出函数 ====================
+// P20 新功能: 旋转渲染支持 (来源 Figma / tldraw / Excalidraw 标准功能)
+// 问题：P18/P19 实现了旋转数据层和 UI 交互，但 shape/text/image 元素的 rotation 属性没有在渲染时应用
+// 用户痛点："我旋转了元素，但画布上看起来完全没变！"
+function applyRotationTransform(
+  ctx: CanvasRenderingContext2D,
+  el: CanvasElement,
+  bounds: { x: number; y: number; w: number; h: number }
+): boolean {
+  const rotation = (el as any).rotation
+  if (!rotation || Math.abs(rotation) < 0.001) return false
+  
+  const centerX = bounds.x + bounds.w / 2
+  const centerY = bounds.y + bounds.h / 2
+  
+  ctx.save()
+  ctx.translate(centerX, centerY)
+  ctx.rotate(rotation)
+  ctx.translate(-centerX, -centerY)
+  
+  return true
+}
+
 export function drawElement(
   ctx: CanvasRenderingContext2D,
   el: CanvasElement,
   isDarkMode: boolean,
   editingTextId?: string
 ) {
-  if (el.type === 'stroke') drawStrokeEl(ctx, el, isDarkMode)
-  else if (el.type === 'shape') drawShapeEl(ctx, el)
+  // stroke 元素已在 rotateElement 中物理旋转了点坐标，无需额外变换
+  if (el.type === 'stroke') {
+    drawStrokeEl(ctx, el, isDarkMode)
+    return
+  }
+  
+  // P20: 为 shape/text/image 应用旋转变换
+  const bounds = {
+    x: el.type === 'shape' ? Math.min(el.x, el.x + el.w) : el.x,
+    y: el.type === 'shape' ? Math.min(el.y, el.y + el.h) : el.y,
+    w: el.type === 'shape' ? Math.abs(el.w) : (el as any).width,
+    h: el.type === 'shape' ? Math.abs(el.h) : (el as any).height,
+  }
+  
+  const hasRotation = applyRotationTransform(ctx, el, bounds)
+  
+  if (el.type === 'shape') drawShapeEl(ctx, el)
   else if (el.type === 'text') drawTextEl(ctx, el, editingTextId)
   else if (el.type === 'image') drawImageEl(ctx, el)
+  
+  if (hasRotation) {
+    ctx.restore()
+  }
 }
 
 // P0 性能优化：小地图专用简化绘制函数 - 只画边界矩形，不渲染完整笔触细节
