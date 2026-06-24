@@ -4,6 +4,8 @@ import { shallowClone, snapshot } from '../helpers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import { MAX_HISTORY } from './history'
 import { SpatialIndex } from '../../eraser/SpatialIndex'
+// P12 箭头绑定: 导入绑定工具函数
+import { updateBoundArrows } from '../bindingUtils'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
@@ -250,6 +252,18 @@ export function createCanvasElementsSlice(
         s.idToElement.set(id, newEl)
         spatialIndex.update(newEl)
 
+        // P12 箭头绑定: 移动形状时自动更新所有绑定的箭头
+        const arrowUpdates = updateBoundArrows(id, next, idToElement)
+        for (const update of arrowUpdates) {
+          const arrowIdx = idToIndex.get(update.id)
+          if (arrowIdx !== undefined && arrowIdx >= 0) {
+            next[arrowIdx] = update.newEl
+            idToElement.set(update.id, update.newEl)
+            s.idToElement.set(update.id, update.newEl)
+            spatialIndex.update(update.newEl)
+          }
+        }
+
         return { elements: next }
       })
       scheduleSave()
@@ -277,6 +291,7 @@ export function createCanvasElementsSlice(
         // P0-3 修复: 使用 index-based 替换替代全量 map
         const next = [...s.elements]
         let changed = false
+        const movedIds: string[] = []
         for (let i = 0; i < next.length; i++) {
           const el = next[i]
           if (idSet.has(el.id)) {
@@ -286,10 +301,25 @@ export function createCanvasElementsSlice(
             idToElement.set(el.id, newEl)
             s.idToElement.set(el.id, newEl)
             spatialIndex.update(newEl)
+            movedIds.push(el.id)
             changed = true
           }
         }
         if (!changed) return s
+
+        // P12 箭头绑定: 批量移动形状时自动更新所有绑定的箭头
+        for (const movedId of movedIds) {
+          const arrowUpdates = updateBoundArrows(movedId, next, idToElement)
+          for (const update of arrowUpdates) {
+            const arrowIdx = idToIndex.get(update.id)
+            if (arrowIdx !== undefined && arrowIdx >= 0) {
+              next[arrowIdx] = update.newEl
+              idToElement.set(update.id, update.newEl)
+              s.idToElement.set(update.id, update.newEl)
+              spatialIndex.update(update.newEl)
+            }
+          }
+        }
 
         return { elements: next }
       })

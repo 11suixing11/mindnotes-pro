@@ -7,6 +7,8 @@ import type { StrokeElement } from '../../store/types'
 import type { CanvasElement, ShapeElement, TextElement, ShapeKind, ToolType } from '../../store/types'
 import { simplifyPts, distToSegSq, elementBounds } from '../../canvas/canvasUtils'
 import { drawElement } from '../../canvas/canvasDrawing'
+// P12 箭头绑定: 导入绑定工具函数
+import { tryBindToShape } from '../../store/bindingUtils'
 // 物理擦除引擎集成
 import { useEraserStore, type EraserPoint } from '../../eraser'
 
@@ -1202,8 +1204,38 @@ export function usePointerEngine(opts: {
           erasedRef.current.clear()
           currentPtsRef.current = []
         } else if (currentShapeRef.current) {
-          if (Math.abs(currentShapeRef.current.w) > 2 || Math.abs(currentShapeRef.current.h) > 2)
-            addElement(currentShapeRef.current)
+          if (Math.abs(currentShapeRef.current.w) > 2 || Math.abs(currentShapeRef.current.h) > 2) {
+            // P12 箭头绑定: 检测箭头/线条端点是否靠近形状边缘
+            // 如果靠近，自动建立绑定关系
+            const shape = currentShapeRef.current
+            if (shape.kind === 'arrow' || shape.kind === 'line') {
+              const st = useAppStore.getState()
+              // 计算起点和终点坐标
+              const startPoint: [number, number] = [shape.x, shape.y]
+              const endPoint: [number, number] = [shape.x + shape.w, shape.y + shape.h]
+              
+              // 检测起点绑定
+              const startBinding = tryBindToShape(startPoint, st.elements, shape.id)
+              // 检测终点绑定
+              const endBinding = tryBindToShape(endPoint, st.elements, shape.id)
+              
+              // 如果有绑定，更新形状的绑定信息
+              if (startBinding || endBinding) {
+                const updatedShape = { ...shape }
+                if (startBinding) {
+                  updatedShape.startBinding = startBinding
+                }
+                if (endBinding) {
+                  updatedShape.endBinding = endBinding
+                }
+                addElement(updatedShape)
+              } else {
+                addElement(shape)
+              }
+            } else {
+              addElement(shape)
+            }
+          }
           currentShapeRef.current = null
           shapeStartRef.current = null
         }

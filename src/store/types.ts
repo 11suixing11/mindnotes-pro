@@ -13,6 +13,18 @@ export interface StrokeElement {
   groupId?: string
 }
 
+// P12 新功能: 箭头绑定 (来源 Excalidraw Issue #3412)
+// 专业白板标准功能：箭头端点吸附到形状边缘，移动形状时箭头自动跟随
+// 用户痛点："花了十分钟才让三条线都正确连接" - Excalidraw Issue #3412
+export interface Binding {
+  /** 绑定的目标形状 ID */
+  targetId: string
+  /** 归一化锚点 X (0-1, 相对于形状宽度) */
+  anchorX: number
+  /** 归一化锚点 Y (0-1, 相对于形状高度) */
+  anchorY: number
+}
+
 export interface ShapeElement {
   type: 'shape'
   id: string
@@ -25,6 +37,10 @@ export interface ShapeElement {
   size: number
   fillColor?: string
   groupId?: string
+  // P12 箭头绑定：起点绑定（仅 line/arrow 类型）
+  startBinding?: Binding
+  // P12 箭头绑定：终点绑定（仅 line/arrow 类型）
+  endBinding?: Binding
 }
 
 export interface TextElement {
