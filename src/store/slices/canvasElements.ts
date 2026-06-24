@@ -1,5 +1,5 @@
 import type { AlignmentType, CanvasElement, UndoAction } from '../types'
-import { alignElements, moveElement, resizeElement } from '../types'
+import { alignElements, moveElement, resizeElement, rotateElement } from '../types'
 import { shallowClone, snapshot } from '../helpers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import { MAX_HISTORY } from './history'
@@ -33,6 +33,8 @@ export interface CanvasElementsActions {
   moveElementById: (id: string, dx: number, dy: number) => void
   moveElementsById: (ids: string[], dx: number, dy: number) => void
   resizeElementById: (id: string, ax: number, ay: number, sx: number, sy: number) => void
+  // P17 新功能: 元素旋转
+  rotateElementById: (id: string, angle: number, cx?: number, cy?: number) => void
   clearAll: () => void
   setSelectedIds: (ids: string[]) => void
   copySelected: () => void
@@ -347,6 +349,39 @@ export function createCanvasElementsSlice(
       set((s: any) => {
         const next = [...s.elements]
         const newEl = resizeElement(next[idx!], ax, ay, sx, sy)
+        next[idx!] = newEl
+
+        // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+        idToElement.set(id, newEl)
+        s.idToElement.set(id, newEl)
+        spatialIndex.update(newEl)
+
+        return { elements: next }
+      })
+      scheduleSave()
+    },
+
+    // P17 新功能: 元素旋转 (来源 Excalidraw Issue #1056 / tldraw v5.0.0)
+    // 专业白板标准功能：绕中心点旋转元素
+    rotateElementById: (id, angle, cx, cy) => {
+      // P0 性能优化: 跳过无意义的旋转
+      if (Math.abs(angle) < 0.0001) return
+      incrementSaveGeneration()
+
+      const st = get()
+      // P0-3 优化: 懒索引重建 - 查询失败时先重建再重试
+      rebuildIndexIfNeeded()
+      // P0-2 优化: 使用 idToIndex O(1) 查找替代 findIndex O(n)
+      let idx: number | undefined = idToIndex.get(id)
+      if (idx === undefined) {
+        idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
+      }
+      if (idx === undefined || idx < 0) return
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      set((s: any) => {
+        const next = [...s.elements]
+        const newEl = rotateElement(next[idx!], angle, cx, cy)
         next[idx!] = newEl
 
         // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）

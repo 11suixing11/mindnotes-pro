@@ -11,6 +11,10 @@ export interface StrokeElement {
   brush: BrushType
   opacity?: number
   groupId?: string
+  // P17 新功能: 元素旋转 (来源 Excalidraw Issue #1056 / tldraw v5.0.0)
+  // 专业白板标准功能：选中元素后拖拽旋转手柄自由旋转
+  // 用户痛点："无法调整手写笔迹/形状的角度，画斜线很困难"
+  rotation?: number
 }
 
 // P12 新功能: 箭头绑定 (来源 Excalidraw Issue #3412)
@@ -41,6 +45,8 @@ export interface ShapeElement {
   startBinding?: Binding
   // P12 箭头绑定：终点绑定（仅 line/arrow 类型）
   endBinding?: Binding
+  // P17 新功能: 元素旋转
+  rotation?: number
 }
 
 export interface TextElement {
@@ -54,6 +60,8 @@ export interface TextElement {
   fontSize: number
   color: string
   groupId?: string
+  // P17 新功能: 元素旋转
+  rotation?: number
 }
 
 export interface ImageElement {
@@ -66,6 +74,8 @@ export interface ImageElement {
   dataUrl: string
   opacity?: number
   groupId?: string
+  // P17 新功能: 元素旋转
+  rotation?: number
 }
 
 export type CanvasElement = StrokeElement | ShapeElement | TextElement | ImageElement
@@ -187,6 +197,48 @@ export function resizeElement(
     width: el.width * sx,
     height: el.height * sy,
   }
+}
+
+// P17 新功能: 元素旋转 (来源 Excalidraw Issue #1056 / tldraw v5.0.0)
+// 专业白板标准功能：绕中心点旋转元素
+/**
+ * 绕中心点旋转元素
+ * @param el 要旋转的元素
+ * @param angle 旋转角度（弧度）
+ * @param cx 旋转中心 X（可选，默认元素中心）
+ * @param cy 旋转中心 Y（可选，默认元素中心）
+ */
+export function rotateElement(
+  el: CanvasElement,
+  angle: number,
+  cx?: number,
+  cy?: number
+): CanvasElement {
+  const bounds = elementBounds(el)
+  const centerX = cx ?? bounds.x + bounds.w / 2
+  const centerY = cy ?? bounds.y + bounds.h / 2
+
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+
+  function rotatePoint(px: number, py: number): [number, number] {
+    const dx = px - centerX
+    const dy = py - centerY
+    return [centerX + dx * cos - dy * sin, centerY + dx * sin + dy * cos]
+  }
+
+  if (el.type === 'stroke') {
+    const newPts = el.points.map((p) => rotatePoint(p[0], p[1]))
+    return { ...el, points: newPts, rotation: ((el.rotation || 0) + angle) % (Math.PI * 2) }
+  }
+
+  if (el.type === 'shape') {
+    // 对于形状，更新 rotation 属性
+    return { ...el, rotation: ((el.rotation || 0) + angle) % (Math.PI * 2) }
+  }
+
+  // text 和 image 元素
+  return { ...el, rotation: ((el.rotation || 0) + angle) % (Math.PI * 2) } as CanvasElement
 }
 
 // P16 新功能: 元素对齐 (来源 Excalidraw Issue #2267 / Figma 标准功能)
