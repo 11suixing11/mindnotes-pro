@@ -1761,6 +1761,39 @@ export function usePointerEngine(opts: {
       const pt = eraserTrailRef.current[idx]
       if (now - pt.time <= 300) trail.push(pt)
     }
+
+    // P23 新功能: 旋转角度显示 (来源 Figma / tldraw 专业体验)
+    // 拖拽旋转手柄时计算并返回当前旋转角度值（度数）
+    // 用户价值：精确控制旋转角度，专业设计时必备
+    let rotationAngle: { angle: number; centerX: number; centerY: number } | null = null
+    if (rotateRef.current) {
+      const { startX, startY, commonCenterX, commonCenterY, origRotations, ids } = rotateRef.current
+      const mouseX = mouseRef.current?.x ?? startX
+      const mouseY = mouseRef.current?.y ?? startY
+      
+      // 计算从起始点到当前点的角度变化
+      const startVecX = startX - commonCenterX
+      const startVecY = startY - commonCenterY
+      const startAngle = Math.atan2(startVecY, startVecX)
+      
+      const currentVecX = mouseX - commonCenterX
+      const currentVecY = mouseY - commonCenterY
+      const currentAngle = Math.atan2(currentVecY, currentVecX)
+      
+      const angleDelta = currentAngle - startAngle
+      const firstOrigRotation = origRotations.get(ids[0]) || 0
+      const totalAngle = firstOrigRotation + angleDelta
+      
+      // 转换为度数并归一化到 0-360
+      const degrees = ((totalAngle * 180 / Math.PI) % 360 + 360) % 360
+      
+      rotationAngle = {
+        angle: degrees,
+        centerX: commonCenterX,
+        centerY: commonCenterY,
+      }
+    }
+
     return {
       drawing: drawingRef.current,
       currentPts: currentPtsRef.current,
@@ -1777,6 +1810,7 @@ export function usePointerEngine(opts: {
       gridSize: 20,
       eraserTrail: trail,
       penVelocity: penVelocityRef.current,
+      rotationAngle,
     }
   }, [snapLinesRef])
 
