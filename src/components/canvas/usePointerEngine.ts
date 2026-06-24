@@ -1099,8 +1099,10 @@ export function usePointerEngine(opts: {
           dragRef.current.dragStarted = true
         }
         
-        // P7 新功能: Alt/Option + 拖拽复制选中元素 (来源 tldraw v5.0.0 / Figma 标准交互)
-        // 在拖拽开始后执行复制：复制原始选中元素，选中新元素，更新 startPositions
+        // P23 修复: Alt 拖拽复制时保持原始元素位置不变 (来源 Excalidraw #9403 / Figma 标准交互)
+        // 问题: 之前按住 Alt 拖拽时，原始元素会跟着鼠标一起移动
+        // 修复: 匹配 Figma/Excalidraw/Sketch 专业工具标准行为 - 原始元素保持原位，只有新复制的元素跟随鼠标
+        // 用户价值: 这是所有专业设计软件的标准交互，用户有强烈的心理预期
         if (
           altDragDuplicateRef.current.isDuplicating &&
           !altDragDuplicateRef.current.hasDuplicated &&
@@ -1127,7 +1129,7 @@ export function usePointerEngine(opts: {
             addElement(newEl)
             newIds.push(newId)
             
-            // 记录新元素的起始位置
+            // 记录新元素的起始位置（用于拖拽计算）
             if (el.type === 'stroke') {
               newStartPositions.set(newId, { 
                 x: (el as any).points[0]?.[0] ?? 0, 
@@ -1138,13 +1140,57 @@ export function usePointerEngine(opts: {
             }
           }
           
-          // 2. 选中新复制的元素（让用户拖拽的是新元素）
+          // 2. 关键修复: 将原始元素移回原位（撤销已发生的移动）
+          // 因为在复制发生前，原始元素已经跟随鼠标移动了一段距离
+          // 我们需要把它们移回 startPositions 记录的起始位置
+          const originalIds = altDragDuplicateRef.current.originalSelectedIds
+          const startPositions = dragRef.current.startPositions
+          
+          if (!startPositions) {
+            // 如果没有起始位置记录，直接跳过修复（理论上不会发生）
+            setSelectedIds(newIds)
+            dragRef.current.startPositions = newStartPositions
+            altDragDuplicateRef.current.hasDuplicated = true
+            return
+          }
+          
+          for (const id of originalIds) {
+            const el = st.idToElement.get(id)
+            if (!el) continue
+            
+            const startPos = startPositions.get(id)
+            if (!startPos) continue
+            
+            if (el.type === 'stroke') {
+              // 计算 stroke 当前位置与起始位置的偏移
+              const currentX = el.points[0]?.[0] ?? 0
+              const currentY = el.points[0]?.[1] ?? 0
+              const dx = startPos.x - currentX
+              const dy = startPos.y - currentY
+              
+              // 只有当确实有偏移时才移动
+              if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
+                moveElementById(id, dx, dy)
+              }
+            } else if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
+              // 计算元素当前位置与起始位置的偏移
+              const dx = startPos.x - el.x
+              const dy = startPos.y - el.y
+              
+              // 只有当确实有偏移时才移动
+              if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
+                moveElementById(id, dx, dy)
+              }
+            }
+          }
+          
+          // 3. 选中新复制的元素（让用户拖拽的是新元素）
           setSelectedIds(newIds)
           
-          // 3. 更新 dragRef 的 startPositions 为新元素的位置
+          // 4. 更新 dragRef 的 startPositions 为新元素的位置
           dragRef.current.startPositions = newStartPositions
           
-          // 4. 标记已复制，防止多次复制
+          // 5. 标记已复制，防止多次复制
           altDragDuplicateRef.current.hasDuplicated = true
         }
         
