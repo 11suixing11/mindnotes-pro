@@ -15,6 +15,10 @@ export interface StrokeElement {
   // 专业白板标准功能：选中元素后拖拽旋转手柄自由旋转
   // 用户痛点："无法调整手写笔迹/形状的角度，画斜线很困难"
   rotation?: number
+  // P24 新功能: 元素锁定 (来源 Figma / tldraw v5.1.0 专业设计工具标准)
+  // 专业设计工具标配：锁定元素防止误操作
+  // 用户痛点："背景元素经常被不小心移动/删除"
+  locked?: boolean
 }
 
 // P12 新功能: 箭头绑定 (来源 Excalidraw Issue #3412)
@@ -47,6 +51,8 @@ export interface ShapeElement {
   endBinding?: Binding
   // P17 新功能: 元素旋转
   rotation?: number
+  // P24 新功能: 元素锁定
+  locked?: boolean
 }
 
 export interface TextElement {
@@ -62,6 +68,8 @@ export interface TextElement {
   groupId?: string
   // P17 新功能: 元素旋转
   rotation?: number
+  // P24 新功能: 元素锁定
+  locked?: boolean
 }
 
 export interface ImageElement {
@@ -76,6 +84,8 @@ export interface ImageElement {
   groupId?: string
   // P17 新功能: 元素旋转
   rotation?: number
+  // P24 新功能: 元素锁定
+  locked?: boolean
 }
 
 export type CanvasElement = StrokeElement | ShapeElement | TextElement | ImageElement
@@ -88,6 +98,9 @@ export type UndoAction =
   | { type: 'erase'; before: CanvasElement[]; after: CanvasElement[] }
   | { type: 'group'; groupId: string; elementIds: string[]; beforeGroup: { id: string; oldGroupId?: string }[] }
   | { type: 'ungroup'; groupIds: string[]; beforeUngroup: { id: string; oldGroupId?: string }[] }
+  // P24 新功能: 元素锁定 - 撤销支持
+  | { type: 'lock'; elementIds: string[]; beforeLock: { id: string; wasLocked: boolean }[] }
+  | { type: 'unlock'; elementIds: string[]; beforeUnlock: { id: string; wasLocked: boolean }[] }
 export interface CanvasDoc {
   id: string
   title: string

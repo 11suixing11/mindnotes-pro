@@ -41,6 +41,12 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const distributeSelected = useAppStore((s) => s.distributeSelected)
   const setSelectedIds = useAppStore((s) => s.setSelectedIds)
   const clearAll = useAppStore((s) => s.clearAll)
+  // P24 新功能: 锁定/解锁元素
+  const lockSelected = useAppStore((s) => s.lockSelected)
+  const unlockSelected = useAppStore((s) => s.unlockSelected)
+  // 检查选中元素的锁定状态
+  const hasLockedElements = selectedElements.some((el) => el.locked)
+  const hasUnlockedElements = selectedElements.some((el) => !el.locked)
 
   // P17: 全选功能 - 选择所有元素
   const selectAll = useCallback(() => {
@@ -163,6 +169,27 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
           shortcut="Delete"
           danger
         />
+      )}
+
+      {/* P24 新功能: 锁定/解锁操作 (来源 Figma / tldraw v5.1.0 专业设计工具标准) */}
+      {hasSelection && (
+        <>
+          <MenuSeparator />
+          {hasUnlockedElements && (
+            <MenuItem
+              onClick={() => handleAction(lockSelected)}
+              label="锁定元素"
+              shortcut="Ctrl+L"
+            />
+          )}
+          {hasLockedElements && (
+            <MenuItem
+              onClick={() => handleAction(unlockSelected)}
+              label="解锁元素"
+              shortcut="Ctrl+Shift+L"
+            />
+          )}
+        </>
       )}
 
       {/* 分组操作 */}

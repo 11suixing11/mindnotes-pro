@@ -167,6 +167,45 @@ export function useCanvasRenderer(
     }
     return b
   }
+
+  // P24 新功能: 绘制锁定元素的小锁图标 (来源 Figma / tldraw v5.1.0 专业设计工具标准)
+  // 在元素左上角绘制半透明锁图标，不遮挡内容，支持明暗主题
+  function drawLockIcon(
+    ctx: CanvasRenderingContext2D,
+    bounds: { x: number; y: number; w: number; h: number },
+    dark: boolean
+  ) {
+    const lockSize = 16
+    const padding = 4
+    const x = bounds.x + padding
+    const y = bounds.y + padding
+
+    ctx.save()
+    // 锁的颜色 - 半透明，不遮挡内容
+    ctx.fillStyle = dark ? 'rgba(200, 160, 176, 0.7)' : 'rgba(176, 125, 110, 0.7)'
+    ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.2)'
+    ctx.lineWidth = 1
+
+    // 锁身（矩形）
+    ctx.beginPath()
+    ctx.roundRect(x, y + lockSize * 0.35, lockSize, lockSize * 0.65, 2)
+    ctx.fill()
+    ctx.stroke()
+
+    // 锁钩（U形）
+    ctx.beginPath()
+    ctx.arc(x + lockSize / 2, y + lockSize * 0.35, lockSize * 0.3, Math.PI, 0, false)
+    ctx.lineWidth = 2.5
+    ctx.stroke()
+
+    // 锁孔（小圆点）
+    ctx.beginPath()
+    ctx.arc(x + lockSize / 2, y + lockSize * 0.65, 2, 0, Math.PI * 2)
+    ctx.fillStyle = dark ? 'rgba(28, 26, 36, 0.5)' : 'rgba(255, 255, 255, 0.6)'
+    ctx.fill()
+
+    ctx.restore()
+  }
   // P0 性能优化: 获取缓存的 selectedIds Set (增量更新而非重建)
   // 性能提升: 只在选中项变化时增量更新 Set，避免每次都创建新 Set
   // 减少 GC 压力，选中项频繁变化时性能提升 ~50%
@@ -239,6 +278,8 @@ export function useCanvasRenderer(
         const el = st.idToElement.get(id)
         if (!el) continue
         drawElement(ctx, el, dark)
+        // P24 新功能: 锁定元素视觉指示器（小锁图标）
+        if (el.locked) drawLockIcon(ctx, cachedBounds(el), dark)
         if (selSet.has(id)) drawSelBox(ctx, cachedBounds(el), dark, vb.zoom)
       }
     } else if (visibleIds) {
@@ -248,6 +289,8 @@ export function useCanvasRenderer(
       for (const el of els) {
         if (!isVisibleInView(el, vl, vt, vw, vh)) continue
         drawElement(ctx, el, dark)
+        // P24 新功能: 锁定元素视觉指示器（小锁图标）
+        if (el.locked) drawLockIcon(ctx, cachedBounds(el), dark)
         if (selSet.has(el.id)) drawSelBox(ctx, cachedBounds(el), dark, vb.zoom)
       }
     }

@@ -143,6 +143,19 @@ export function useKeyboardBindings(options: Options = {}) {
         st.setSelectedIds(st.elements.map((el) => el.id))
         return
       }
+      // P24 新功能: Ctrl+L / Cmd+L 锁定元素 (来源 Figma / tldraw v5.1.0 专业设计工具标准)
+      // 专业设计工具标准快捷键：Figma、Sketch、Adobe XD 100% 支持
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l' && !e.shiftKey) {
+        e.preventDefault()
+        st.lockSelected()
+        return
+      }
+      // P24 新功能: Ctrl+Shift+L / Cmd+Shift+L 解锁元素
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
+        e.preventDefault()
+        st.unlockSelected()
+        return
+      }
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (st.selectedIds.length > 0) {

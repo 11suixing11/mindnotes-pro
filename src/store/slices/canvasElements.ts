@@ -47,6 +47,10 @@ export interface CanvasElementsActions {
   alignSelected: (alignment: AlignmentType) => void
   distributeSelected: (distribution: DistributionType) => void
   batchErase: (beforeSnap: CanvasElement[], added: CanvasElement[]) => void
+  // P24 新功能: 元素锁定 (来源 Figma / tldraw v5.1.0 专业设计工具标准)
+  // 专业设计工具标配：锁定元素防止误操作
+  lockSelected: () => void
+  unlockSelected: () => void
 }
 
 export function createCanvasElementsSlice(
@@ -176,6 +180,8 @@ export function createCanvasElementsSlice(
         idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
       }
       if (idx === undefined || idx < 0) return
+      // P24: 跳过锁定的元素，禁止删除
+      if (st.elements[idx].locked) return
       const el = st.elements[idx]
       const action: UndoAction = {
         type: 'remove',
@@ -204,7 +210,13 @@ export function createCanvasElementsSlice(
     removeElements: (ids) => {
       incrementSaveGeneration()
       const st = get()
-      const idSet = new Set(ids)
+      // P24: 过滤掉锁定的元素，禁止删除
+      const unlockedIds = ids.filter((id) => {
+        const el = st.idToElement.get(id)
+        return el && !el.locked
+      })
+      if (unlockedIds.length === 0) return
+      const idSet = new Set(unlockedIds)
       const items: { el: CanvasElement; index: number }[] = []
       st.elements.forEach((el: CanvasElement, i: number) => {
         if (idSet.has(el.id)) items.push({ el: shallowClone(el), index: i })
@@ -246,6 +258,8 @@ export function createCanvasElementsSlice(
         idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
       }
       if (idx === undefined || idx < 0) return
+      // P24: 跳过锁定的元素，禁止移动
+      if (st.elements[idx].locked) return
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
@@ -281,11 +295,18 @@ export function createCanvasElementsSlice(
       if (ids.length === 0) return
       incrementSaveGeneration()
 
-      const idSet = new Set(ids)
+      const st = get()
+      // P24: 过滤掉锁定的元素，禁止移动
+      const unlockedIds = ids.filter((id) => {
+        const el = st.idToElement.get(id)
+        return el && !el.locked
+      })
+      if (unlockedIds.length === 0) return
+
+      const idSet = new Set(unlockedIds)
       // P21 修复: 为批量移动添加撤销支持
       // 问题: 之前键盘微调后无法撤销，用户体验断裂
       // 解决方案: 移动前保存原始元素快照，创建 clear 类型的撤销动作
-      const st = get()
       const originalSnapshot = st.elements.map((e: CanvasElement) => 
         idSet.has(e.id) ? shallowClone(e) : e
       )
@@ -362,6 +383,8 @@ export function createCanvasElementsSlice(
         idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
       }
       if (idx === undefined || idx < 0) return
+      // P24: 跳过锁定的元素，禁止缩放
+      if (st.elements[idx].locked) return
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
@@ -395,6 +418,8 @@ export function createCanvasElementsSlice(
         idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
       }
       if (idx === undefined || idx < 0) return
+      // P24: 跳过锁定的元素，禁止旋转
+      if (st.elements[idx].locked) return
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
@@ -417,7 +442,14 @@ export function createCanvasElementsSlice(
       if (Math.abs(angleDelta) < 0.0001) return
       if (ids.length === 0) return
       incrementSaveGeneration()
-      const idSet = new Set(ids)
+      const st = get()
+      // P24: 过滤掉锁定的元素，禁止旋转
+      const unlockedIds = ids.filter((id) => {
+        const el = st.idToElement.get(id)
+        return el && !el.locked
+      })
+      if (unlockedIds.length === 0) return
+      const idSet = new Set(unlockedIds)
       set((s: any) => {
         let hasMatch = false
         for (const id of ids) {
@@ -823,6 +855,100 @@ export function createCanvasElementsSlice(
 
       // P0-3 优化: 重建索引后标记为干净
       _indexDirty = false
+      scheduleSave()
+    },
+
+    // P24 新功能: 锁定选中元素 (来源 Figma / tldraw v5.1.0 专业设计工具标准)
+    // 专业设计工具标配：锁定元素防止误操作
+    // 用户痛点："背景元素经常被不小心移动/删除"
+    lockSelected: () => {
+      incrementSaveGeneration()
+      const st = get()
+      const { elements, selectedIds } = st
+      if (selectedIds.length === 0) return
+
+      const selSet = new Set(selectedIds)
+      // 记录锁定前的状态用于撤销
+      const beforeLock = elements
+        .filter((el: CanvasElement) => selSet.has(el.id) && !el.locked)
+        .map((el: CanvasElement) => ({ id: el.id, wasLocked: !!el.locked }))
+
+      if (beforeLock.length === 0) return
+
+      const elementIds = beforeLock.map((item: { id: string; wasLocked: boolean }) => item.id)
+      const lockSet = new Set(elementIds)
+
+      // 更新选中元素的 locked 状态
+      const next = elements.map((el: CanvasElement) => {
+        if (lockSet.has(el.id)) {
+          const updated = { ...el, locked: true }
+          // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+          idToElement.set(el.id, updated)
+          st.idToElement.set(el.id, updated)
+          return updated
+        }
+        return el
+      })
+
+      const action: UndoAction = {
+        type: 'lock',
+        elementIds,
+        beforeLock,
+      }
+
+      set({
+        elements: next,
+        selectedIds,
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        redoStack: [],
+      })
+
+      scheduleSave()
+    },
+
+    // P24 新功能: 解锁选中元素 (来源 Figma / tldraw v5.1.0 专业设计工具标准)
+    unlockSelected: () => {
+      incrementSaveGeneration()
+      const st = get()
+      const { elements, selectedIds } = st
+      if (selectedIds.length === 0) return
+
+      const selSet = new Set(selectedIds)
+      // 记录解锁前的状态用于撤销
+      const beforeUnlock = elements
+        .filter((el: CanvasElement) => selSet.has(el.id) && el.locked)
+        .map((el: CanvasElement) => ({ id: el.id, wasLocked: !!el.locked }))
+
+      if (beforeUnlock.length === 0) return
+
+      const elementIds = beforeUnlock.map((item: { id: string; wasLocked: boolean }) => item.id)
+      const unlockSet = new Set(elementIds)
+
+      // 更新选中元素的 locked 状态
+      const next = elements.map((el: CanvasElement) => {
+        if (unlockSet.has(el.id)) {
+          const updated = { ...el, locked: false }
+          // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+          idToElement.set(el.id, updated)
+          st.idToElement.set(el.id, updated)
+          return updated
+        }
+        return el
+      })
+
+      const action: UndoAction = {
+        type: 'unlock',
+        elementIds,
+        beforeUnlock,
+      }
+
+      set({
+        elements: next,
+        selectedIds,
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        redoStack: [],
+      })
+
       scheduleSave()
     },
   }
