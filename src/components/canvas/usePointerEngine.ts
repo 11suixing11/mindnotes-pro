@@ -168,6 +168,23 @@ export function usePointerEngine(opts: {
     originalTool: null,
     wasPanning: false,
   })
+  // P7 新功能: Alt/Option + 拖拽复制选中元素 (来源 tldraw v5.0.0 / Figma 标准交互)
+  // 匹配所有专业设计工具标准：按住 Alt 拖拽元素直接复制
+  // 支持拖拽过程中动态按下/松开 Alt 键切换复制模式
+  const altDragDuplicateRef = useRef<{
+    enabled: boolean
+    // 是否正在进行 Alt 复制拖拽
+    isDuplicating: boolean
+    // 原始选中的元素 ID（用于检测是否需要复制）
+    originalSelectedIds: string[]
+    // 是否已执行过复制（防止多次复制）
+    hasDuplicated: boolean
+  }>({
+    enabled: true,
+    isDuplicating: false,
+    originalSelectedIds: [],
+    hasDuplicated: false,
+  })
 
   const mouseRef = useRef<{ x: number; y: number } | null>(null)
 
@@ -605,6 +622,26 @@ export function usePointerEngine(opts: {
           const screenX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
           const screenY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
           
+          // P7 新功能: Alt/Option + 拖拽复制选中元素 (来源 tldraw v5.0.0 / Figma 标准交互)
+          // 检测 Alt 键是否按下，初始化复制状态
+          const altPressed = 'altKey' in e && (e as MouseEvent).altKey
+          if (altPressed && altDragDuplicateRef.current.enabled) {
+            altDragDuplicateRef.current = {
+              ...altDragDuplicateRef.current,
+              isDuplicating: true,
+              originalSelectedIds: [...ids],
+              hasDuplicated: false,
+            }
+          } else {
+            // 重置 Alt 复制状态
+            altDragDuplicateRef.current = {
+              ...altDragDuplicateRef.current,
+              isDuplicating: false,
+              originalSelectedIds: [],
+              hasDuplicated: false,
+            }
+          }
+          
           dragRef.current = { 
             x: pos.x, 
             y: pos.y, 
@@ -909,6 +946,55 @@ export function usePointerEngine(opts: {
           dragRef.current.dragStarted = true
         }
         
+        // P7 新功能: Alt/Option + 拖拽复制选中元素 (来源 tldraw v5.0.0 / Figma 标准交互)
+        // 在拖拽开始后执行复制：复制原始选中元素，选中新元素，更新 startPositions
+        if (
+          altDragDuplicateRef.current.isDuplicating &&
+          !altDragDuplicateRef.current.hasDuplicated &&
+          altDragDuplicateRef.current.originalSelectedIds.length > 0
+        ) {
+          const st = useAppStore.getState()
+          const newIds: string[] = []
+          const newStartPositions = new Map<string, { x: number; y: number }>()
+          
+          // 1. 复制所有原始选中元素
+          for (const id of altDragDuplicateRef.current.originalSelectedIds) {
+            const el = st.idToElement.get(id)
+            if (!el) continue
+            
+            // 深拷贝元素，生成新 ID
+            const newId = `${el.type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+            const newEl = { ...el, id: newId }
+            
+            // stroke 类型需要特殊处理 points 数组
+            if (el.type === 'stroke') {
+              ;(newEl as any).points = el.points.map((p: number[]) => [...p])
+            }
+            
+            addElement(newEl)
+            newIds.push(newId)
+            
+            // 记录新元素的起始位置
+            if (el.type === 'stroke') {
+              newStartPositions.set(newId, { 
+                x: (el as any).points[0]?.[0] ?? 0, 
+                y: (el as any).points[0]?.[1] ?? 0 
+              })
+            } else if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
+              newStartPositions.set(newId, { x: (el as any).x, y: (el as any).y })
+            }
+          }
+          
+          // 2. 选中新复制的元素（让用户拖拽的是新元素）
+          setSelectedIds(newIds)
+          
+          // 3. 更新 dragRef 的 startPositions 为新元素的位置
+          dragRef.current.startPositions = newStartPositions
+          
+          // 4. 标记已复制，防止多次复制
+          altDragDuplicateRef.current.hasDuplicated = true
+        }
+        
         let dx = pos.x - dragRef.current.x,
           dy = pos.y - dragRef.current.y
         const st = useAppStore.getState()
@@ -1136,6 +1222,13 @@ export function usePointerEngine(opts: {
         snapLinesRef.current = { x: [], y: [] }
         // 重置 Lasso 拖拽状态
         marqueeToDragRef.current.selectionComplete = false
+        // P7 新功能: 重置 Alt 拖拽复制状态
+        altDragDuplicateRef.current = {
+          ...altDragDuplicateRef.current,
+          isDuplicating: false,
+          originalSelectedIds: [],
+          hasDuplicated: false,
+        }
         scheduleRedraw()
         return
       }
