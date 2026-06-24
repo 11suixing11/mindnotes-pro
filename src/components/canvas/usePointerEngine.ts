@@ -128,13 +128,14 @@ export function usePointerEngine(opts: {
     origElement: CanvasElement | null
   } | null>(null)
   // P19 新功能: 旋转拖拽状态 (来源 Figma / tldraw / Excalidraw 标准交互)
+  // P20 更新: 支持批量旋转多个元素
   const rotateRef = useRef<{
-    id: string
+    ids: string[]
     startX: number
     startY: number
-    origRotation: number
-    centerX: number
-    centerY: number
+    origRotations: Map<string, number>
+    commonCenterX: number
+    commonCenterY: number
   } | null>(null)
   const marqueeRef = useRef<{ startX: number; startY: number; endX: number; endY: number } | null>(
     null
@@ -603,18 +604,35 @@ export function usePointerEngine(opts: {
           const el = useAppStore.getState().idToElement.get(h.id)
           if (el) {
             // P19 新功能: 旋转手柄交互 (来源 Figma / tldraw / Excalidraw 标准交互)
+            // P20 更新: 支持批量旋转多个选中元素
             if (h.isRotate) {
+              const st = useAppStore.getState()
+              const selectedIds = st.selectedIds.length > 0 ? st.selectedIds : [h.id]
+              
+              // 计算所有选中元素的共同中心点（用于批量旋转）
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+              const origRotations = new Map<string, number>()
+              
+              for (const id of selectedIds) {
+                const selEl = st.idToElement.get(id)
+                if (!selEl) continue
+                const b = cachedBounds(selEl)
+                minX = Math.min(minX, b.x)
+                minY = Math.min(minY, b.y)
+                maxX = Math.max(maxX, b.x + b.w)
+                maxY = Math.max(maxY, b.y + b.h)
+                origRotations.set(id, (selEl as any).rotation || 0)
+              }
+              
               // 初始化旋转状态
-              const b = cachedBounds(el)
               rotateRef.current = {
-                id: h.id,
+                ids: selectedIds,
                 startX: pos.x,
                 startY: pos.y,
-                // 元素当前旋转角度（默认为0）
-                origRotation: (el as any).rotation || 0,
-                // 计算元素中心点（旋转锚点）
-                centerX: b.x + b.w / 2,
-                centerY: b.y + b.h / 2,
+                origRotations,
+                // 计算共同中心点（所有选中元素的边界框中心）
+                commonCenterX: (minX + maxX) / 2,
+                commonCenterY: (minY + maxY) / 2,
               }
             } else {
               // 缩放手柄
@@ -937,16 +955,17 @@ export function usePointerEngine(opts: {
         return
       }
       // P19 新功能: 旋转拖拽交互 (来源 Figma / tldraw / Excalidraw 标准交互)
+      // P20 更新: 支持批量旋转多个选中元素
       // 专业设计工具标准：拖拽选择框顶部的旋转手柄旋转元素
       if (curTool === 'select' && rotateRef.current) {
-        const { id, startX, startY, origRotation, centerX, centerY } = rotateRef.current
+        const { ids, startX, startY, origRotations, commonCenterX, commonCenterY } = rotateRef.current
         
-        // 计算起始向量：从中心点到起始拖拽点
-        const startVecX = startX - centerX
-        const startVecY = startY - centerY
-        // 计算当前向量：从中心点到当前鼠标位置
-        const currentVecX = pos.x - centerX
-        const currentVecY = pos.y - centerY
+        // 计算起始向量：从共同中心点到起始拖拽点
+        const startVecX = startX - commonCenterX
+        const startVecY = startY - commonCenterY
+        // 计算当前向量：从共同中心点到当前鼠标位置
+        const currentVecX = pos.x - commonCenterX
+        const currentVecY = pos.y - commonCenterY
         
         // 使用 Math.atan2 计算两个向量的角度
         const startAngle = Math.atan2(startVecY, startVecX)
@@ -961,17 +980,17 @@ export function usePointerEngine(opts: {
         if (shiftPressed) {
           // 15° = π/12 弧度
           const step = Math.PI / 12
-          const totalAngle = origRotation + angleDelta
+          // 获取第一个元素的原始旋转角度作为参考（所有元素相对旋转相同角度）
+          const firstOrigRotation = origRotations.get(ids[0]) || 0
+          const totalAngle = firstOrigRotation + angleDelta
           // 对齐到最近的 15° 步进
           const snappedAngle = Math.round(totalAngle / step) * step
-          angleDelta = snappedAngle - origRotation
+          angleDelta = snappedAngle - firstOrigRotation
         }
         
-        // 计算最终旋转角度
-        const newRotation = origRotation + angleDelta
-        
-        // 调用 store 中的旋转方法
-        useAppStore.getState().rotateElementById(id, newRotation, centerX, centerY)
+        // P20 新功能: 批量旋转所有选中元素
+        // 所有元素围绕共同中心点旋转相同角度
+        useAppStore.getState().rotateElementsById(ids, angleDelta, commonCenterX, commonCenterY)
         
         scheduleRedraw()
         return
@@ -1382,27 +1401,28 @@ export function usePointerEngine(opts: {
           }
         }
         // P19 新功能: 旋转结束处理 (来源 Figma / tldraw / Excalidraw 标准交互)
+        // P20 更新: 支持批量旋转多个元素的撤销
         // 记录旋转操作到撤销栈
         const rotateCur = rotateRef.current
         if (rotateCur) {
-          const afterEl = useAppStore.getState().idToElement.get(rotateCur.id)
-          if (afterEl) {
-            // 保存旋转前的元素状态到撤销栈
-            useAppStore.getState().pushUndo({
-              type: 'clear',
-              snapshot: useAppStore
-                .getState()
-                .elements.map((e) => {
-                  if (e.id === rotateCur.id) {
-                    // 创建旋转前的元素副本
-                    const origEl = { ...e }
-                    ;(origEl as any).rotation = rotateCur.origRotation
-                    return origEl
-                  }
-                  return e
-                }),
-            })
-          }
+          const { ids, origRotations } = rotateCur
+          const idSet = new Set(ids)
+          // 保存所有旋转元素的原始状态到撤销栈
+          useAppStore.getState().pushUndo({
+            type: 'clear',
+            snapshot: useAppStore
+              .getState()
+              .elements.map((e) => {
+                if (idSet.has(e.id)) {
+                  // 创建旋转前的元素副本
+                  const origEl = { ...e }
+                  const origRotation = origRotations.get(e.id) || 0
+                  ;(origEl as any).rotation = origRotation
+                  return origEl
+                }
+                return e
+              }),
+          })
         }
         dragRef.current = null
         resizeRef.current = null

@@ -35,6 +35,8 @@ export interface CanvasElementsActions {
   resizeElementById: (id: string, ax: number, ay: number, sx: number, sy: number) => void
   // P17 新功能: 元素旋转
   rotateElementById: (id: string, angle: number, cx?: number, cy?: number) => void
+  // P20 新功能: 批量旋转多个元素
+  rotateElementsById: (ids: string[], angleDelta: number, commonCenterX?: number, commonCenterY?: number) => void
   clearAll: () => void
   setSelectedIds: (ids: string[]) => void
   copySelected: () => void
@@ -389,6 +391,40 @@ export function createCanvasElementsSlice(
         s.idToElement.set(id, newEl)
         spatialIndex.update(newEl)
 
+        return { elements: next }
+      })
+      scheduleSave()
+    },
+    // P20 新功能: 批量旋转多个元素 (来源 Figma / tldraw / Excalidraw 标准功能)
+    // 专业设计工具标准：选中多个元素，拖拽旋转手柄一起旋转
+    rotateElementsById: (ids, angleDelta, commonCenterX, commonCenterY) => {
+      if (Math.abs(angleDelta) < 0.0001) return
+      if (ids.length === 0) return
+      incrementSaveGeneration()
+      const idSet = new Set(ids)
+      set((s: any) => {
+        let hasMatch = false
+        for (const id of ids) {
+          if (idToElement.has(id)) {
+            hasMatch = true
+            break
+          }
+        }
+        if (!hasMatch) return s
+        const next = [...s.elements]
+        let changed = false
+        for (let i = 0; i < next.length; i++) {
+          const el = next[i]
+          if (idSet.has(el.id)) {
+            const newEl = rotateElement(el, angleDelta, commonCenterX, commonCenterY)
+            next[i] = newEl
+            idToElement.set(el.id, newEl)
+            s.idToElement.set(el.id, newEl)
+            spatialIndex.update(newEl)
+            changed = true
+          }
+        }
+        if (!changed) return s
         return { elements: next }
       })
       scheduleSave()
