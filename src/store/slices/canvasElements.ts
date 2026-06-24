@@ -35,6 +35,7 @@ export interface CanvasElementsActions {
   setSelectedIds: (ids: string[]) => void
   copySelected: () => void
   paste: () => void
+  duplicateSelected: () => void
   batchErase: (beforeSnap: CanvasElement[], added: CanvasElement[]) => void
 }
 
@@ -377,6 +378,43 @@ export function createCanvasElementsSlice(
       })
       // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
       pasted.forEach((el: CanvasElement, i: number) => {
+        idToElement.set(el.id, el)
+        st.idToElement.set(el.id, el)
+        idToIndex.set(el.id, baseIndex + i)
+        st.idToIndex.set(el.id, baseIndex + i)
+        spatialIndex.insert(el)
+      })
+      scheduleSave()
+    },
+
+    // P9 新功能: Ctrl+D 快速复制 (来源 Excalidraw / Figma / tldraw 标准快捷键)
+    // 一键复制选中元素并偏移 20px，比 Ctrl+C/V 少一次按键操作
+    // 专业设计软件标准：Excalidraw、Figma、tldraw、Sketch 100% 支持此快捷键
+    duplicateSelected: () => {
+      incrementSaveGeneration()
+      const st = get()
+      const { elements, selectedIds } = st
+      if (selectedIds.length === 0) return
+      const now = Date.now()
+      const selSet = new Set(selectedIds)
+      const newIds: string[] = []
+      const duplicated = elements
+        .filter((e: CanvasElement) => selSet.has(e.id))
+        .map((el: CanvasElement, i: number) => {
+          const newId = `${el.type}-${now}-${i}`
+          newIds.push(newId)
+          return moveElement({ ...el, id: newId }, 20, 20)
+        })
+      const action: UndoAction = { type: 'add', ids: newIds, els: duplicated.map(shallowClone) }
+      const baseIndex = elements.length
+      set({
+        elements: [...elements, ...duplicated],
+        selectedIds: newIds,
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        redoStack: [],
+      })
+      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+      duplicated.forEach((el: CanvasElement, i: number) => {
         idToElement.set(el.id, el)
         st.idToElement.set(el.id, el)
         idToIndex.set(el.id, baseIndex + i)
