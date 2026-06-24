@@ -1,7 +1,8 @@
 import type { ToolType, BrushType } from '../types'
 import { scheduleSave } from '../saveManager'
 
-const MAX_COLOR_HISTORY = 5
+// 扩展颜色历史记录 - 基于 tldraw #1665 用户需求
+const MAX_COLOR_HISTORY = 8
 
 export interface ToolSettingsState {
   tool: ToolType

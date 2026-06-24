@@ -23,14 +23,26 @@ describe('ColorPicker', () => {
 
   it('renders color buttons', () => {
     render(<ColorPicker />)
-    expect(screen.getByLabelText('黑色')).toBeTruthy()
-    expect(screen.getByLabelText('棕色')).toBeTruthy()
-    expect(screen.getByLabelText('紫色')).toBeTruthy()
-    expect(screen.getByLabelText('粉色')).toBeTruthy()
+    // 灰度色系
+    expect(screen.getByLabelText('纯黑')).toBeTruthy()
+    expect(screen.getByLabelText('深灰')).toBeTruthy()
+    expect(screen.getByLabelText('中灰')).toBeTruthy()
+    // 基础色系
+    expect(screen.getByLabelText('红色')).toBeTruthy()
+    expect(screen.getByLabelText('橙色')).toBeTruthy()
     expect(screen.getByLabelText('绿色')).toBeTruthy()
     expect(screen.getByLabelText('蓝色')).toBeTruthy()
-    expect(screen.getByLabelText('米色')).toBeTruthy()
-    expect(screen.getByLabelText('浅蓝')).toBeTruthy()
+    expect(screen.getByLabelText('紫色')).toBeTruthy()
+    expect(screen.getByLabelText('棕色')).toBeTruthy()
+    // 亮色系
+    expect(screen.getByLabelText('亮红')).toBeTruthy()
+    expect(screen.getByLabelText('亮黄')).toBeTruthy()
+    expect(screen.getByLabelText('亮绿')).toBeTruthy()
+    // 深色系
+    expect(screen.getByLabelText('深红')).toBeTruthy()
+    expect(screen.getByLabelText('深绿')).toBeTruthy()
+    expect(screen.getByLabelText('深蓝')).toBeTruthy()
+    expect(screen.getByLabelText('深紫')).toBeTruthy()
   })
 
   it('renders custom color button', () => {
@@ -68,8 +80,8 @@ describe('ColorPicker', () => {
 
   it('highlights active color', () => {
     render(<ColorPicker />)
-    const blackBtn = screen.getByLabelText('黑色')
-    expect(blackBtn.className).toContain('on')
+    const brownBtn = screen.getByLabelText('棕色')
+    expect(brownBtn.className).toContain('on')
   })
 
   it('highlights active size', () => {
