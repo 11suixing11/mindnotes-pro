@@ -59,6 +59,7 @@ function createMockCtx(): CanvasRenderingContext2D {
     roundRect: vi.fn(),
     scale: vi.fn(),
     translate: vi.fn(),
+    rotate: vi.fn(),
     strokeStyle: '',
     fillStyle: '',
     lineWidth: 0,
@@ -110,7 +111,8 @@ describe('canvasDrawing', () => {
         size: 2,
       }
       drawElement(ctx, el, false)
-      expect(ctx.beginPath).toHaveBeenCalled()
+      // 使用 Path2D 缓存时不会调用 beginPath，但一定会调用 stroke
+      expect(ctx.stroke).toHaveBeenCalled()
     })
 
     it('should dispatch to drawTextEl for text elements', () => {
@@ -295,7 +297,7 @@ describe('canvasDrawing', () => {
         size: 2,
       }
       drawShapeEl(ctx, el)
-      expect(ctx.beginPath).toHaveBeenCalled()
+      // 使用 Path2D 缓存时不会调用 beginPath，但一定会调用 stroke
       expect(ctx.stroke).toHaveBeenCalled()
     })
 
@@ -329,7 +331,8 @@ describe('canvasDrawing', () => {
         size: 2,
       }
       drawShapeEl(ctx, el)
-      expect(ctx.ellipse).toHaveBeenCalled()
+      // 使用 Path2D 缓存时路径在 Path2D 对象上构建，不会调用 ctx.ellipse，但一定会调用 stroke
+      expect(ctx.stroke).toHaveBeenCalled()
     })
 
     it('should draw line', () => {
