@@ -1,7 +1,8 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useState } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useThemeStore } from '../../store/useThemeStore'
+import { ContextMenu } from '../context-menu'
 import type { DrawState } from './useCanvasRenderer'
 import { useTextEditor } from './useTextEditor'
 import { useKeyboardBindings } from './useKeyboardBindings'
@@ -12,6 +13,8 @@ import { usePointerEngine } from './usePointerEngine'
 export default function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  // P17 新功能: 右键上下文菜单状态
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
 
   const getDrawStateRef = useRef<() => DrawState>(() => ({
     drawing: false,
@@ -34,17 +37,14 @@ export default function Canvas() {
   // a) useTextEditor
   const { editingText, setEditingText, textRef, commitTextEdit, startEditText } =
     useTextEditor(canvasRef)
-
   // d) useCanvasRenderer (needs getDrawStateRef before pointer engine)
   const { scheduleRedraw, cachedBounds, canvasSize, dpr } = useCanvasRenderer(
     canvasRef,
     containerRef,
     () => getDrawStateRef.current()
   )
-
   // c) useSelectionEngine
   const { findSnaps, snapLinesRef } = useSelectionEngine(cachedBounds)
-
   // e) usePointerEngine
   const { getCursor, copySelectedToSystemClipboard, getDrawState } = usePointerEngine({
     canvasRef,
@@ -62,18 +62,26 @@ export default function Canvas() {
   // b) useKeyboardBindings
   useKeyboardBindings({ copySelectedToSystemClipboard })
 
+  // P17 新功能: 右键上下文菜单处理
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY })
+  }, [])
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null)
+  }, [])
+
   // Drag-and-drop image support
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     const files = e.dataTransfer.files
     if (!files || files.length === 0) return
-
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
     const vb = useViewStore.getState().viewBox
-
     for (const file of Array.from(files)) {
       if (!file.type.startsWith('image/')) continue
       const reader = new FileReader()
@@ -110,6 +118,7 @@ export default function Canvas() {
   }, [])
 
   const { isDarkMode } = useThemeStore()
+
   // P1-1/P1-2 性能优化: 移除不必要的订阅
   // - bgColor: 已由 drawCanvasBackground() 绘制，CSS 重复
   // - viewBox: 仅 text editor 需要，且仅在 editingText 非空时读取
@@ -122,6 +131,7 @@ export default function Canvas() {
         style={{ zIndex: 10 }}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
+        onContextMenu={handleContextMenu}
       >
         <canvas
           id="main-canvas"
@@ -188,6 +198,10 @@ export default function Canvas() {
             )
           })()}
       </div>
+      {/* P17 新功能: 右键上下文菜单 */}
+      {contextMenu && (
+        <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />
+      )}
     </>
   )
 }
