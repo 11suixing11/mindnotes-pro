@@ -1388,7 +1388,8 @@ export function usePointerEngine(opts: {
     }
     canvas.addEventListener('contextmenu', onContextMenu)
 
-    // Double-click to edit text
+    // P12 新功能: 双击文本元素进入编辑模式 (来源 tldraw / Figma / Excalidraw 标准交互)
+    // 匹配所有专业设计工具标准：双击文本直接进入编辑，无需先切换到文本工具
     const onDblClick = (e: MouseEvent) => {
       if (useAppStore.getState().tool !== 'select') return
       const pos = getPos(e)
@@ -1407,6 +1408,9 @@ export function usePointerEngine(opts: {
           content: el.content,
           fontSize: el.fontSize,
         })
+        // P12 修复: 双击后自动聚焦文本框，用户可直接开始输入
+        // 与文本工具点击行为保持一致
+        setTimeout(() => textRef.current?.focus(), 50)
       }
     }
     canvas.addEventListener('wheel', onWheel, { passive: false })
