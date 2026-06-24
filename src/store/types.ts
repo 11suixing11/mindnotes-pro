@@ -188,3 +188,98 @@ export function resizeElement(
     height: el.height * sy,
   }
 }
+
+// P16 新功能: 元素对齐 (来源 Excalidraw Issue #2267 / Figma 标准功能)
+// 专业白板/设计工具标配：选中多个元素后一键对齐
+// 用户痛点："手动对齐5个矩形花了3分钟，还不齐" - 社区高频反馈
+export type AlignmentType =
+  | 'alignLeft'
+  | 'alignCenterH'
+  | 'alignRight'
+  | 'alignTop'
+  | 'alignCenterV'
+  | 'alignBottom'
+
+/**
+ * 计算多个元素的公共边界
+ * 用于确定对齐的参考基准线
+ */
+export function getCommonBounds(elements: CanvasElement[]): {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+  centerX: number
+  centerY: number
+} {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity
+
+  for (const el of elements) {
+    const bounds = elementBounds(el)
+    minX = Math.min(minX, bounds.x)
+    minY = Math.min(minY, bounds.y)
+    maxX = Math.max(maxX, bounds.x + bounds.w)
+    maxY = Math.max(maxY, bounds.y + bounds.h)
+  }
+
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+    centerX: (minX + maxX) / 2,
+    centerY: (minY + maxY) / 2,
+  }
+}
+
+/**
+ * 对齐多个选中元素
+ * 支持 6 种对齐方式：左对齐、水平居中、右对齐、顶对齐、垂直居中、底对齐
+ * 完全对齐 Figma / Excalidraw / tldraw 的专业行为
+ */
+export function alignElements(
+  elements: CanvasElement[],
+  selectedIds: string[],
+  alignment: AlignmentType
+): CanvasElement[] {
+  if (selectedIds.length < 2) return elements
+
+  const selectedSet = new Set(selectedIds)
+  const selectedElements = elements.filter((el) => selectedSet.has(el.id))
+  const bounds = getCommonBounds(selectedElements)
+
+  return elements.map((el) => {
+    if (!selectedSet.has(el.id)) return el
+
+    const elBounds = elementBounds(el)
+    let dx = 0,
+      dy = 0
+
+    switch (alignment) {
+      case 'alignLeft':
+        dx = bounds.minX - elBounds.x
+        break
+      case 'alignCenterH':
+        dx = bounds.centerX - (elBounds.x + elBounds.w / 2)
+        break
+      case 'alignRight':
+        dx = bounds.maxX - (elBounds.x + elBounds.w)
+        break
+      case 'alignTop':
+        dy = bounds.minY - elBounds.y
+        break
+      case 'alignCenterV':
+        dy = bounds.centerY - (elBounds.y + elBounds.h / 2)
+        break
+      case 'alignBottom':
+        dy = bounds.maxY - (elBounds.y + elBounds.h)
+        break
+    }
+
+    if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return el
+    return moveElement(el, dx, dy)
+  })
+}

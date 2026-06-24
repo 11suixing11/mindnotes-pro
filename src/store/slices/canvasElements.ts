@@ -1,5 +1,5 @@
-import type { CanvasElement, UndoAction } from '../types'
-import { moveElement, resizeElement } from '../types'
+import type { AlignmentType, CanvasElement, UndoAction } from '../types'
+import { alignElements, moveElement, resizeElement } from '../types'
 import { shallowClone, snapshot } from '../helpers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import { MAX_HISTORY } from './history'
@@ -40,6 +40,7 @@ export interface CanvasElementsActions {
   duplicateSelected: () => void
   groupSelected: () => void
   ungroupSelected: () => void
+  alignSelected: (alignment: AlignmentType) => void
   batchErase: (beforeSnap: CanvasElement[], added: CanvasElement[]) => void
 }
 
@@ -542,6 +543,62 @@ export function createCanvasElementsSlice(
         type: 'ungroup',
         groupIds: Array.from(affectedGroups),
         beforeUngroup,
+      }
+
+      set({
+        elements: next,
+        selectedIds,
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        redoStack: [],
+      })
+
+      scheduleSave()
+    },
+
+    // P16 新功能: 元素对齐 (来源 Excalidraw Issue #2267 / Figma 标准功能)
+    // 专业白板/设计工具标配：选中多个元素后一键对齐
+    // 支持 6 种对齐方式：左对齐、水平居中、右对齐、顶对齐、垂直居中、底对齐
+    alignSelected: (alignment) => {
+      incrementSaveGeneration()
+      const st = get()
+      const { elements, selectedIds } = st
+      if (selectedIds.length < 2) return
+
+      // 记录对齐前的位置用于撤销
+      const selSet = new Set(selectedIds)
+      const beforeMove = elements
+        .filter((el: CanvasElement) => selSet.has(el.id))
+        .map((el: CanvasElement) => shallowClone(el))
+
+      // 执行对齐
+      const next = alignElements(elements, selectedIds, alignment)
+
+      // 检查是否有实际变化
+      let hasChanges = false
+      for (let i = 0; i < elements.length; i++) {
+        if (elements[i] !== next[i]) {
+          hasChanges = true
+          break
+        }
+      }
+      if (!hasChanges) return
+
+      // 更新 ID 映射和空间索引
+      for (let i = 0; i < next.length; i++) {
+        const el = next[i]
+        if (selSet.has(el.id)) {
+          idToElement.set(el.id, el)
+          st.idToElement.set(el.id, el)
+          idToIndex.set(el.id, i)
+          st.idToIndex.set(el.id, i)
+          spatialIndex.update(el)
+        }
+      }
+
+      // 构建撤销操作：记录对齐前的位置
+      const action: UndoAction = {
+        type: 'move',
+        deltas: beforeMove.map((el: CanvasElement) => ({ id: el.id, dx: 0, dy: 0 })),
       }
 
       set({
