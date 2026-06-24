@@ -820,7 +820,7 @@ export function usePointerEngine(opts: {
           scheduleRedraw()
           return
         }
-        const nsx = Math.max(
+        let nsx = Math.max(
           0.1,
           Math.min(
             10,
@@ -829,7 +829,7 @@ export function usePointerEngine(opts: {
               : (ax - targetX) / (ax - orig[0] || 1)
           )
         )
-        const nsy = Math.max(
+        let nsy = Math.max(
           0.1,
           Math.min(
             10,
@@ -838,6 +838,19 @@ export function usePointerEngine(opts: {
               : (ay - targetY) / (ay - orig[1] || 1)
           )
         )
+        
+        // P8 新功能: Shift + 拖拽等比例缩放 (来源 Figma / tldraw / Excalidraw 标准交互)
+        // 匹配所有专业设计工具标准：按住 Shift 键调整大小时保持原始宽高比
+        // 取 x/y 缩放比例绝对值较大的作为统一比例，确保视觉上的自然缩放
+        const shiftPressed = 'shiftKey' in e && (e as MouseEvent).shiftKey
+        if (shiftPressed) {
+          // 使用绝对值较大的缩放比例，确保用户拖拽方向主导缩放
+          const scale = Math.max(Math.abs(nsx), Math.abs(nsy))
+          // 保持符号（方向）一致
+          nsx = scale * Math.sign(nsx)
+          nsy = scale * Math.sign(nsy)
+        }
+        
         resizeElementById(id, ax, ay, nsx, nsy)
         scheduleRedraw()
         return
