@@ -4,7 +4,7 @@ import { useViewStore } from '../../store/useViewStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useThemeStore } from '../../store/useThemeStore'
 import type { StrokeElement } from '../../store/types'
-import type { CanvasElement, ShapeElement, TextElement, ShapeKind } from '../../store/types'
+import type { CanvasElement, ShapeElement, TextElement, ShapeKind, ToolType } from '../../store/types'
 import { simplifyPts, distToSegSq, elementBounds } from '../../canvas/canvasUtils'
 import { drawElement } from '../../canvas/canvasDrawing'
 // 物理擦除引擎集成
@@ -155,6 +155,20 @@ export function usePointerEngine(opts: {
     moved: false,
   })
   const RIGHT_CLICK_PAN_THRESHOLD = 3 // 像素，超过此距离才进入平移模式
+  // P6 新功能: 按住 Space 键临时切换 Pan 工具 (来源 tldraw v5.0.0)
+  // 匹配 Figma/Sketch 专业设计工具标准交互：按住 Space 临时平移，松开恢复原工具
+  const spacePanRef = useRef<{
+    enabled: boolean
+    isActive: boolean
+    originalTool: string | null
+    wasPanning: boolean
+  }>({
+    enabled: true,
+    isActive: false,
+    originalTool: null,
+    wasPanning: false,
+  })
+
   const mouseRef = useRef<{ x: number; y: number } | null>(null)
 
   const getPos = useCallback(
@@ -526,6 +540,16 @@ export function usePointerEngine(opts: {
         }
         // 先启动平移模式，后续在 handleMove 中检测是否真正移动
         startPan(screenX, screenY)
+        return
+      }
+
+      // P6 新功能: 按住 Space 键临时切换 Pan 工具 (来源 tldraw v5.0.0)
+      // 如果 Space 键已激活，直接进入平移模式
+      if (spacePanRef.current.isActive && spacePanRef.current.enabled) {
+        const cx = "touches" in e ? e.touches[0].clientX : (e as MouseEvent).clientX
+        const cy = "touches" in e ? e.touches[0].clientY : (e as MouseEvent).clientY
+        spacePanRef.current.wasPanning = true
+        startPan(cx, cy)
         return
       }
 
@@ -1159,6 +1183,49 @@ export function usePointerEngine(opts: {
       useViewStore.getState().setViewBox({ x: newX, y: newY, zoom: newZoom })
       scheduleRedraw()
     }
+    // P6 新功能: 按住 Space 键临时切换 Pan 工具 (来源 tldraw v5.0.0)
+    // 监听 Space 键按下/松开，临时切换到平移模式
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space" && !e.repeat && spacePanRef.current.enabled) {
+        // 防止 Space 键触发滚动
+        e.preventDefault()
+        // 只在未激活时才切换，避免重复触发
+        if (!spacePanRef.current.isActive) {
+          const st = useAppStore.getState()
+          // 保存当前工具并切换到 pan
+          spacePanRef.current.originalTool = st.tool
+          spacePanRef.current.isActive = true
+          spacePanRef.current.wasPanning = false
+          st.setTool("pan" as ToolType)
+          scheduleRedraw()
+        }
+      }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space" && spacePanRef.current.enabled) {
+        if (spacePanRef.current.isActive) {
+          // 如果正在平移，先结束平移
+          if (spacePanRef.current.wasPanning || useViewStore.getState().isPanning) {
+            endPan()
+          }
+          // 恢复原来的工具
+          const originalTool = spacePanRef.current.originalTool
+          if (originalTool) {
+            useAppStore.getState().setTool(originalTool as ToolType)
+          }
+          // 重置状态
+          spacePanRef.current.isActive = false
+          spacePanRef.current.originalTool = null
+          spacePanRef.current.wasPanning = false
+          scheduleRedraw()
+        }
+      }
+    }
+    // 使用 window 监听，确保焦点在 canvas 外也能工作
+    window.addEventListener("keydown", onKeyDown)
+    window.addEventListener("keyup", onKeyUp)
+
+
     canvas.addEventListener('mousedown', onStart)
     canvas.addEventListener('mousemove', onMove)
     canvas.addEventListener('mouseup', onEnd)
@@ -1200,6 +1267,9 @@ export function usePointerEngine(opts: {
     canvas.addEventListener('touchmove', onMove, { passive: false })
     canvas.addEventListener('touchend', onEnd, { passive: false })
     return () => {
+      window.removeEventListener("keydown", onKeyDown)
+      window.removeEventListener("keyup", onKeyUp)
+
       canvas.removeEventListener('mousedown', onStart)
       canvas.removeEventListener('mousemove', onMove)
       canvas.removeEventListener('mouseup', onEnd)
