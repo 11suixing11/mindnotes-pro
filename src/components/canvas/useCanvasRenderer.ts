@@ -21,6 +21,9 @@ export interface DrawState {
   currentPts: number[][]
   currentShape: ShapeElement | null
   mousePos: { x: number; y: number } | null
+  // P23 新功能: 旋转角度显示 (来源 Figma / tldraw 专业体验)
+  // 拖拽旋转手柄时显示当前旋转角度值（度数）
+  rotationAngle: { angle: number; centerX: number; centerY: number } | null
   marquee: { startX: number; startY: number; endX: number; endY: number } | null
   snapLines: { x: number[]; y: number[] }
   tool: string
@@ -456,6 +459,41 @@ export function useCanvasRenderer(
       ctx.setLineDash([])
       ctx.restore()
     }
+    // P23 新功能: 旋转角度显示 (来源 Figma / tldraw 专业体验)
+    // 拖拽旋转手柄时在元素中心上方显示当前旋转角度值
+    // 用户价值：精确控制旋转角度，专业设计时必备
+    if (ds.rotationAngle) {
+      const { angle, centerX, centerY } = ds.rotationAngle
+      // 转换为屏幕坐标，在元素中心上方显示
+      const screenX = (centerX - vb.x) * vb.zoom
+      const screenY = (centerY - vb.y) * vb.zoom - 50 // 在元素上方 50 像素显示
+      
+      ctx.save()
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      
+      // 背景圆角矩形
+      const text = `${Math.round(angle)}°`
+      ctx.font = '500 14px "Noto Sans SC", sans-serif'
+      const metrics = ctx.measureText(text)
+      const padding = 8
+      const bgW = metrics.width + padding * 2
+      const bgH = 28
+      
+      // 半透明背景
+      ctx.fillStyle = dark ? 'rgba(28, 26, 36, 0.9)' : 'rgba(255, 255, 255, 0.95)'
+      ctx.beginPath()
+      ctx.roundRect(screenX - bgW / 2, screenY - bgH / 2, bgW, bgH, 6)
+      ctx.fill()
+      
+      // 角度文本
+      ctx.fillStyle = dark ? '#C8A0B0' : '#B07D6E'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(text, screenX, screenY)
+      
+      ctx.restore()
+    }
+    
     drawMinimap(ctx, st.elements, cachedBounds, vb, canvasSize, dark, st.bgColor)
     drawZoomLevel(ctx, vb, canvasSize, dark, dpr)
   }, [dpr, canvasSize, getOrCreateEC, renderElementsToCache, canvasRef, getDrawState])

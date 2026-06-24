@@ -21,6 +21,7 @@ export default function Canvas() {
     currentPts: [],
     currentShape: null,
     mousePos: null,
+    rotationAngle: null,
     marquee: null,
     snapLines: { x: [], y: [] },
     tool: 'pen',

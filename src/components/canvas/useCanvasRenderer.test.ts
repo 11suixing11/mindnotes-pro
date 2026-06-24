@@ -47,6 +47,7 @@ function createDefaultDrawState(): DrawState {
     currentPts: [],
     currentShape: null,
     mousePos: null,
+    rotationAngle: null,
     marquee: null,
     snapLines: { x: [], y: [] },
     tool: 'pen',
