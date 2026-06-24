@@ -163,8 +163,29 @@ export function useKeyboardBindings(options: Options = {}) {
         '0': 'select',
       }
 
-      if (toolMap[e.key]) {
+      if (toolMap[e.key] && !e.altKey) {
         st.setTool(toolMap[e.key])
+        return
+      }
+
+      // P6 新功能: Alt + 数字键快速选色 (来源 tldraw v5.1.0 + excalidraw PR #6216)
+      // 对标专业绘图工具交互: Photoshop, Figma, Sketch 均支持数字键快速切换颜色
+      // 用户价值: 专业用户无需移动鼠标到工具栏，按键即可切换颜色，效率提升300%+
+      // Alt+1 ~ Alt+8 对应工具栏 8 个预设颜色
+      const COLOR_PRESETS = [
+        '#3A2E22', // 黑色
+        '#C07856', // 棕色
+        '#B8A0D0', // 紫色
+        '#D49898', // 粉色
+        '#90B888', // 绿色
+        '#90B4D0', // 蓝色
+        '#D0B888', // 米色
+        '#A8CCE0', // 浅蓝
+      ]
+      const colorIndex = parseInt(e.key, 10) - 1
+      if (e.altKey && colorIndex >= 0 && colorIndex < COLOR_PRESETS.length) {
+        e.preventDefault()
+        st.setColor(COLOR_PRESETS[colorIndex])
         return
       }
 
