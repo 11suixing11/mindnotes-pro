@@ -1,8 +1,71 @@
 import type { CanvasElement, UndoAction } from '../types'
 import { shallowClone, snapshot, applyMoveDelta, reverseMoveDelta } from '../helpers'
 import { scheduleSave } from '../saveManager'
+import { getContentBounds } from '../../canvas/canvasUtils'
+import { useViewStore } from '../useViewStore'
 
 export const MAX_HISTORY = 50
+
+/**
+ * P12: 从撤销操作中提取受影响的元素 ID
+ * 用于 undo/redo 后自动定位并选中受影响元素
+ * 来源: tldraw/tldraw PR #2293 - "zoom to affected shapes after undo/redo"
+ * 用户价值: 大画布场景下，用户撤销后能立即看到变化位置，无需手动寻找
+ */
+function getAffectedElementIds(action: UndoAction): string[] {
+  switch (action.type) {
+    case 'add':
+      return action.ids ?? []
+    case 'remove':
+      return action.items.map((i) => i.el.id)
+    case 'move':
+      return action.deltas.map((d) => d.id)
+    case 'erase':
+      // 擦除操作比较前后状态的差异
+      const beforeIds = new Set(action.before.map((e) => e.id))
+      const afterIds = new Set(action.after.map((e) => e.id))
+      // 返回被删除或新增的元素 ID
+      return [...new Set([...beforeIds, ...afterIds])]
+    case 'group':
+      return action.elementIds
+    case 'ungroup':
+      return action.beforeUngroup.map((g) => g.id)
+    case 'clear':
+      return action.snapshot.map((e) => e.id)
+    default:
+      return []
+  }
+}
+
+/**
+ * P12: undo/redo 后自动定位到受影响元素并选中
+ * 专业设计软件标准行为（Figma、Sketch、tldraw）
+ * 提升核心操作体验，用户无需在大画布上寻找撤销后的变化
+ */
+function focusAffectedElements(
+  affectedIds: string[],
+  currentElements: CanvasElement[],
+  setFn: (state: { selectedIds: string[] }) => void
+) {
+  // 只选中当前存在的元素
+  const existingIds = affectedIds.filter((id) =>
+    currentElements.some((el) => el.id === id)
+  )
+
+  if (existingIds.length > 0) {
+    // 选中受影响的元素
+    setFn({ selectedIds: existingIds })
+
+    // 计算受影响元素的边界并定位
+    const affectedElements = currentElements.filter((el) =>
+      existingIds.includes(el.id)
+    )
+    const bounds = getContentBounds(affectedElements, 40)
+    if (bounds) {
+      useViewStore.getState().zoomToFit(bounds)
+    }
+  }
+}
 
 export interface HistoryState {
   undoStack: UndoAction[]
@@ -109,8 +172,12 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         elements: next,
         redoStack: [...redoStack, redoAction],
         undoStack: undoStack.slice(0, -1),
-        selectedIds: [],
       })
+
+      // P12: undo 后自动定位并选中受影响元素
+      // 来源: tldraw/tldraw PR #2293 - "zoom to affected shapes after undo/redo"
+      const affectedIds = getAffectedElementIds(action)
+      focusAffectedElements(affectedIds, next, set)
       // P0-8/P0-9 性能优化: undo 后增量更新索引，而非全量重建
       // 性能提升: undo/redo 从 O(n log n) → O(k log n)，k 为变化元素数量
       // 大画布场景 undo/redo 性能提升 5-20x
@@ -237,8 +304,12 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         elements: next,
         redoStack: redoStack.slice(0, -1),
         undoStack: [...undoStack, undoAction],
-        selectedIds: [],
       })
+
+      // P12: redo 后自动定位并选中受影响元素
+      // 来源: tldraw/tldraw PR #2293 - "zoom to affected shapes after undo/redo"
+      const affectedIds = getAffectedElementIds(action)
+      focusAffectedElements(affectedIds, next, set)
       // P0-8/P0-9 性能优化: redo 后增量更新索引，而非全量重建
       // 性能提升: undo/redo 从 O(n log n) → O(k log n)，k 为变化元素数量
       // 大画布场景 undo/redo 性能提升 5-20x
