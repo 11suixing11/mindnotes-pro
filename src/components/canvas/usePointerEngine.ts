@@ -127,6 +127,15 @@ export function usePointerEngine(opts: {
     origBounds: { x: number; y: number; w: number; h: number }
     origElement: CanvasElement | null
   } | null>(null)
+  // P19 新功能: 旋转拖拽状态 (来源 Figma / tldraw / Excalidraw 标准交互)
+  const rotateRef = useRef<{
+    id: string
+    startX: number
+    startY: number
+    origRotation: number
+    centerX: number
+    centerY: number
+  } | null>(null)
   const marqueeRef = useRef<{ startX: number; startY: number; endX: number; endY: number } | null>(
     null
   )
@@ -356,15 +365,25 @@ export function usePointerEngine(opts: {
       handle: number
       id: string
       bounds: { x: number; y: number; w: number; h: number }
+      isRotate?: boolean
     } | null => {
       const state = useAppStore.getState()
       const selIds = state.selectedIds
       if (selIds.length === 0) return null
-      const hr = 10 / (useViewStore.getState().viewBox.zoom || 1)
+      const hr = 12 / (useViewStore.getState().viewBox.zoom || 1)
+      // P19 新功能: 旋转手柄命中检测 (来源 Figma / tldraw / Excalidraw 标准交互)
+      // 专业设计工具标准：选择框顶部中央的旋转手柄
+      const rotateHr = 15 / (useViewStore.getState().viewBox.zoom || 1)
       for (const selId of selIds) {
         const el = state.idToElement.get(selId)
         if (!el) continue
         const b = cachedBounds(el)
+        // P19: 先检测旋转手柄（优先级高于缩放手柄）
+        const rotateHandleX = b.x + b.w / 2
+        const rotateHandleY = b.y - 20 / (useViewStore.getState().viewBox.zoom || 1)
+        if (Math.abs(px - rotateHandleX) < rotateHr && Math.abs(py - rotateHandleY) < rotateHr) {
+          return { handle: 99, id: selId, bounds: b, isRotate: true }
+        }
         const corners: [number, number][] = [
           [b.x, b.y],
           [b.x + b.w, b.y],
@@ -582,14 +601,32 @@ export function usePointerEngine(opts: {
         const h = hitHandle(pos.x, pos.y)
         if (h) {
           const el = useAppStore.getState().idToElement.get(h.id)
-          if (el)
-            resizeRef.current = {
-              ...h,
-              startX: pos.x,
-              startY: pos.y,
-              origBounds: cachedBounds(el),
-              origElement: { ...el } as CanvasElement,
+          if (el) {
+            // P19 新功能: 旋转手柄交互 (来源 Figma / tldraw / Excalidraw 标准交互)
+            if (h.isRotate) {
+              // 初始化旋转状态
+              const b = cachedBounds(el)
+              rotateRef.current = {
+                id: h.id,
+                startX: pos.x,
+                startY: pos.y,
+                // 元素当前旋转角度（默认为0）
+                origRotation: (el as any).rotation || 0,
+                // 计算元素中心点（旋转锚点）
+                centerX: b.x + b.w / 2,
+                centerY: b.y + b.h / 2,
+              }
+            } else {
+              // 缩放手柄
+              resizeRef.current = {
+                ...h,
+                startX: pos.x,
+                startY: pos.y,
+                origBounds: cachedBounds(el),
+                origElement: { ...el } as CanvasElement,
+              }
             }
+          }
           scheduleRedraw()
           return
         }
@@ -896,6 +933,46 @@ export function usePointerEngine(opts: {
         }
         
         resizeElementById(id, ax, ay, nsx, nsy)
+        scheduleRedraw()
+        return
+      }
+      // P19 新功能: 旋转拖拽交互 (来源 Figma / tldraw / Excalidraw 标准交互)
+      // 专业设计工具标准：拖拽选择框顶部的旋转手柄旋转元素
+      if (curTool === 'select' && rotateRef.current) {
+        const { id, startX, startY, origRotation, centerX, centerY } = rotateRef.current
+        
+        // 计算起始向量：从中心点到起始拖拽点
+        const startVecX = startX - centerX
+        const startVecY = startY - centerY
+        // 计算当前向量：从中心点到当前鼠标位置
+        const currentVecX = pos.x - centerX
+        const currentVecY = pos.y - centerY
+        
+        // 使用 Math.atan2 计算两个向量的角度
+        const startAngle = Math.atan2(startVecY, startVecX)
+        const currentAngle = Math.atan2(currentVecY, currentVecX)
+        
+        // 计算角度差（弧度）
+        let angleDelta = currentAngle - startAngle
+        
+        // P19 新功能: Shift 键步进旋转 (来源 Figma / tldraw / Excalidraw 标准交互)
+        // 专业设计工具标准：按住 Shift 键时旋转对齐到 15° 的整数倍
+        const shiftPressed = 'shiftKey' in e && (e as MouseEvent).shiftKey
+        if (shiftPressed) {
+          // 15° = π/12 弧度
+          const step = Math.PI / 12
+          const totalAngle = origRotation + angleDelta
+          // 对齐到最近的 15° 步进
+          const snappedAngle = Math.round(totalAngle / step) * step
+          angleDelta = snappedAngle - origRotation
+        }
+        
+        // 计算最终旋转角度
+        const newRotation = origRotation + angleDelta
+        
+        // 调用 store 中的旋转方法
+        useAppStore.getState().rotateElementById(id, newRotation, centerX, centerY)
+        
         scheduleRedraw()
         return
       }
@@ -1304,8 +1381,32 @@ export function usePointerEngine(opts: {
             })
           }
         }
+        // P19 新功能: 旋转结束处理 (来源 Figma / tldraw / Excalidraw 标准交互)
+        // 记录旋转操作到撤销栈
+        const rotateCur = rotateRef.current
+        if (rotateCur) {
+          const afterEl = useAppStore.getState().idToElement.get(rotateCur.id)
+          if (afterEl) {
+            // 保存旋转前的元素状态到撤销栈
+            useAppStore.getState().pushUndo({
+              type: 'clear',
+              snapshot: useAppStore
+                .getState()
+                .elements.map((e) => {
+                  if (e.id === rotateCur.id) {
+                    // 创建旋转前的元素副本
+                    const origEl = { ...e }
+                    ;(origEl as any).rotation = rotateCur.origRotation
+                    return origEl
+                  }
+                  return e
+                }),
+            })
+          }
+        }
         dragRef.current = null
         resizeRef.current = null
+        rotateRef.current = null
         snapLinesRef.current = { x: [], y: [] }
         // 重置 Lasso 拖拽状态
         marqueeToDragRef.current.selectionComplete = false
