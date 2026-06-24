@@ -686,6 +686,55 @@ export function drawSelBox(
   ctx.arc(b.x, b.y + b.h, cornerR, 0, Math.PI * 2)
   ctx.arc(b.x + b.w, b.y + b.h, cornerR, 0, Math.PI * 2)
   ctx.fill()
+
+  // P19 新功能: 旋转手柄 (来源 Figma / tldraw / Excalidraw 标准交互)
+  // 专业设计工具标准：选择框顶部中央显示旋转手柄，拖拽即可旋转
+  const rotateHandleR = 5 / zoom
+  const rotateHandleY = b.y - 20 / zoom
+  const rotateHandleX = b.x + b.w / 2
+  const connectorLength = 12 / zoom
+
+  // 连接线：从选择框顶部到旋转手柄
+  ctx.strokeStyle = primary
+  ctx.lineWidth = 1.2 / zoom
+  ctx.shadowBlur = 0
+  ctx.beginPath()
+  ctx.moveTo(rotateHandleX, b.y)
+  ctx.lineTo(rotateHandleX, rotateHandleY - connectorLength)
+  ctx.stroke()
+
+  // 旋转手柄圆圈
+  ctx.shadowColor = isDarkMode ? 'rgba(200,160,176,0.4)' : 'rgba(176,125,110,0.4)'
+  ctx.shadowBlur = 6 / zoom
+  ctx.beginPath()
+  ctx.arc(rotateHandleX, rotateHandleY, rotateHandleR, 0, Math.PI * 2)
+  ctx.fillStyle = primary
+  ctx.fill()
+
+  // 旋转图标（圆形箭头指示）
+  ctx.shadowBlur = 0
+  ctx.strokeStyle = isDarkMode ? '#1C1A24' : '#ffffff'
+  ctx.lineWidth = 1.5 / zoom
+  ctx.beginPath()
+  ctx.arc(rotateHandleX, rotateHandleY, rotateHandleR * 0.5, -0.5, Math.PI * 1.2)
+  ctx.stroke()
+  // 箭头尖端
+  ctx.beginPath()
+  ctx.moveTo(
+    rotateHandleX + rotateHandleR * 0.5 * Math.cos(Math.PI * 1.2),
+    rotateHandleY + rotateHandleR * 0.5 * Math.sin(Math.PI * 1.2)
+  )
+  ctx.lineTo(
+    rotateHandleX + rotateHandleR * 0.7 * Math.cos(Math.PI * 1.1),
+    rotateHandleY + rotateHandleR * 0.7 * Math.sin(Math.PI * 1.1)
+  )
+  ctx.lineTo(
+    rotateHandleX + rotateHandleR * 0.5 * Math.cos(Math.PI * 1.0),
+    rotateHandleY + rotateHandleR * 0.5 * Math.sin(Math.PI * 1.0)
+  )
+  ctx.fillStyle = isDarkMode ? '#1C1A24' : '#ffffff'
+  ctx.fill()
+
   ctx.restore()
 }
 export function drawMonetGrid(
