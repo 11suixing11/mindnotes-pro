@@ -99,6 +99,27 @@ export default function App() {
         e.preventDefault()
         useAppStore.getState().ungroupSelected()
       }
+
+      // P11 新功能: 数字键 1-9 快速切换工具 (Excalidraw / Miro / tldraw 标准快捷键)
+      // 专业白板软件标准交互：一键切换绘图工具，无需移动鼠标点击工具栏
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && /^[1-9]$/.test(e.key)) {
+        e.preventDefault()
+        const toolMap: Record<string, import('./store/types').ToolType | undefined> = {
+          '1': 'select',
+          '2': 'pen',
+          '3': 'text',
+          '4': 'rectangle',
+          '5': 'circle',
+          '6': 'line',
+          '7': 'arrow',
+          '8': 'eraser',
+          '9': 'pan',
+        }
+        const targetTool = toolMap[e.key]
+        if (targetTool) {
+          useAppStore.getState().setTool(targetTool)
+        }
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -235,7 +256,7 @@ export default function App() {
 
           {hintsVisible && (
             <div className="hints panel">
-              <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> Redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
+              <kbd>1-9</kbd> Switch Tools · <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> Redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
               Copy/Paste · <kbd>Ctrl</kbd>+<kbd>D</kbd> Duplicate · <kbd>Ctrl</kbd>+<kbd>G</kbd> Group ·{' '}
               <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> Ungroup · <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all · Scroll to zoom ·{' '}
               <kbd>Del</kbd> Delete · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> Screen Pen
