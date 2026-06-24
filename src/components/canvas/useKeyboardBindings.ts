@@ -187,6 +187,14 @@ export function useKeyboardBindings(options: Options = {}) {
         return
       }
 
+      // P5 新功能: 样式吸管 (Q 键) - 来源 tldraw v5.1.0 PR #8917
+      // 按 Q 键激活/取消样式吸管模式，悬停在元素上预览样式，点击应用样式
+      if ((e.key === 'q' || e.key === 'Q') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault()
+        st.toggleStyleEyedropper()
+        return
+      }
+
       if (e.key === '+' || e.key === '=') {
         e.preventDefault()
         vs.zoomIn()

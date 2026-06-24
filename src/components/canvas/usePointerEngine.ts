@@ -22,6 +22,8 @@ const CURSOR_MAP: Record<string, string> = {
   arrow: 'crosshair',
   line: 'crosshair',
 }
+// P5 样式吸管光标 - 使用 CSS 自定义光标
+const EYEDROPPER_CURSOR = 'crosshair'
 
 export function usePointerEngine(opts: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>
@@ -492,10 +494,22 @@ export function usePointerEngine(opts: {
     (e: MouseEvent | TouchEvent) => {
       e.preventDefault()
       const pos = getPos(e)
-      const curTool = useAppStore.getState().tool,
-        curColor = useAppStore.getState().color,
-        curSize = useAppStore.getState().size,
-        curFillColor = useAppStore.getState().fillColor,
+      const st = useAppStore.getState()
+
+      // P5 新功能: 样式吸管点击应用 (来源 tldraw v5.1.0 PR #8917)
+      // 当样式吸管激活时，点击元素应用其样式
+      if (st.styleEyedropperActive) {
+        const hitId = hitTest(pos.x, pos.y)
+        if (hitId) {
+          st.applyStyleFromElement(hitId)
+        }
+        return
+      }
+
+      const curTool = st.tool,
+        curColor = st.color,
+        curSize = st.size,
+        curFillColor = st.fillColor,
         curVB = useViewStore.getState().viewBox
 
       // P4 新功能: 右键拖拽平移画布 (来源 tldraw v5.0.0 PR #8501)
@@ -651,6 +665,39 @@ export function usePointerEngine(opts: {
       e.preventDefault()
       const pos = getPos(e)
       mouseRef.current = pos
+
+      // P5 新功能: 样式吸管悬停预览 (来源 tldraw v5.1.0 PR #8917)
+      // 当样式吸管激活时，检测悬停元素并更新样式预览
+      const st = useAppStore.getState()
+      if (st.styleEyedropperActive) {
+        const hitId = hitTest(pos.x, pos.y)
+        if (hitId) {
+          const el = st.idToElement.get(hitId)
+          if (el) {
+            if (el.type === 'stroke') {
+              st.setStyleEyedropperPreview({
+                color: el.color,
+                size: el.size,
+                brush: el.brush,
+              })
+            } else if (el.type === 'shape') {
+              st.setStyleEyedropperPreview({
+                color: el.color,
+                size: el.size,
+                brush: 'pen',
+              })
+            } else if (el.type === 'text') {
+              st.setStyleEyedropperPreview({
+                color: el.color,
+                size: Math.round(el.fontSize / 4),
+                brush: 'pen',
+              })
+            }
+          }
+        } else {
+          st.setStyleEyedropperPreview(null)
+        }
+      }
 
       // P4 新功能: 右键拖拽平移画布 (来源 tldraw v5.0.0 PR #8501)
       // 检测右键拖动，超过阈值则进入平移模式
@@ -1250,6 +1297,10 @@ export function usePointerEngine(opts: {
   // Cursor (P2-3: 使用模块级常量，避免每次渲染重建)
   const cursorMap = CURSOR_MAP
   function getCursor() {
+    // P5 新功能: 样式吸管激活时显示特殊光标 (来源 tldraw v5.1.0 PR #8917)
+    if (useAppStore.getState().styleEyedropperActive) {
+      return EYEDROPPER_CURSOR
+    }
     if (useViewStore.getState().isPanning) return 'grabbing'
     if (useAppStore.getState().tool === 'select' && mouseRef.current) {
       const h = hitHandle(mouseRef.current.x, mouseRef.current.y)
