@@ -594,16 +594,58 @@ export function usePointerEngine(opts: {
         const hit = hitTest(pos.x, pos.y)
         if (hit) {
           const st = useAppStore.getState()
-          const ids = st.selectedIds.includes(hit) ? st.selectedIds : [hit]
+          // P10: 组选择逻辑 - 点击组内元素时选中整个组
+          // 来源: Figma / tldraw 标准行为
+          const hitEl = st.idToElement.get(hit)
+          let effectiveHit = hit
+          let groupMembers: string[] = []
+          
+          // 如果点击的元素属于某个组，选中整个组
+          if (hitEl?.groupId) {
+            const groupId = hitEl.groupId
+            // 收集该组的所有成员
+            for (const el of st.elements) {
+              if (el.groupId === groupId) {
+                groupMembers.push(el.id)
+              }
+            }
+            // 如果组内成员都已选中，则使用原点击元素（允许单独选择）
+            // 否则选中整个组
+            const allGroupSelected = groupMembers.every(id => st.selectedIds.includes(id))
+            if (!allGroupSelected && groupMembers.length > 0) {
+              effectiveHit = groupMembers[0]
+            }
+          }
+          
+          const ids = st.selectedIds.includes(effectiveHit) 
+            ? st.selectedIds 
+            : (groupMembers.length > 0 ? groupMembers : [effectiveHit])
+            
           if (e.shiftKey) {
             // Shift+click: toggle in selection
-            if (st.selectedIds.includes(hit)) {
+            if (groupMembers.length > 0) {
+              // Shift+点击组元素: 切换整个组的选中状态
+              const allSelected = groupMembers.every(id => st.selectedIds.includes(id))
+              if (allSelected) {
+                setSelectedIds(st.selectedIds.filter((id) => !groupMembers.includes(id)))
+              } else {
+                setSelectedIds([...new Set([...st.selectedIds, ...groupMembers])])
+              }
+            } else if (st.selectedIds.includes(hit)) {
               setSelectedIds(st.selectedIds.filter((id) => id !== hit))
             } else {
               setSelectedIds([...st.selectedIds, hit])
             }
           } else {
-            if (!st.selectedIds.includes(hit)) setSelectedIds([hit])
+            if (groupMembers.length > 0) {
+              // 点击组元素: 选中整个组
+              const allGroupSelected = groupMembers.every(id => st.selectedIds.includes(id))
+              if (!allGroupSelected) {
+                setSelectedIds(groupMembers)
+              }
+            } else if (!st.selectedIds.includes(hit)) {
+              setSelectedIds([hit])
+            }
           }
           const startPositions = new Map<string, { x: number; y: number }>()
           // P1-6 修复: 使用 idToElement O(1) 查找替代遍历所有 elements
