@@ -1388,19 +1388,25 @@ export function usePointerEngine(opts: {
     }
     canvas.addEventListener('contextmenu', onContextMenu)
 
-    // P12 新功能: 双击文本元素进入编辑模式 (来源 tldraw / Figma / Excalidraw 标准交互)
-    // 匹配所有专业设计工具标准：双击文本直接进入编辑，无需先切换到文本工具
+    // P12-P13 新功能: 双击交互体系 (来源 tldraw / Figma / Excalidraw 标准交互)
+    // P12: 双击文本元素进入编辑模式
+    // P13: 双击形状内部添加文本 (来源 Excalidraw Issue #2056)
+    // 匹配所有专业设计工具标准：双击直接操作，无需切换工具
     const onDblClick = (e: MouseEvent) => {
       if (useAppStore.getState().tool !== 'select') return
       const pos = getPos(e)
       const hitId = hitTest(pos.x, pos.y)
       if (!hitId) return
       const el = useAppStore.getState().idToElement.get(hitId)
-      if (el && el.type === 'text') {
-        const canvas = canvasRef.current
-        if (!canvas) return
-        const rect = canvas.getBoundingClientRect()
-        const vb = useViewStore.getState().viewBox
+      if (!el) return
+      
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const rect = canvas.getBoundingClientRect()
+      const vb = useViewStore.getState().viewBox
+      
+      // P12: 双击文本元素进入编辑模式
+      if (el.type === 'text') {
         const screenX = (el.x - vb.x) * vb.zoom + rect.left
         const screenY = (el.y - vb.y) * vb.zoom + rect.top
         startEditText(el.x, el.y, screenX, screenY, el.color, {
@@ -1408,8 +1414,22 @@ export function usePointerEngine(opts: {
           content: el.content,
           fontSize: el.fontSize,
         })
-        // P12 修复: 双击后自动聚焦文本框，用户可直接开始输入
-        // 与文本工具点击行为保持一致
+        setTimeout(() => textRef.current?.focus(), 50)
+      }
+      // P13 新功能: 双击形状内部添加文本 (来源 Excalidraw Issue #2056 / Figma 标准交互)
+      // 用户画完矩形/圆形后，直接双击即可添加标注文本，无需切换到文本工具
+      // 文本自动居中放置在形状中心，符合流程图/架构图的标准用法
+      else if (el.type === 'shape') {
+        const b = cachedBounds(el)
+        // 计算形状中心点（文本居中放置）
+        const textX = b.x + b.w / 2
+        const textY = b.y + b.h / 2
+        const screenX = (textX - vb.x) * vb.zoom + rect.left
+        const screenY = (textY - vb.y) * vb.zoom + rect.top
+        
+        // 使用形状的颜色作为文本颜色，保持视觉一致性
+        // 默认字号 16，与工具栏默认一致
+        startEditText(textX, textY, screenX, screenY, el.color)
         setTimeout(() => textRef.current?.focus(), 50)
       }
     }
