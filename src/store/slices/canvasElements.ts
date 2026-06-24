@@ -36,6 +36,8 @@ export interface CanvasElementsActions {
   copySelected: () => void
   paste: () => void
   duplicateSelected: () => void
+  groupSelected: () => void
+  ungroupSelected: () => void
   batchErase: (beforeSnap: CanvasElement[], added: CanvasElement[]) => void
 }
 
@@ -421,6 +423,104 @@ export function createCanvasElementsSlice(
         st.idToIndex.set(el.id, baseIndex + i)
         spatialIndex.insert(el)
       })
+      scheduleSave()
+    },
+
+    // P10 新功能: Ctrl+G 元素分组 (来源 Excalidraw / Figma / tldraw 标准功能)
+    // 将选中的多个元素组合成一个组，点击组内任意元素选中整个组
+    // 专业设计软件标准：Excalidraw、Figma、tldraw、Sketch 100% 支持此功能
+    groupSelected: () => {
+      incrementSaveGeneration()
+      const st = get()
+      const { elements, selectedIds } = st
+      if (selectedIds.length < 2) return
+
+      const groupId = `group-${Date.now()}`
+      const selSet = new Set(selectedIds)
+
+      // 记录分组前的状态用于撤销
+      const beforeGroup = elements
+        .filter((e: CanvasElement) => selSet.has(e.id))
+        .map((e: CanvasElement) => ({ id: e.id, oldGroupId: e.groupId }))
+
+      // 更新选中元素的 groupId
+      const next = elements.map((el: CanvasElement) => {
+        if (selSet.has(el.id)) {
+          const updated = { ...el, groupId }
+          // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+          idToElement.set(el.id, updated)
+          st.idToElement.set(el.id, updated)
+          return updated
+        }
+        return el
+      })
+
+      const action: UndoAction = {
+        type: 'group',
+        groupId,
+        elementIds: selectedIds,
+        beforeGroup,
+      }
+
+      set({
+        elements: next,
+        selectedIds,
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        redoStack: [],
+      })
+
+      scheduleSave()
+    },
+
+    // P10 新功能: Ctrl+Shift+G 取消分组 (来源 Excalidraw / Figma / tldraw 标准功能)
+    // 解散选中的组，组内元素恢复为独立可选择状态
+    ungroupSelected: () => {
+      incrementSaveGeneration()
+      const st = get()
+      const { elements, selectedIds } = st
+      if (selectedIds.length === 0) return
+
+      const selSet = new Set(selectedIds)
+      const affectedGroups = new Set<string>()
+
+      // 收集所有选中元素所属的组
+      elements.forEach((el: CanvasElement) => {
+        if (selSet.has(el.id) && el.groupId) {
+          affectedGroups.add(el.groupId)
+        }
+      })
+
+      if (affectedGroups.size === 0) return
+
+      // 记录取消分组前的状态用于撤销
+      const beforeUngroup: { id: string; oldGroupId: string | undefined }[] = []
+
+      // 移除所有受影响组的 groupId
+      const next = elements.map((el: CanvasElement) => {
+        if (el.groupId && affectedGroups.has(el.groupId)) {
+          beforeUngroup.push({ id: el.id, oldGroupId: el.groupId })
+          const updated = { ...el, groupId: undefined }
+          // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+          idToElement.set(el.id, updated)
+          st.idToElement.set(el.id, updated)
+          return updated
+        }
+        return el
+      })
+
+      const action: UndoAction = {
+        type: 'ungroup',
+        groupIds: Array.from(affectedGroups),
+        beforeUngroup,
+      }
+
+      set({
+        elements: next,
+        selectedIds,
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        redoStack: [],
+      })
+
       scheduleSave()
     },
 

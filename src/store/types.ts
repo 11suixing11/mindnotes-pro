@@ -10,6 +10,7 @@ export interface StrokeElement {
   size: number
   brush: BrushType
   opacity?: number
+  groupId?: string
 }
 
 export interface ShapeElement {
@@ -23,6 +24,7 @@ export interface ShapeElement {
   color: string
   size: number
   fillColor?: string
+  groupId?: string
 }
 
 export interface TextElement {
@@ -35,6 +37,7 @@ export interface TextElement {
   content: string
   fontSize: number
   color: string
+  groupId?: string
 }
 
 export interface ImageElement {
@@ -46,6 +49,7 @@ export interface ImageElement {
   height: number
   dataUrl: string
   opacity?: number
+  groupId?: string
 }
 
 export type CanvasElement = StrokeElement | ShapeElement | TextElement | ImageElement
@@ -56,6 +60,8 @@ export type UndoAction =
   | { type: 'clear'; snapshot: CanvasElement[] }
   | { type: 'move'; deltas: { id: string; dx: number; dy: number }[] }
   | { type: 'erase'; before: CanvasElement[]; after: CanvasElement[] }
+  | { type: 'group'; groupId: string; elementIds: string[]; beforeGroup: { id: string; oldGroupId?: string }[] }
+  | { type: 'ungroup'; groupIds: string[]; beforeUngroup: { id: string; oldGroupId?: string }[] }
 export interface CanvasDoc {
   id: string
   title: string

@@ -69,6 +69,37 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           before: snapshot(action.before),
           after: snapshot(action.after),
         }
+      } else if (action.type === 'group') {
+        // P10: 撤销分组 - 恢复元素分组前的 groupId 状态
+        const restoreMap = new Map(action.beforeGroup.map((g: { id: string; oldGroupId?: string }) => [g.id, g.oldGroupId]))
+        next = elements.map((el: CanvasElement) => {
+          if (restoreMap.has(el.id)) {
+            const oldGroupId = restoreMap.get(el.id)
+            return { ...el, groupId: oldGroupId }
+          }
+          return el
+        })
+        redoAction = {
+          type: 'group',
+          groupId: action.groupId,
+          elementIds: action.elementIds,
+          beforeGroup: action.beforeGroup.map((g: { id: string; oldGroupId?: string }) => ({ ...g })),
+        }
+      } else if (action.type === 'ungroup') {
+        // P10: 撤销取消分组 - 恢复元素的 groupId
+        const restoreMap = new Map(action.beforeUngroup.map((g: { id: string; oldGroupId?: string }) => [g.id, g.oldGroupId]))
+        next = elements.map((el: CanvasElement) => {
+          if (restoreMap.has(el.id)) {
+            const oldGroupId = restoreMap.get(el.id)
+            return { ...el, groupId: oldGroupId }
+          }
+          return el
+        })
+        redoAction = {
+          type: 'ungroup',
+          groupIds: [...action.groupIds],
+          beforeUngroup: action.beforeUngroup.map((g: { id: string; oldGroupId?: string }) => ({ ...g })),
+        }
       } else {
         next = action.snapshot
         redoAction = { type: 'clear', snapshot: snapshot(elements) }
@@ -167,6 +198,35 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           ...action,
           before: snapshot(action.before),
           after: snapshot(action.after),
+        }
+      } else if (action.type === 'group') {
+        // P10: 重做分组 - 重新应用 groupId
+        const idSet = new Set(action.elementIds)
+        next = elements.map((el: CanvasElement) => {
+          if (idSet.has(el.id)) {
+            return { ...el, groupId: action.groupId }
+          }
+          return el
+        })
+        undoAction = {
+          type: 'group',
+          groupId: action.groupId,
+          elementIds: action.elementIds,
+          beforeGroup: action.beforeGroup.map((g: { id: string; oldGroupId?: string }) => ({ ...g })),
+        }
+      } else if (action.type === 'ungroup') {
+        // P10: 重做取消分组 - 移除所有组的 groupId
+        const groupSet = new Set(action.groupIds)
+        next = elements.map((el: CanvasElement) => {
+          if (el.groupId && groupSet.has(el.groupId)) {
+            return { ...el, groupId: undefined }
+          }
+          return el
+        })
+        undoAction = {
+          type: 'ungroup',
+          groupIds: [...action.groupIds],
+          beforeUngroup: action.beforeUngroup.map((g: { id: string; oldGroupId?: string }) => ({ ...g })),
         }
       } else {
         next = action.snapshot

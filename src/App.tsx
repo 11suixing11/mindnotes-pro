@@ -87,6 +87,18 @@ export default function App() {
         e.preventDefault()
         useAppStore.getState().duplicateSelected()
       }
+      // P10 新功能: Ctrl+G 元素分组 (Excalidraw / Figma / tldraw 标准功能)
+      // 专业设计软件标准交互：将选中元素组合成组
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'g') {
+        e.preventDefault()
+        useAppStore.getState().groupSelected()
+      }
+      // P10 新功能: Ctrl+Shift+G 取消分组 (Excalidraw / Figma / tldraw 标准功能)
+      // 专业设计软件标准交互：解散选中的组
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
+        e.preventDefault()
+        useAppStore.getState().ungroupSelected()
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -224,7 +236,8 @@ export default function App() {
           {hintsVisible && (
             <div className="hints panel">
               <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> Redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
-              Copy/Paste · <kbd>Ctrl</kbd>+<kbd>D</kbd> Duplicate · <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all · Scroll to zoom ·{' '}
+              Copy/Paste · <kbd>Ctrl</kbd>+<kbd>D</kbd> Duplicate · <kbd>Ctrl</kbd>+<kbd>G</kbd> Group ·{' '}
+              <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> Ungroup · <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all · Scroll to zoom ·{' '}
               <kbd>Del</kbd> Delete · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> Screen Pen
             </div>
           )}
