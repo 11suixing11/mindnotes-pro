@@ -391,11 +391,13 @@ export function usePointerEngine(opts: {
       id: string
       bounds: { x: number; y: number; w: number; h: number }
       isRotate?: boolean
+      isEdge?: boolean
     } | null => {
       const state = useAppStore.getState()
       const selIds = state.selectedIds
       if (selIds.length === 0) return null
       const hr = 12 / (useViewStore.getState().viewBox.zoom || 1)
+      const edgeHr = 10 / (useViewStore.getState().viewBox.zoom || 1)
       // P19 新功能: 旋转手柄命中检测 (来源 Figma / tldraw / Excalidraw 标准交互)
       // 专业设计工具标准：选择框顶部中央的旋转手柄
       const rotateHr = 15 / (useViewStore.getState().viewBox.zoom || 1)
@@ -409,15 +411,65 @@ export function usePointerEngine(opts: {
         if (Math.abs(px - rotateHandleX) < rotateHr && Math.abs(py - rotateHandleY) < rotateHr) {
           return { handle: 99, id: selId, bounds: b, isRotate: true }
         }
-        const corners: [number, number][] = [
-          [b.x, b.y],
-          [b.x + b.w, b.y],
-          [b.x, b.y + b.h],
-          [b.x + b.w, b.y + b.h],
+        
+        // P28 新功能: 边缘手柄命中检测 (来源 tldraw v5.1.0 PR #8926)
+        // 手柄编号约定:
+        // 0-3: 角落手柄 (左上、右上、左下、右下)
+        // 4: 上边缘中点
+        // 5: 下边缘中点
+        // 6: 左边缘中点
+        // 7: 右边缘中点
+        
+        // P28 修复: 小形状防重叠 - 动态计算边缘手柄实际位置
+        // 与 drawSelBox 中的逻辑保持一致
+        const zoom = useViewStore.getState().viewBox.zoom || 1
+        const cornerR = 4 / zoom
+        const edgeR = 3.5 / zoom
+        const minSafeWidth = (cornerR + edgeR + 4 / zoom) * 2
+        const minSafeHeight = (cornerR + edgeR + 4 / zoom) * 2
+        
+        let edgeTopY = b.y
+        let edgeBottomY = b.y + b.h
+        let edgeLeftX = b.x
+        let edgeRightX = b.x + b.w
+        
+        if (b.w < minSafeWidth) {
+          const offset = (minSafeWidth - b.w) / 2 + 2 / zoom
+          edgeLeftX = b.x + offset
+          edgeRightX = b.x + b.w - offset
+        }
+        if (b.h < minSafeHeight) {
+          const offset = (minSafeHeight - b.h) / 2 + 2 / zoom
+          edgeTopY = b.y + offset
+          edgeBottomY = b.y + b.h - offset
+        }
+        
+        // P28: 边缘手柄（优先级低于角落手柄，所以先检测角落）
+        const edges: [number, number, number][] = [
+          [b.x + b.w / 2, edgeTopY, 4],      // 上边缘中点
+          [b.x + b.w / 2, edgeBottomY, 5],   // 下边缘中点
+          [edgeLeftX, b.y + b.h / 2, 6],      // 左边缘中点
+          [edgeRightX, b.y + b.h / 2, 7],     // 右边缘中点
         ]
-        for (let i = 0; i < 4; i++) {
-          if (Math.abs(px - corners[i][0]) < hr && Math.abs(py - corners[i][1]) < hr)
-            return { handle: i, id: selId, bounds: b }
+        
+        // 角落手柄（优先级最高）
+        const corners: [number, number, number][] = [
+          [b.x, b.y, 0],
+          [b.x + b.w, b.y, 1],
+          [b.x, b.y + b.h, 2],
+          [b.x + b.w, b.y + b.h, 3],
+        ]
+        
+        // 先检测角落手柄（用户优先想要抓住角落）
+        for (const [cx, cy, handle] of corners) {
+          if (Math.abs(px - cx) < hr && Math.abs(py - cy) < hr)
+            return { handle, id: selId, bounds: b }
+        }
+        
+        // 再检测边缘手柄
+        for (const [ex, ey, handle] of edges) {
+          if (Math.abs(px - ex) < edgeHr && Math.abs(py - ey) < edgeHr)
+            return { handle, id: selId, bounds: b, isEdge: true }
         }
       }
       return null
@@ -932,58 +984,99 @@ export function usePointerEngine(opts: {
       }
       if (curTool === 'select' && resizeRef.current) {
         const { handle, id, startX, startY, origBounds: ob } = resizeRef.current
-        const anchors: [number, number][] = [
-          [ob.x + ob.w, ob.y + ob.h],
-          [ob.x, ob.y + ob.h],
-          [ob.x + ob.w, ob.y],
-          [ob.x, ob.y],
-        ]
-        const ax = anchors[handle][0],
-          ay = anchors[handle][1]
-        const corners: [number, number][] = [
-          [ob.x, ob.y],
-          [ob.x + ob.w, ob.y],
-          [ob.x, ob.y + ob.h],
-          [ob.x + ob.w, ob.y + ob.h],
-        ]
-        const orig = corners[handle],
-          totalDx = pos.x - startX,
+        const totalDx = pos.x - startX,
           totalDy = pos.y - startY
-        const targetX = orig[0] + totalDx,
-          targetY = orig[1] + totalDy
+        
         if (ob.w < 1 || ob.h < 1) {
           scheduleRedraw()
           return
         }
-        let nsx = Math.max(
-          0.1,
-          Math.min(
-            10,
-            handle === 0 || handle === 2
-              ? (targetX - ax) / (orig[0] - ax || 1)
-              : (ax - targetX) / (ax - orig[0] || 1)
-          )
-        )
-        let nsy = Math.max(
-          0.1,
-          Math.min(
-            10,
-            handle === 0 || handle === 1
-              ? (targetY - ay) / (orig[1] - ay || 1)
-              : (ay - targetY) / (ay - orig[1] || 1)
-          )
-        )
         
-        // P8 新功能: Shift + 拖拽等比例缩放 (来源 Figma / tldraw / Excalidraw 标准交互)
-        // 匹配所有专业设计工具标准：按住 Shift 键调整大小时保持原始宽高比
-        // 取 x/y 缩放比例绝对值较大的作为统一比例，确保视觉上的自然缩放
-        const shiftPressed = 'shiftKey' in e && (e as MouseEvent).shiftKey
-        if (shiftPressed) {
-          // 使用绝对值较大的缩放比例，确保用户拖拽方向主导缩放
-          const scale = Math.max(Math.abs(nsx), Math.abs(nsy))
-          // 保持符号（方向）一致
-          nsx = scale * Math.sign(nsx)
-          nsy = scale * Math.sign(nsy)
+        // P28 新功能: 边缘手柄缩放支持 (来源 tldraw v5.1.0 PR #8926)
+        // 手柄编号约定:
+        // 0-3: 角落手柄 (左上、右上、左下、右下) - 同时调整宽高
+        // 4: 上边缘中点 - 只调整高度
+        // 5: 下边缘中点 - 只调整高度
+        // 6: 左边缘中点 - 只调整宽度
+        // 7: 右边缘中点 - 只调整宽度
+        
+        // 角落手柄锚点（对角点）
+        const cornerAnchors: [number, number][] = [
+          [ob.x + ob.w, ob.y + ob.h],  // 0: 左上 -> 右下锚点
+          [ob.x, ob.y + ob.h],         // 1: 右上 -> 左下锚点
+          [ob.x + ob.w, ob.y],         // 2: 左下 -> 右上锚点
+          [ob.x, ob.y],                // 3: 右下 -> 左上锚点
+        ]
+        
+        // 角落手柄原始位置
+        const cornerOrigins: [number, number][] = [
+          [ob.x, ob.y],                // 0: 左上
+          [ob.x + ob.w, ob.y],         // 1: 右上
+          [ob.x, ob.y + ob.h],         // 2: 左下
+          [ob.x + ob.w, ob.y + ob.h],  // 3: 右下
+        ]
+        
+        let ax = 0, ay = 0
+        let nsx = 1, nsy = 1
+        
+        if (handle >= 0 && handle <= 3) {
+          // 角落手柄：同时调整宽高
+          ax = cornerAnchors[handle][0]
+          ay = cornerAnchors[handle][1]
+          const orig = cornerOrigins[handle]
+          const targetX = orig[0] + totalDx
+          const targetY = orig[1] + totalDy
+          
+          nsx = Math.max(
+            0.1,
+            Math.min(
+              10,
+              handle === 0 || handle === 2
+                ? (targetX - ax) / (orig[0] - ax || 1)
+                : (ax - targetX) / (ax - orig[0] || 1)
+            )
+          )
+          nsy = Math.max(
+            0.1,
+            Math.min(
+              10,
+              handle === 0 || handle === 1
+                ? (targetY - ay) / (orig[1] - ay || 1)
+                : (ay - targetY) / (ay - orig[1] || 1)
+            )
+          )
+          
+          // P8 新功能: Shift + 拖拽等比例缩放
+          const shiftPressed = 'shiftKey' in e && (e as MouseEvent).shiftKey
+          if (shiftPressed) {
+            const scale = Math.max(Math.abs(nsx), Math.abs(nsy))
+            nsx = scale * Math.sign(nsx)
+            nsy = scale * Math.sign(nsy)
+          }
+        } else if (handle === 4) {
+          // 上边缘中点：只调整高度（向下锚定）
+          ax = ob.x + ob.w / 2
+          ay = ob.y + ob.h  // 底部作为锚点
+          const targetY = ob.y + totalDy
+          nsy = Math.max(0.1, Math.min(10, (ay - targetY) / ob.h))
+        } else if (handle === 5) {
+          // 下边缘中点：只调整高度（向上锚定）
+          ax = ob.x + ob.w / 2
+          ay = ob.y  // 顶部作为锚点
+          const targetY = ob.y + ob.h + totalDy
+          nsy = Math.max(0.1, Math.min(10, (targetY - ay) / ob.h))
+        } else if (handle === 6) {
+          // 左边缘中点：只调整宽度（向右锚定）
+          ax = ob.x + ob.w  // 右侧作为锚点
+          ay = ob.y + ob.h / 2
+          const targetX = ob.x + totalDx
+          nsx = Math.max(0.1, Math.min(10, (ax - targetX) / ob.w))
+        } else if (handle === 7) {
+          // 右边缘中点：只调整宽度（向左锚定）
+          ax = ob.x  // 左侧作为锚点
+          ay = ob.y + ob.h / 2
+          const targetX = ob.x + ob.w + totalDx
+          nsx = Math.max(0.1, Math.min(10, (targetX - ax) / ob.w))
         }
         
         resizeElementById(id, ax, ay, nsx, nsy)
@@ -1781,7 +1874,23 @@ export function usePointerEngine(opts: {
     if (useViewStore.getState().isPanning) return 'grabbing'
     if (useAppStore.getState().tool === 'select' && mouseRef.current) {
       const h = hitHandle(mouseRef.current.x, mouseRef.current.y)
-      if (h) return ['nwse-resize', 'nesw-resize', 'nesw-resize', 'nwse-resize'][h.handle]
+      if (h) {
+        // P28 新功能: 边缘手柄光标支持 (来源 tldraw v5.1.0 PR #8926)
+        // 手柄编号约定:
+        // 0-3: 角落手柄 - 对角光标
+        // 4: 上边缘中点 - 上下光标
+        // 5: 下边缘中点 - 上下光标
+        // 6: 左边缘中点 - 左右光标
+        // 7: 右边缘中点 - 左右光标
+        if (h.handle === 4 || h.handle === 5) {
+          return 'ns-resize'  // 上下边缘：垂直调整光标
+        } else if (h.handle === 6 || h.handle === 7) {
+          return 'ew-resize'  // 左右边缘：水平调整光标
+        } else {
+          // 角落手柄
+          return ['nwse-resize', 'nesw-resize', 'nesw-resize', 'nwse-resize'][h.handle]
+        }
+      }
     }
     return cursorMap[useAppStore.getState().tool] ?? 'crosshair'
   }
