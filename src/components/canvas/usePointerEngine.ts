@@ -754,10 +754,14 @@ export function usePointerEngine(opts: {
             ? st.selectedIds 
             : (groupMembers.length > 0 ? groupMembers : [effectiveHit])
             
-          if (e.shiftKey) {
-            // Shift+click: toggle in selection
+          // P29 新功能: Cmd/Ctrl+click 添加到多选 (来源 tldraw v3.3.0 PR #4570)
+          // 匹配 Figma/Sketch/Photoshop 专业工具标准：Shift 或 Cmd/Ctrl 都支持多选
+          const isMultiSelectKey = e.shiftKey || e.metaKey || e.ctrlKey
+          
+          if (isMultiSelectKey) {
+            // Shift/Cmd/Ctrl+click: 切换选中状态（添加或移除）
             if (groupMembers.length > 0) {
-              // Shift+点击组元素: 切换整个组的选中状态
+              // 点击组元素: 切换整个组的选中状态
               const allSelected = groupMembers.every(id => st.selectedIds.includes(id))
               if (allSelected) {
                 setSelectedIds(st.selectedIds.filter((id) => !groupMembers.includes(id)))
@@ -765,8 +769,10 @@ export function usePointerEngine(opts: {
                 setSelectedIds([...new Set([...st.selectedIds, ...groupMembers])])
               }
             } else if (st.selectedIds.includes(hit)) {
+              // 已选中的元素: 从选区中移除
               setSelectedIds(st.selectedIds.filter((id) => id !== hit))
             } else {
+              // 未选中的元素: 添加到选区
               setSelectedIds([...st.selectedIds, hit])
             }
           } else {
