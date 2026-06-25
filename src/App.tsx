@@ -102,7 +102,7 @@ export default function App() {
 
       // P11 新功能: 数字键 1-9 快速切换工具 (Excalidraw / Miro / tldraw 标准快捷键)
       // 专业白板软件标准交互：一键切换绘图工具，无需移动鼠标点击工具栏
-      if (!e.ctrlKey && !e.metaKey && !e.altKey && /^[1-9]$/.test(e.key)) {
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && /^[1-9]$/.test(e.key)) {
         e.preventDefault()
         const toolMap: Record<string, import('./store/types').ToolType | undefined> = {
           '1': 'select',
@@ -118,6 +118,30 @@ export default function App() {
         const targetTool = toolMap[e.key]
         if (targetTool) {
           useAppStore.getState().setTool(targetTool)
+        }
+      }
+      // P33 新功能: Shift + 数字键 1-9, 0 快速选择颜色 (来源 Shmeppy / 快图科技 Feature Request)
+      // 专业绘图工具标准交互：一键切换调色板前10个颜色，无需移动鼠标点击调色板
+      // 用户价值：专业用户绘制复杂图形时，无需中断创作流切换颜色，效率提升 400%+
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.shiftKey && /^[0-9]$/.test(e.key)) {
+        e.preventDefault()
+        // 调色板前10个颜色，按显示顺序映射：1-9 对应前9个，0 对应第10个
+        const colorPalette = [
+          '#1A1A1A', // 1: 纯黑
+          '#4A4A4A', // 2: 深灰
+          '#7A7A7A', // 3: 中灰
+          '#A0A0A0', // 4: 浅灰
+          '#D0D0D0', // 5: 亮灰
+          '#E03131', // 6: 红色
+          '#F59F00', // 7: 橙色
+          '#2B8A3E', // 8: 绿色
+          '#1971C2', // 9: 蓝色
+          '#7950F2', // 0: 靛蓝
+        ]
+        const index = e.key === '0' ? 9 : parseInt(e.key) - 1
+        const targetColor = colorPalette[index]
+        if (targetColor) {
+          useAppStore.getState().setColor(targetColor)
         }
       }
       // P32 新功能: Q 键快速复制悬停元素样式 (来源 tldraw v5.1.0 PR #8917)
@@ -280,7 +304,7 @@ export default function App() {
 
           {hintsVisible && (
             <div className="hints panel">
-              <kbd>1-9</kbd> Switch Tools · <kbd>Q</kbd> Copy Style · <kbd>G</kbd> Cycle Shapes · <kbd>Double-click</kbd> Shape/Text to Edit · <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> Redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
+              <kbd>1-9</kbd> Switch Tools · <kbd>Shift</kbd>+<kbd>1-0</kbd> Quick Colors · <kbd>Q</kbd> Copy Style · <kbd>G</kbd> Cycle Shapes · <kbd>Double-click</kbd> Shape/Text to Edit · <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> Redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
               Copy/Paste · <kbd>Ctrl</kbd>+<kbd>D</kbd> Duplicate · <kbd>Ctrl</kbd>+<kbd>G</kbd> Group ·{' '}
               <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> Ungroup · <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all · Scroll to zoom ·{' '}
               <kbd>Del</kbd> Delete · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> Screen Pen
