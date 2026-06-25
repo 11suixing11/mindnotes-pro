@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import type { ToolType } from '../../store/types'
+import { sanitizeSvgDataUrl } from '../../canvas/svgSanitizer'
 
 interface Options {
   copySelectedToSystemClipboard?: () => void
@@ -106,6 +107,9 @@ export function useKeyboardBindings(options: Options = {}) {
                   const reader = new FileReader()
                   reader.onload = () => {
                     const dataUrl = reader.result as string
+                    // P32 新功能: SVG 安全过滤 - 防止 XSS 攻击
+                    // 来源: tldraw v4.5.0 PR #7896
+                    const safeDataUrl = sanitizeSvgDataUrl(dataUrl)
                     const img = new Image()
                     img.onload = () => {
                       const center = getViewportCenter()
@@ -120,10 +124,10 @@ export function useKeyboardBindings(options: Options = {}) {
                         y: center.y - h / 2,
                         width: w,
                         height: h,
-                        dataUrl,
+                        dataUrl: safeDataUrl,
                       })
                     }
-                    img.src = dataUrl
+                    img.src = safeDataUrl
                   }
                   reader.readAsDataURL(blob)
                   return
