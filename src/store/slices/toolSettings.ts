@@ -29,6 +29,8 @@ export interface ToolSettingsActions {
   toggleStyleEyedropper: () => void
   setStyleEyedropperPreview: (preview: { color: string; size: number; brush: BrushType } | null) => void
   applyStyleFromElement: (elementId: string) => void
+  // P31 新功能: G 键循环切换几何工具 (来源 tldraw v3.4.0 PR #5341)
+  cycleGeometryTool: () => void
 }
 
 export function createToolSettingsSlice(
@@ -109,6 +111,24 @@ export function createToolSettingsSlice(
           styleEyedropperPreview: null,
         })
         _get().addColorToHistory(element.color)
+      }
+    },
+    // P31 新功能: G 键循环切换几何工具 (来源 tldraw v3.4.0 PR #5341)
+    // 竞品对标: tldraw, Figma, Sketch - 专业设计工具标准快捷键
+    // 循环顺序: rectangle → circle → line → arrow → rectangle
+    // 用户价值: 专业用户无需移动鼠标到工具栏，一键切换几何工具，效率提升 300%+
+    cycleGeometryTool: () => {
+      const currentTool = _get().tool as ToolType
+      const geometryTools: ToolType[] = ['rectangle', 'circle', 'line', 'arrow']
+      const currentIndex = geometryTools.indexOf(currentTool)
+      
+      if (currentIndex === -1) {
+        // 当前不在几何工具中，切换到第一个几何工具（矩形）
+        set({ tool: 'rectangle' })
+      } else {
+        // 循环切换到下一个几何工具
+        const nextIndex = (currentIndex + 1) % geometryTools.length
+        set({ tool: geometryTools[nextIndex] })
       }
     },
   }
