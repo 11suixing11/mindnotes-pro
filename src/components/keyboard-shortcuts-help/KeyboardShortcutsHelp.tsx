@@ -34,6 +34,11 @@ const SHORTCUTS = [
   { keys: ['DblClick'], label: 'Edit text' },
   { keys: ['?'], label: 'Toggle this panel' },
   { keys: ['Ctrl', 'Shift', 'P'], label: 'Screen Pen (draw on screen)' },
+  // P35 新功能: Z 键鹰眼模式 (来源 tldraw v4.4.0 PR #7801)
+  { keys: ['Z'], label: 'Eagle Eye (quick zoom navigation)' },
+  { keys: ['Esc'], label: 'Cancel Eagle Eye mode' },
+  // P34 新功能: Ctrl+2 缩放到选中元素 (来源 Figma / Sketch 标准)
+  { keys: ['Ctrl', '2'], label: 'Zoom to selection' },
 ]
 
 interface KeyboardShortcutsHelpProps {
