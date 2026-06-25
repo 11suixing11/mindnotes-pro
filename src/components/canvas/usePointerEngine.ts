@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useThemeStore } from '../../store/useThemeStore'
 import type { StrokeElement } from '../../store/types'
 import type { CanvasElement, ShapeElement, TextElement, ShapeKind, ToolType } from '../../store/types'
-import { simplifyPts, distToSegSq, elementBounds } from '../../canvas/canvasUtils'
+import { simplifyPts, distToSegSq, elementBounds, isTransparentImagePixel } from '../../canvas/canvasUtils'
 import { drawElement } from '../../canvas/canvasDrawing'
 // P12 箭头绑定: 导入绑定工具函数
 import { tryBindToShape } from '../../store/bindingUtils'
@@ -274,8 +274,15 @@ export function usePointerEngine(opts: {
               px <= el.x + el.width + r &&
               py >= el.y - r &&
               py <= el.y + el.height + r
-            )
+            ) {
+              // P26 新功能: 图片透明像素点击穿透 (来源 tldraw v4.5.0 PR #7942)
+              // 点击图片透明区域时，跳过该图片，继续检测下面的元素
+              // 匹配 tldraw/Figma 专业工具标准行为
+              if (isTransparentImagePixel(el, px, py)) {
+                continue
+              }
               return el.id
+            }
           } else if (el.type === 'text') {
             if (
               px >= el.x - r &&
@@ -325,8 +332,13 @@ export function usePointerEngine(opts: {
             px <= el.x + el.width + r &&
             py >= el.y - r &&
             py <= el.y + el.height + r
-          )
+          ) {
+            // P26 新功能: 图片透明像素点击穿透 (来源 tldraw v4.5.0 PR #7942)
+            if (isTransparentImagePixel(el, px, py)) {
+              continue
+            }
             return el.id
+          }
         } else if (el.type === 'text') {
           if (
             px >= el.x - r &&

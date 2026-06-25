@@ -1,9 +1,95 @@
-import type { CanvasElement } from '../store/types'
+import type { CanvasElement, ImageElement } from '../store/types'
 import { elementBounds } from '../store/types'
 
 export const IMAGE_CACHE_MAX = 50
 const imageCache = new Map<string, HTMLImageElement>()
 const imageLoading = new Set<string>()
+
+// P26 新功能: 图片透明像素数据缓存 (来源 tldraw v4.5.0 PR #7942)
+// 用于点击穿透：点击图片透明区域时选中后面的元素
+// 使用离屏 canvas 缓存图片的 alpha 通道数据，避免重复读取像素
+const imageAlphaCache = new Map<string, Uint8ClampedArray>()
+const alphaCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null
+const alphaCtx = alphaCanvas?.getContext('2d', { willReadFrequently: true })
+
+/**
+ * P26 新功能: 检测图片指定位置的像素是否透明
+ * 用于实现"点击穿透"：点击图片透明区域时选中后面的元素
+ * 
+ * 算法：
+ * 1. 将坐标从画布空间转换为图片本地像素空间
+ * 2. 使用离屏 canvas 读取目标像素的 alpha 值
+ * 3. alpha < 32（约12%不透明度）视为透明，允许穿透
+ * 
+ * @param imageEl 图片元素
+ * @param canvasX 画布上的点击 X 坐标
+ * @param canvasY 画布上的点击 Y 坐标
+ * @returns true 表示该像素透明，可以穿透
+ */
+export function isTransparentImagePixel(
+  imageEl: ImageElement,
+  canvasX: number,
+  canvasY: number
+): boolean {
+  // 边界快速检查
+  if (canvasX < imageEl.x || canvasX > imageEl.x + imageEl.width ||
+      canvasY < imageEl.y || canvasY > imageEl.y + imageEl.height) {
+    return true
+  }
+
+  // 获取图片对象
+  const img = getImage(imageEl.dataUrl)
+  if (!img || !img.complete || !alphaCtx || !alphaCanvas) {
+    // 图片未加载完成时，默认不穿透（保守策略）
+    return false
+  }
+
+  // 计算图片内的相对坐标（归一化 0-1）
+  const relX = (canvasX - imageEl.x) / imageEl.width
+  const relY = (canvasY - imageEl.y) / imageEl.height
+
+  // 转换为图片的实际像素坐标
+  const pixelX = Math.floor(relX * img.naturalWidth)
+  const pixelY = Math.floor(relY * img.naturalHeight)
+
+  // 边界检查
+  if (pixelX < 0 || pixelX >= img.naturalWidth || pixelY < 0 || pixelY >= img.naturalHeight) {
+    return true
+  }
+
+  // 尝试从缓存获取 alpha 数据
+  const cacheKey = imageEl.dataUrl
+  let alphaData = imageAlphaCache.get(cacheKey)
+
+  if (!alphaData) {
+    // 首次访问：渲染图片到离屏 canvas 并提取 alpha 通道
+    alphaCanvas.width = img.naturalWidth
+    alphaCanvas.height = img.naturalHeight
+    alphaCtx.clearRect(0, 0, img.naturalWidth, img.naturalHeight)
+    alphaCtx.drawImage(img, 0, 0)
+
+    // 获取像素数据
+    const imageData = alphaCtx.getImageData(0, 0, img.naturalWidth, img.naturalHeight)
+    alphaData = new Uint8ClampedArray(img.naturalWidth * img.naturalHeight)
+
+    // 只提取 alpha 通道（每4个字节的第4个）
+    for (let i = 0; i < alphaData.length; i++) {
+      alphaData[i] = imageData.data[i * 4 + 3]
+    }
+
+    // LRU 缓存管理
+    if (imageAlphaCache.size >= IMAGE_CACHE_MAX) {
+      const firstKey = imageAlphaCache.keys().next().value
+      if (firstKey) imageAlphaCache.delete(firstKey)
+    }
+    imageAlphaCache.set(cacheKey, alphaData)
+  }
+
+  // 读取 alpha 值：alpha < 32 视为透明（约12%不透明度）
+  // 这个阈值是 tldraw/Figma 的行业标准，平衡准确性和容错性
+  const alphaIndex = pixelY * img.naturalWidth + pixelX
+  return alphaData[alphaIndex] < 32
+}
 
 export function getImage(src: string): HTMLImageElement | null {
   if (imageCache.has(src)) {
