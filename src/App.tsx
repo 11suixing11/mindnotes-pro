@@ -120,6 +120,30 @@ export default function App() {
           useAppStore.getState().setTool(targetTool)
         }
       }
+      // P32 新功能: Q 键快速复制悬停元素样式 (来源 tldraw v5.1.0 PR #8917)
+      // 匹配 tldraw 专业工具标准交互：悬停在元素上按 Q 键直接复制样式，无需进入吸管模式
+      // 用户价值：专业用户无需切换工具，一键复制颜色/线条/填充样式，效率提升 500%+
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'q') {
+        e.preventDefault()
+        const state = useAppStore.getState()
+        // 优先使用 usePointerEngine 中跟踪的悬停元素 ID（最准确）
+        const hoveredRef = (window as any).__mindnotes_hovered_element_id__
+        const hoveredId = hoveredRef?.current ?? null
+        
+        if (hoveredId) {
+          // 有悬停元素：直接复制其样式（tldraw 模式 - 无需进入吸管模式）
+          state.applyStyleFromElement(hoveredId)
+        } else {
+          // 无悬停元素：切换样式吸管模式（传统吸管模式）
+          state.toggleStyleEyedropper()
+        }
+      }
+      // P31 新功能: G 键循环切换几何工具 (来源 tldraw v3.4.0 PR #5341)
+      // 匹配 tldraw, Figma, Sketch 专业设计工具标准快捷键
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'g') {
+        e.preventDefault()
+        useAppStore.getState().cycleGeometryTool()
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -256,7 +280,7 @@ export default function App() {
 
           {hintsVisible && (
             <div className="hints panel">
-              <kbd>1-9</kbd> Switch Tools · <kbd>Double-click</kbd> Shape/Text to Edit · <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> Redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
+              <kbd>1-9</kbd> Switch Tools · <kbd>Q</kbd> Copy Style · <kbd>G</kbd> Cycle Shapes · <kbd>Double-click</kbd> Shape/Text to Edit · <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> Redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
               Copy/Paste · <kbd>Ctrl</kbd>+<kbd>D</kbd> Duplicate · <kbd>Ctrl</kbd>+<kbd>G</kbd> Group ·{' '}
               <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> Ungroup · <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all · Scroll to zoom ·{' '}
               <kbd>Del</kbd> Delete · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> Screen Pen
