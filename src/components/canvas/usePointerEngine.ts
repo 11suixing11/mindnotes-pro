@@ -199,6 +199,13 @@ export function usePointerEngine(opts: {
   })
 
   const mouseRef = useRef<{ x: number; y: number } | null>(null)
+  // P27 新功能: 悬停元素跟踪 (来源 tldraw v5.1.0 PR #8917)
+  // 用于 Q 键快速复制样式：悬停在元素上按 Q 键直接复制样式，无需进入吸管模式
+  const hoveredElementIdRef = useRef<string | null>(null)
+  // 导出悬停元素 ID 供键盘快捷键使用
+  useEffect(() => {
+    ;(window as any).__mindnotes_hovered_element_id__ = hoveredElementIdRef
+  }, [])
 
   const getPos = useCallback(
     (e: MouseEvent | TouchEvent) => {
@@ -853,8 +860,13 @@ export function usePointerEngine(opts: {
       // P5 新功能: 样式吸管悬停预览 (来源 tldraw v5.1.0 PR #8917)
       // 当样式吸管激活时，检测悬停元素并更新样式预览
       const st = useAppStore.getState()
+      const hitId = hitTest(pos.x, pos.y)
+      
+      // P27 新功能: 更新悬停元素跟踪 (来源 tldraw v5.1.0 PR #8917)
+      // 用于 Q 键快速复制样式：悬停在元素上按 Q 键直接复制样式
+      hoveredElementIdRef.current = hitId
+      
       if (st.styleEyedropperActive) {
-        const hitId = hitTest(pos.x, pos.y)
         if (hitId) {
           const el = st.idToElement.get(hitId)
           if (el) {
