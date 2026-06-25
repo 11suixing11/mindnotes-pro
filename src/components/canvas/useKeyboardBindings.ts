@@ -238,6 +238,32 @@ export function useKeyboardBindings(options: Options = {}) {
         return
       }
 
+      // P25 新功能: Quick Zoom Navigation (Z 键鹰眼模式) - 来源 tldraw v4.4.0 PR #7801
+      // 竞品对标: tldraw, Figma, Sketch - 专业设计工具标准导航功能
+      // 按 Z 键进入鹰眼模式（全局预览），松开或点击确认放大，ESC 取消
+      if ((e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+        e.preventDefault()
+        const vs = useViewStore.getState()
+        if (vs.eagleEye.isActive) {
+          // 如果已经在鹰眼模式，确认选择
+          vs.commitEagleEye()
+        } else {
+          // 进入鹰眼模式
+          vs.startEagleEye()
+        }
+        return
+      }
+
+      // P25: ESC 键取消鹰眼模式，返回原始视口
+      if (e.key === 'Escape') {
+        const vs = useViewStore.getState()
+        if (vs.eagleEye.isActive) {
+          e.preventDefault()
+          vs.cancelEagleEye()
+          return
+        }
+      }
+
       if (e.key === '+' || e.key === '=') {
         e.preventDefault()
         vs.zoomIn()

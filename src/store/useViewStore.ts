@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { getContentBounds } from '../canvas/canvasUtils'
+import { useAppStore } from './appStore'
 
 interface ViewState {
   viewBox: {
@@ -9,6 +11,15 @@ interface ViewState {
   isPanning: boolean
   lastPanPosition: { x: number; y: number } | null
   showGrid: boolean
+  // P25 新功能: Quick Zoom Navigation (鹰眼模式) - 来源 tldraw v4.4.0 PR #7801
+  // 按 Z 键进入鹰眼模式，快速全局预览后定位到目标区域
+  // 竞品对标: tldraw, Figma, Sketch - 专业设计工具标准导航功能
+  eagleEye: {
+    isActive: boolean
+    originalViewBox: { x: number; y: number; zoom: number } | null
+    targetX: number
+    targetY: number
+  }
 }
 
 interface ViewActions {
@@ -21,15 +32,27 @@ interface ViewActions {
   endPan: () => void
   zoomToFit: (bounds: { x: number; y: number; w: number; h: number } | null) => void
   toggleGrid: () => void
+  // P25: 鹰眼模式方法
+  startEagleEye: () => void
+  updateEagleEyeTarget: (x: number, y: number) => void
+  commitEagleEye: () => void
+  cancelEagleEye: () => void
 }
 
 const DEFAULT_VIEWBOX = { x: 0, y: 0, zoom: 1 }
+const EAGLE_EYE_ZOOM = 0.15 // 鹰眼模式下的缩放级别，确保能看到整个画布
 
 export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
   viewBox: DEFAULT_VIEWBOX,
   isPanning: false,
   lastPanPosition: null,
   showGrid: false,
+  eagleEye: {
+    isActive: false,
+    originalViewBox: null,
+    targetX: 0,
+    targetY: 0,
+  },
 
   setViewBox: (viewBox) => set({ viewBox }),
 
@@ -51,10 +74,8 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
   updatePan: (x, y) => {
     const { lastPanPosition, viewBox } = get()
     if (!lastPanPosition) return
-
     const dx = (x - lastPanPosition.x) / viewBox.zoom
     const dy = (y - lastPanPosition.y) / viewBox.zoom
-
     set({
       viewBox: { ...viewBox, x: viewBox.x - dx, y: viewBox.y - dy },
       lastPanPosition: { x, y },
@@ -77,4 +98,100 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
   },
 
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
+
+  // P25: 启动鹰眼模式
+  // 1. 保存当前视口
+  // 2. 计算所有元素的边界
+  // 3. 缩放到全局视图
+  startEagleEye: () => {
+    const state = get()
+    if (state.eagleEye.isActive) return
+
+    // 保存原始视口
+    const originalViewBox = { ...state.viewBox }
+
+    // 计算所有元素的边界
+    const elements = useAppStore.getState().elements
+    const allBounds = getContentBounds(elements, 100)
+
+    // 计算目标视口 - 居中显示所有内容
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+
+    let targetX = 0
+    let targetY = 0
+
+    if (allBounds) {
+      // 居中显示所有元素
+      targetX = allBounds.x - (vw / EAGLE_EYE_ZOOM - allBounds.w) / 2
+      targetY = allBounds.y - (vh / EAGLE_EYE_ZOOM - allBounds.h) / 2
+    } else {
+      // 没有元素时居中显示原点
+      targetX = -vw / EAGLE_EYE_ZOOM / 2
+      targetY = -vh / EAGLE_EYE_ZOOM / 2
+    }
+
+    set({
+      viewBox: { x: targetX, y: targetY, zoom: EAGLE_EYE_ZOOM },
+      eagleEye: {
+        isActive: true,
+        originalViewBox,
+        targetX: originalViewBox.x + vw / originalViewBox.zoom / 2,
+        targetY: originalViewBox.y + vh / originalViewBox.zoom / 2,
+      },
+    })
+  },
+
+  // P25: 更新鹰眼模式下的目标位置（鼠标移动时）
+  updateEagleEyeTarget: (x: number, y: number) => {
+    const state = get()
+    if (!state.eagleEye.isActive) return
+    set({
+      eagleEye: {
+        ...state.eagleEye,
+        targetX: x,
+        targetY: y,
+      },
+    })
+  },
+
+  // P25: 确认鹰眼模式选择 - 平滑放大到目标区域
+  commitEagleEye: () => {
+    const state = get()
+    if (!state.eagleEye.isActive) return
+
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const originalZoom = state.eagleEye.originalViewBox?.zoom || 1
+
+    // 以目标点为中心放大
+    const x = state.eagleEye.targetX - vw / originalZoom / 2
+    const y = state.eagleEye.targetY - vh / originalZoom / 2
+
+    set({
+      viewBox: { x, y, zoom: originalZoom },
+      eagleEye: {
+        isActive: false,
+        originalViewBox: null,
+        targetX: 0,
+        targetY: 0,
+      },
+    })
+  },
+
+  // P25: 取消鹰眼模式 - 返回原始视口
+  cancelEagleEye: () => {
+    const state = get()
+    if (!state.eagleEye.isActive || !state.eagleEye.originalViewBox) return
+
+    set({
+      viewBox: { ...state.eagleEye.originalViewBox },
+      eagleEye: {
+        isActive: false,
+        originalViewBox: null,
+        targetX: 0,
+        targetY: 0,
+      },
+    })
+  },
 }))

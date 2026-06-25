@@ -536,6 +536,83 @@ export function useCanvasRenderer(
       
       ctx.restore()
     }
+
+    // P25 新功能: 鹰眼模式视口指示 (来源 tldraw v4.4.0 PR #7801)
+    // 在鹰眼模式下绘制：
+    // 1. 半透明遮罩覆盖整个画布
+    // 2. 目标区域的高亮矩形框（用户将要放大到的位置）
+    // 3. 原始视口位置指示
+    const eagleEye = useViewStore.getState().eagleEye
+    if (eagleEye.isActive && eagleEye.originalViewBox) {
+      ctx.save()
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      
+      const vw = canvasSize.w
+      const vh = canvasSize.h
+      const originalZoom = eagleEye.originalViewBox.zoom
+      
+      // 1. 计算目标视口矩形（用户选择的放大区域）
+      const targetViewW = vw / originalZoom
+      const targetViewH = vh / originalZoom
+      const targetViewX = eagleEye.targetX - targetViewW / 2
+      const targetViewY = eagleEye.targetY - targetViewH / 2
+      
+      // 转换为屏幕坐标（鹰眼模式下）
+      const screenTargetX = (targetViewX - vb.x) * vb.zoom
+      const screenTargetY = (targetViewY - vb.y) * vb.zoom
+      const screenTargetW = targetViewW * vb.zoom
+      const screenTargetH = targetViewH * vb.zoom
+      
+      // 2. 半透明遮罩（变暗整个画布，突出目标区域）
+      ctx.fillStyle = dark ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.25)'
+      ctx.fillRect(0, 0, vw, vh)
+      
+      // 3. 目标区域高亮（清除遮罩，显示正常亮度）
+      ctx.clearRect(screenTargetX, screenTargetY, screenTargetW, screenTargetH)
+      
+      // 4. 目标区域边框（高亮指示）
+      ctx.strokeStyle = dark ? '#C8A0B0' : '#B07D6E'
+      ctx.lineWidth = 2.5
+      ctx.strokeRect(screenTargetX, screenTargetY, screenTargetW, screenTargetH)
+      
+      // 5. 目标区域内部十字准星
+      ctx.strokeStyle = dark ? 'rgba(200, 160, 176, 0.6)' : 'rgba(176, 125, 110, 0.6)'
+      ctx.lineWidth = 1
+      const crossSize = Math.min(screenTargetW, screenTargetH) * 0.15
+      const centerX = screenTargetX + screenTargetW / 2
+      const centerY = screenTargetY + screenTargetH / 2
+      ctx.beginPath()
+      ctx.moveTo(centerX - crossSize, centerY)
+      ctx.lineTo(centerX + crossSize, centerY)
+      ctx.moveTo(centerX, centerY - crossSize)
+      ctx.lineTo(centerX, centerY + crossSize)
+      ctx.stroke()
+      
+      // 6. 原始视口位置指示（小矩形）
+      const origViewX = eagleEye.originalViewBox.x
+      const origViewY = eagleEye.originalViewBox.y
+      const origViewW = vw / originalZoom
+      const origViewH = vh / originalZoom
+      
+      const screenOrigX = (origViewX - vb.x) * vb.zoom
+      const screenOrigY = (origViewY - vb.y) * vb.zoom
+      const screenOrigW = origViewW * vb.zoom
+      const screenOrigH = origViewH * vb.zoom
+      
+      ctx.strokeStyle = dark ? 'rgba(200, 160, 176, 0.4)' : 'rgba(176, 125, 110, 0.4)'
+      ctx.lineWidth = 1.5
+      ctx.setLineDash([4, 4])
+      ctx.strokeRect(screenOrigX, screenOrigY, screenOrigW, screenOrigH)
+      ctx.setLineDash([])
+      
+      // 7. 鹰眼模式提示文本
+      ctx.font = '500 13px "Noto Sans SC", sans-serif'
+      ctx.fillStyle = dark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.8)'
+      ctx.textAlign = 'center'
+      ctx.fillText('🔍 鹰眼模式 - 移动鼠标选择位置，按 Z 确认，ESC 取消', vw / 2, vh - 30)
+      
+      ctx.restore()
+    }
     
     drawMinimap(ctx, st.elements, cachedBounds, vb, canvasSize, dark, st.bgColor)
     drawZoomLevel(ctx, vb, canvasSize, dark, dpr)
