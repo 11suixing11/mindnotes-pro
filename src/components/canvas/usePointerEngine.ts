@@ -831,6 +831,13 @@ export function usePointerEngine(opts: {
       const pos = getPos(e)
       mouseRef.current = pos
 
+      // P25 新功能: 鹰眼模式下更新目标位置 (来源 tldraw v4.4.0 PR #7801)
+      // 鼠标移动时实时更新用户选择的放大目标位置
+      const vs = useViewStore.getState()
+      if (vs.eagleEye.isActive) {
+        vs.updateEagleEyeTarget(pos.x, pos.y)
+      }
+
       // P5 新功能: 样式吸管悬停预览 (来源 tldraw v5.1.0 PR #8917)
       // 当样式吸管激活时，检测悬停元素并更新样式预览
       const st = useAppStore.getState()
