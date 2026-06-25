@@ -5,6 +5,7 @@ import { useToastStore } from '../../store/toastStore'
 import { useConfirm } from '../confirm-modal'
 import { useShallow } from 'zustand/react/shallow'
 import { icons } from './icons'
+import { sanitizeSvgDataUrl } from '../../canvas/svgSanitizer'
 
 // 扩展调色板 - 基于 tldraw #1665 用户需求
 // 灰度色系 (5)
@@ -105,6 +106,9 @@ const ColorPicker = memo(function ColorPicker() {
       const r = new FileReader()
       r.onload = () => {
         const dataUrl = r.result as string
+        // P32 新功能: SVG 安全过滤 - 防止 XSS 攻击
+        // 来源: tldraw v4.5.0 PR #7896
+        const safeDataUrl = sanitizeSvgDataUrl(dataUrl)
         const img = new Image()
         img.onload = () => {
           const c = getCanvas()
@@ -120,12 +124,12 @@ const ColorPicker = memo(function ColorPicker() {
           const vb = useViewStore.getState().viewBox
           const x = (cssW / 2 - w / 2) / vb.zoom + vb.x
           const y = (cssH / 2 - h / 2) / vb.zoom + vb.y
-          addElement({ type: 'image', id: `img-${Date.now()}`, x, y, width: w, height: h, dataUrl })
+          addElement({ type: 'image', id: `img-${Date.now()}`, x, y, width: w, height: h, dataUrl: safeDataUrl })
         }
         img.onerror = () => {
           toast('图片加载失败', 'error')
         }
-        img.src = dataUrl
+        img.src = safeDataUrl
       }
       r.readAsDataURL(f)
       e.target.value = ''

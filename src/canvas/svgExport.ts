@@ -5,6 +5,7 @@ import type {
   TextElement,
   ImageElement,
 } from '../store/types'
+import { sanitizeSvgDataUrl } from './svgSanitizer'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -99,7 +100,10 @@ function textToSVG(el: TextElement): string {
 }
 
 function imageToSVG(el: ImageElement): string {
-  return `<image x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" href="${el.dataUrl}" preserveAspectRatio="none"/>\n`
+  // P32 新功能: SVG 安全过滤 - 导出时二次清理，防止 XSS 攻击
+  // 来源: tldraw v4.5.0 PR #7896
+  const safeDataUrl = sanitizeSvgDataUrl(el.dataUrl)
+  return `<image x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" href="${safeDataUrl}" preserveAspectRatio="none"/>\n`
 }
 
 function elementToSVG(el: CanvasElement): string {
