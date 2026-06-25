@@ -23,7 +23,9 @@ const SHORTCUTS = [
   { keys: ['9'], label: 'Pan Tool' },
   { keys: ['+'], label: 'Zoom in' },
   { keys: ['-'], label: 'Zoom out' },
-  { keys: ['G'], label: 'Toggle grid' },
+  // P31 新功能: G 键循环切换几何工具
+  { keys: ['G'], label: 'Cycle geometry tools' },
+  { keys: ['Shift', 'G'], label: 'Toggle grid' },
   { keys: ['Arrow Keys'], label: 'Move selected' },
   { keys: ['Shift', 'Arrow'], label: 'Fast move (10px)' },
   { keys: ['Shift', 'Click'], label: 'Multi-select' },
