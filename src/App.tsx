@@ -168,6 +168,14 @@ export default function App() {
         e.preventDefault()
         useAppStore.getState().cycleGeometryTool()
       }
+
+      // P34 新功能: Cmd/Ctrl+2 缩放到选中元素 (来源 Figma / Sketch / Graphic 专业设计工具标准)
+      // 竞品对标: Figma Cmd+2, Sketch Cmd+2, Graphic Cmd+2 - 行业标准快捷键
+      // 用户价值：复杂画布中一键定位到选中元素，无需手动滚动缩放
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === '2') {
+        e.preventDefault()
+        useViewStore.getState().zoomToSelection()
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -304,7 +312,7 @@ export default function App() {
 
           {hintsVisible && (
             <div className="hints panel">
-              <kbd>1-9</kbd> Switch Tools · <kbd>Shift</kbd>+<kbd>1-0</kbd> Quick Colors · <kbd>Q</kbd> Copy Style · <kbd>G</kbd> Cycle Shapes · <kbd>Double-click</kbd> Shape/Text to Edit · <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> Redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
+              <kbd>1-9</kbd> Switch Tools · <kbd>Shift</kbd>+<kbd>1-0</kbd> Quick Colors · <kbd>Q</kbd> Copy Style · <kbd>G</kbd> Cycle Shapes · <kbd>Ctrl</kbd>+<kbd>2</kbd> Zoom Selection · <kbd>Double-click</kbd> Shape/Text to Edit · <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> Redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
               Copy/Paste · <kbd>Ctrl</kbd>+<kbd>D</kbd> Duplicate · <kbd>Ctrl</kbd>+<kbd>G</kbd> Group ·{' '}
               <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> Ungroup · <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all · Scroll to zoom ·{' '}
               <kbd>Del</kbd> Delete · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> Screen Pen
