@@ -835,8 +835,18 @@ export function usePointerEngine(opts: {
           scheduleRedraw()
           return
         }
+        // P30 新功能: 按住 Cmd/Ctrl 框选追加选区 (来源 Figma / tldraw 专业工具标准交互)
+        // 匹配 Figma/Sketch/Photoshop 行业标准：按住修饰键框选时追加选区而非替换
+        const isAppendSelectKey = e.metaKey || e.ctrlKey
+        
         marqueeRef.current = { startX: pos.x, startY: pos.y, endX: pos.x, endY: pos.y }
-        setSelectedIds([])
+        
+        // 只有在不按住 Cmd/Ctrl 时才清空选区
+        // 按住 Cmd/Ctrl 时保留现有选区，框选结果将追加到选区中
+        if (!isAppendSelectKey) {
+          setSelectedIds([])
+        }
+        
         scheduleRedraw()
         return
       }
@@ -1540,7 +1550,18 @@ export function usePointerEngine(opts: {
               const b = cachedBounds(el)
               if (b.x + b.w >= x1 && b.x <= x2 && b.y + b.h >= y1 && b.y <= y2) hits.push(el.id)
             }
-            setSelectedIds(hits)
+            
+            // P30 新功能: 按住 Cmd/Ctrl 框选追加选区 (来源 Figma / tldraw 专业工具标准交互)
+            // 匹配 Figma/Sketch/Photoshop 行业标准：按住修饰键框选时追加选区而非替换
+            const isAppendSelectKey = e.metaKey || e.ctrlKey
+            if (isAppendSelectKey) {
+              // 按住 Cmd/Ctrl 时：将新选中的元素追加到现有选区
+              // 使用 Set 去重，确保同一元素不会被重复选中
+              setSelectedIds([...new Set([...st.selectedIds, ...hits])])
+            } else {
+              // 不按住修饰键时：替换选区（原有行为）
+              setSelectedIds(hits)
+            }
           }
           marqueeRef.current = null
         }
