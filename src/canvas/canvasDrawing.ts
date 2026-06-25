@@ -714,13 +714,57 @@ export function drawSelBox(
   ctx.setLineDash([])
   ctx.fillStyle = primaryLight
   ctx.fillRect(b.x, b.y, b.w, b.h)
+  
+  // P28 新功能: 边缘调整手柄 + 小形状防重叠优化 (来源 tldraw v5.1.0 PR #8926)
+  // 问题: 小形状上角落手柄和边缘手柄重叠，用户很难准确抓住目标手柄
+  // 解决方案: 
+  // 1. 添加 4 个边缘中间手柄（上、下、左、右）
+  // 2. 当形状太小时，动态调整手柄位置避免重叠
+  // 3. 角落手柄和边缘手柄使用不同大小，便于区分
+  
   const cornerR = 4 / zoom
+  const edgeR = 3.5 / zoom  // 边缘手柄略小于角落手柄，便于区分
+  
+  // P28 修复: 计算最小安全间距，防止手柄重叠
+  // 当形状尺寸小于 2 * (cornerR + edgeR + 间距) 时，边缘手柄会与角落手柄重叠
+  const minSafeWidth = (cornerR + edgeR + 4 / zoom) * 2
+  const minSafeHeight = (cornerR + edgeR + 4 / zoom) * 2
+  
+  // 动态计算边缘手柄位置，确保不与角落手柄重叠
+  let edgeTopY = b.y
+  let edgeBottomY = b.y + b.h
+  let edgeLeftX = b.x
+  let edgeRightX = b.x + b.w
+  
+  // 如果形状太窄，将左右边缘手柄向内偏移，避免与上下角落手柄重叠
+  if (b.w < minSafeWidth) {
+    const offset = (minSafeWidth - b.w) / 2 + 2 / zoom
+    edgeLeftX = b.x + offset
+    edgeRightX = b.x + b.w - offset
+  }
+  
+  // 如果形状太矮，将上下边缘手柄向内偏移，避免与左右角落手柄重叠
+  if (b.h < minSafeHeight) {
+    const offset = (minSafeHeight - b.h) / 2 + 2 / zoom
+    edgeTopY = b.y + offset
+    edgeBottomY = b.y + b.h - offset
+  }
+  
   ctx.fillStyle = primary
   ctx.shadowColor = isDarkMode ? 'rgba(200,160,176,0.3)' : 'rgba(176,125,110,0.3)'
   ctx.shadowBlur = 4 / zoom
-  // P0 性能优化: 预计算角点坐标，避免每次创建新数组
-  // P0 性能优化: 合并 4 个角点为单次 beginPath/fill 调用
-  // 减少 3 次 API 调用，性能提升 ~75%
+  
+  // P28: 先绘制边缘手柄（在角落手柄下方）
+  // 边缘手柄：上、下、左、右四边中点
+  ctx.beginPath()
+  ctx.arc(b.x + b.w / 2, edgeTopY, edgeR, 0, Math.PI * 2)      // 上边缘中点
+  ctx.arc(b.x + b.w / 2, edgeBottomY, edgeR, 0, Math.PI * 2)   // 下边缘中点
+  ctx.arc(edgeLeftX, b.y + b.h / 2, edgeR, 0, Math.PI * 2)      // 左边缘中点
+  ctx.arc(edgeRightX, b.y + b.h / 2, edgeR, 0, Math.PI * 2)     // 右边缘中点
+  ctx.fill()
+  
+  // P0 性能优化: 合并 4 个角落手柄为单次 beginPath/fill 调用
+  // 角落手柄（后绘制，显示在边缘手柄上方）
   ctx.beginPath()
   ctx.arc(b.x, b.y, cornerR, 0, Math.PI * 2)
   ctx.arc(b.x + b.w, b.y, cornerR, 0, Math.PI * 2)
