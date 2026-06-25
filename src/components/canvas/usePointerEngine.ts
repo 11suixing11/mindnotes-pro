@@ -479,9 +479,12 @@ export function usePointerEngine(opts: {
 
   /**
    * 传统擦除模式（兼容模式）
+   * P31 新功能: topOnly 参数 - 只擦除最顶层元素 (来源 tldraw v4.0.3 PR #6554)
+   * 匹配 tldraw 专业工具标准交互：按住 Ctrl/Cmd 擦除时只删除最顶层的重叠形状
+   * 用户价值：解决重叠元素难以精确擦除单个的痛点
    */
   const eraseAtSimple = useCallback(
-    (x: number, y: number) => {
+    (x: number, y: number, topOnly: boolean = false) => {
       const r = useAppStore.getState().size * 2 + 10,
         r2 = r * r
       const state = useAppStore.getState()
@@ -494,10 +497,26 @@ export function usePointerEngine(opts: {
         h: r * 2,
       })
 
-      // P0-2: 直接遍历候选 ID，通过 idToElement O(1) 查找
-      const iterateIds = candidateIds ?? state.elements.map((e) => e.id)
+      // P31: 按 Z-order 排序（后绘制的在上层）
+      // 使用缓存的 idToIndex 进行 O(1) 查找和排序
+      const cache = idToIndexCacheRef.current
+      if (cache.els !== state.elements) {
+        const map = new Map<string, number>()
+        for (let i = 0; i < state.elements.length; i++) map.set(state.elements[i].id, i)
+        idToIndexCacheRef.current = { els: state.elements, map }
+      }
+      const idToIndex = idToIndexCacheRef.current.map
 
-      for (const id of iterateIds) {
+      // 按 Z-order 降序排列（最上层在前）
+      const sortedIds = (candidateIds ?? state.elements.map((e) => e.id)).sort((a, b) => {
+        return (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
+      })
+
+      let topElementErased = false
+
+      for (const id of sortedIds) {
+        // P31: topOnly 模式下，擦除最顶层元素后立即停止
+        if (topOnly && topElementErased) break
         if (erasedRef.current.has(id)) continue
         const el = state.idToElement.get(id)
         if (!el) continue
@@ -523,11 +542,15 @@ export function usePointerEngine(opts: {
               id: `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
               points: seg,
             })
+          // P31: 标记已擦除最顶层元素
+          topElementErased = true
         } else {
           const b = cachedBounds(el)
           if (x >= b.x - r && x <= b.x + b.w + r && y >= b.y - r && y <= b.y + b.h + r) {
             erasedRef.current.add(el.id)
             removeElement(el.id)
+            // P31: 标记已擦除最顶层元素
+            topElementErased = true
           }
         }
       }
@@ -538,11 +561,19 @@ export function usePointerEngine(opts: {
   /**
    * 物理擦除模式
    * 支持压力感应、速度计算、笔触精确分割、压感笔倾斜
+   * P31 新功能: topOnly 参数 - 只擦除最顶层元素 (来源 tldraw v4.0.3 PR #6554)
    */
   const eraseAtPhysics = useCallback(
-    (x: number, y: number, pressure: number = 0.5, e?: MouseEvent | TouchEvent) => {
+    (x: number, y: number, pressure: number = 0.5, e?: MouseEvent | TouchEvent, topOnly: boolean = false) => {
       const state = useAppStore.getState()
       const eraserStore = useEraserStore.getState()
+
+      // P31: topOnly 模式下，物理擦除降级到简单模式（只擦除最顶层）
+      // 物理擦除主要用于笔触精确分割，不适合精确擦除单个顶层元素
+      if (topOnly) {
+        eraseAtSimple(x, y, true)
+        return
+      }
 
       // 计算速度
       const now = performance.now()
@@ -606,14 +637,15 @@ export function usePointerEngine(opts: {
   /**
    * 统一擦除入口
    * 自动选择物理/简单模式
+   * P31 新功能: topOnly 参数 - 只擦除最顶层元素 (来源 tldraw v4.0.3 PR #6554)
    */
   const eraseAt = useCallback(
-    (x: number, y: number, pressure?: number, e?: MouseEvent | TouchEvent) => {
+    (x: number, y: number, pressure?: number, e?: MouseEvent | TouchEvent, topOnly: boolean = false) => {
       const eraserStore = useEraserStore.getState()
       if (eraserStore.shouldUsePhysics()) {
-        eraseAtPhysics(x, y, pressure, e)
+        eraseAtPhysics(x, y, pressure, e, topOnly)
       } else {
-        eraseAtSimple(x, y)
+        eraseAtSimple(x, y, topOnly)
       }
     },
     [eraseAtPhysics, eraseAtSimple]
@@ -879,7 +911,9 @@ export function usePointerEngine(opts: {
       else if (curTool === 'eraser') {
         // P1-4 性能优化: 删除无用的全量快照克隆
         // batchErase 不再需要 preEraseSnapshot，避免每次擦除开始时克隆所有元素
-        eraseAt(pos.x, pos.y, undefined, e)
+        // P31 新功能: 检测 Ctrl/Cmd 键，只擦除最顶层元素 (来源 tldraw v4.0.3 PR #6554)
+        const topOnly = e.metaKey || e.ctrlKey
+        eraseAt(pos.x, pos.y, undefined, e, topOnly)
       } else {
         shapeStartRef.current = pos
         currentShapeRef.current = {
@@ -1395,7 +1429,9 @@ export function usePointerEngine(opts: {
         eraserTrailIndexRef.current = (idx + 1) & 63 // 位运算模 64
         eraserTrailCountRef.current = Math.min(eraserTrailCountRef.current + 1, 64)
 
-        if (drawingRef.current) eraseAt(pos.x, pos.y, undefined, e)
+        // P31 新功能: 检测 Ctrl/Cmd 键，只擦除最顶层元素 (来源 tldraw v4.0.3 PR #6554)
+        const topOnly = e.metaKey || e.ctrlKey
+        if (drawingRef.current) eraseAt(pos.x, pos.y, undefined, e, topOnly)
         scheduleRedraw()
         return
       }
