@@ -1,5 +1,11 @@
 import type { AlignmentType, DistributionType, CanvasElement, UndoAction } from '../types'
-import { alignElements, distributeElements, moveElement, resizeElement, rotateElement } from '../types'
+import {
+  alignElements,
+  distributeElements,
+  moveElement,
+  resizeElement,
+  rotateElement,
+} from '../types'
 import { shallowClone, snapshot } from '../helpers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import { MAX_HISTORY } from './history'
@@ -36,7 +42,12 @@ export interface CanvasElementsActions {
   // 元素旋转
   rotateElementById: (id: string, angle: number, cx?: number, cy?: number) => void
   // 批量旋转多个元素
-  rotateElementsById: (ids: string[], angleDelta: number, commonCenterX?: number, commonCenterY?: number) => void
+  rotateElementsById: (
+    ids: string[],
+    angleDelta: number,
+    commonCenterX?: number,
+    commonCenterY?: number
+  ) => void
   clearAll: () => void
   setSelectedIds: (ids: string[]) => void
   copySelected: () => void
@@ -212,7 +223,8 @@ export function createCanvasElementsSlice(
       const st = get()
       // 过滤掉锁定的元素，禁止删除
       const unlockedIds = ids.filter((id) => {
-        const el = st.idToElement.get(id)
+        const el =
+          st.idToElement.get(id) ?? st.elements.find((item: CanvasElement) => item.id === id)
         return el && !el.locked
       })
       if (unlockedIds.length === 0) return
@@ -298,7 +310,8 @@ export function createCanvasElementsSlice(
       const st = get()
       // 过滤掉锁定的元素，禁止移动
       const unlockedIds = ids.filter((id) => {
-        const el = st.idToElement.get(id)
+        const el =
+          st.idToElement.get(id) ?? st.elements.find((item: CanvasElement) => item.id === id)
         return el && !el.locked
       })
       if (unlockedIds.length === 0) return
@@ -307,7 +320,7 @@ export function createCanvasElementsSlice(
       // 为批量移动添加撤销支持
       // 问题: 之前键盘微调后无法撤销，用户体验断裂
       // 解决方案: 移动前保存原始元素快照，创建 clear 类型的撤销动作
-      const originalSnapshot = st.elements.map((e: CanvasElement) => 
+      const originalSnapshot = st.elements.map((e: CanvasElement) =>
         idSet.has(e.id) ? shallowClone(e) : e
       )
       const undoAction: UndoAction = {
@@ -317,15 +330,6 @@ export function createCanvasElementsSlice(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
         // P0 性能优化: 快速检查是否有元素需要移动 - 使用 idToElement O(1) 检查
-        let hasMatch = false
-        for (const id of ids) {
-          if (idToElement.has(id)) {
-            hasMatch = true
-            break
-          }
-        }
-        if (!hasMatch) return s
-
         // 使用 index-based 替换替代全量 map
         const next = [...s.elements]
         let changed = false
@@ -445,20 +449,13 @@ export function createCanvasElementsSlice(
       const st = get()
       // 过滤掉锁定的元素，禁止旋转
       const unlockedIds = ids.filter((id) => {
-        const el = st.idToElement.get(id)
+        const el =
+          st.idToElement.get(id) ?? st.elements.find((item: CanvasElement) => item.id === id)
         return el && !el.locked
       })
       if (unlockedIds.length === 0) return
       const idSet = new Set(unlockedIds)
       set((s: any) => {
-        let hasMatch = false
-        for (const id of ids) {
-          if (idToElement.has(id)) {
-            hasMatch = true
-            break
-          }
-        }
-        if (!hasMatch) return s
         const next = [...s.elements]
         let changed = false
         for (let i = 0; i < next.length; i++) {
