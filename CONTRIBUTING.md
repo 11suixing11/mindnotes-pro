@@ -1,189 +1,66 @@
 # Contributing to MindNotes Pro
 
-Thank you for your interest in contributing to MindNotes Pro! This document provides guidelines and steps for contributing.
+Thanks for taking the time to improve MindNotes Pro. This project is maintained as a local-first whiteboard and drawing tool, so contributions should keep the app readable, private by default, and pleasant to use.
 
-## Code of Conduct
+## Good First Contributions
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+- Reproduce and narrow down a reported canvas interaction bug.
+- Add a focused unit test for store, history, export, selection, or keyboard behavior.
+- Improve documentation where the current behavior is unclear.
+- Fix accessibility issues in toolbar, menus, dialogs, and keyboard flows.
+- Reduce confusing implementation comments or rename internal helpers for clarity.
 
-## How to Contribute
+## Before Opening an Issue
 
-### Reporting Bugs
+Please search existing issues first. A useful issue usually includes:
 
-Before creating bug reports, please check existing [issues](https://github.com/11suixing11/mindnotes-pro/issues) to avoid duplicates.
+- What you expected to happen.
+- What actually happened.
+- Steps to reproduce the behavior.
+- Browser, OS, and whether the issue happens in a private/incognito window.
+- A short screen recording for pointer, selection, zoom, export, or keyboard issues.
 
-When creating a bug report, include:
+For security reports, do not open a public issue with exploit details. See [SECURITY.md](SECURITY.md).
 
-- A clear, descriptive title
-- Steps to reproduce the behavior
-- Expected behavior vs. actual behavior
-- Browser and OS information
-- Screenshots if applicable
+## Pull Request Workflow
 
-### Suggesting Features
-
-Feature requests are welcome. Please provide:
-
-- A clear description of the feature
-- The use case / motivation
-- Any alternatives you have considered
-
-### Pull Requests
-
-1. **Fork** the repository and create your branch from `main`
-2. **Install** dependencies: `npm install`
-3. **Make** your changes following the coding conventions below
-4. **Add or update tests** for your changes
-5. **Run** the test suite: `npm run test:run`
-6. **Run** the linter: `npm run lint`
-7. **Ensure** the build passes: `npm run build`
-8. **Commit** with a clear message (see [Commit Messages](#commit-messages))
-9. **Push** to your fork and submit a pull request
-
-> **Note:** Pre-commit hooks are configured via [husky](https://typicode.github.io/husky/) and [lint-staged](https://github.com/lint-staged/lint-staged). ESLint and Prettier will run automatically on staged files before each commit.
-
-## Development Setup
+1. Fork the repository and create a branch from `main`.
+2. Install dependencies with `npm install`.
+3. Run the app with `npm run dev`.
+4. Keep the change focused and reviewable.
+5. Add or update tests when behavior changes.
+6. Run the checks that match your change:
 
 ```bash
-# Clone your fork
-git clone https://github.com/<your-username>/mindnotes-pro.git
-cd mindnotes-pro
-
-# Install dependencies
-npm install
-
-# Start dev server (http://localhost:3000)
-npm run dev
-
-# Run tests in watch mode
-npm run test
-
-# Run tests once with coverage
-npm run test:run -- --coverage
-
-# Run E2E tests
-npm run test:e2e
+npm run build
+npm run test:run
+npm run lint
 ```
 
-## Coding Conventions
+If a check fails because of an existing issue, mention that clearly in the PR and include the failing output.
 
-### TypeScript
+## Project Conventions
 
-- **Strict mode** is enabled �� all code must pass strict type checking
-- No unused locals or parameters (enforced by `tsc`)
-- Prefer explicit types over `any`
-- Use `type` imports for type-only imports: `import type { Foo } from './foo'`
-
-### File Naming
-
-| Type          | Convention                  | Example                |
-| ------------- | --------------------------- | ---------------------- |
-| Component     | PascalCase                  | `Canvas.tsx`           |
-| Hook          | camelCase with `use` prefix | `useCanvasRenderer.ts` |
-| Utility       | camelCase                   | `canvasUtils.ts`       |
-| Test          | Co-located with source      | `canvasUtils.test.ts`  |
-| Store slice   | camelCase in `slices/`      | `canvasElements.ts`    |
-| Barrel export | `index.ts`                  | `components/index.ts`  |
-
-### Styling
-
-- Use **Tailwind CSS** utility classes
-- Follow the existing **Monet-inspired** color palette defined in `tailwind.config.js`
-- Keep component styles inline with Tailwind; avoid custom CSS files when possible
-
-### State Management
-
-- Add new state to the appropriate **Zustand slice** in `src/store/slices/`
-- Keep slices focused and cohesive
-- Use the existing `saveManager` for persistence
-
-### Testing
-
-- Write tests for all new utilities and components
-- Use `@testing-library/react` for component tests
-- Maintain minimum **60% code coverage** (lines, functions, branches, statements)
-- Run `npm run test:run` before submitting PRs
-- Place test files adjacent to the source file: `foo.ts` �� `foo.test.ts`
+- Prefer existing React, Zustand, and Canvas patterns over new abstractions.
+- Keep user data local unless the feature explicitly documents otherwise.
+- Keep design-tool-inspired interactions generic and attribute inspiration when it matters.
+- Avoid adding network dependencies or analytics without a clear privacy discussion.
+- Keep comments short and useful; explain tricky behavior, not obvious assignments.
 
 ## Commit Messages
 
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
+Use short, descriptive messages. Conventional Commits are welcome but not required.
 
-```
-<type>(<scope>): <description>
+Examples:
 
-[optional body]
-
-[optional footer]
-```
-
-**Types:**
-
-| Type       | Description                              |
-| ---------- | ---------------------------------------- |
-| `feat`     | New feature                              |
-| `fix`      | Bug fix                                  |
-| `docs`     | Documentation changes                    |
-| `style`    | Code style (formatting, no logic change) |
-| `refactor` | Code refactoring                         |
-| `test`     | Adding or updating tests                 |
-| `chore`    | Build process or tooling changes         |
-| `perf`     | Performance improvement                  |
-| `ci`       | CI/CD configuration changes              |
-
-**Examples:**
-
-```
-feat(canvas): add rectangle selection tool
-fix(export): resolve PDF export crash on empty canvas
-docs(readme): update installation instructions
-test(store): add unit tests for history slice
+```text
+fix(selection): keep handles stable after zoom
+docs(readme): clarify export limitations
+test(history): cover undo selection restoration
 ```
 
-## Branch Naming
+## Review Expectations
 
-Use the format: `<type>/<short-description>`
+Maintainer review will focus on behavior, test coverage, user-data safety, and whether the change fits the current architecture. Small PRs are much easier to review and merge than broad rewrites.
 
-```
-feat/rectangle-tool
-fix/pdf-export-crash
-docs/api-reference
-```
-
-## Code Review Process
-
-All pull requests require at least one approval before merging. During review:
-
-- **Reviewers** should provide constructive feedback and approve only when the code meets project standards
-- **Authors** should respond to all comments and mark resolved threads
-- **Automated checks** (lint, type-check, test, build) must pass before review begins
-- Use [Conventional Comments](https://conventionalcomments.org/) prefixes for clarity:
-  - `nit:` �� Minor, non-blocking suggestion
-  - `suggestion:` �� Idea for improvement
-  - `issue:` �� Problem that should be addressed
-  - `praise:` �� Highlight something done well
-
-## Branch Protection
-
-The `main` branch is protected with the following rules:
-
-- Require pull request reviews before merging
-- Require status checks to pass (lint, type-check, test, build)
-- Require branches to be up to date before merging
-- No force pushes or branch deletion
-
-## Release Process
-
-1. Update `CHANGELOG.md` with release notes
-2. Bump version in `package.json` following [Semantic Versioning](https://semver.org/)
-3. Create a git tag: `git tag v3.x.x`
-4. Push the tag: `git push origin v3.x.x`
-5. The CI will automatically create a GitHub Release with build artifacts
-
-## Reporting Security Issues
-
-Please see [SECURITY.md](SECURITY.md) for details on reporting security vulnerabilities.
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+By contributing, you agree that your contribution will be licensed under the MIT License.

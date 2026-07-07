@@ -1,49 +1,36 @@
-## Summary / ����
+## Summary
 
-<!-- Briefly describe what this PR does / ���Ҫ�������� PR �ı������ -->
+Describe what changed and why.
 
-## Related Issues / ���� Issue
+## Related Issues
 
-<!-- Link related issues, e.g.: Closes #123, Fixes #456 / ������� Issue -->
+Closes #
 
-## Type of Change / �������
+## Type of Change
 
-- [ ] Bug fix / Bug �޸�
-- [ ] New feature / �¹���
-- [ ] Breaking change / �ƻ��Ա��
-- [ ] Documentation / �ĵ�����
-- [ ] Refactor / �����ع�
-- [ ] Tests / ���Ը���
-- [ ] Build / CI / Tooling / �����빤�������
-- [ ] Performance improvement / �����Ż�
+- [ ] Bug fix
+- [ ] Feature
+- [ ] Documentation
+- [ ] Refactor
+- [ ] Test
+- [ ] Build, CI, or tooling
+- [ ] Performance
 
-## Motivation & Context / �����뱳��
+## Verification
 
-<!-- Why is this change needed? What problem does it solve? / Ϊʲô��Ҫ����Ķ��������ʲô���⣿ -->
+- [ ] `npm run build`
+- [ ] `npm run test:run`
+- [ ] `npm run lint`
+- [ ] Manual browser check, if UI behavior changed
 
-## How Has This Been Tested? / ���Է�ʽ
+If any check fails because of an existing issue, include the failure summary here.
 
-<!-- Describe how you tested your changes / ��������β�������ĸĶ� -->
+## Product Boundary
 
-- [ ] Unit tests pass (`npm run test:run`) / ��Ԫ����ͨ��
-- [ ] Lint passes (`npm run lint`) / Lint ���ͨ��
-- [ ] Build succeeds (`npm run build`) / �����ɹ�
-- [ ] Manual testing in browser / ������ֶ�����
-- [ ] E2E tests pass (`npm run test:e2e`) / E2E ����ͨ��
+- [ ] This change keeps user data local unless the behavior is explicitly documented.
+- [ ] Design-tool-inspired behavior is generic or properly attributed.
+- [ ] UI changes include screenshots or a short recording when helpful.
 
-## Screenshots / ¼��
+## Notes for Reviewers
 
-<!-- If UI changes, please attach screenshots or recordings / ����� UI ������븽�Ͻ�ͼ��¼�� -->
-
-## Checklist / �Լ��嵥
-
-- [ ] My code follows the project's coding conventions / ������ѭ��Ŀ����淶
-- [ ] I have added/updated tests for my changes / �����ӻ������Ӧ����
-- [ ] I have updated documentation as needed / �Ѹ�������ĵ�
-- [ ] No new warnings or errors introduced / δ�����µľ�������
-- [ ] All existing tests still pass / �������в�����Ȼͨ��
-- [ ] Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) / �ύ��Ϣ��ѭԼ��ʽ�ύ�淶
-
-## Additional Notes / ��ע
-
-<!-- Any other information reviewers should know / ������Ҫ�����ע�����Ϣ -->
+Add anything reviewers should pay special attention to.
