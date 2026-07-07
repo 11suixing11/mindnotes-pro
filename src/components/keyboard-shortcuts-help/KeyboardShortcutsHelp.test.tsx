@@ -19,7 +19,7 @@ describe('KeyboardShortcutsHelp', () => {
     expect(screen.getByText('Keyboard Shortcuts')).toBeTruthy()
     expect(screen.getByText('Undo')).toBeTruthy()
     expect(screen.getByText('Redo')).toBeTruthy()
-    expect(screen.getByText('Pen')).toBeTruthy()
+    expect(screen.getByText('Pen Tool')).toBeTruthy()
   })
 
   it('renders all shortcut labels', () => {

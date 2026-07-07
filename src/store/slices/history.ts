@@ -32,7 +32,6 @@ function getAffectedElementIds(action: UndoAction): string[] {
       return action.beforeUngroup.map((g) => g.id)
     case 'clear':
       return action.snapshot.map((e) => e.id)
-    // 锁定/解锁撤销支持
     case 'lock':
       return action.elementIds
     case 'unlock':
@@ -42,36 +41,23 @@ function getAffectedElementIds(action: UndoAction): string[] {
   }
 }
 
-/**
- * undo/redo 后自动定位到受影响元素并选中
- * 专业设计软件标准行为（Figma、Sketch、tldraw）
- * 提升核心操作体验，用户无需在大画布上寻找撤销后的变化
- */
 function focusAffectedElements(
   affectedIds: string[],
   currentElements: CanvasElement[],
   setFn: (state: { selectedIds: string[] }) => void
 ) {
-  // 只选中当前存在的元素
-  const existingIds = affectedIds.filter((id) =>
-    currentElements.some((el) => el.id === id)
-  )
+  const existingIds = affectedIds.filter((id) => currentElements.some((el) => el.id === id))
+
+  setFn({ selectedIds: existingIds })
 
   if (existingIds.length > 0) {
-    // 选中受影响的元素
-    setFn({ selectedIds: existingIds })
-
-    // 计算受影响元素的边界并定位
-    const affectedElements = currentElements.filter((el) =>
-      existingIds.includes(el.id)
-    )
+    const affectedElements = currentElements.filter((el) => existingIds.includes(el.id))
     const bounds = getContentBounds(affectedElements, 40)
     if (bounds) {
       useViewStore.getState().zoomToFit(bounds)
     }
   }
 }
-
 export interface HistoryState {
   undoStack: UndoAction[]
   redoStack: UndoAction[]
@@ -139,7 +125,9 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         }
       } else if (action.type === 'group') {
         // 撤销分组 - 恢复元素分组前的 groupId 状态
-        const restoreMap = new Map(action.beforeGroup.map((g: { id: string; oldGroupId?: string }) => [g.id, g.oldGroupId]))
+        const restoreMap = new Map(
+          action.beforeGroup.map((g: { id: string; oldGroupId?: string }) => [g.id, g.oldGroupId])
+        )
         next = elements.map((el: CanvasElement) => {
           if (restoreMap.has(el.id)) {
             const oldGroupId = restoreMap.get(el.id)
@@ -151,11 +139,15 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           type: 'group',
           groupId: action.groupId,
           elementIds: action.elementIds,
-          beforeGroup: action.beforeGroup.map((g: { id: string; oldGroupId?: string }) => ({ ...g })),
+          beforeGroup: action.beforeGroup.map((g: { id: string; oldGroupId?: string }) => ({
+            ...g,
+          })),
         }
       } else if (action.type === 'ungroup') {
         // 撤销取消分组 - 恢复元素的 groupId
-        const restoreMap = new Map(action.beforeUngroup.map((g: { id: string; oldGroupId?: string }) => [g.id, g.oldGroupId]))
+        const restoreMap = new Map(
+          action.beforeUngroup.map((g: { id: string; oldGroupId?: string }) => [g.id, g.oldGroupId])
+        )
         next = elements.map((el: CanvasElement) => {
           if (restoreMap.has(el.id)) {
             const oldGroupId = restoreMap.get(el.id)
@@ -166,7 +158,9 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         redoAction = {
           type: 'ungroup',
           groupIds: [...action.groupIds],
-          beforeUngroup: action.beforeUngroup.map((g: { id: string; oldGroupId?: string }) => ({ ...g })),
+          beforeUngroup: action.beforeUngroup.map((g: { id: string; oldGroupId?: string }) => ({
+            ...g,
+          })),
         }
       } else if (action.type === 'lock') {
         // 撤销锁定 - 恢复元素的锁定状态
@@ -220,7 +214,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
       const spatialIndex = state.spatialIndex
       const idToElement = state.idToElement
       const idToIndex = state.idToIndex
-      
+
       if (spatialIndex && idToElement && idToIndex) {
         // 1. 构建当前元素的 ID Set 和引用 Map
         const prevIdSet = new Set<string>()
@@ -229,12 +223,12 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           prevIdSet.add(id)
           prevRefMap.set(id, el)
         })
-        
+
         const nextIdSet = new Set<string>()
         for (const el of next) {
           nextIdSet.add(el.id)
         }
-        
+
         // 2. 删除不存在于 next 中的元素
         for (const id of prevIdSet) {
           if (!nextIdSet.has(id)) {
@@ -243,7 +237,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
             spatialIndex.remove(id)
           }
         }
-        
+
         // 3. 更新/新增 next 中的元素
         for (let i = 0; i < next.length; i++) {
           const el = next[i]
@@ -314,7 +308,9 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           type: 'group',
           groupId: action.groupId,
           elementIds: action.elementIds,
-          beforeGroup: action.beforeGroup.map((g: { id: string; oldGroupId?: string }) => ({ ...g })),
+          beforeGroup: action.beforeGroup.map((g: { id: string; oldGroupId?: string }) => ({
+            ...g,
+          })),
         }
       } else if (action.type === 'ungroup') {
         // 重做取消分组 - 移除所有组的 groupId
@@ -328,7 +324,9 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         undoAction = {
           type: 'ungroup',
           groupIds: [...action.groupIds],
-          beforeUngroup: action.beforeUngroup.map((g: { id: string; oldGroupId?: string }) => ({ ...g })),
+          beforeUngroup: action.beforeUngroup.map((g: { id: string; oldGroupId?: string }) => ({
+            ...g,
+          })),
         }
       } else if (action.type === 'lock') {
         // 重做锁定 - 重新应用锁定状态
@@ -380,7 +378,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
       const spatialIndex = state.spatialIndex
       const idToElement = state.idToElement
       const idToIndex = state.idToIndex
-      
+
       if (spatialIndex && idToElement && idToIndex) {
         // 1. 构建当前元素的 ID Set 和引用 Map
         const prevIdSet = new Set<string>()
@@ -389,12 +387,12 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           prevIdSet.add(id)
           prevRefMap.set(id, el)
         })
-        
+
         const nextIdSet = new Set<string>()
         for (const el of next) {
           nextIdSet.add(el.id)
         }
-        
+
         // 2. 删除不存在于 next 中的元素
         for (const id of prevIdSet) {
           if (!nextIdSet.has(id)) {
@@ -403,7 +401,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
             spatialIndex.remove(id)
           }
         }
-        
+
         // 3. 更新/新增 next 中的元素
         for (let i = 0; i < next.length; i++) {
           const el = next[i]

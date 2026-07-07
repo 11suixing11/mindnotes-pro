@@ -41,7 +41,9 @@ export function useSelectionEngine(
     })
 
     // 使用候选集或降级到全量遍历
-    const candidateSet = nearIds ? new Set(nearIds) : null
+    const indexedEntries = state.spatialIndex?.getRebuildStats?.().totalEntries ?? 0
+    const candidateSet =
+      nearIds && (nearIds.length > 0 || indexedEntries > 0) ? new Set(nearIds) : null
 
     for (const el of els) {
       if (excludeIds.has(el.id)) continue
