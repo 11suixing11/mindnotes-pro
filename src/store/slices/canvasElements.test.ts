@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from '../appStore'
 import type { ShapeElement, StrokeElement, TextElement, ImageElement } from '../types'
 

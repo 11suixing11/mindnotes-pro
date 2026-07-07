@@ -12,9 +12,9 @@ interface ViewState {
   isPanning: boolean
   lastPanPosition: { x: number; y: number } | null
   showGrid: boolean
-  // P25 新功能: Quick Zoom Navigation (鹰眼模式) - 来源 tldraw v4.4.0 PR #7801
+  // Quick Zoom Navigation (鹰眼模式)
   // 按 Z 键进入鹰眼模式，快速全局预览后定位到目标区域
-  // 竞品对标: tldraw, Figma, Sketch - 专业设计工具标准导航功能
+  // 设计参考: tldraw, Figma, Sketch - 专业设计工具标准导航功能
   eagleEye: {
     isActive: boolean
     originalViewBox: { x: number; y: number; zoom: number } | null
@@ -32,11 +32,11 @@ interface ViewActions {
   updatePan: (x: number, y: number) => void
   endPan: () => void
   zoomToFit: (bounds: { x: number; y: number; w: number; h: number } | null) => void
-  // P34 新功能: Zoom to Selection (缩放到选中元素) - 来源 Figma / Sketch / Graphic 专业设计工具标准
-  // 竞品对标: Figma Cmd+2, Sketch Cmd+2, Graphic Cmd+2 - 行业标准快捷键
+  // Zoom to Selection (缩放到选中元素)
+  // 设计参考: Figma Cmd+2, Sketch Cmd+2, Graphic Cmd+2 - 行业标准快捷键
   zoomToSelection: () => void
   toggleGrid: () => void
-  // P25: 鹰眼模式方法
+  // 鹰眼模式方法
   startEagleEye: () => void
   updateEagleEyeTarget: (x: number, y: number) => void
   commitEagleEye: () => void
@@ -101,7 +101,7 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
     set({ viewBox: { x, y, zoom } })
   },
 
-  // P34 新功能: Zoom to Selection (缩放到选中元素)
+  // Zoom to Selection (缩放到选中元素)
   // 专业设计工具标准功能：选中元素后一键缩放到合适大小查看细节
   // 用户价值：处理复杂画布时，无需手动滚动缩放，一键定位到选中内容
   zoomToSelection: () => {
@@ -153,7 +153,7 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
 
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
 
-  // P25: 启动鹰眼模式
+  // 启动鹰眼模式
   // 1. 保存当前视口
   // 2. 计算所有元素的边界
   // 3. 缩放到全局视图
@@ -196,7 +196,7 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
     })
   },
 
-  // P25: 更新鹰眼模式下的目标位置（鼠标移动时）
+  // 更新鹰眼模式下的目标位置（鼠标移动时）
   updateEagleEyeTarget: (x: number, y: number) => {
     const state = get()
     if (!state.eagleEye.isActive) return
@@ -209,7 +209,7 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
     })
   },
 
-  // P25: 确认鹰眼模式选择 - 平滑放大到目标区域
+  // 确认鹰眼模式选择 - 平滑放大到目标区域
   commitEagleEye: () => {
     const state = get()
     if (!state.eagleEye.isActive) return
@@ -233,7 +233,7 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
     })
   },
 
-  // P25: 取消鹰眼模式 - 返回原始视口
+  // 取消鹰眼模式 - 返回原始视口
   cancelEagleEye: () => {
     const state = get()
     if (!state.eagleEye.isActive || !state.eagleEye.originalViewBox) return

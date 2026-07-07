@@ -1,14 +1,14 @@
 /**
- * P32 新功能: SVG 安全过滤器 (来源 tldraw v4.5.0 PR #7896)
+ * SVG 安全过滤器
  * 
  * 安全背景:
  * SVG 是 XML 格式，可以包含 <script> 标签执行任意 JavaScript。
  * 当用户粘贴恶意 SVG 并导出时，导出文件可能包含 XSS 攻击代码。
  * 
- * 竞品对标:
- * - tldraw v4.5.0: 引入完整 SVG sanitizer (#7896)
- * - excalidraw: 使用 DOMPurify 过滤 SVG
- * - Figma: 严格的 SVG 白名单机制
+ * 设计参考:
+ * - SVG 白名单过滤
+ * - DOMPurify 一类的安全清理策略
+ * - 主流设计工具对 SVG 导入的安全边界
  * 
  * 实现方案: 白名单机制 - 只允许安全的标签和属性
  * - 移除所有 <script> 标签及内容
@@ -18,7 +18,7 @@
  * - 递归处理嵌套 SVG
  */
 
-// 安全的 SVG 标签白名单 (基于 tldraw + W3C SVG 安全规范)
+// 安全的 SVG 标签白名单
 const SAFE_SVG_TAGS = new Set([
   'svg', 'g', 'defs', 'use', 'symbol',
   'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon',

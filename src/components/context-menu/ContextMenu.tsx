@@ -13,7 +13,7 @@ const MENU_ITEM_HEIGHT = 32
 const MENU_PADDING = 4
 const SUBMENU_OFFSET = -4
 
-// P17 新功能: 右键上下文菜单 (来源 Excalidraw / Figma / tldraw 标准交互)
+// 右键上下文菜单
 // 专业白板/设计工具标配功能，集成所有常用操作
 export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
@@ -41,14 +41,14 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const distributeSelected = useAppStore((s) => s.distributeSelected)
   const setSelectedIds = useAppStore((s) => s.setSelectedIds)
   const clearAll = useAppStore((s) => s.clearAll)
-  // P24 新功能: 锁定/解锁元素
+  // 锁定/解锁元素
   const lockSelected = useAppStore((s) => s.lockSelected)
   const unlockSelected = useAppStore((s) => s.unlockSelected)
   // 检查选中元素的锁定状态
   const hasLockedElements = selectedElements.some((el) => el.locked)
   const hasUnlockedElements = selectedElements.some((el) => !el.locked)
 
-  // P17: 全选功能 - 选择所有元素
+  // 全选功能 - 选择所有元素
   const selectAll = useCallback(() => {
     setSelectedIds(elements.map((el) => el.id))
   }, [elements, setSelectedIds])
@@ -171,7 +171,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
         />
       )}
 
-      {/* P24 新功能: 锁定/解锁操作 (来源 Figma / tldraw v5.1.0 专业设计工具标准) */}
+      {/* 锁定/解锁操作 */}
       {hasSelection && (
         <>
           <MenuSeparator />

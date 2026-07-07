@@ -13,7 +13,7 @@ import { usePointerEngine } from './usePointerEngine'
 export default function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
-  // P17 新功能: 右键上下文菜单状态
+  // 右键上下文菜单状态
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
 
   const getDrawStateRef = useRef<() => DrawState>(() => ({
@@ -63,7 +63,7 @@ export default function Canvas() {
   // b) useKeyboardBindings
   useKeyboardBindings({ copySelectedToSystemClipboard })
 
-  // P17 新功能: 右键上下文菜单处理
+  // 右键上下文菜单处理
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     setContextMenu({ x: e.clientX, y: e.clientY })
@@ -199,7 +199,7 @@ export default function Canvas() {
             )
           })()}
       </div>
-      {/* P17 新功能: 右键上下文菜单 */}
+      {/* 右键上下文菜单 */}
       {contextMenu && (
         <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />
       )}

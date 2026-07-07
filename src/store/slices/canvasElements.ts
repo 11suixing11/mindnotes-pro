@@ -33,9 +33,9 @@ export interface CanvasElementsActions {
   moveElementById: (id: string, dx: number, dy: number) => void
   moveElementsById: (ids: string[], dx: number, dy: number) => void
   resizeElementById: (id: string, ax: number, ay: number, sx: number, sy: number) => void
-  // P17 新功能: 元素旋转
+  // 元素旋转
   rotateElementById: (id: string, angle: number, cx?: number, cy?: number) => void
-  // P20 新功能: 批量旋转多个元素
+  // 批量旋转多个元素
   rotateElementsById: (ids: string[], angleDelta: number, commonCenterX?: number, commonCenterY?: number) => void
   clearAll: () => void
   setSelectedIds: (ids: string[]) => void
@@ -47,7 +47,7 @@ export interface CanvasElementsActions {
   alignSelected: (alignment: AlignmentType) => void
   distributeSelected: (distribution: DistributionType) => void
   batchErase: (beforeSnap: CanvasElement[], added: CanvasElement[]) => void
-  // P24 新功能: 元素锁定 (来源 Figma / tldraw v5.1.0 专业设计工具标准)
+  // 元素锁定
   // 专业设计工具标配：锁定元素防止误操作
   lockSelected: () => void
   unlockSelected: () => void
@@ -72,7 +72,7 @@ export function createCanvasElementsSlice(
 
   // P0-3 性能优化: 重建索引（懒更新策略）
   // 只在索引查询失败时调用，避免每次删除都做 O(n) 更新
-  // P0 修复: 正确同步闭包 idToIndex 与 store 中的 idToIndex
+  // 正确同步闭包 idToIndex 与 store 中的 idToIndex
   function rebuildIndexIfNeeded() {
     if (!_indexDirty) return
     const st = get()
@@ -109,7 +109,7 @@ export function createCanvasElementsSlice(
         undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
-      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+      // 同步更新 ID 映射（闭包和 store 都更新）
       idToElement.set(el.id, el)
       st.idToElement.set(el.id, el)
       idToIndex.set(el.id, newIndex)
@@ -132,7 +132,7 @@ export function createCanvasElementsSlice(
         undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
-      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+      // 同步更新 ID 映射（闭包和 store 都更新）
       els.forEach((el, i) => {
         idToElement.set(el.id, el)
         st.idToElement.set(el.id, el)
@@ -148,7 +148,7 @@ export function createCanvasElementsSlice(
       // P0 性能优化: 使用 idToIndex O(1) 查找，替代 map O(n) 遍历
       // 单元素更新性能提升 10-100x（元素越多提升越明显）
       const st = get()
-      // P0-3 优化: 懒索引重建 - 查询失败时先重建再重试
+      // 懒索引重建 - 查询失败时先重建再重试
       rebuildIndexIfNeeded()
       let idx: number | undefined = idToIndex.get(id)
       if (idx === undefined) {
@@ -157,10 +157,10 @@ export function createCanvasElementsSlice(
       if (idx === undefined || idx < 0) return
       const oldEl = st.elements[idx]
       const newEl = update(oldEl)
-      // P0 优化: 原地修改数组副本，避免创建全新数组
+      // 原地修改数组副本，避免创建全新数组
       const next = [...st.elements]
       next[idx] = newEl
-      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+      // 同步更新 ID 映射（闭包和 store 都更新）
       idToElement.set(id, newEl)
       st.idToElement.set(id, newEl)
       spatialIndex.update(newEl)
@@ -171,16 +171,16 @@ export function createCanvasElementsSlice(
     removeElement: (id) => {
       incrementSaveGeneration()
       const st = get()
-      // P0-3 优化: 懒索引重建 - 查询失败时先重建再重试
+      // 懒索引重建 - 查询失败时先重建再重试
       rebuildIndexIfNeeded()
-      // P0-2 优化: 使用 idToIndex O(1) 查找替代 findIndex O(n)
+      // 使用 idToIndex O(1) 查找替代 findIndex O(n)
       // fallback: 如果 idToIndex 中找不到，回退到 findIndex（兼容测试环境和历史数据）
       let idx: number | undefined = idToIndex.get(id)
       if (idx === undefined) {
         idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
       }
       if (idx === undefined || idx < 0) return
-      // P24: 跳过锁定的元素，禁止删除
+      // 跳过锁定的元素，禁止删除
       if (st.elements[idx].locked) return
       const el = st.elements[idx]
       const action: UndoAction = {
@@ -195,12 +195,12 @@ export function createCanvasElementsSlice(
         redoStack: [],
         selectedIds: st.selectedIds.filter((i: string) => i !== id),
       })
-      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+      // 同步更新 ID 映射（闭包和 store 都更新）
       idToElement.delete(id)
       st.idToElement.delete(id)
       idToIndex.delete(id)
       st.idToIndex.delete(id)
-      // P0-3 优化: 懒更新策略 - 只标记脏，不立即更新后续所有元素的索引
+      // 懒更新策略 - 只标记脏，不立即更新后续所有元素的索引
       // 性能提升: 删除操作从 O(n) → O(1)，大画布场景提升 100x+
       _indexDirty = true
       spatialIndex.remove(id)
@@ -210,7 +210,7 @@ export function createCanvasElementsSlice(
     removeElements: (ids) => {
       incrementSaveGeneration()
       const st = get()
-      // P24: 过滤掉锁定的元素，禁止删除
+      // 过滤掉锁定的元素，禁止删除
       const unlockedIds = ids.filter((id) => {
         const el = st.idToElement.get(id)
         return el && !el.locked
@@ -229,7 +229,7 @@ export function createCanvasElementsSlice(
         redoStack: [],
         selectedIds: [],
       })
-      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+      // 同步更新 ID 映射（闭包和 store 都更新）
       ids.forEach((id) => {
         idToElement.delete(id)
         st.idToElement.delete(id)
@@ -237,7 +237,7 @@ export function createCanvasElementsSlice(
         st.idToIndex.delete(id)
         spatialIndex.remove(id)
       })
-      // P0-3 优化: 懒更新策略 - 只标记脏，不立即重建所有索引
+      // 懒更新策略 - 只标记脏，不立即重建所有索引
       // 性能提升: 批量删除从 O(n) → O(k)，k 为删除元素数量
       _indexDirty = true
       scheduleSave()
@@ -249,16 +249,16 @@ export function createCanvasElementsSlice(
       incrementSaveGeneration()
 
       const st = get()
-      // P0-3 优化: 懒索引重建 - 查询失败时先重建再重试
+      // 懒索引重建 - 查询失败时先重建再重试
       rebuildIndexIfNeeded()
-      // P0-2 优化: 使用 idToIndex O(1) 查找替代 findIndex O(n)
+      // 使用 idToIndex O(1) 查找替代 findIndex O(n)
       // fallback: 如果 idToIndex 中找不到，回退到 findIndex（兼容测试环境和历史数据）
       let idx: number | undefined = idToIndex.get(id)
       if (idx === undefined) {
         idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
       }
       if (idx === undefined || idx < 0) return
-      // P24: 跳过锁定的元素，禁止移动
+      // 跳过锁定的元素，禁止移动
       if (st.elements[idx].locked) return
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -267,7 +267,7 @@ export function createCanvasElementsSlice(
         const newEl = moveElement(next[idx!], dx, dy)
         next[idx!] = newEl
 
-        // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+        // 同步更新 ID 映射（闭包和 store 都更新）
         idToElement.set(id, newEl)
         s.idToElement.set(id, newEl)
         spatialIndex.update(newEl)
@@ -296,7 +296,7 @@ export function createCanvasElementsSlice(
       incrementSaveGeneration()
 
       const st = get()
-      // P24: 过滤掉锁定的元素，禁止移动
+      // 过滤掉锁定的元素，禁止移动
       const unlockedIds = ids.filter((id) => {
         const el = st.idToElement.get(id)
         return el && !el.locked
@@ -304,7 +304,7 @@ export function createCanvasElementsSlice(
       if (unlockedIds.length === 0) return
 
       const idSet = new Set(unlockedIds)
-      // P21 修复: 为批量移动添加撤销支持
+      // 为批量移动添加撤销支持
       // 问题: 之前键盘微调后无法撤销，用户体验断裂
       // 解决方案: 移动前保存原始元素快照，创建 clear 类型的撤销动作
       const originalSnapshot = st.elements.map((e: CanvasElement) => 
@@ -326,7 +326,7 @@ export function createCanvasElementsSlice(
         }
         if (!hasMatch) return s
 
-        // P0-3 修复: 使用 index-based 替换替代全量 map
+        // 使用 index-based 替换替代全量 map
         const next = [...s.elements]
         let changed = false
         const movedIds: string[] = []
@@ -335,7 +335,7 @@ export function createCanvasElementsSlice(
           if (idSet.has(el.id)) {
             const newEl = moveElement(el, dx, dy)
             next[i] = newEl
-            // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+            // 同步更新 ID 映射（闭包和 store 都更新）
             idToElement.set(el.id, newEl)
             s.idToElement.set(el.id, newEl)
             spatialIndex.update(newEl)
@@ -374,16 +374,16 @@ export function createCanvasElementsSlice(
       incrementSaveGeneration()
 
       const st = get()
-      // P0-3 优化: 懒索引重建 - 查询失败时先重建再重试
+      // 懒索引重建 - 查询失败时先重建再重试
       rebuildIndexIfNeeded()
-      // P0-2 优化: 使用 idToIndex O(1) 查找替代 findIndex O(n)
+      // 使用 idToIndex O(1) 查找替代 findIndex O(n)
       // fallback: 如果 idToIndex 中找不到，回退到 findIndex（兼容测试环境和历史数据）
       let idx: number | undefined = idToIndex.get(id)
       if (idx === undefined) {
         idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
       }
       if (idx === undefined || idx < 0) return
-      // P24: 跳过锁定的元素，禁止缩放
+      // 跳过锁定的元素，禁止缩放
       if (st.elements[idx].locked) return
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -392,7 +392,7 @@ export function createCanvasElementsSlice(
         const newEl = resizeElement(next[idx!], ax, ay, sx, sy)
         next[idx!] = newEl
 
-        // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+        // 同步更新 ID 映射（闭包和 store 都更新）
         idToElement.set(id, newEl)
         s.idToElement.set(id, newEl)
         spatialIndex.update(newEl)
@@ -402,7 +402,7 @@ export function createCanvasElementsSlice(
       scheduleSave()
     },
 
-    // P17 新功能: 元素旋转 (来源 Excalidraw Issue #1056 / tldraw v5.0.0)
+    // 元素旋转
     // 专业白板标准功能：绕中心点旋转元素
     rotateElementById: (id, angle, cx, cy) => {
       // P0 性能优化: 跳过无意义的旋转
@@ -410,15 +410,15 @@ export function createCanvasElementsSlice(
       incrementSaveGeneration()
 
       const st = get()
-      // P0-3 优化: 懒索引重建 - 查询失败时先重建再重试
+      // 懒索引重建 - 查询失败时先重建再重试
       rebuildIndexIfNeeded()
-      // P0-2 优化: 使用 idToIndex O(1) 查找替代 findIndex O(n)
+      // 使用 idToIndex O(1) 查找替代 findIndex O(n)
       let idx: number | undefined = idToIndex.get(id)
       if (idx === undefined) {
         idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
       }
       if (idx === undefined || idx < 0) return
-      // P24: 跳过锁定的元素，禁止旋转
+      // 跳过锁定的元素，禁止旋转
       if (st.elements[idx].locked) return
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -427,7 +427,7 @@ export function createCanvasElementsSlice(
         const newEl = rotateElement(next[idx!], angle, cx, cy)
         next[idx!] = newEl
 
-        // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+        // 同步更新 ID 映射（闭包和 store 都更新）
         idToElement.set(id, newEl)
         s.idToElement.set(id, newEl)
         spatialIndex.update(newEl)
@@ -436,14 +436,14 @@ export function createCanvasElementsSlice(
       })
       scheduleSave()
     },
-    // P20 新功能: 批量旋转多个元素 (来源 Figma / tldraw / Excalidraw 标准功能)
+    // 批量旋转多个元素
     // 专业设计工具标准：选中多个元素，拖拽旋转手柄一起旋转
     rotateElementsById: (ids, angleDelta, commonCenterX, commonCenterY) => {
       if (Math.abs(angleDelta) < 0.0001) return
       if (ids.length === 0) return
       incrementSaveGeneration()
       const st = get()
-      // P24: 过滤掉锁定的元素，禁止旋转
+      // 过滤掉锁定的元素，禁止旋转
       const unlockedIds = ids.filter((id) => {
         const el = st.idToElement.get(id)
         return el && !el.locked
@@ -488,13 +488,13 @@ export function createCanvasElementsSlice(
         redoStack: [],
         selectedIds: [],
       })
-      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+      // 同步更新 ID 映射（闭包和 store 都更新）
       idToElement.clear()
       st.idToElement.clear()
       idToIndex.clear()
       st.idToIndex.clear()
       spatialIndex.clear()
-      // P0-3 优化: 清空后索引干净，重置脏标记
+      // 清空后索引干净，重置脏标记
       _indexDirty = false
       scheduleSave()
     },
@@ -528,7 +528,7 @@ export function createCanvasElementsSlice(
         undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
-      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+      // 同步更新 ID 映射（闭包和 store 都更新）
       pasted.forEach((el: CanvasElement, i: number) => {
         idToElement.set(el.id, el)
         st.idToElement.set(el.id, el)
@@ -539,9 +539,9 @@ export function createCanvasElementsSlice(
       scheduleSave()
     },
 
-    // P9 新功能: Ctrl+D 快速复制 (来源 Excalidraw / Figma / tldraw 标准快捷键)
+    // Ctrl+D 快速复制
     // 一键复制选中元素并偏移 20px，比 Ctrl+C/V 少一次按键操作
-    // 专业设计软件标准：Excalidraw、Figma、tldraw、Sketch 100% 支持此快捷键
+    // 常见设计工具通常支持此快捷键
     duplicateSelected: () => {
       incrementSaveGeneration()
       const st = get()
@@ -565,7 +565,7 @@ export function createCanvasElementsSlice(
         undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
-      // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+      // 同步更新 ID 映射（闭包和 store 都更新）
       duplicated.forEach((el: CanvasElement, i: number) => {
         idToElement.set(el.id, el)
         st.idToElement.set(el.id, el)
@@ -576,9 +576,9 @@ export function createCanvasElementsSlice(
       scheduleSave()
     },
 
-    // P10 新功能: Ctrl+G 元素分组 (来源 Excalidraw / Figma / tldraw 标准功能)
+    // Ctrl+G 元素分组
     // 将选中的多个元素组合成一个组，点击组内任意元素选中整个组
-    // 专业设计软件标准：Excalidraw、Figma、tldraw、Sketch 100% 支持此功能
+    // 常见设计工具通常支持此功能
     groupSelected: () => {
       incrementSaveGeneration()
       const st = get()
@@ -597,7 +597,7 @@ export function createCanvasElementsSlice(
       const next = elements.map((el: CanvasElement) => {
         if (selSet.has(el.id)) {
           const updated = { ...el, groupId }
-          // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+          // 同步更新 ID 映射（闭包和 store 都更新）
           idToElement.set(el.id, updated)
           st.idToElement.set(el.id, updated)
           return updated
@@ -622,7 +622,7 @@ export function createCanvasElementsSlice(
       scheduleSave()
     },
 
-    // P10 新功能: Ctrl+Shift+G 取消分组 (来源 Excalidraw / Figma / tldraw 标准功能)
+    // Ctrl+Shift+G 取消分组
     // 解散选中的组，组内元素恢复为独立可选择状态
     ungroupSelected: () => {
       incrementSaveGeneration()
@@ -650,7 +650,7 @@ export function createCanvasElementsSlice(
         if (el.groupId && affectedGroups.has(el.groupId)) {
           beforeUngroup.push({ id: el.id, oldGroupId: el.groupId })
           const updated = { ...el, groupId: undefined }
-          // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+          // 同步更新 ID 映射（闭包和 store 都更新）
           idToElement.set(el.id, updated)
           st.idToElement.set(el.id, updated)
           return updated
@@ -674,7 +674,7 @@ export function createCanvasElementsSlice(
       scheduleSave()
     },
 
-    // P16 新功能: 元素对齐 (来源 Excalidraw Issue #2267 / Figma 标准功能)
+    // 元素对齐
     // 专业白板/设计工具标配：选中多个元素后一键对齐
     // 支持 6 种对齐方式：左对齐、水平居中、右对齐、顶对齐、垂直居中、底对齐
     alignSelected: (alignment) => {
@@ -730,7 +730,7 @@ export function createCanvasElementsSlice(
       scheduleSave()
     },
 
-    // P22 新功能: 元素分布 (来源 Figma / tldraw 标准功能)
+    // 元素分布
     // 专业设计工具标配：选中多个元素后一键等间距分布
     // 支持 2 种分布方式：水平分布、垂直分布
     distributeSelected: (distribution) => {
@@ -813,7 +813,7 @@ export function createCanvasElementsSlice(
       // 2. 计算删除的元素（在 before 中但不在 after 中）
       for (const id of beforeIdSet) {
         if (!afterIdSet.has(id)) {
-          // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+          // 同步更新 ID 映射（闭包和 store 都更新）
           idToElement.delete(id)
           st.idToElement.delete(id)
           idToIndex.delete(id)
@@ -834,7 +834,7 @@ export function createCanvasElementsSlice(
         const beforeEl = beforeRefMap.get(el.id)
         // 元素是新增的（不在 before 中）或被修改的（引用变化）
         if (!beforeEl || beforeEl !== el) {
-          // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+          // 同步更新 ID 映射（闭包和 store 都更新）
           idToElement.set(el.id, el)
           st.idToElement.set(el.id, el)
           idToIndex.set(el.id, i)
@@ -853,12 +853,12 @@ export function createCanvasElementsSlice(
         }
       }
 
-      // P0-3 优化: 重建索引后标记为干净
+      // 重建索引后标记为干净
       _indexDirty = false
       scheduleSave()
     },
 
-    // P24 新功能: 锁定选中元素 (来源 Figma / tldraw v5.1.0 专业设计工具标准)
+    // 锁定选中元素
     // 专业设计工具标配：锁定元素防止误操作
     // 用户痛点："背景元素经常被不小心移动/删除"
     lockSelected: () => {
@@ -882,7 +882,7 @@ export function createCanvasElementsSlice(
       const next = elements.map((el: CanvasElement) => {
         if (lockSet.has(el.id)) {
           const updated = { ...el, locked: true }
-          // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+          // 同步更新 ID 映射（闭包和 store 都更新）
           idToElement.set(el.id, updated)
           st.idToElement.set(el.id, updated)
           return updated
@@ -906,7 +906,7 @@ export function createCanvasElementsSlice(
       scheduleSave()
     },
 
-    // P24 新功能: 解锁选中元素 (来源 Figma / tldraw v5.1.0 专业设计工具标准)
+    // 解锁选中元素
     unlockSelected: () => {
       incrementSaveGeneration()
       const st = get()
@@ -928,7 +928,7 @@ export function createCanvasElementsSlice(
       const next = elements.map((el: CanvasElement) => {
         if (unlockSet.has(el.id)) {
           const updated = { ...el, locked: false }
-          // P0 优化: 同步更新 ID 映射（闭包和 store 都更新）
+          // 同步更新 ID 映射（闭包和 store 都更新）
           idToElement.set(el.id, updated)
           st.idToElement.set(el.id, updated)
           return updated

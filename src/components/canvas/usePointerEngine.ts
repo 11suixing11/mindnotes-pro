@@ -1,4 +1,4 @@
-﻿import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useShallow } from 'zustand/react/shallow'
@@ -12,7 +12,7 @@ import { tryBindToShape } from '../../store/bindingUtils'
 // 物理擦除引擎集成
 import { useEraserStore, type EraserPoint } from '../../eraser'
 
-// P2-3: 模块级常量，避免每次渲染重建
+// 模块级常量，避免每次渲染重建
 const CURSOR_MAP: Record<string, string> = {
   select: 'default',
   pen: 'crosshair',
@@ -82,7 +82,7 @@ export function usePointerEngine(opts: {
     }))
   )
 
-  // P0-3 优化: 移除独立 selector，改为在 handler 内用 getState() 读取
+  // 移除独立 selector，改为在 handler 内用 getState() 读取
   // 避免任何 store 变化都触发整个 hook 重渲染
 
   // Drawing state
@@ -92,7 +92,7 @@ export function usePointerEngine(opts: {
   const currentShapeRef = useRef<ShapeElement | null>(null)
   const erasedRef = useRef<Set<string>>(new Set())
 
-  // P0 修复: 擦除轨迹跟踪（用于光标拖尾渲染）- 移到开头，在 handleMove 使用前声明
+  // 擦除轨迹跟踪（用于光标拖尾渲染）- 移到开头，在 handleMove 使用前声明
   // P0 性能优化: 使用固定大小环形缓冲区，避免数组 splice/shift 产生的 GC 压力
   // 原实现: 每次 mousemove 都可能触发 O(n) 数组重排，60fps 下产生大量 GC
   // 新实现: 环形缓冲区 O(1) 写入，读取时只需遍历有效范围
@@ -105,7 +105,7 @@ export function usePointerEngine(opts: {
 
   // 物理擦除状态
   const lastErasePointRef = useRef<{ x: number; y: number; time: number } | null>(null)
-  // P2-1: 拖动阈值 - 防止选择时意外移动元素
+  // 拖动阈值 - 防止选择时意外移动元素
   // 只有鼠标移动超过 DRAG_THRESHOLD 像素才开始真正拖动
   // 这是竞品 excalidraw 和 tldraw 都实现的核心 UX 改进
   const DRAG_THRESHOLD = 4 // 像素，考虑缩放后的实际距离
@@ -127,8 +127,8 @@ export function usePointerEngine(opts: {
     origBounds: { x: number; y: number; w: number; h: number }
     origElement: CanvasElement | null
   } | null>(null)
-  // P19 新功能: 旋转拖拽状态 (来源 Figma / tldraw / Excalidraw 标准交互)
-  // P20 更新: 支持批量旋转多个元素
+  // 旋转拖拽状态
+  // 支持批量旋转多个元素
   const rotateRef = useRef<{
     ids: string[]
     startX: number
@@ -140,7 +140,7 @@ export function usePointerEngine(opts: {
   const marqueeRef = useRef<{ startX: number; startY: number; endX: number; endY: number } | null>(
     null
   )
-  // P3 新功能: Lasso 选择后直接拖拽 (来源 Excalidraw PR #9732)
+  // Lasso 选择后直接拖拽
   // 用户框选元素后，不需要松开鼠标再点击，可以直接继续拖拽移动
   const marqueeToDragRef = useRef<{
     enabled: boolean
@@ -151,8 +151,8 @@ export function usePointerEngine(opts: {
     lastMoveTime: 0,
     selectionComplete: false,
   })
-  // P4 新功能: 右键拖拽平移画布 (来源 tldraw v5.0.0 PR #8501)
-  // 匹配 Figma 专业工具交互：右键拖动直接平移，右键点击显示菜单
+  // 右键拖拽平移画布
+  // 遵循常见设计工具交互：右键拖动直接平移，右键点击显示菜单
   const rightClickPanRef = useRef<{
     enabled: boolean
     isPanning: boolean
@@ -167,8 +167,8 @@ export function usePointerEngine(opts: {
     moved: false,
   })
   const RIGHT_CLICK_PAN_THRESHOLD = 3 // 像素，超过此距离才进入平移模式
-  // P6 新功能: 按住 Space 键临时切换 Pan 工具 (来源 tldraw v5.0.0)
-  // 匹配 Figma/Sketch 专业设计工具标准交互：按住 Space 临时平移，松开恢复原工具
+  // 按住 Space 键临时切换 Pan 工具
+  // 遵循常见设计工具交互：按住 Space 临时平移，松开恢复原工具
   const spacePanRef = useRef<{
     enabled: boolean
     isActive: boolean
@@ -180,8 +180,8 @@ export function usePointerEngine(opts: {
     originalTool: null,
     wasPanning: false,
   })
-  // P7 新功能: Alt/Option + 拖拽复制选中元素 (来源 tldraw v5.0.0 / Figma 标准交互)
-  // 匹配所有专业设计工具标准：按住 Alt 拖拽元素直接复制
+  // Alt/Option + 拖拽复制选中元素
+  // 遵循常见设计工具交互：按住 Alt 拖拽元素直接复制
   // 支持拖拽过程中动态按下/松开 Alt 键切换复制模式
   const altDragDuplicateRef = useRef<{
     enabled: boolean
@@ -199,7 +199,7 @@ export function usePointerEngine(opts: {
   })
 
   const mouseRef = useRef<{ x: number; y: number } | null>(null)
-  // P27 新功能: 悬停元素跟踪 (来源 tldraw v5.1.0 PR #8917)
+  // 悬停元素跟踪
   // 用于 Q 键快速复制样式：悬停在元素上按 Q 键直接复制样式，无需进入吸管模式
   const hoveredElementIdRef = useRef<string | null>(null)
   // 导出悬停元素 ID 供键盘快捷键使用
@@ -229,7 +229,7 @@ export function usePointerEngine(opts: {
     [canvasRef]
   )
 
-  // P0-1: 缓存 idToIndex Map，避免每次 hitTest 重建
+  // 缓存 idToIndex Map，避免每次 hitTest 重建
   const idToIndexCacheRef = useRef<{ els: CanvasElement[]; map: Map<string, number> }>({
     els: [],
     map: new Map(),
@@ -241,7 +241,7 @@ export function usePointerEngine(opts: {
       const state = useAppStore.getState()
       const els = state.elements
 
-      // P0-1: 使用缓存的 idToIndex，仅在 elements 引用变化时重建
+      // 使用缓存的 idToIndex，仅在 elements 引用变化时重建
       const cache = idToIndexCacheRef.current
       if (cache.els !== els) {
         const map = new Map<string, number>()
@@ -258,10 +258,10 @@ export function usePointerEngine(opts: {
         h: r * 2,
       })
 
-      // P0 优化: 如果空间索引可用，直接遍历候选元素而非全部元素
+      // 如果空间索引可用，直接遍历候选元素而非全部元素
       // 从后向前遍历以保持 Z-order（后绘制的在上层）
       if (candidateIds && candidateIds.length > 0) {
-        // P0-1: 使用缓存的 idToIndex 排序，避免每次重建
+        // 使用缓存的 idToIndex 排序，避免每次重建
         candidateIds.sort((a, b) => {
           return (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
         })
@@ -271,7 +271,7 @@ export function usePointerEngine(opts: {
           if (idx === undefined) continue
           const el = els[idx]
 
-          // P24: 跳过锁定的元素，无法选中
+          // 跳过锁定的元素，无法选中
           if (el.locked) continue
 
           // 精确检测
@@ -282,9 +282,9 @@ export function usePointerEngine(opts: {
               py >= el.y - r &&
               py <= el.y + el.height + r
             ) {
-              // P26 新功能: 图片透明像素点击穿透 (来源 tldraw v4.5.0 PR #7942)
+              // 图片透明像素点击穿透
               // 点击图片透明区域时，跳过该图片，继续检测下面的元素
-              // 匹配 tldraw/Figma 专业工具标准行为
+              // 遵循常见设计工具行为
               if (isTransparentImagePixel(el, px, py)) {
                 continue
               }
@@ -331,7 +331,7 @@ export function usePointerEngine(opts: {
       // 降级: 空间索引不可用时用原有的 O(n) 遍历
       for (let i = els.length - 1; i >= 0; i--) {
         const el = els[i]
-        // P24: 跳过锁定的元素，无法选中
+        // 跳过锁定的元素，无法选中
         if (el.locked) continue
         if (el.type === 'image') {
           if (
@@ -340,7 +340,7 @@ export function usePointerEngine(opts: {
             py >= el.y - r &&
             py <= el.y + el.height + r
           ) {
-            // P26 新功能: 图片透明像素点击穿透 (来源 tldraw v4.5.0 PR #7942)
+            // 图片透明像素点击穿透
             if (isTransparentImagePixel(el, px, py)) {
               continue
             }
@@ -398,21 +398,21 @@ export function usePointerEngine(opts: {
       if (selIds.length === 0) return null
       const hr = 12 / (useViewStore.getState().viewBox.zoom || 1)
       const edgeHr = 10 / (useViewStore.getState().viewBox.zoom || 1)
-      // P19 新功能: 旋转手柄命中检测 (来源 Figma / tldraw / Excalidraw 标准交互)
+      // 旋转手柄命中检测
       // 专业设计工具标准：选择框顶部中央的旋转手柄
       const rotateHr = 15 / (useViewStore.getState().viewBox.zoom || 1)
       for (const selId of selIds) {
         const el = state.idToElement.get(selId)
         if (!el) continue
         const b = cachedBounds(el)
-        // P19: 先检测旋转手柄（优先级高于缩放手柄）
+        // 先检测旋转手柄（优先级高于缩放手柄）
         const rotateHandleX = b.x + b.w / 2
         const rotateHandleY = b.y - 20 / (useViewStore.getState().viewBox.zoom || 1)
         if (Math.abs(px - rotateHandleX) < rotateHr && Math.abs(py - rotateHandleY) < rotateHr) {
           return { handle: 99, id: selId, bounds: b, isRotate: true }
         }
         
-        // P28 新功能: 边缘手柄命中检测 (来源 tldraw v5.1.0 PR #8926)
+        // 边缘手柄命中检测
         // 手柄编号约定:
         // 0-3: 角落手柄 (左上、右上、左下、右下)
         // 4: 上边缘中点
@@ -420,7 +420,7 @@ export function usePointerEngine(opts: {
         // 6: 左边缘中点
         // 7: 右边缘中点
         
-        // P28 修复: 小形状防重叠 - 动态计算边缘手柄实际位置
+        // 小形状防重叠 - 动态计算边缘手柄实际位置
         // 与 drawSelBox 中的逻辑保持一致
         const zoom = useViewStore.getState().viewBox.zoom || 1
         const cornerR = 4 / zoom
@@ -444,7 +444,7 @@ export function usePointerEngine(opts: {
           edgeBottomY = b.y + b.h - offset
         }
         
-        // P28: 边缘手柄（优先级低于角落手柄，所以先检测角落）
+        // 边缘手柄（优先级低于角落手柄，所以先检测角落）
         const edges: [number, number, number][] = [
           [b.x + b.w / 2, edgeTopY, 4],      // 上边缘中点
           [b.x + b.w / 2, edgeBottomY, 5],   // 下边缘中点
@@ -479,8 +479,8 @@ export function usePointerEngine(opts: {
 
   /**
    * 传统擦除模式（兼容模式）
-   * P31 新功能: topOnly 参数 - 只擦除最顶层元素 (来源 tldraw v4.0.3 PR #6554)
-   * 匹配 tldraw 专业工具标准交互：按住 Ctrl/Cmd 擦除时只删除最顶层的重叠形状
+   * topOnly 参数 - 只擦除最顶层元素
+   * 遵循常见设计工具交互：按住 Ctrl/Cmd 擦除时只删除最顶层的重叠形状
    * 用户价值：解决重叠元素难以精确擦除单个的痛点
    */
   const eraseAtSimple = useCallback(
@@ -489,7 +489,7 @@ export function usePointerEngine(opts: {
         r2 = r * r
       const state = useAppStore.getState()
 
-      // P0-2 优化: 使用空间索引预筛选，直接遍历候选而非全部元素
+      // 使用空间索引预筛选，直接遍历候选而非全部元素
       const candidateIds = state.spatialIndex?.search({
         x: x - r,
         y: y - r,
@@ -497,7 +497,7 @@ export function usePointerEngine(opts: {
         h: r * 2,
       })
 
-      // P31: 按 Z-order 排序（后绘制的在上层）
+      // 按 Z-order 排序（后绘制的在上层）
       // 使用缓存的 idToIndex 进行 O(1) 查找和排序
       const cache = idToIndexCacheRef.current
       if (cache.els !== state.elements) {
@@ -515,7 +515,7 @@ export function usePointerEngine(opts: {
       let topElementErased = false
 
       for (const id of sortedIds) {
-        // P31: topOnly 模式下，擦除最顶层元素后立即停止
+        // topOnly 模式下，擦除最顶层元素后立即停止
         if (topOnly && topElementErased) break
         if (erasedRef.current.has(id)) continue
         const el = state.idToElement.get(id)
@@ -542,14 +542,14 @@ export function usePointerEngine(opts: {
               id: `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
               points: seg,
             })
-          // P31: 标记已擦除最顶层元素
+          // 标记已擦除最顶层元素
           topElementErased = true
         } else {
           const b = cachedBounds(el)
           if (x >= b.x - r && x <= b.x + b.w + r && y >= b.y - r && y <= b.y + b.h + r) {
             erasedRef.current.add(el.id)
             removeElement(el.id)
-            // P31: 标记已擦除最顶层元素
+            // 标记已擦除最顶层元素
             topElementErased = true
           }
         }
@@ -561,14 +561,14 @@ export function usePointerEngine(opts: {
   /**
    * 物理擦除模式
    * 支持压力感应、速度计算、笔触精确分割、压感笔倾斜
-   * P31 新功能: topOnly 参数 - 只擦除最顶层元素 (来源 tldraw v4.0.3 PR #6554)
+   * topOnly 参数 - 只擦除最顶层元素
    */
   const eraseAtPhysics = useCallback(
     (x: number, y: number, pressure: number = 0.5, e?: MouseEvent | TouchEvent, topOnly: boolean = false) => {
       const state = useAppStore.getState()
       const eraserStore = useEraserStore.getState()
 
-      // P31: topOnly 模式下，物理擦除降级到简单模式（只擦除最顶层）
+      // topOnly 模式下，物理擦除降级到简单模式（只擦除最顶层）
       // 物理擦除主要用于笔触精确分割，不适合精确擦除单个顶层元素
       if (topOnly) {
         eraseAtSimple(x, y, true)
@@ -637,7 +637,7 @@ export function usePointerEngine(opts: {
   /**
    * 统一擦除入口
    * 自动选择物理/简单模式
-   * P31 新功能: topOnly 参数 - 只擦除最顶层元素 (来源 tldraw v4.0.3 PR #6554)
+   * topOnly 参数 - 只擦除最顶层元素
    */
   const eraseAt = useCallback(
     (x: number, y: number, pressure?: number, e?: MouseEvent | TouchEvent, topOnly: boolean = false) => {
@@ -657,7 +657,7 @@ export function usePointerEngine(opts: {
       const pos = getPos(e)
       const st = useAppStore.getState()
 
-      // P5 新功能: 样式吸管点击应用 (来源 tldraw v5.1.0 PR #8917)
+      // 样式吸管点击应用
       // 当样式吸管激活时，点击元素应用其样式
       if (st.styleEyedropperActive) {
         const hitId = hitTest(pos.x, pos.y)
@@ -673,7 +673,7 @@ export function usePointerEngine(opts: {
         curFillColor = st.fillColor,
         curVB = useViewStore.getState().viewBox
 
-      // P4 新功能: 右键拖拽平移画布 (来源 tldraw v5.0.0 PR #8501)
+      // 右键拖拽平移画布
       // 检测右键按下，记录起始位置
       if ('button' in e && (e as MouseEvent).button === 2 && rightClickPanRef.current.enabled) {
         const screenX = (e as MouseEvent).clientX
@@ -690,7 +690,7 @@ export function usePointerEngine(opts: {
         return
       }
 
-      // P6 新功能: 按住 Space 键临时切换 Pan 工具 (来源 tldraw v5.0.0)
+      // 按住 Space 键临时切换 Pan 工具
       // 如果 Space 键已激活，直接进入平移模式
       if (spacePanRef.current.isActive && spacePanRef.current.enabled) {
         const cx = "touches" in e ? e.touches[0].clientX : (e as MouseEvent).clientX
@@ -711,8 +711,8 @@ export function usePointerEngine(opts: {
         if (h) {
           const el = useAppStore.getState().idToElement.get(h.id)
           if (el) {
-            // P19 新功能: 旋转手柄交互 (来源 Figma / tldraw / Excalidraw 标准交互)
-            // P20 更新: 支持批量旋转多个选中元素
+            // 旋转手柄交互
+            // 支持批量旋转多个选中元素
             if (h.isRotate) {
               const st = useAppStore.getState()
               const selectedIds = st.selectedIds.length > 0 ? st.selectedIds : [h.id]
@@ -759,8 +759,8 @@ export function usePointerEngine(opts: {
         const hit = hitTest(pos.x, pos.y)
         if (hit) {
           const st = useAppStore.getState()
-          // P10: 组选择逻辑 - 点击组内元素时选中整个组
-          // 来源: Figma / tldraw 标准行为
+          // 组选择逻辑 - 点击组内元素时选中整个组
+          // 参考: 通用编辑器安全处理做法
           const hitEl = st.idToElement.get(hit)
           let effectiveHit = hit
           let groupMembers: string[] = []
@@ -786,7 +786,7 @@ export function usePointerEngine(opts: {
             ? st.selectedIds 
             : (groupMembers.length > 0 ? groupMembers : [effectiveHit])
             
-          // P29 新功能: Cmd/Ctrl+click 添加到多选 (来源 tldraw v3.3.0 PR #4570)
+          // Cmd/Ctrl+click 添加到多选
           // 匹配 Figma/Sketch/Photoshop 专业工具标准：Shift 或 Cmd/Ctrl 都支持多选
           const isMultiSelectKey = e.shiftKey || e.metaKey || e.ctrlKey
           
@@ -819,7 +819,7 @@ export function usePointerEngine(opts: {
             }
           }
           const startPositions = new Map<string, { x: number; y: number }>()
-          // P1-6 修复: 使用 idToElement O(1) 查找替代遍历所有 elements
+          // 使用 idToElement O(1) 查找替代遍历所有 elements
           // 原实现: 1000 元素 + 选中 5 个 = 1000 * O(5) = 5000 次比较
           // 新实现: O(ids.length) 次 Map 查找
           for (const id of ids) {
@@ -830,12 +830,12 @@ export function usePointerEngine(opts: {
             else if (el.type === 'shape' || el.type === 'text' || el.type === 'image')
               startPositions.set(id, { x: el.x, y: el.y })
           }
-          // P2-1: 记录屏幕坐标用于拖动阈值检测
+          // 记录屏幕坐标用于拖动阈值检测
           // 使用屏幕坐标而非世界坐标，确保阈值在所有缩放级别下一致
           const screenX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
           const screenY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
           
-          // P7 新功能: Alt/Option + 拖拽复制选中元素 (来源 tldraw v5.0.0 / Figma 标准交互)
+          // Alt/Option + 拖拽复制选中元素
           // 检测 Alt 键是否按下，初始化复制状态
           const altPressed = 'altKey' in e && (e as MouseEvent).altKey
           if (altPressed && altDragDuplicateRef.current.enabled) {
@@ -867,7 +867,7 @@ export function usePointerEngine(opts: {
           scheduleRedraw()
           return
         }
-        // P30 新功能: 按住 Cmd/Ctrl 框选追加选区 (来源 Figma / tldraw 专业工具标准交互)
+        // 按住 Cmd/Ctrl 框选追加选区
         // 匹配 Figma/Sketch/Photoshop 行业标准：按住修饰键框选时追加选区而非替换
         const isAppendSelectKey = e.metaKey || e.ctrlKey
         
@@ -911,7 +911,7 @@ export function usePointerEngine(opts: {
       else if (curTool === 'eraser') {
         // P1-4 性能优化: 删除无用的全量快照克隆
         // batchErase 不再需要 preEraseSnapshot，避免每次擦除开始时克隆所有元素
-        // P31 新功能: 检测 Ctrl/Cmd 键，只擦除最顶层元素 (来源 tldraw v4.0.3 PR #6554)
+        // 检测 Ctrl/Cmd 键，只擦除最顶层元素
         const topOnly = e.metaKey || e.ctrlKey
         eraseAt(pos.x, pos.y, undefined, e, topOnly)
       } else {
@@ -952,19 +952,19 @@ export function usePointerEngine(opts: {
       const pos = getPos(e)
       mouseRef.current = pos
 
-      // P25 新功能: 鹰眼模式下更新目标位置 (来源 tldraw v4.4.0 PR #7801)
+      // 鹰眼模式下更新目标位置
       // 鼠标移动时实时更新用户选择的放大目标位置
       const vs = useViewStore.getState()
       if (vs.eagleEye.isActive) {
         vs.updateEagleEyeTarget(pos.x, pos.y)
       }
 
-      // P5 新功能: 样式吸管悬停预览 (来源 tldraw v5.1.0 PR #8917)
+      // 样式吸管悬停预览
       // 当样式吸管激活时，检测悬停元素并更新样式预览
       const st = useAppStore.getState()
       const hitId = hitTest(pos.x, pos.y)
       
-      // P27 新功能: 更新悬停元素跟踪 (来源 tldraw v5.1.0 PR #8917)
+      // 更新悬停元素跟踪
       // 用于 Q 键快速复制样式：悬停在元素上按 Q 键直接复制样式
       hoveredElementIdRef.current = hitId
       
@@ -997,7 +997,7 @@ export function usePointerEngine(opts: {
         }
       }
 
-      // P4 新功能: 右键拖拽平移画布 (来源 tldraw v5.0.0 PR #8501)
+      // 右键拖拽平移画布
       // 检测右键拖动，超过阈值则进入平移模式
       if (
         'buttons' in e &&
@@ -1042,7 +1042,7 @@ export function usePointerEngine(opts: {
           return
         }
         
-        // P28 新功能: 边缘手柄缩放支持 (来源 tldraw v5.1.0 PR #8926)
+        // 边缘手柄缩放支持
         // 手柄编号约定:
         // 0-3: 角落手柄 (左上、右上、左下、右下) - 同时调整宽高
         // 4: 上边缘中点 - 只调整高度
@@ -1096,7 +1096,7 @@ export function usePointerEngine(opts: {
             )
           )
           
-          // P8 新功能: Shift + 拖拽等比例缩放
+          // Shift + 拖拽等比例缩放
           const shiftPressed = 'shiftKey' in e && (e as MouseEvent).shiftKey
           if (shiftPressed) {
             const scale = Math.max(Math.abs(nsx), Math.abs(nsy))
@@ -1133,8 +1133,8 @@ export function usePointerEngine(opts: {
         scheduleRedraw()
         return
       }
-      // P19 新功能: 旋转拖拽交互 (来源 Figma / tldraw / Excalidraw 标准交互)
-      // P20 更新: 支持批量旋转多个选中元素
+      // 旋转拖拽交互
+      // 支持批量旋转多个选中元素
       // 专业设计工具标准：拖拽选择框顶部的旋转手柄旋转元素
       if (curTool === 'select' && rotateRef.current) {
         const { ids, startX, startY, origRotations, commonCenterX, commonCenterY } = rotateRef.current
@@ -1153,7 +1153,7 @@ export function usePointerEngine(opts: {
         // 计算角度差（弧度）
         let angleDelta = currentAngle - startAngle
         
-        // P19 新功能: Shift 键步进旋转 (来源 Figma / tldraw / Excalidraw 标准交互)
+        // Shift 键步进旋转
         // 专业设计工具标准：按住 Shift 键时旋转对齐到 15° 的整数倍
         const shiftPressed = 'shiftKey' in e && (e as MouseEvent).shiftKey
         if (shiftPressed) {
@@ -1167,7 +1167,7 @@ export function usePointerEngine(opts: {
           angleDelta = snappedAngle - firstOrigRotation
         }
         
-        // P20 新功能: 批量旋转所有选中元素
+        // 批量旋转所有选中元素
         // 所有元素围绕共同中心点旋转相同角度
         useAppStore.getState().rotateElementsById(ids, angleDelta, commonCenterX, commonCenterY)
         
@@ -1175,7 +1175,7 @@ export function usePointerEngine(opts: {
         return
       }
       if (curTool === 'select' && marqueeRef.current) {
-        // P3 新功能: Lasso 选择后直接拖拽 (来源 Excalidraw PR #9732)
+        // Lasso 选择后直接拖拽
         // 检测用户是否想要开始拖拽而不是继续扩大选择区域
         // 策略: 如果鼠标向选择区域内部移动，说明用户想拖拽而不是继续框选
         const m = marqueeRef.current
@@ -1260,7 +1260,7 @@ export function usePointerEngine(opts: {
         return
       }
       if (curTool === 'select' && dragRef.current) {
-        // P2-1: 拖动阈值检测 - 防止选择时意外移动元素
+        // 拖动阈值检测 - 防止选择时意外移动元素
         // 只有当鼠标移动超过 DRAG_THRESHOLD 像素时才开始真正拖动
         if (!dragRef.current.dragStarted) {
           const screenX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
@@ -1278,7 +1278,7 @@ export function usePointerEngine(opts: {
           dragRef.current.dragStarted = true
         }
         
-        // P23 修复: Alt 拖拽复制时保持原始元素位置不变 (来源 Excalidraw #9403 / Figma 标准交互)
+        // Alt 拖拽复制时保持原始元素位置不变
         // 问题: 之前按住 Alt 拖拽时，原始元素会跟着鼠标一起移动
         // 修复: 匹配 Figma/Excalidraw/Sketch 专业工具标准行为 - 原始元素保持原位，只有新复制的元素跟随鼠标
         // 用户价值: 这是所有专业设计软件的标准交互，用户有强烈的心理预期
@@ -1429,7 +1429,7 @@ export function usePointerEngine(opts: {
         eraserTrailIndexRef.current = (idx + 1) & 63 // 位运算模 64
         eraserTrailCountRef.current = Math.min(eraserTrailCountRef.current + 1, 64)
 
-        // P31 新功能: 检测 Ctrl/Cmd 键，只擦除最顶层元素 (来源 tldraw v4.0.3 PR #6554)
+        // 检测 Ctrl/Cmd 键，只擦除最顶层元素
         const topOnly = e.metaKey || e.ctrlKey
         if (drawingRef.current) eraseAt(pos.x, pos.y, undefined, e, topOnly)
         scheduleRedraw()
@@ -1481,7 +1481,7 @@ export function usePointerEngine(opts: {
     (e: MouseEvent | TouchEvent) => {
       e.preventDefault()
 
-      // P4 新功能: 右键拖拽平移画布 (来源 tldraw v5.0.0 PR #8501)
+      // 右键拖拽平移画布
       // 处理右键释放
       if ('button' in e && (e as MouseEvent).button === 2 && rightClickPanRef.current.enabled) {
         if (rightClickPanRef.current.isPanning) {
@@ -1587,7 +1587,7 @@ export function usePointerEngine(opts: {
               if (b.x + b.w >= x1 && b.x <= x2 && b.y + b.h >= y1 && b.y <= y2) hits.push(el.id)
             }
             
-            // P30 新功能: 按住 Cmd/Ctrl 框选追加选区 (来源 Figma / tldraw 专业工具标准交互)
+            // 按住 Cmd/Ctrl 框选追加选区
             // 匹配 Figma/Sketch/Photoshop 行业标准：按住修饰键框选时追加选区而非替换
             const isAppendSelectKey = e.metaKey || e.ctrlKey
             if (isAppendSelectKey) {
@@ -1638,8 +1638,8 @@ export function usePointerEngine(opts: {
             })
           }
         }
-        // P19 新功能: 旋转结束处理 (来源 Figma / tldraw / Excalidraw 标准交互)
-        // P20 更新: 支持批量旋转多个元素的撤销
+        // 旋转结束处理
+        // 支持批量旋转多个元素的撤销
         // 记录旋转操作到撤销栈
         const rotateCur = rotateRef.current
         if (rotateCur) {
@@ -1668,7 +1668,7 @@ export function usePointerEngine(opts: {
         snapLinesRef.current = { x: [], y: [] }
         // 重置 Lasso 拖拽状态
         marqueeToDragRef.current.selectionComplete = false
-        // P7 新功能: 重置 Alt 拖拽复制状态
+        // 重置 Alt 拖拽复制状态
         altDragDuplicateRef.current = {
           ...altDragDuplicateRef.current,
           isDuplicating: false,
@@ -1722,7 +1722,7 @@ export function usePointerEngine(opts: {
       useViewStore.getState().setViewBox({ x: newX, y: newY, zoom: newZoom })
       scheduleRedraw()
     }
-    // P6 新功能: 按住 Space 键临时切换 Pan 工具 (来源 tldraw v5.0.0)
+    // 按住 Space 键临时切换 Pan 工具
     // 监听 Space 键按下/松开，临时切换到平移模式
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === "Space" && !e.repeat && spacePanRef.current.enabled) {
@@ -1770,7 +1770,7 @@ export function usePointerEngine(opts: {
     canvas.addEventListener('mouseup', onEnd)
     canvas.addEventListener('mouseleave', onEnd)
 
-    // P4 新功能: 右键拖拽平移画布 (来源 tldraw v5.0.0 PR #8501)
+    // 右键拖拽平移画布
     // 当正在进行右键平移时，阻止默认右键菜单
     const onContextMenu = (e: MouseEvent) => {
       if (rightClickPanRef.current.isPanning || rightClickPanRef.current.moved) {
@@ -1779,10 +1779,10 @@ export function usePointerEngine(opts: {
     }
     canvas.addEventListener('contextmenu', onContextMenu)
 
-    // P12-P13 新功能: 双击交互体系 (来源 tldraw / Figma / Excalidraw 标准交互)
-    // P12: 双击文本元素进入编辑模式
-    // P13: 双击形状内部添加文本 (来源 Excalidraw Issue #2056)
-    // 匹配所有专业设计工具标准：双击直接操作，无需切换工具
+    // P12-双击交互体系
+    // 双击文本元素进入编辑模式
+    // 双击形状内部添加文本
+    // 遵循常见设计工具交互：双击直接操作，无需切换工具
     const onDblClick = (e: MouseEvent) => {
       if (useAppStore.getState().tool !== 'select') return
       const pos = getPos(e)
@@ -1796,7 +1796,7 @@ export function usePointerEngine(opts: {
       const rect = canvas.getBoundingClientRect()
       const vb = useViewStore.getState().viewBox
       
-      // P12: 双击文本元素进入编辑模式
+      // 双击文本元素进入编辑模式
       if (el.type === 'text') {
         const screenX = (el.x - vb.x) * vb.zoom + rect.left
         const screenY = (el.y - vb.y) * vb.zoom + rect.top
@@ -1807,7 +1807,7 @@ export function usePointerEngine(opts: {
         })
         setTimeout(() => textRef.current?.focus(), 50)
       }
-      // P13 新功能: 双击形状内部添加文本 (来源 Excalidraw Issue #2056 / Figma 标准交互)
+      // 双击形状内部添加文本
       // 用户画完矩形/圆形后，直接双击即可添加标注文本，无需切换到文本工具
       // 文本自动居中放置在形状中心，符合流程图/架构图的标准用法
       else if (el.type === 'shape') {
@@ -1927,10 +1927,10 @@ export function usePointerEngine(opts: {
     }
   }, [canvasRef, scheduleRedraw])
 
-  // Cursor (P2-3: 使用模块级常量，避免每次渲染重建)
+  // Cursor (使用模块级常量，避免每次渲染重建)
   const cursorMap = CURSOR_MAP
   function getCursor() {
-    // P5 新功能: 样式吸管激活时显示特殊光标 (来源 tldraw v5.1.0 PR #8917)
+    // 样式吸管激活时显示特殊光标
     if (useAppStore.getState().styleEyedropperActive) {
       return EYEDROPPER_CURSOR
     }
@@ -1938,7 +1938,7 @@ export function usePointerEngine(opts: {
     if (useAppStore.getState().tool === 'select' && mouseRef.current) {
       const h = hitHandle(mouseRef.current.x, mouseRef.current.y)
       if (h) {
-        // P28 新功能: 边缘手柄光标支持 (来源 tldraw v5.1.0 PR #8926)
+        // 边缘手柄光标支持
         // 手柄编号约定:
         // 0-3: 角落手柄 - 对角光标
         // 4: 上边缘中点 - 上下光标
@@ -2016,7 +2016,7 @@ export function usePointerEngine(opts: {
       if (now - pt.time <= 300) trail.push(pt)
     }
 
-    // P23 新功能: 旋转角度显示 (来源 Figma / tldraw 专业体验)
+    // 旋转角度显示
     // 拖拽旋转手柄时计算并返回当前旋转角度值（度数）
     // 用户价值：精确控制旋转角度，专业设计时必备
     let rotationAngle: { angle: number; centerX: number; centerY: number } | null = null

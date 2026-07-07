@@ -19,7 +19,7 @@ export function useScreenPen() {
   const [isDrawing, setIsDrawing] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  // P1 修复: 使用 ref 模式避免 React hooks 依赖循环
+  // 使用 ref 模式避免 React hooks 依赖循环
   const strokesRef = useRef(strokes)
   const currentStrokeRef = useRef(currentStroke)
   const colorRef = useRef(color)
@@ -64,7 +64,7 @@ export function useScreenPen() {
     ctx.restore()
   }, [])
 
-  // P1 修复: Redraw all strokes - 使用 ref 消除依赖
+  // Redraw all strokes - 使用 ref 消除依赖
   const redrawAll = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return

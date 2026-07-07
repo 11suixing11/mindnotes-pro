@@ -7,9 +7,9 @@ import { useViewStore } from '../useViewStore'
 export const MAX_HISTORY = 50
 
 /**
- * P12: 从撤销操作中提取受影响的元素 ID
+ * 从撤销操作中提取受影响的元素 ID
  * 用于 undo/redo 后自动定位并选中受影响元素
- * 来源: tldraw/tldraw PR #2293 - "zoom to affected shapes after undo/redo"
+ * 参考: 常见编辑器的撤销定位行为
  * 用户价值: 大画布场景下，用户撤销后能立即看到变化位置，无需手动寻找
  */
 function getAffectedElementIds(action: UndoAction): string[] {
@@ -32,7 +32,7 @@ function getAffectedElementIds(action: UndoAction): string[] {
       return action.beforeUngroup.map((g) => g.id)
     case 'clear':
       return action.snapshot.map((e) => e.id)
-    // P24: 锁定/解锁撤销支持
+    // 锁定/解锁撤销支持
     case 'lock':
       return action.elementIds
     case 'unlock':
@@ -43,7 +43,7 @@ function getAffectedElementIds(action: UndoAction): string[] {
 }
 
 /**
- * P12: undo/redo 后自动定位到受影响元素并选中
+ * undo/redo 后自动定位到受影响元素并选中
  * 专业设计软件标准行为（Figma、Sketch、tldraw）
  * 提升核心操作体验，用户无需在大画布上寻找撤销后的变化
  */
@@ -129,7 +129,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         })
         redoAction = action
       } else if (action.type === 'erase') {
-        // P0-3 修复: 使用 snapshot 深拷贝，防止后续修改污染 undo/redo 栈数据
+        // 使用 snapshot 深拷贝，防止后续修改污染 undo/redo 栈数据
         // 直接引用会导致连续 undo/redo 后数据不一致
         next = snapshot(action.before)
         redoAction = {
@@ -138,7 +138,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           after: snapshot(action.after),
         }
       } else if (action.type === 'group') {
-        // P10: 撤销分组 - 恢复元素分组前的 groupId 状态
+        // 撤销分组 - 恢复元素分组前的 groupId 状态
         const restoreMap = new Map(action.beforeGroup.map((g: { id: string; oldGroupId?: string }) => [g.id, g.oldGroupId]))
         next = elements.map((el: CanvasElement) => {
           if (restoreMap.has(el.id)) {
@@ -154,7 +154,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           beforeGroup: action.beforeGroup.map((g: { id: string; oldGroupId?: string }) => ({ ...g })),
         }
       } else if (action.type === 'ungroup') {
-        // P10: 撤销取消分组 - 恢复元素的 groupId
+        // 撤销取消分组 - 恢复元素的 groupId
         const restoreMap = new Map(action.beforeUngroup.map((g: { id: string; oldGroupId?: string }) => [g.id, g.oldGroupId]))
         next = elements.map((el: CanvasElement) => {
           if (restoreMap.has(el.id)) {
@@ -169,7 +169,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           beforeUngroup: action.beforeUngroup.map((g: { id: string; oldGroupId?: string }) => ({ ...g })),
         }
       } else if (action.type === 'lock') {
-        // P24: 撤销锁定 - 恢复元素的锁定状态
+        // 撤销锁定 - 恢复元素的锁定状态
         const restoreMap = new Map(action.beforeLock.map((item) => [item.id, item.wasLocked]))
         next = elements.map((el: CanvasElement) => {
           if (restoreMap.has(el.id)) {
@@ -184,7 +184,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           beforeLock: action.beforeLock.map((item) => ({ ...item })),
         }
       } else if (action.type === 'unlock') {
-        // P24: 撤销解锁 - 恢复元素的锁定状态
+        // 撤销解锁 - 恢复元素的锁定状态
         const restoreMap = new Map(action.beforeUnlock.map((item) => [item.id, item.wasLocked]))
         next = elements.map((el: CanvasElement) => {
           if (restoreMap.has(el.id)) {
@@ -209,8 +209,8 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         undoStack: undoStack.slice(0, -1),
       })
 
-      // P12: undo 后自动定位并选中受影响元素
-      // 来源: tldraw/tldraw PR #2293 - "zoom to affected shapes after undo/redo"
+      // undo 后自动定位并选中受影响元素
+      // 参考: 常见编辑器的撤销定位行为
       const affectedIds = getAffectedElementIds(action)
       focusAffectedElements(affectedIds, next, set)
       // P0-8/P0-9 性能优化: undo 后增量更新索引，而非全量重建
@@ -294,7 +294,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         })
         undoAction = action
       } else if (action.type === 'erase') {
-        // P0-3 修复: 使用 snapshot 深拷贝，防止后续修改污染 undo/redo 栈数据
+        // 使用 snapshot 深拷贝，防止后续修改污染 undo/redo 栈数据
         next = snapshot(action.after)
         undoAction = {
           ...action,
@@ -302,7 +302,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           after: snapshot(action.after),
         }
       } else if (action.type === 'group') {
-        // P10: 重做分组 - 重新应用 groupId
+        // 重做分组 - 重新应用 groupId
         const idSet = new Set(action.elementIds)
         next = elements.map((el: CanvasElement) => {
           if (idSet.has(el.id)) {
@@ -317,7 +317,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           beforeGroup: action.beforeGroup.map((g: { id: string; oldGroupId?: string }) => ({ ...g })),
         }
       } else if (action.type === 'ungroup') {
-        // P10: 重做取消分组 - 移除所有组的 groupId
+        // 重做取消分组 - 移除所有组的 groupId
         const groupSet = new Set(action.groupIds)
         next = elements.map((el: CanvasElement) => {
           if (el.groupId && groupSet.has(el.groupId)) {
@@ -331,7 +331,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           beforeUngroup: action.beforeUngroup.map((g: { id: string; oldGroupId?: string }) => ({ ...g })),
         }
       } else if (action.type === 'lock') {
-        // P24: 重做锁定 - 重新应用锁定状态
+        // 重做锁定 - 重新应用锁定状态
         const idSet = new Set(action.elementIds)
         next = elements.map((el: CanvasElement) => {
           if (idSet.has(el.id)) {
@@ -345,7 +345,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           beforeLock: action.beforeLock.map((item) => ({ ...item })),
         }
       } else if (action.type === 'unlock') {
-        // P24: 重做解锁 - 重新应用解锁状态
+        // 重做解锁 - 重新应用解锁状态
         const idSet = new Set(action.elementIds)
         next = elements.map((el: CanvasElement) => {
           if (idSet.has(el.id)) {
@@ -369,8 +369,8 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
         undoStack: [...undoStack, undoAction],
       })
 
-      // P12: redo 后自动定位并选中受影响元素
-      // 来源: tldraw/tldraw PR #2293 - "zoom to affected shapes after undo/redo"
+      // redo 后自动定位并选中受影响元素
+      // 参考: 常见编辑器的撤销定位行为
       const affectedIds = getAffectedElementIds(action)
       focusAffectedElements(affectedIds, next, set)
       // P0-8/P0-9 性能优化: redo 后增量更新索引，而非全量重建

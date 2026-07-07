@@ -100,7 +100,7 @@ const ExportMenu = memo(function ExportMenu() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [showExport, setShowExport] = useState(false)
   const [exportPos, setExportPos] = useState({ top: 0, right: 0 })
-  // P1-11 修复: 移除 elements 订阅，只在导出时通过 getState() 获取
+  // 移除 elements 订阅，只在导出时通过 getState() 获取
   // 避免任何元素变化都触发 ExportMenu re-render
   const isDarkMode = useThemeStore((s) => s.isDarkMode)
   const showToast = useToastStore((s) => s.show)
@@ -167,7 +167,7 @@ const ExportMenu = memo(function ExportMenu() {
     const dpr = window.devicePixelRatio || 1
     const width = Math.round(c.width / dpr)
     const height = Math.round(c.height / dpr)
-    // P1-11 修复: 导出时才获取 elements
+    // 导出时才获取 elements
     const elements = useAppStore.getState().elements
     const svgStr = buildSVGString(elements, { width, height, isDarkMode })
     download(new Blob([svgStr], { type: 'image/svg+xml' }), `mindnotes-${ts()}.svg`)
@@ -183,7 +183,7 @@ const ExportMenu = memo(function ExportMenu() {
     showToast('Word 导出成功', 'success')
   }
   const exportJSON = () => {
-    // P1-11 修复: 导出时才获取 elements
+    // 导出时才获取 elements
     const elements = useAppStore.getState().elements
     download(
       new Blob([JSON.stringify({ elements, version: 2 }, null, 2)], { type: 'application/json' }),
