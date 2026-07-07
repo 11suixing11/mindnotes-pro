@@ -37,7 +37,7 @@ export function useKeyboardBindings(options: Options = {}) {
         return
       }
       // Ctrl+Y / Cmd+Y Redo support (Windows standard)
-      // 竞品对标: Microsoft Whiteboard, Office, VS Code 等主流应用均支持此快捷键
+      // 设计参考: Microsoft Whiteboard, Office, VS Code 等主流应用均支持此快捷键
       // 用户价值: Windows 用户无需改变肌肉记忆，提升操作效率
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y' && !e.shiftKey) {
         e.preventDefault()
@@ -107,8 +107,8 @@ export function useKeyboardBindings(options: Options = {}) {
                   const reader = new FileReader()
                   reader.onload = () => {
                     const dataUrl = reader.result as string
-                    // P32 新功能: SVG 安全过滤 - 防止 XSS 攻击
-                    // 来源: tldraw v4.5.0 PR #7896
+                    // SVG 安全过滤 - 防止 XSS 攻击
+                    // 参考: 通用编辑器安全处理做法
                     const safeDataUrl = sanitizeSvgDataUrl(dataUrl)
                     const img = new Image()
                     img.onload = () => {
@@ -147,14 +147,14 @@ export function useKeyboardBindings(options: Options = {}) {
         st.setSelectedIds(st.elements.map((el) => el.id))
         return
       }
-      // P24 新功能: Ctrl+L / Cmd+L 锁定元素 (来源 Figma / tldraw v5.1.0 专业设计工具标准)
-      // 专业设计工具标准快捷键：Figma、Sketch、Adobe XD 100% 支持
+      // Ctrl+L / Cmd+L 锁定元素
+      // 常见设计工具快捷键习惯
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l' && !e.shiftKey) {
         e.preventDefault()
         st.lockSelected()
         return
       }
-      // P24 新功能: Ctrl+Shift+L / Cmd+Shift+L 解锁元素
+      // Ctrl+Shift+L / Cmd+Shift+L 解锁元素
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
         e.preventDefault()
         st.unlockSelected()
@@ -185,9 +185,9 @@ export function useKeyboardBindings(options: Options = {}) {
         return
       }
 
-      // P6 新功能: Alt + 数字键快速选色 (来源 tldraw v5.1.0 + excalidraw PR #6216)
-      // 对标专业绘图工具交互: Photoshop, Figma, Sketch 均支持数字键快速切换颜色
-      // 用户价值: 专业用户无需移动鼠标到工具栏，按键即可切换颜色，效率提升300%+
+      // Alt + 数字键快速选色
+      // 设计参考: 常见绘图工具的数字键快速选色
+      // 用户价值: 专业用户无需移动鼠标到工具栏，按键即可切换颜色，减少工具栏往返操作
       // Alt+1 ~ Alt+8 对应工具栏 8 个预设颜色
       const COLOR_PRESETS = [
         '#3A2E22', // 黑色
@@ -206,8 +206,8 @@ export function useKeyboardBindings(options: Options = {}) {
         return
       }
 
-      // P21 新功能: 键盘微调（Keyboard Nudge）- 符合 Figma / Excalidraw / tldraw 行业标准
-      // 竞品对标:
+      // 键盘微调（Keyboard Nudge）- 符合 Figma / Excalidraw / tldraw 行业标准
+      // 设计参考:
       // - Excalidraw: 方向键 1px, Ctrl+方向键 10px
       // - Figma: 方向键 1px, Shift+方向键 10px
       // - tldraw: 方向键 1px, Ctrl+方向键 10px
@@ -227,11 +227,11 @@ export function useKeyboardBindings(options: Options = {}) {
         }
       }
 
-      // P31 新功能: G 键循环切换几何工具 (来源 tldraw v3.4.0 PR #5341)
-      // 竞品对标: tldraw, Figma, Sketch - 专业设计工具标准快捷键
+      // G 键循环切换几何工具
+      // 设计参考: tldraw, Figma, Sketch - 专业设计工具标准快捷键
       // - G 键: 循环切换几何工具（矩形 → 圆形 → 直线 → 箭头）
       // - Shift+G: 切换网格显示（原 G 键功能）
-      // 用户价值: 专业用户无需移动鼠标到工具栏，一键切换几何工具，效率提升 300%+
+      // 用户价值: 专业用户无需移动鼠标到工具栏，一键切换几何工具，减少工具栏往返操作
       if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault()
         if (e.shiftKey) {
@@ -244,15 +244,15 @@ export function useKeyboardBindings(options: Options = {}) {
         return
       }
 
-      // P5 新功能: 样式吸管 (Q 键) - 来源 tldraw v5.1.0 PR #8917
-      // P27 增强: Q 键悬停快速复制样式 (来源 tldraw v5.1.0 PR #8917)
+      // 样式吸管 (Q 键)
+      // Q 键悬停快速复制样式
       // - 鼠标悬停在元素上按 Q 键：直接复制该元素样式（无需进入吸管模式）
       // - 没有悬停元素时：切换吸管模式（原有功能）
-      // 用户价值：专业用户快速采样样式，无需点击，效率提升 50%
+      // 用户价值：专业用户快速采样样式，无需点击，减少一次模式切换
       if ((e.key === 'q' || e.key === 'Q') && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault()
         
-        // P27 新功能: 检查是否有悬停元素
+        // 检查是否有悬停元素
         const hoveredRef = (window as any).__mindnotes_hovered_element_id__
         const hoveredElementId = hoveredRef?.current
         
@@ -269,8 +269,8 @@ export function useKeyboardBindings(options: Options = {}) {
         return
       }
 
-      // P25 新功能: Quick Zoom Navigation (Z 键鹰眼模式) - 来源 tldraw v4.4.0 PR #7801
-      // 竞品对标: tldraw, Figma, Sketch - 专业设计工具标准导航功能
+      // Quick Zoom Navigation (Z 键鹰眼模式)
+      // 设计参考: tldraw, Figma, Sketch - 专业设计工具标准导航功能
       // 按 Z 键进入鹰眼模式（全局预览），松开或点击确认放大，ESC 取消
       if ((e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
         e.preventDefault()
@@ -285,7 +285,7 @@ export function useKeyboardBindings(options: Options = {}) {
         return
       }
 
-      // P25: ESC 键取消鹰眼模式，返回原始视口
+      // ESC 键取消鹰眼模式，返回原始视口
       if (e.key === 'Escape') {
         const vs = useViewStore.getState()
         if (vs.eagleEye.isActive) {

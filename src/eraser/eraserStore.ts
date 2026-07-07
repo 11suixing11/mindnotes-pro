@@ -276,7 +276,7 @@ export const useEraserStore = create<EraserState & EraserActions>()((set, get) =
 
     const result = engine.addErasePoint(point, candidates, true)
 
-    // P0修复: 直接修改 currentTrail 数组并 push，避免 O(n²) 展开拷贝
+    // 直接修改 currentTrail 数组并 push，避免 O(n²) 展开拷贝
     // Zustand 检测到数组引用不变但内容变化时，需要手动触发更新
     const state = get()
     state.currentTrail.push(point)

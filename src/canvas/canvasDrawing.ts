@@ -79,11 +79,11 @@ function getSegmentPool(): { next: () => Segment } {
   }
 }
 
-// P1 优化: 书法笔触对象池重置 - 在 invalidateDrawingCaches 中调用
+// 书法笔触对象池重置 - 在 invalidateDrawingCaches 中调用
 function resetCalligraphyPool() {
   segmentPoolIndex = 0
 }
-// P0 优化: 真正的 O(1) LRU 缓存实现 - 使用双向链表 + Map
+// 真正的 O(1) LRU 缓存实现 - 使用双向链表 + Map
 // 替代原来的 O(n) 线性扫描，大缓存场景下性能提升显著
 class LRUCache<K, V> {
   private cache: Map<K, { value: V; prev: K | null; next: K | null; lastAccess: number }>
@@ -205,7 +205,7 @@ const STROKE_CACHE_MAX_SIZE = 200
 const STROKE_CACHE_TTL = 60000 // 60秒
 const strokeOutlineCache = new LRUCache<string, number[][]>(STROKE_CACHE_MAX_SIZE, STROKE_CACHE_TTL)
 
-// P0-2 修复: 缓存键包含点坐标哈希，避免修改点坐标后缓存命中错误数据
+// 缓存键包含点坐标哈希，避免修改点坐标后缓存命中错误数据
 function getStrokeCacheKey(el: StrokeElement): string {
   // 取首尾点和中间点坐标作为哈希，检测点坐标变化
   const firstPoint = el.points[0] ? `${el.points[0][0]}:${el.points[0][1]}` : ''
@@ -320,7 +320,7 @@ function getCachedMinimapBounds(
   minimapCache = { minX, minY, maxX, maxY, elementCount, lastAccess: now }
   return { minX, minY, maxX, maxY }
 }
-// MonetGrid Path2D 缓存 - P0 修复: 包含 zoom 参数，缩放时正确失效
+// MonetGrid Path2D 缓存 - 包含 zoom 参数，缩放时正确失效
 let cachedMonetGridPath: Path2D | null = null
 let cachedMonetGridParams: {
   startX: number
@@ -342,7 +342,7 @@ let cachedGridParams: {
   step: number
 } | null = null
 
-// P0-6 优化: Canvas Background Gradient 缓存 - 避免每帧创建新的 CanvasGradient 对象
+// Canvas Background Gradient 缓存 - 避免每帧创建新的 CanvasGradient 对象
 interface CachedGradient {
   key: string
   gradients: CanvasGradient[]
@@ -357,7 +357,7 @@ function getShapeCacheKey(el: ShapeElement): string {
   return `${el.kind}:${el.x.toFixed(1)}:${el.y.toFixed(1)}:${el.w.toFixed(1)}:${el.h.toFixed(1)}:${rx.toFixed(2)}`
 }
 // ==================== 导出函数 ====================
-// P20 新功能: 旋转渲染支持 (来源 Figma / tldraw / Excalidraw 标准功能)
+// 旋转渲染支持
 // 问题：P18/P19 实现了旋转数据层和 UI 交互，但 shape/text/image 元素的 rotation 属性没有在渲染时应用
 // 用户痛点："我旋转了元素，但画布上看起来完全没变！"
 function applyRotationTransform(
@@ -391,7 +391,7 @@ export function drawElement(
     return
   }
   
-  // P20: 为 shape/text/image 应用旋转变换
+  // 为 shape/text/image 应用旋转变换
   const bounds = {
     x: el.type === 'shape' ? Math.min(el.x, el.x + el.w) : el.x,
     y: el.type === 'shape' ? Math.min(el.y, el.y + el.h) : el.y,
@@ -497,7 +497,7 @@ export function drawStrokeEl(
     const GROUP_SIZE = 12
     const WIDTH_BUCKETS = CALLIGRAPHY_WIDTH_BUCKETS
 
-    // P1 优化: 使用对象池复用 buckets 和统计数组
+    // 使用对象池复用 buckets 和统计数组
     const buckets = getCalligraphyBuckets()
     const bucketWfSums = getCalligraphyWfSums()
     const bucketCounts = getCalligraphyCounts()
@@ -511,7 +511,7 @@ export function drawStrokeEl(
       const wf = 0.3 + 0.7 * Math.abs(Math.sin(angle))
       const bucketIndex = Math.min(Math.floor(wf * WIDTH_BUCKETS), WIDTH_BUCKETS - 1)
 
-      // P1 优化: 从对象池获取线段对象，避免每次创建新对象
+      // 从对象池获取线段对象，避免每次创建新对象
       const seg = segPool.next()
       seg.x1 = p[0]
       seg.y1 = p[1]
@@ -541,11 +541,11 @@ export function drawStrokeEl(
         ctx.stroke()
       }
 
-      // P1 优化: 清空 bucket 供下次复用
+      // 清空 bucket 供下次复用
       bucketSegments.length = 0
     }
 
-    // P1 优化: 重置统计数组供下次复用
+    // 重置统计数组供下次复用
     bucketWfSums.fill(0)
     bucketCounts.fill(0)
   } else if (b === 'dashed') {
@@ -715,7 +715,7 @@ export function drawSelBox(
   ctx.fillStyle = primaryLight
   ctx.fillRect(b.x, b.y, b.w, b.h)
   
-  // P28 新功能: 边缘调整手柄 + 小形状防重叠优化 (来源 tldraw v5.1.0 PR #8926)
+  // 边缘调整手柄 + 小形状防重叠优化
   // 问题: 小形状上角落手柄和边缘手柄重叠，用户很难准确抓住目标手柄
   // 解决方案: 
   // 1. 添加 4 个边缘中间手柄（上、下、左、右）
@@ -725,7 +725,7 @@ export function drawSelBox(
   const cornerR = 4 / zoom
   const edgeR = 3.5 / zoom  // 边缘手柄略小于角落手柄，便于区分
   
-  // P28 修复: 计算最小安全间距，防止手柄重叠
+  // 计算最小安全间距，防止手柄重叠
   // 当形状尺寸小于 2 * (cornerR + edgeR + 间距) 时，边缘手柄会与角落手柄重叠
   const minSafeWidth = (cornerR + edgeR + 4 / zoom) * 2
   const minSafeHeight = (cornerR + edgeR + 4 / zoom) * 2
@@ -754,7 +754,7 @@ export function drawSelBox(
   ctx.shadowColor = isDarkMode ? 'rgba(200,160,176,0.3)' : 'rgba(176,125,110,0.3)'
   ctx.shadowBlur = 4 / zoom
   
-  // P28: 先绘制边缘手柄（在角落手柄下方）
+  // 先绘制边缘手柄（在角落手柄下方）
   // 边缘手柄：上、下、左、右四边中点
   ctx.beginPath()
   ctx.arc(b.x + b.w / 2, edgeTopY, edgeR, 0, Math.PI * 2)      // 上边缘中点
@@ -772,7 +772,7 @@ export function drawSelBox(
   ctx.arc(b.x + b.w, b.y + b.h, cornerR, 0, Math.PI * 2)
   ctx.fill()
 
-  // P19 新功能: 旋转手柄 (来源 Figma / tldraw / Excalidraw 标准交互)
+  // 旋转手柄
   // 专业设计工具标准：选择框顶部中央显示旋转手柄，拖拽即可旋转
   const rotateHandleR = 5 / zoom
   const rotateHandleY = b.y - 20 / zoom
@@ -840,7 +840,7 @@ export function drawMonetGrid(
   ctx.save()
   ctx.fillStyle = isDarkMode ? `rgba(160,150,180,${alpha})` : `rgba(155,142,127,${alpha})`
 
-  // P0 修复：包含 zoom 参数在缓存检查中，缩放时正确重建网格
+  // 包含 zoom 参数在缓存检查中，缩放时正确重建网格
   const currentParams = { startX: sx, startY: sy, endX: ex, endY: ey, gridSize: gs, dotSize, zoom: viewBox.zoom }
   const paramsChanged =
     !cachedMonetGridParams ||
@@ -867,7 +867,7 @@ export function drawMonetGrid(
   ctx.fill(cachedMonetGridPath)
   ctx.restore()
 }
-// P0-6 优化: 使用缓存的 CanvasGradient 对象，避免每帧重新创建
+// 使用缓存的 CanvasGradient 对象，避免每帧重新创建
 function getOrCreateBgGradients(
   ctx: CanvasRenderingContext2D,
   canvasSize: { w: number; h: number },
@@ -989,7 +989,7 @@ export function drawCanvasBackground(
   ctx.fillStyle = bgColor
   ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
 
-  // P0-6 优化: 使用缓存的 gradients，避免每帧重新创建
+  // 使用缓存的 gradients，避免每帧重新创建
   const gradients = getOrCreateBgGradients(ctx, canvasSize, isDarkMode)
   for (const g of gradients) {
     ctx.fillStyle = g
@@ -1085,8 +1085,8 @@ export function drawZoomLevel(
   ctx.fillText(text, canvasSize.w - 16, 22)
   ctx.restore()
 }
-// P1 优化: 导出缓存失效函数 - 元素变化时主动清除缓存
-// P0 修复: 不清除背景渐变缓存 - 背景渐变只在主题/窗口大小变化时才需要重建
+// 导出缓存失效函数 - 元素变化时主动清除缓存
+// 不清除背景渐变缓存 - 背景渐变只在主题/窗口大小变化时才需要重建
 // 性能提升: 避免每次笔画都重建 4-7 个 CanvasGradient 对象，减少 GC 压力
 export function invalidateDrawingCaches() {
   minimapCache = null
@@ -1094,9 +1094,9 @@ export function invalidateDrawingCaches() {
   cachedMonetGridParams = null
   cachedGridPath = null
   cachedGridParams = null
-  // P0 优化: 清除形状 Path2D 缓存 - 元素移动/调整大小时需要重建
+  // 清除形状 Path2D 缓存 - 元素移动/调整大小时需要重建
   shapePathCache.clear()
-  // P1 优化: 重置书法笔触对象池索引
+  // 重置书法笔触对象池索引
   resetCalligraphyPool()
   // 注意: cachedBgGradients 不在这里清除 - 它只依赖主题和窗口大小
   // 主题切换时会自动触发重绘，窗口大小变化由 ResizeObserver 处理

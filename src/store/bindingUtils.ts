@@ -1,4 +1,4 @@
-// P12 新功能: 箭头绑定工具函数 (来源 Excalidraw Issue #3412)
+// 箭头绑定工具函数
 // 专业白板标准功能：箭头端点吸附到形状边缘，移动形状时箭头自动跟随
 import type { CanvasElement, ShapeElement, Binding } from './types'
 

@@ -5,7 +5,7 @@ export const IMAGE_CACHE_MAX = 50
 const imageCache = new Map<string, HTMLImageElement>()
 const imageLoading = new Set<string>()
 
-// P26 新功能: 图片透明像素数据缓存 (来源 tldraw v4.5.0 PR #7942)
+// 图片透明像素数据缓存
 // 用于点击穿透：点击图片透明区域时选中后面的元素
 // 使用离屏 canvas 缓存图片的 alpha 通道数据，避免重复读取像素
 const imageAlphaCache = new Map<string, Uint8ClampedArray>()
@@ -13,7 +13,7 @@ const alphaCanvas = typeof document !== 'undefined' ? document.createElement('ca
 const alphaCtx = alphaCanvas?.getContext('2d', { willReadFrequently: true })
 
 /**
- * P26 新功能: 检测图片指定位置的像素是否透明
+ * 检测图片指定位置的像素是否透明
  * 用于实现"点击穿透"：点击图片透明区域时选中后面的元素
  * 
  * 算法：

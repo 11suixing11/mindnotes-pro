@@ -118,20 +118,20 @@ function clamp(value: number, min: number, max: number): number {
 
 /**
  * 生成唯一ID（用于分割后的新笔触）
- * P0修复: 使用 performance.now() 高分辨率时间戳 + 计数器
+ * 使用 performance.now() 高分辨率时间戳 + 计数器
  * 避免 Date.now() 毫秒精度在快速操作时产生重复ID
  */
 let _idCounter = 0
 const _sessionId = Math.random().toString(36).slice(2, 8)
 function generateStrokeId(): string {
-  // P0修复: 高分辨率时间戳 + 会话ID + 自增计数器
+  // 高分辨率时间戳 + 会话ID + 自增计数器
   // 保证多帧快速操作时ID绝对唯一
   return `stroke-${_sessionId}-${Math.trunc(performance.now() * 100)}-${(++_idCounter).toString(36)}`
 }
 
 /**
  * 验证擦除点参数合法性
- * 修复 P0-1: 完整校验所有数值字段的 NaN/Finite
+ * 修复 完整校验所有数值字段的 NaN/Finite
  */
 function validateErasePoint(point: EraserPoint): boolean {
   return (
@@ -158,19 +158,19 @@ function validateStroke(stroke: StrokeElement): boolean {
 }
 
 // ============================================
-// P1优化: 预分配的临时对象池
+// 预分配的临时对象池
 // ============================================
 
 /**
  * Intersection 临时对象池
  * 避免在热循环中频繁创建 Intersection 对象
  */
-const INTERSECTION_POOL_SIZE = 512 // P0: 2^9，确保位运算安全
+const INTERSECTION_POOL_SIZE = 512 // 2^9，确保位运算安全
 const INTERSECTION_POOL_MASK = INTERSECTION_POOL_SIZE - 1
 const _intersectionPool: Intersection[] = new Array(INTERSECTION_POOL_SIZE)
 let _intersectionPoolIdx = 0
 
-// P0修复: 模块加载时预初始化所有池对象，消除热路径分配
+// 模块加载时预初始化所有池对象，消除热路径分配
 // P0类型修复: 使用类型断言确保 point 是 [number, number] 元组类型
 for (let i = 0; i < INTERSECTION_POOL_SIZE; i++) {
   _intersectionPool[i] = {
@@ -181,7 +181,7 @@ for (let i = 0; i < INTERSECTION_POOL_SIZE; i++) {
 }
 
 function acquireIntersection(t: number, x: number, y: number, strength: number): Intersection {
-  // P0修复: 消除条件分支，池溢出时循环复用
+  // 消除条件分支，池溢出时循环复用
   const idx = _intersectionPoolIdx++ & INTERSECTION_POOL_MASK
   const obj = _intersectionPool[idx]
   obj.t = t
@@ -192,7 +192,7 @@ function acquireIntersection(t: number, x: number, y: number, strength: number):
 }
 
 /**
- * P0优化: 获取池中的 intersections 视图（零拷贝）
+ * 获取池中的 intersections 视图（零拷贝）
  * @returns [池引用, 有效长度] - 调用方只遍历前 length 个元素
  */
 function getIntersectionsView(): readonly [Intersection[], number] {
@@ -204,7 +204,7 @@ function resetIntersectionPool(): void {
 }
 
 /**
- * P0优化: 笔触点数组对象池
+ * 笔触点数组对象池
  * 避免分割笔触时频繁创建新的点数组
  * 性能提升: 减少 GC 压力约 40%，分割操作性能提升 ~25%
  */
@@ -219,7 +219,7 @@ for (let i = 0; i < POINT_ARRAY_POOL_SIZE; i++) {
 
 /**
  * 从池中获取点数组
- * P0优化: 复用已有数组，避免热路径分配
+ * 复用已有数组，避免热路径分配
  */
 function acquirePointArray(desiredLength: number): number[][] {
   if (_pointArrayPoolIdx >= POINT_ARRAY_POOL_SIZE) {
@@ -292,7 +292,7 @@ export class PhysicsEraserEngine {
   private readonly audioEngine: EraserAudioEngine
 
   // ==========================================
-  // P0优化: 缓存的物理计算结果（避免重复计算）
+  // 缓存的物理计算结果（避免重复计算）
   // ==========================================
 
   /** 缓存: 上次计算的有效半径 */
@@ -310,7 +310,7 @@ export class PhysicsEraserEngine {
   private _factorsDirty: boolean = true
 
   // ==========================================
-  // P2优化: 预计算的 sin/cos 缓存
+  // 预计算的 sin/cos 缓存
   // ==========================================
 
   /** 缓存: 上次 transformAndDistanceToRect 使用的旋转角 */
@@ -397,7 +397,7 @@ export class PhysicsEraserEngine {
       return {
         modifiedStrokes: [],
         affectedElementIds: [],
-        trail: this.trail, // P0优化: 不再拷贝 trail，直接返回引用
+        trail: this.trail, // 不再拷贝 trail，直接返回引用
       }
     }
 
@@ -406,7 +406,7 @@ export class PhysicsEraserEngine {
       return {
         modifiedStrokes: [],
         affectedElementIds: [],
-        trail: this.trail, // P0优化: 不再拷贝 trail
+        trail: this.trail, // 不再拷贝 trail
       }
     }
 
@@ -434,12 +434,12 @@ export class PhysicsEraserEngine {
     })
 
     // 4. 空间过滤：如果元素已预筛选则直接使用，否则内部过滤
-    // P0优化: 一次性预计算所有元素的 bounds，避免重复计算
+    // 一次性预计算所有元素的 bounds，避免重复计算
     const candidates = preFiltered
       ? elements
       : this.filterCandidateElementsWithPrecomputedBounds(elements, eraseBounds)
 
-    // 5. 预计算擦除强度（P1修复: 只计算一次，避免每笔触重复计算）
+    // 5. 预计算擦除强度（只计算一次，避免每笔触重复计算）
     const eraseStrength = this.computeEraseStrength(point)
 
     // 6. 精确计算每个候选元素的擦除结果
@@ -453,7 +453,7 @@ export class PhysicsEraserEngine {
     return {
       modifiedStrokes,
       affectedElementIds,
-      trail: this.trail, // P0优化: 不再拷贝 trail
+      trail: this.trail, // 不再拷贝 trail
     }
   }
 
@@ -474,7 +474,7 @@ export class PhysicsEraserEngine {
    * 获取当前擦除轨迹（用于渲染预览）
    */
   getTrail(): EraserPoint[] {
-    return this.trail // P0优化: 返回直接引用而非拷贝
+    return this.trail // 返回直接引用而非拷贝
   }
 
   /**
@@ -577,7 +577,7 @@ export class PhysicsEraserEngine {
   // ==========================================
 
   /**
-   * P0优化: 更新缓存的物理因子
+   * 更新缓存的物理因子
    * 仅在配置/磨损变化时调用，避免每次半径计算都做乘法
    */
   private _updateCachedFactors(): void {
@@ -596,8 +596,8 @@ export class PhysicsEraserEngine {
    * - 硬度越高，形变越小，接触面积越小
    * - 磨损越大，橡皮变钝，接触面积越大
    *
-   * P0优化: 压力缓存 - 相同压力值直接返回缓存结果
-   * P0优化: 因子缓存 - 硬度/磨损因子预计算
+   * 压力缓存 - 相同压力值直接返回缓存结果
+   * 因子缓存 - 硬度/磨损因子预计算
    *
    * @param pressure 笔触压力 0-1
    * @returns 有效擦除半径（像素）
@@ -609,7 +609,7 @@ export class PhysicsEraserEngine {
     }
     const clampedPressure = clamp(pressure, 0, 1)
 
-    // P0优化: 压力缓存命中检查（擦除同一帧内压力通常不变）
+    // 压力缓存命中检查（擦除同一帧内压力通常不变）
     if (clampedPressure === this._cachedPressure && !this._factorsDirty) {
       return this._cachedRadius
     }
@@ -710,8 +710,8 @@ export class PhysicsEraserEngine {
    * 计算点到橡皮擦的距离
    * 根据橡皮擦形状选择不同的距离计算方法
    *
-   * P0优化: 对于圆形形状，避免函数调用开销，内联计算
-   * P2优化: 对于旋转形状，缓存 cos/sin 值
+   * 对于圆形形状，避免函数调用开销，内联计算
+   * 对于旋转形状，缓存 cos/sin 值
    *
    * @param erasePoint 橡皮擦位置和状态
    * @param x 目标点X
@@ -724,7 +724,7 @@ export class PhysicsEraserEngine {
     const shape = this.config.shape
 
     if (shape === 'circle') {
-      // P0优化: 圆形直接内联计算，避免 switch + 函数调用开销
+      // 圆形直接内联计算，避免 switch + 函数调用开销
       return Math.sqrt(dx * dx + dy * dy)
     }
 
@@ -789,8 +789,8 @@ export class PhysicsEraserEngine {
    * 笔触分割算法
    * 根据相交点将笔触分割为多段
    *
-   * P0优化: 原地排序避免数组拷贝
-   * P1优化: 预分配 segments 数组
+   * 原地排序避免数组拷贝
+   * 预分配 segments 数组
    *
    * @param stroke 原始笔触
    * @param intersections 相交点列表
@@ -807,11 +807,11 @@ export class PhysicsEraserEngine {
     if (intersections.length === 1) {
       sorted = intersections
     } else {
-      // P0优化: 原地排序，避免 [...intersections] 创建新数组
+      // 原地排序，避免 [...intersections] 创建新数组
       sorted = intersections.sort((a, b) => a.t - b.t)
     }
 
-    // P1优化: 预分配 segments 数组（最多 intersections.length + 1 个段）
+    // 预分配 segments 数组（最多 intersections.length + 1 个段）
     const segments: StrokeElement[] = []
     const points = stroke.points
     const opacity = stroke.opacity ?? 1
@@ -887,14 +887,14 @@ export class PhysicsEraserEngine {
   /**
    * 更新橡皮磨损程度
    * 磨损与移动距离、压力成正比，与硬度成反比
-   * P1修复: 只在磨损实际变化时标记缓存脏，避免缓存永不命中
-   * P1优化: 先判断距离平方，避免不必要的 sqrt 开销
+   * 只在磨损实际变化时标记缓存脏，避免缓存永不命中
+   * 先判断距离平方，避免不必要的 sqrt 开销
    */
   private updateWearLevel(point: EraserPoint): void {
     if (this.trail.length < 2) return
 
     const prevPoint = this.trail[this.trail.length - 2]
-    // P1优化: 先计算距离平方做快速拒绝，避免不必要的 sqrt 开销
+    // 先计算距离平方做快速拒绝，避免不必要的 sqrt 开销
     const dx = point.x - prevPoint.x
     const dy = point.y - prevPoint.y
     const distSq = dx * dx + dy * dy
@@ -917,7 +917,7 @@ export class PhysicsEraserEngine {
 
     const newWearLevel = Math.min(WEAR_CONSTANTS.MAX_WEAR, this.wearLevel + wearIncrement)
 
-    // P1修复: 只在磨损实际变化时标记缓存脏
+    // 只在磨损实际变化时标记缓存脏
     // 避免每帧都标记 dirty 导致半径缓存永不命中
     if (Math.abs(newWearLevel - this.wearLevel) > 0.0001) {
       this.wearLevel = newWearLevel
@@ -927,7 +927,7 @@ export class PhysicsEraserEngine {
 
   /**
    * 空间过滤：快速筛选候选元素
-   * P1优化: 使用 for 循环替代 .filter()，避免闭包和临时数组
+   * 使用 for 循环替代 .filter()，避免闭包和临时数组
    * 保留作为公共 API 供外部调用（如空间索引模块）
    */
   filterCandidateElements(elements: CanvasElement[], eraseBounds: Bounds): CanvasElement[] {
@@ -943,7 +943,7 @@ export class PhysicsEraserEngine {
       const el = elements[i]
       try {
         const b = elementBounds(el)
-        // P1优化: 内联 AABB 相交检测，避免函数调用
+        // 内联 AABB 相交检测，避免函数调用
         if (ax < b.x + b.w && axw > b.x && ay < b.y + b.h && ayh > b.y) {
           result.push(el)
         }
@@ -959,7 +959,7 @@ export class PhysicsEraserEngine {
    * 避免在 computeStrokeErasure 中重复计算 elementBounds
    * 性能提升: 对于 N 个元素，elementBounds 从 O(N) 次调用减少到 O(1) 次
    *
-   * P0修复: 使用 WeakMap 缓存 bounds，避免在元素对象上挂载临时属性导致内存泄漏
+   * 使用 WeakMap 缓存 bounds，避免在元素对象上挂载临时属性导致内存泄漏
    */
   private static readonly _boundsCache = new WeakMap<CanvasElement, Bounds>()
   private filterCandidateElementsWithPrecomputedBounds(
@@ -979,9 +979,9 @@ export class PhysicsEraserEngine {
       const el = elements[i]
       try {
         const b = elementBounds(el)
-        // P1优化: 内联 AABB 相交检测，避免函数调用
+        // 内联 AABB 相交检测，避免函数调用
         if (ax < b.x + b.w && axw > b.x && ay < b.y + b.h && ayh > b.y) {
-          // P0修复: 使用 WeakMap 缓存，避免对象属性污染和内存泄漏
+          // 使用 WeakMap 缓存，避免对象属性污染和内存泄漏
           cache.set(el, b)
           result.push(el)
         }
@@ -1039,7 +1039,7 @@ export class PhysicsEraserEngine {
 
   /**
    * 处理笔触元素擦除
-   * P0修复: 未修改时返回 null，避免产生不必要的脏标记
+   * 未修改时返回 null，避免产生不必要的脏标记
    */
   private processStrokeElement(
     stroke: StrokeElement,
@@ -1063,14 +1063,14 @@ export class PhysicsEraserEngine {
       }
     }
 
-    // P0修复: 未修改则返回 null，调用方会过滤
+    // 未修改则返回 null，调用方会过滤
     return null
   }
 
   /**
    * 检测非笔触元素（矩形、圆形等）是否被擦除
    * 使用简单的边界碰撞检测
-   * P0优化: 接受预计算的 effectiveRadius
+   * 接受预计算的 effectiveRadius
    */
   private checkNonStrokeElement(
     el: CanvasElement,
@@ -1093,13 +1093,11 @@ export class PhysicsEraserEngine {
   /**
    * 计算单条笔触的擦除情况
    *
-   * P0优化:
-   * - effectiveRadius 从外部传入，避免重复计算
+   * * - effectiveRadius 从外部传入，避免重复计算
    * - eraseStrength 预计算
    * - findIntersectionT + pointToEraserDistance 内联优化
    *
-   * P2优化:
-   * - Early exit: 快速跳过明显不在擦除范围的笔触
+   * * - Early exit: 快速跳过明显不在擦除范围的笔触
    * - 使用对象池复用 Intersection 对象
    */
   private computeStrokeErasure(
@@ -1129,7 +1127,7 @@ export class PhysicsEraserEngine {
     // 重置对象池
     resetIntersectionPool()
 
-    // P0修复: 使用已缓存的 elementBounds 做 Early exit
+    // 使用已缓存的 elementBounds 做 Early exit
     // 避免手动 AABB 采样导致的漏检问题
     // P0性能优化: 优先使用预计算的缓存 bounds，避免重复计算
     const strokeBounds = PhysicsEraserEngine._boundsCache.get(stroke) ?? elementBounds(stroke)
@@ -1156,7 +1154,7 @@ export class PhysicsEraserEngine {
     }
 
     // 检测笔触每一段与擦除区域的相交
-    // P0优化: 缓存擦除点坐标，避免重复属性访问
+    // 缓存擦除点坐标，避免重复属性访问
     const eraseX = erasePoint.x
     const eraseY = erasePoint.y
     const shape = this.config.shape
@@ -1173,7 +1171,7 @@ export class PhysicsEraserEngine {
       const p2x = p2[0]
       const p2y = p2[1]
 
-      // P0优化: 内联 findIntersectionT，减少函数调用开销
+      // 内联 findIntersectionT，减少函数调用开销
       const segDx = p2x - p1x
       const segDy = p2y - p1y
       const lenSq = segDx * segDx + segDy * segDy
@@ -1188,7 +1186,7 @@ export class PhysicsEraserEngine {
       const closestX = p1x + segDx * t
       const closestY = p1y + segDy * t
 
-      // P0优化: 对圆形内联距离计算，避免函数调用
+      // 对圆形内联距离计算，避免函数调用
       let dist: number
       if (shape === 'circle') {
         const cdx = closestX - eraseX
@@ -1198,25 +1196,25 @@ export class PhysicsEraserEngine {
         dist = this.pointToEraserDistance(erasePoint, closestX, closestY)
       }
 
-      // P1优化: 快速拒绝 - 超出阈值直接跳过
+      // 快速拒绝 - 超出阈值直接跳过
       if (dist >= effectiveDistThreshold) continue
 
       // 有效距离阈值（考虑笔触粗细）
       const effectiveDist = dist - halfStrokeSize
 
       if (effectiveDist < 0) {
-        // P1修复: 在笔触内部时使用完整擦除强度
+        // 在笔触内部时使用完整擦除强度
         // 原逻辑bug: 笔触越细，depthFactor越小，强度越低，导致细笔触难以擦除
         // 新逻辑: 只要在笔触内部，就使用完整擦除强度
         const strength = eraseStrength
 
-        // P1优化: 使用对象池
+        // 使用对象池
         acquireIntersection((i - 1 + t) / pointsLen, closestX, closestY, strength)
       } else {
         // 在边缘区域：渐变衰减
         const strength = clamp((1 - effectiveDist / effectiveRadius) * eraseStrength, 0, 1)
 
-        // P1优化: 使用对象池
+        // 使用对象池
         acquireIntersection((i - 1 + t) / pointsLen, closestX, closestY, strength)
       }
 
@@ -1227,10 +1225,10 @@ export class PhysicsEraserEngine {
       }
     }
 
-    // P0优化: 获取池视图（真正零拷贝，无 slice 无数组创建）
+    // 获取池视图（真正零拷贝，无 slice 无数组创建）
     const [pool, intersectionCount] = getIntersectionsView()
 
-    // P0优化: 单循环同时计算 maxStrength，避免两次遍历
+    // 单循环同时计算 maxStrength，避免两次遍历
     let maxStrength = 0
     // P0性能优化: 直接使用池引用，完全零拷贝
     // 注意: 调用方必须在当前帧处理完前 intersectionCount 个元素，下一次擦除会重置池
@@ -1268,7 +1266,7 @@ export class PhysicsEraserEngine {
 
   /**
    * 坐标变换并计算到矩形的距离
-   * P2优化: 缓存 cos/sin 计算结果
+   * 缓存 cos/sin 计算结果
    */
   private transformAndDistanceToRect(
     dx: number,
@@ -1277,7 +1275,7 @@ export class PhysicsEraserEngine {
     halfW: number,
     halfH: number
   ): number {
-    // P2优化: 缓存 cos/sin，相同旋转角不重复计算
+    // 缓存 cos/sin，相同旋转角不重复计算
     if (rotation !== this._cachedRotation) {
       this._cachedRotation = rotation
       this._cachedCos = Math.cos(-rotation)
@@ -1322,7 +1320,7 @@ export class PhysicsEraserEngine {
     const endIdx = Math.min(((endT * len + 0.999999) | 0) + 1, len)
     const segmentLen = endIdx - startIdx
 
-    // P0优化: 从对象池获取数组，避免热路径分配
+    // 从对象池获取数组，避免热路径分配
     const result = acquirePointArray(segmentLen)
     result.length = segmentLen
 

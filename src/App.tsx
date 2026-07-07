@@ -33,7 +33,7 @@ export default function App() {
   const init = useAppStore((s) => s.init)
   const loaded = useAppStore((s) => s.loaded)
   const tool = useAppStore((s) => s.tool)
-  // P1-9/P1-10 修复: 只订阅 length 而非完整数组，避免不必要的 re-render
+  // P1-9/只订阅 length 而非完整数组，避免不必要的 re-render
   const elementCount = useAppStore((s) => s.elements.length)
   const bgColor = useAppStore((s) => s.bgColor)
   const docCount = useAppStore((s) => s.docs.length)
@@ -81,27 +81,23 @@ export default function App() {
         e.preventDefault()
         setShortcutsOpen((v) => !v)
       }
-      // P9 新功能: Ctrl+D 快速复制 (Excalidraw / Figma / tldraw 标准快捷键)
-      // 专业设计软件标准交互：一键复制选中元素
+      // Ctrl+D 快速复制，遵循常见设计工具交互
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
         e.preventDefault()
         useAppStore.getState().duplicateSelected()
       }
-      // P10 新功能: Ctrl+G 元素分组 (Excalidraw / Figma / tldraw 标准功能)
-      // 专业设计软件标准交互：将选中元素组合成组
+      // Ctrl+G 元素分组
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'g') {
         e.preventDefault()
         useAppStore.getState().groupSelected()
       }
-      // P10 新功能: Ctrl+Shift+G 取消分组 (Excalidraw / Figma / tldraw 标准功能)
-      // 专业设计软件标准交互：解散选中的组
+      // Ctrl+Shift+G 取消分组
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
         e.preventDefault()
         useAppStore.getState().ungroupSelected()
       }
 
-      // P11 新功能: 数字键 1-9 快速切换工具 (Excalidraw / Miro / tldraw 标准快捷键)
-      // 专业白板软件标准交互：一键切换绘图工具，无需移动鼠标点击工具栏
+      // 数字键 1-9 快速切换工具
       if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && /^[1-9]$/.test(e.key)) {
         e.preventDefault()
         const toolMap: Record<string, import('./store/types').ToolType | undefined> = {
@@ -120,9 +116,8 @@ export default function App() {
           useAppStore.getState().setTool(targetTool)
         }
       }
-      // P33 新功能: Shift + 数字键 1-9, 0 快速选择颜色 (来源 Shmeppy / 快图科技 Feature Request)
-      // 专业绘图工具标准交互：一键切换调色板前10个颜色，无需移动鼠标点击调色板
-      // 用户价值：专业用户绘制复杂图形时，无需中断创作流切换颜色，效率提升 400%+
+      // Shift + 数字键 1-9, 0 快速选择颜色
+      // 一键切换调色板前10个颜色，减少工具栏往返操作
       if (!e.ctrlKey && !e.metaKey && !e.altKey && e.shiftKey && /^[0-9]$/.test(e.key)) {
         e.preventDefault()
         // 调色板前10个颜色，按显示顺序映射：1-9 对应前9个，0 对应第10个
@@ -144,9 +139,8 @@ export default function App() {
           useAppStore.getState().setColor(targetColor)
         }
       }
-      // P32 新功能: Q 键快速复制悬停元素样式 (来源 tldraw v5.1.0 PR #8917)
-      // 匹配 tldraw 专业工具标准交互：悬停在元素上按 Q 键直接复制样式，无需进入吸管模式
-      // 用户价值：专业用户无需切换工具，一键复制颜色/线条/填充样式，效率提升 500%+
+      // Q 键快速复制悬停元素样式
+      // 悬停在元素上按 Q 键直接复制样式，减少一次模式切换
       if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'q') {
         e.preventDefault()
         const state = useAppStore.getState()
@@ -155,22 +149,22 @@ export default function App() {
         const hoveredId = hoveredRef?.current ?? null
         
         if (hoveredId) {
-          // 有悬停元素：直接复制其样式（tldraw 模式 - 无需进入吸管模式）
+          // 有悬停元素：直接复制其样式
           state.applyStyleFromElement(hoveredId)
         } else {
           // 无悬停元素：切换样式吸管模式（传统吸管模式）
           state.toggleStyleEyedropper()
         }
       }
-      // P31 新功能: G 键循环切换几何工具 (来源 tldraw v3.4.0 PR #5341)
-      // 匹配 tldraw, Figma, Sketch 专业设计工具标准快捷键
+      // G 键循环切换几何工具
+      // 遵循常见设计工具快捷键习惯
       if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'g') {
         e.preventDefault()
         useAppStore.getState().cycleGeometryTool()
       }
 
-      // P34 新功能: Cmd/Ctrl+2 缩放到选中元素 (来源 Figma / Sketch / Graphic 专业设计工具标准)
-      // 竞品对标: Figma Cmd+2, Sketch Cmd+2, Graphic Cmd+2 - 行业标准快捷键
+      // Cmd/Ctrl+2 缩放到选中元素
+      // 设计参考: Figma Cmd+2, Sketch Cmd+2, Graphic Cmd+2 - 行业标准快捷键
       // 用户价值：复杂画布中一键定位到选中元素，无需手动滚动缩放
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === '2') {
         e.preventDefault()

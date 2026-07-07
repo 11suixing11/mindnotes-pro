@@ -12,7 +12,7 @@ export interface ToolSettingsState {
   size: number
   bgColor: string
   colorHistory: string[]
-  // P5 新功能: 样式吸管 (Eyedropper) - 来源 tldraw v5.1.0 PR #8917
+  // 样式吸管 (Eyedropper)
   // 按 Q 键激活，悬停在元素上复制其样式（颜色、大小、画笔类型）
   styleEyedropperActive: boolean
   styleEyedropperPreview: { color: string; size: number; brush: BrushType } | null
@@ -29,7 +29,7 @@ export interface ToolSettingsActions {
   toggleStyleEyedropper: () => void
   setStyleEyedropperPreview: (preview: { color: string; size: number; brush: BrushType } | null) => void
   applyStyleFromElement: (elementId: string) => void
-  // P31 新功能: G 键循环切换几何工具 (来源 tldraw v3.4.0 PR #5341)
+  // G 键循环切换几何工具
   cycleGeometryTool: () => void
 }
 
@@ -48,7 +48,7 @@ export function createToolSettingsSlice(
     size: 4,
     bgColor: '#ffffff',
     colorHistory: [],
-    // P5 新功能: 样式吸管状态
+    // 样式吸管状态
     styleEyedropperActive: false,
     styleEyedropperPreview: null,
 
@@ -71,7 +71,7 @@ export function createToolSettingsSlice(
       const next = [c, ...filtered].slice(0, MAX_COLOR_HISTORY)
       set({ colorHistory: next })
     },
-    // P5 新功能: 样式吸管动作
+    // 样式吸管动作
     toggleStyleEyedropper: () => {
       const current = _get().styleEyedropperActive
       set({
@@ -113,10 +113,10 @@ export function createToolSettingsSlice(
         _get().addColorToHistory(element.color)
       }
     },
-    // P31 新功能: G 键循环切换几何工具 (来源 tldraw v3.4.0 PR #5341)
-    // 竞品对标: tldraw, Figma, Sketch - 专业设计工具标准快捷键
+    // G 键循环切换几何工具
+    // 设计参考: tldraw, Figma, Sketch - 专业设计工具标准快捷键
     // 循环顺序: rectangle → circle → line → arrow → rectangle
-    // 用户价值: 专业用户无需移动鼠标到工具栏，一键切换几何工具，效率提升 300%+
+    // 用户价值: 专业用户无需移动鼠标到工具栏，一键切换几何工具，减少工具栏往返操作
     cycleGeometryTool: () => {
       const currentTool = _get().tool as ToolType
       const geometryTools: ToolType[] = ['rectangle', 'circle', 'line', 'arrow']

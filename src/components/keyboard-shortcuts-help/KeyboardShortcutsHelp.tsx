@@ -23,7 +23,7 @@ const SHORTCUTS = [
   { keys: ['9'], label: 'Pan Tool' },
   { keys: ['+'], label: 'Zoom in' },
   { keys: ['-'], label: 'Zoom out' },
-  // P31 新功能: G 键循环切换几何工具
+  // G 键循环切换几何工具
   { keys: ['G'], label: 'Cycle geometry tools' },
   { keys: ['Shift', 'G'], label: 'Toggle grid' },
   { keys: ['Arrow Keys'], label: 'Move selected' },
@@ -34,10 +34,10 @@ const SHORTCUTS = [
   { keys: ['DblClick'], label: 'Edit text' },
   { keys: ['?'], label: 'Toggle this panel' },
   { keys: ['Ctrl', 'Shift', 'P'], label: 'Screen Pen (draw on screen)' },
-  // P35 新功能: Z 键鹰眼模式 (来源 tldraw v4.4.0 PR #7801)
+  // Z 键鹰眼模式
   { keys: ['Z'], label: 'Eagle Eye (quick zoom navigation)' },
   { keys: ['Esc'], label: 'Cancel Eagle Eye mode' },
-  // P34 新功能: Ctrl+2 缩放到选中元素 (来源 Figma / Sketch 标准)
+  // Ctrl+2 缩放到选中元素
   { keys: ['Ctrl', '2'], label: 'Zoom to selection' },
 ]
 

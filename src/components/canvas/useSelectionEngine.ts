@@ -45,7 +45,7 @@ export function useSelectionEngine(
 
     for (const el of els) {
       if (excludeIds.has(el.id)) continue
-      // P1 优化: 跳过不在候选集中的元素
+      // 跳过不在候选集中的元素
       if (candidateSet && !candidateSet.has(el.id)) continue
 
       const b = cachedBounds(el)

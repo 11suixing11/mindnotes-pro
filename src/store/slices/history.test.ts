@@ -86,11 +86,11 @@ describe('history slice', () => {
       expect(useAppStore.getState().redoStack.length).toBe(1)
     })
 
-    it('selects affected elements on undo (P12: tldraw PR #2293 standard behavior)', () => {
+    it('selects affected elements on undo', () => {
       useAppStore.setState({ selectedIds: ['other'] })
       useAppStore.getState().addElement(makeStroke('s1'))
       useAppStore.getState().undo()
-      // P12: undo 后自动选中受影响的元素（Figma/tldraw 标准行为）
+      // undo 后自动选中受影响的元素
       // 由于撤销了 add 操作，元素被删除，所以 selectedIds 应该为空
       expect(useAppStore.getState().selectedIds).toEqual([])
     })
@@ -131,12 +131,12 @@ describe('history slice', () => {
       expect(useAppStore.getState().undoStack.length).toBe(1)
     })
 
-    it('selects affected elements on redo (P12: tldraw PR #2293 standard behavior)', () => {
+    it('selects affected elements on redo', () => {
       useAppStore.getState().addElement(makeStroke('s1'))
       useAppStore.getState().undo()
       useAppStore.setState({ selectedIds: ['some'] })
       useAppStore.getState().redo()
-      // P12: redo 后自动选中受影响的元素（Figma/tldraw 标准行为）
+      // redo 后自动选中受影响的元素（Figma/tldraw 标准行为）
       // 重做了 add 操作，元素被恢复，所以选中该元素
       expect(useAppStore.getState().selectedIds).toEqual(['s1'])
     })

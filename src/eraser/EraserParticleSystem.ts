@@ -310,7 +310,7 @@ export class EraserParticleSystem {
     const dy = particle.y - this.pointerY
     const distSq = dx * dx + dy * dy
 
-    // P0 优化：快速距离平方检测，避免 sqrt
+    // 快速距离平方检测，避免 sqrt
     if (distSq > WIND_RADIUS * WIND_RADIUS) return
 
     const distance = Math.sqrt(distSq)
@@ -323,7 +323,7 @@ export class EraserParticleSystem {
     // 气流强度（速度 × 距离因子）
     const windStrength = this.pointerSpeed * distanceFactorSq * WIND_FORCE
 
-    // P0 优化：预计算倒数，避免重复除法
+    // 预计算倒数，避免重复除法
     const invSpeed = 1 / (this.pointerSpeed + EPSILON)
 
     // 气流方向（指针移动方向 + 向外扩散）
@@ -399,7 +399,7 @@ export class EraserParticleSystem {
         if (particle.opacity > 0.3) {
           const shadowRx = size * SHADOW_SCALE
           const shadowRy = size * SHADOW_Y_SCALE
-          // P1 优化：阴影偏移计算内联，避免额外变量
+          // 阴影偏移计算内联，避免额外变量
           const shadowOffsetX = SHADOW_OFFSET_BASE * (cos - sin)
           const shadowOffsetY = SHADOW_OFFSET_BASE * (sin + cos)
 
@@ -450,7 +450,7 @@ export class EraserParticleSystem {
     const ox = rx * kappa
     const oy = ry * kappa
 
-    // P0优化: 内联所有旋转计算，完全零对象分配
+    // 内联所有旋转计算，完全零对象分配
     // 四个顶点（旋转后）- 直接计算坐标，不创建临时对象
     const rightX = rx * cos - 0 * sin + cx
     const rightY = rx * sin + 0 * cos + cy

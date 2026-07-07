@@ -106,8 +106,8 @@ const ColorPicker = memo(function ColorPicker() {
       const r = new FileReader()
       r.onload = () => {
         const dataUrl = r.result as string
-        // P32 新功能: SVG 安全过滤 - 防止 XSS 攻击
-        // 来源: tldraw v4.5.0 PR #7896
+        // SVG 安全过滤 - 防止 XSS 攻击
+        // 参考: 通用编辑器安全处理做法
         const safeDataUrl = sanitizeSvgDataUrl(dataUrl)
         const img = new Image()
         img.onload = () => {

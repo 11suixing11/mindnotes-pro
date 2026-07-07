@@ -11,17 +11,17 @@ export interface StrokeElement {
   brush: BrushType
   opacity?: number
   groupId?: string
-  // P17 新功能: 元素旋转 (来源 Excalidraw Issue #1056 / tldraw v5.0.0)
+  // 元素旋转
   // 专业白板标准功能：选中元素后拖拽旋转手柄自由旋转
   // 用户痛点："无法调整手写笔迹/形状的角度，画斜线很困难"
   rotation?: number
-  // P24 新功能: 元素锁定 (来源 Figma / tldraw v5.1.0 专业设计工具标准)
+  // 元素锁定
   // 专业设计工具标配：锁定元素防止误操作
   // 用户痛点："背景元素经常被不小心移动/删除"
   locked?: boolean
 }
 
-// P12 新功能: 箭头绑定 (来源 Excalidraw Issue #3412)
+// 箭头绑定
 // 专业白板标准功能：箭头端点吸附到形状边缘，移动形状时箭头自动跟随
 // 用户痛点："花了十分钟才让三条线都正确连接" - Excalidraw Issue #3412
 export interface Binding {
@@ -49,9 +49,9 @@ export interface ShapeElement {
   startBinding?: Binding
   // P12 箭头绑定：终点绑定（仅 line/arrow 类型）
   endBinding?: Binding
-  // P17 新功能: 元素旋转
+  // 元素旋转
   rotation?: number
-  // P24 新功能: 元素锁定
+  // 元素锁定
   locked?: boolean
 }
 
@@ -66,9 +66,9 @@ export interface TextElement {
   fontSize: number
   color: string
   groupId?: string
-  // P17 新功能: 元素旋转
+  // 元素旋转
   rotation?: number
-  // P24 新功能: 元素锁定
+  // 元素锁定
   locked?: boolean
 }
 
@@ -82,9 +82,9 @@ export interface ImageElement {
   dataUrl: string
   opacity?: number
   groupId?: string
-  // P17 新功能: 元素旋转
+  // 元素旋转
   rotation?: number
-  // P24 新功能: 元素锁定
+  // 元素锁定
   locked?: boolean
 }
 
@@ -98,7 +98,7 @@ export type UndoAction =
   | { type: 'erase'; before: CanvasElement[]; after: CanvasElement[] }
   | { type: 'group'; groupId: string; elementIds: string[]; beforeGroup: { id: string; oldGroupId?: string }[] }
   | { type: 'ungroup'; groupIds: string[]; beforeUngroup: { id: string; oldGroupId?: string }[] }
-  // P24 新功能: 元素锁定 - 撤销支持
+  // 元素锁定 - 撤销支持
   | { type: 'lock'; elementIds: string[]; beforeLock: { id: string; wasLocked: boolean }[] }
   | { type: 'unlock'; elementIds: string[]; beforeUnlock: { id: string; wasLocked: boolean }[] }
 export interface CanvasDoc {
@@ -134,7 +134,7 @@ export function invalidateStrokeBounds(el: StrokeElement): void {
 
 export function elementBounds(el: CanvasElement): { x: number; y: number; w: number; h: number } {
   if (el.type === 'stroke') {
-    // P0: 检查缓存
+    // 检查缓存
     const cached = strokeBoundsCache.get(el)
     if (cached) return cached
 
@@ -212,7 +212,7 @@ export function resizeElement(
   }
 }
 
-// P17 新功能: 元素旋转 (来源 Excalidraw Issue #1056 / tldraw v5.0.0)
+// 元素旋转
 // 专业白板标准功能：绕中心点旋转元素
 /**
  * 绕中心点旋转元素
@@ -254,7 +254,7 @@ export function rotateElement(
   return { ...el, rotation: ((el.rotation || 0) + angle) % (Math.PI * 2) } as CanvasElement
 }
 
-// P16 新功能: 元素对齐 (来源 Excalidraw Issue #2267 / Figma 标准功能)
+// 元素对齐
 // 专业白板/设计工具标配：选中多个元素后一键对齐
 // 用户痛点："手动对齐5个矩形花了3分钟，还不齐" - 社区高频反馈
 export type AlignmentType =
@@ -265,7 +265,7 @@ export type AlignmentType =
   | 'alignCenterV'
   | 'alignBottom'
 
-// P22 新功能: 元素分布 (来源 Figma / tldraw 标准功能)
+// 元素分布
 // 专业设计工具标配：选中多个元素后一键等间距分布
 // 用户痛点："手动调整3个按钮间距，调了10次还是不均匀" - 社区高频反馈
 export type DistributionType =

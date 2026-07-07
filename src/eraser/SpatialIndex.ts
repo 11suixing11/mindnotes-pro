@@ -61,7 +61,7 @@ export class SpatialIndex {
   private lastModificationCount = 0
   private modificationCount = 0
 
-  // P1优化: 复用 seen Set 和 results 数组，避免每次查询都分配新对象
+  // 复用 seen Set 和 results 数组，避免每次查询都分配新对象
   private readonly _seenSet = new Set<string>()
   private readonly _resultsArray: string[] = []
 
@@ -94,7 +94,7 @@ export class SpatialIndex {
       return
     }
 
-    // P0 优化: OMT 批量加载算法 - 单次排序替代双重排序
+    // OMT 批量加载算法 - 单次排序替代双重排序
     entries.sort((a, b) => a.minX - b.minX || a.minY - b.minY)
     const nodeSize = Math.ceil(Math.sqrt(entries.length))
 
@@ -146,7 +146,7 @@ export class SpatialIndex {
    * 原地过滤已删除元素，避免创建新数组
    */
   private searchCore(minX: number, minY: number, maxX: number, maxY: number): string[] {
-    // P0 优化: 快速路径 - 检查缓存命中
+    // 快速路径 - 检查缓存命中
     const now = performance.now()
     const cacheKey = this.getQueryCacheKey(minX, minY, maxX, maxY)
 
@@ -162,7 +162,7 @@ export class SpatialIndex {
 
     this.rebuildIfNeeded()
 
-    // P1优化: 复用 Set 和数组，避免每次查询都分配新对象
+    // 复用 Set 和数组，避免每次查询都分配新对象
     this._seenSet.clear()
     this._resultsArray.length = 0
     const searchBounds = { minX, minY, maxX, maxY }
@@ -171,7 +171,7 @@ export class SpatialIndex {
     // 创建结果副本用于缓存（避免复用数组被修改）
     const results = [...this._resultsArray]
 
-    // P0 优化: 更新缓存
+    // 更新缓存
     this.queryCache = {
       key: cacheKey,
       result: results,
@@ -191,7 +191,7 @@ export class SpatialIndex {
   /**
    * P0 性能优化: 视口裁剪查询
    * 使用空间索引进行 O(log n) 视口内元素筛选，替代 O(n) 全量遍历
-   * P1 优化: 直接返回数组而非 Set，避免 O(k) 转换开销
+   * 直接返回数组而非 Set，避免 O(k) 转换开销
    * 渲染时使用 Array.includes 或 Set.has 由调用方决定
    */
   queryVisible(vx: number, vy: number, vw: number, vh: number): string[] {
@@ -327,7 +327,7 @@ export class SpatialIndex {
         this.split(node)
       }
     }
-    // P1 优化: 只在最后更新一次边界
+    // 只在最后更新一次边界
     this.updateBounds(node)
   }
   private split(node: RTreeNode): void {
@@ -385,8 +385,8 @@ export class SpatialIndex {
     seen: Set<string>,
     deletedIds: Set<string>
   ): void {
-    // P1 优化: 使用显式栈替代递归，避免大数据量时栈溢出
-    // P1 优化: 搜索时直接去重和过滤已删除元素，避免事后 O(k) 处理
+    // 使用显式栈替代递归，避免大数据量时栈溢出
+    // 搜索时直接去重和过滤已删除元素，避免事后 O(k) 处理
     const stack: RTreeNode[] = [node]
     while (stack.length > 0) {
       const current = stack.pop()!

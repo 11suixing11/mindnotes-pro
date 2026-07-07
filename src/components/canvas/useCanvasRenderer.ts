@@ -21,7 +21,7 @@ export interface DrawState {
   currentPts: number[][]
   currentShape: ShapeElement | null
   mousePos: { x: number; y: number } | null
-  // P23 新功能: 旋转角度显示 (来源 Figma / tldraw 专业体验)
+  // 旋转角度显示
   // 拖拽旋转手柄时显示当前旋转角度值（度数）
   rotationAngle: { angle: number; centerX: number; centerY: number } | null
   marquee: { startX: number; startY: number; endX: number; endY: number } | null
@@ -55,10 +55,10 @@ export function useCanvasRenderer(
   // 性能提升: 避免每次重绘都创建新的 Set 对象，减少 GC 压力
   const selectedIdsSetRef = useRef<Set<string>>(new Set())
   const lastSelectedIdsRef = useRef<string[]>([])
-  // P2-2: dpr 改为 ref，极少变化
+  // dpr 改为 ref，极少变化
   const dprRef = useRef(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
   const dpr = dprRef.current
-  // P2-1: canvasSize 改用 ref 避免 React 重渲染，配合手动 redraw
+  // canvasSize 改用 ref 避免 React 重渲染，配合手动 redraw
   const canvasSizeRef = useRef({ w: window.innerWidth, h: window.innerHeight })
   const [, forceUpdate] = useState(0)
   const canvasSize = canvasSizeRef.current
@@ -168,7 +168,7 @@ export function useCanvasRenderer(
     return b
   }
 
-  // P24 新功能: 绘制锁定元素的小锁图标 (来源 Figma / tldraw v5.1.0 专业设计工具标准)
+  // 绘制锁定元素的小锁图标
   // 在元素左上角绘制半透明锁图标，不遮挡内容，支持明暗主题
   function drawLockIcon(
     ctx: CanvasRenderingContext2D,
@@ -213,7 +213,7 @@ export function useCanvasRenderer(
     const selectedIds = useAppStore.getState().selectedIds
 
     if (selectedIds !== lastSelectedIdsRef.current) {
-      // P0 优化: 增量更新 Set，而不是每次都创建新的
+      // 增量更新 Set，而不是每次都创建新的
       // 计算差集，只添加新项，删除移除的项
       const currSet = selectedIdsSetRef.current
       const newIds = new Set(selectedIds)
@@ -253,7 +253,7 @@ export function useCanvasRenderer(
 
     const st = useAppStore.getState()
     const els = st.elements
-    const selSet = getCachedSelectedIds() // P1 优化: 使用缓存的 Set
+    const selSet = getCachedSelectedIds() // 使用缓存的 Set
     const dark = useThemeStore.getState().isDarkMode
     const vb = useViewStore.getState().viewBox
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -272,13 +272,13 @@ export function useCanvasRenderer(
     const visibleIds = st.spatialIndex?.queryVisible(vl, vt, vw, vh)
 
     if (visibleIds && visibleIds.length > 0) {
-      // P0 优化: 使用 idToElement O(1) 查找，只遍历视口内元素
+      // 使用 idToElement O(1) 查找，只遍历视口内元素
       // 复杂度从 O(n) → O(k)，大画布场景提升 10-100x
       for (const id of visibleIds) {
         const el = st.idToElement.get(id)
         if (!el) continue
         drawElement(ctx, el, dark)
-        // P24 新功能: 锁定元素视觉指示器（小锁图标）
+        // 锁定元素视觉指示器（小锁图标）
         if (el.locked) drawLockIcon(ctx, cachedBounds(el), dark)
         if (selSet.has(id)) drawSelBox(ctx, cachedBounds(el), dark, vb.zoom)
       }
@@ -289,7 +289,7 @@ export function useCanvasRenderer(
       for (const el of els) {
         if (!isVisibleInView(el, vl, vt, vw, vh)) continue
         drawElement(ctx, el, dark)
-        // P24 新功能: 锁定元素视觉指示器（小锁图标）
+        // 锁定元素视觉指示器（小锁图标）
         if (el.locked) drawLockIcon(ctx, cachedBounds(el), dark)
         if (selSet.has(el.id)) drawSelBox(ctx, cachedBounds(el), dark, vb.zoom)
       }
@@ -322,7 +322,7 @@ export function useCanvasRenderer(
     if (elementsDirtyRef.current) renderElementsToCache()
     ctx.drawImage(ec, 0, 0, ec.width, ec.height, 0, 0, canvasSize.w, canvasSize.h)
 
-    // P1 优化: 合并 save/restore，只做一次 transform 应用
+    // 合并 save/restore，只做一次 transform 应用
     ctx.save()
     ctx.scale(vb.zoom, vb.zoom)
     ctx.translate(-vb.x, -vb.y)
@@ -365,7 +365,7 @@ export function useCanvasRenderer(
         const now = performance.now()
         ctx.lineCap = 'round'
         ctx.lineJoin = 'round'
-        // P1 优化: 预计算所有可能的 alpha 颜色字符串，避免循环内字符串拼接
+        // 预计算所有可能的 alpha 颜色字符串，避免循环内字符串拼接
         // 性能提升: 拖尾渲染减少 ~80% 字符串分配
         const trailColors = dark
           ? eraserTrailColorCacheRef.current.dark
@@ -446,7 +446,7 @@ export function useCanvasRenderer(
       // 绘制中：外圈脉冲动画效果
       if (ds.drawing) {
         const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 120)
-        // P1 优化: 使用预计算的脉冲颜色缓存，避免每帧字符串分配
+        // 使用预计算的脉冲颜色缓存，避免每帧字符串分配
         const pulseColors = dark
           ? eraserPulseColorCacheRef.current.dark
           : eraserPulseColorCacheRef.current.light
@@ -502,7 +502,7 @@ export function useCanvasRenderer(
       ctx.setLineDash([])
       ctx.restore()
     }
-    // P23 新功能: 旋转角度显示 (来源 Figma / tldraw 专业体验)
+    // 旋转角度显示
     // 拖拽旋转手柄时在元素中心上方显示当前旋转角度值
     // 用户价值：精确控制旋转角度，专业设计时必备
     if (ds.rotationAngle) {
@@ -537,7 +537,7 @@ export function useCanvasRenderer(
       ctx.restore()
     }
 
-    // P25 新功能: 鹰眼模式视口指示 (来源 tldraw v4.4.0 PR #7801)
+    // 鹰眼模式视口指示
     // 在鹰眼模式下绘制：
     // 1. 半透明遮罩覆盖整个画布
     // 2. 目标区域的高亮矩形框（用户将要放大到的位置）
@@ -646,15 +646,15 @@ export function useCanvasRenderer(
   useEffect(() => {
     redraw()
   }, [redraw, canvasSize])
-  // P0 修复 + P1 优化: 增量更新 bounds 缓存，精确检测元素修改
-  // P0-2 优化: 避免每帧创建完整 Map，使用引用比较 + Set 差集
+  // P0 修复 + 增量更新 bounds 缓存，精确检测元素修改
+  // 避免每帧创建完整 Map，使用引用比较 + Set 差集
   useEffect(() => {
     let prevElements = useAppStore.getState().elements
     let prevIdSet = new Set(prevElements.map((e) => e.id))
     const prevRefMap = new Map<string, CanvasElement>()
     for (const e of prevElements) prevRefMap.set(e.id, e)
 
-    // P0-5: subscribe 仅处理 elements 变化，非 elements 变化快速退出
+    // subscribe 仅处理 elements 变化，非 elements 变化快速退出
     const unsub = useAppStore.subscribe((s) => {
       const currElements = s.elements
       if (currElements === prevElements) return // 快速退出：非 elements 变化
@@ -663,10 +663,10 @@ export function useCanvasRenderer(
         // elements 变化处理块
         elementsDirtyRef.current = true
 
-        // P1 优化: 元素变化时主动清除绘制缓存（minimap、网格、渐变等）
+        // 元素变化时主动清除绘制缓存（minimap、网格、渐变等）
         invalidateDrawingCaches()
 
-        // P0-2 优化: 使用引用比较而非全量 Map 创建
+        // 使用引用比较而非全量 Map 创建
         // 只在元素引用变化时才失效缓存
         const currIdSet = new Set<string>()
         for (const el of currElements) {
@@ -685,7 +685,7 @@ export function useCanvasRenderer(
           }
         }
 
-        // P0-4 优化: 增量更新 prevRefMap，避免每次都重建完整 Map
+        // 增量更新 prevRefMap，避免每次都重建完整 Map
         // 只添加新元素，删除已移除的元素
         for (const el of currElements) {
           prevRefMap.set(el.id, el)
@@ -719,7 +719,7 @@ export function useCanvasRenderer(
     window.addEventListener('image-loaded', h)
     return () => window.removeEventListener('image-loaded', h)
   }, [redraw])
-  // P1-6: 仅订阅 viewBox/showGrid 变化触发重绘
+  // 仅订阅 viewBox/showGrid 变化触发重绘
   useEffect(() => {
     let prevVB = useViewStore.getState().viewBox
     let prevGrid = useViewStore.getState().showGrid
@@ -732,7 +732,7 @@ export function useCanvasRenderer(
     })
     return unsub
   }, [scheduleRedraw])
-  // P0-1 修复 + P1 优化: 粒子系统更新循环 - 无活动粒子时挂起循环，有粒子时恢复
+  // P0-1 修复 + 粒子系统更新循环 - 无活动粒子时挂起循环，有粒子时恢复
   useEffect(() => {
     let lastTime = performance.now()
     let particleRafId: number | null = null

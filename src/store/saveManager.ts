@@ -27,7 +27,7 @@ let _lastSaveTime: number = 0
 // P0 性能优化: 使用 Map 进行 O(1) 文档查找，替代 O(n) 的 findIndex
 let _docsIndexMap: Map<string, number> | null = null
 /**
- * P0 修复: 重建文档索引 Map
+ * 重建文档索引 Map
  * 在文档列表变化时调用
  */
 function rebuildDocsIndex(docs: CanvasDoc[]): void {
@@ -37,7 +37,7 @@ function rebuildDocsIndex(docs: CanvasDoc[]): void {
   }
 }
 /**
- * P0 修复: 递增保存 generation 计数器
+ * 递增保存 generation 计数器
  * 每次 mutation 调用此函数标记内容已修改
  */
 export function incrementSaveGeneration(): void {
@@ -87,7 +87,7 @@ export async function saveDocNow(): Promise<void> {
   const state = _storeRef.getState()
   const { currentDocId, elements, bgColor, undoStack, redoStack } = state
   if (!currentDocId) return
-  // P0 修复: 使用 generation 计数器检测变化
+  // 使用 generation 计数器检测变化
   // 彻底解决中间元素修改无法被检测的数据丢失bug
   if (_saveGeneration === _lastSavedGeneration) {
     // 内容未变化，直接标记为已保存
@@ -117,7 +117,7 @@ export async function saveDocNow(): Promise<void> {
   _lastSaveTime = now
   // P1 性能优化: 增量更新文档列表，避免每次都重新获取所有文档
   // 只更新当前修改的文档，而不是重新 fetch 全部
-  // P0 修复: 复用已有的 state 变量，避免重复调用 getState()
+  // 复用已有的 state 变量，避免重复调用 getState()
   const currentDocs = state.docs || []
   const updatedDoc = {
     id: currentDocId,
