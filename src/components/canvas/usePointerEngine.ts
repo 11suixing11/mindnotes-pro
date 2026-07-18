@@ -763,7 +763,7 @@ export function usePointerEngine(opts: {
           // 参考: 通用编辑器安全处理做法
           const hitEl = st.idToElement.get(hit)
           let effectiveHit = hit
-          let groupMembers: string[] = []
+          const groupMembers: string[] = []
           
           // 如果点击的元素属于某个组，选中整个组
           if (hitEl?.groupId) {
