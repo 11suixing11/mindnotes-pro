@@ -22,14 +22,9 @@ export default defineConfig(({ mode }) => ({
     port: 3000,
     open: true,
   },
-  esbuild: {
-    drop: mode === 'production' ? ['console', 'debugger'] : [],
-    legalComments: 'none',
-    treeShaking: true,
-  },
   build: {
     target: 'es2020',
-    minify: 'esbuild',
+    minify: 'oxc',
     sourcemap: process.env.NODE_ENV === 'development' ? 'inline' : false,
     cssMinify: true,
     cssCodeSplit: true,
