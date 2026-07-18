@@ -63,7 +63,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "^1.6.1",
     "autoprefixer": "^10.4.20",
-    "concurrently": "^8.2.2",
+    "concurrently": "^10.0.3",
     "electron": "^28.3.3",
     "electron-builder": "^24.13.3",
     "eslint": "^8.57.1",
