@@ -14,6 +14,7 @@ import { LoadingScreen } from './components/loading-screen'
 import { EmptyCanvasHint } from './components/empty-canvas-hint'
 import { useScreenPen, ScreenPenControls } from './components/screen-pen'
 import { EraserControls } from './components/eraser'
+import type { ToolType } from './store/types'
 
 const TOOL_LABELS: Record<string, string> = {
   select: 'Select',
@@ -100,7 +101,7 @@ export default function App() {
       // 数字键 1-9 快速切换工具
       if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && /^[1-9]$/.test(e.key)) {
         e.preventDefault()
-        const toolMap: Record<string, import('./store/types').ToolType | undefined> = {
+        const toolMap: Record<string, ToolType | undefined> = {
           '1': 'select',
           '2': 'pen',
           '3': 'text',

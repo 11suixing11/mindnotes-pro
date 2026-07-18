@@ -49,22 +49,25 @@ jobs:
               console.log('No Lighthouse results found');
               return;
             }
-            const reportFiles = fs.readdirSync(resultsDir)
-              .filter(f => f.endsWith('.json') && !f.endsWith('assertion-results.json'));
-            if (reportFiles.length === 0) {
+            const reports = fs.readdirSync(resultsDir)
+              .filter(f => f.endsWith('.json'))
+              .map((file) => {
+                const fullPath = path.join(resultsDir, file);
+                const report = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+                return { file, report };
+              })
+              .filter(({ report }) => report && report.categories);
+            if (reports.length === 0) {
               console.log('No Lighthouse report JSON found');
               return;
             }
-            const latestReport = reportFiles.sort().pop();
-            const report = JSON.parse(
-              fs.readFileSync(path.join(resultsDir, latestReport), 'utf8')
-            );
+            const { report } = reports.sort((a, b) => a.file.localeCompare(b.file)).pop();
             const categories = report.categories;
             const scores = Object.entries(categories)
               .map(([, cat]) => `| ${cat.title} | ${cat.score >= 0.9 ? '🟢' : cat.score >= 0.5 ? '🟡' : '🔴'} ${Math.round(cat.score * 100)} |`)
               .join('\n');
-            const body = `## 🔦 Lighthouse CI Results\n\n| Category | Score |\n|----------|-------|\n${scores}\n\n> Ran ${reportFiles.length} audit(s). Full report available in workflow artifacts.`;
-            github.rest.issues.createComment({
+            const body = `## 🔦 Lighthouse CI Results\n\n| Category | Score |\n|----------|-------|\n${scores}\n\n> Ran ${reports.length} audit(s). Full report available in workflow artifacts.`;
+            await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,

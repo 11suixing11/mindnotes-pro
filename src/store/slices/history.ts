@@ -20,12 +20,13 @@ function getAffectedElementIds(action: UndoAction): string[] {
       return action.items.map((i) => i.el.id)
     case 'move':
       return action.deltas.map((d) => d.id)
-    case 'erase':
+    case 'erase': {
       // 擦除操作比较前后状态的差异
       const beforeIds = new Set(action.before.map((e) => e.id))
       const afterIds = new Set(action.after.map((e) => e.id))
       // 返回被删除或新增的元素 ID
       return [...new Set([...beforeIds, ...afterIds])]
+    }
     case 'group':
       return action.elementIds
     case 'ungroup':
