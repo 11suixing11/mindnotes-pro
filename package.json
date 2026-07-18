@@ -65,7 +65,7 @@
     "autoprefixer": "^10.4.20",
     "concurrently": "^10.0.3",
     "electron": "^28.3.3",
-    "electron-builder": "^24.13.3",
+    "electron-builder": "^26.15.3",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.2",
     "eslint-plugin-prettier": "^5.5.6",
