@@ -4,6 +4,9 @@
   "type": "module",
   "description": "A beautiful, local-first whiteboard that feels like painting on real paper.",
   "main": "electron/main.ts",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "vite",
     "dev:desktop": "concurrently \"vite\" \"wait-on http://localhost:3000 && electron .\"",
@@ -65,7 +68,7 @@
     "@vitest/coverage-v8": "^4.1.10",
     "autoprefixer": "^10.4.20",
     "concurrently": "^10.0.3",
-    "electron": "^28.3.3",
+    "electron": "^43.1.1",
     "electron-builder": "^26.15.3",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.2",
