@@ -16,15 +16,15 @@ jobs:
     steps:
       - uses: actions/first-interaction@v3
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          issue-message: >
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: >
             👋 Welcome to MindNotes Pro, and thanks for opening your first issue!
 
             We appreciate your feedback and will take a look soon. In the
             meantime, check out our [README](../../README.md) for project info
             and [CONTRIBUTING.md](../../CONTRIBUTING.md) if you'd like to
             contribute code.
-          pr-message: >
+          pr_message: >
             🎉 Welcome to MindNotes Pro, and thank you for your first pull
             request!
 
