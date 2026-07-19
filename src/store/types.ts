@@ -1,6 +1,7 @@
 export type BrushType = 'pen' | 'highlighter' | 'pencil' | 'calligraphy' | 'dashed' | 'glow'
 export type ShapeKind = 'rectangle' | 'circle' | 'line' | 'arrow'
 export type ToolType = 'select' | 'pen' | 'eraser' | 'pan' | 'text' | ShapeKind
+export type CanvasBackgroundStyle = 'plain' | 'grid' | 'dots' | 'ruled' | 'notebook'
 
 export interface StrokeElement {
   type: 'stroke'
@@ -96,7 +97,12 @@ export type UndoAction =
   | { type: 'clear'; snapshot: CanvasElement[] }
   | { type: 'move'; deltas: { id: string; dx: number; dy: number }[] }
   | { type: 'erase'; before: CanvasElement[]; after: CanvasElement[] }
-  | { type: 'group'; groupId: string; elementIds: string[]; beforeGroup: { id: string; oldGroupId?: string }[] }
+  | {
+      type: 'group'
+      groupId: string
+      elementIds: string[]
+      beforeGroup: { id: string; oldGroupId?: string }[]
+    }
   | { type: 'ungroup'; groupIds: string[]; beforeUngroup: { id: string; oldGroupId?: string }[] }
   // 元素锁定 - 撤销支持
   | { type: 'lock'; elementIds: string[]; beforeLock: { id: string; wasLocked: boolean }[] }
@@ -106,6 +112,7 @@ export interface CanvasDoc {
   title: string
   elements: CanvasElement[]
   bgColor: string
+  backgroundStyle?: CanvasBackgroundStyle
   folderId: string | null
   createdAt: number
   updatedAt: number
@@ -268,9 +275,7 @@ export type AlignmentType =
 // 元素分布
 // 专业设计工具标配：选中多个元素后一键等间距分布
 // 用户痛点："手动调整3个按钮间距，调了10次还是不均匀" - 社区高频反馈
-export type DistributionType =
-  | 'distributeH'
-  | 'distributeV'
+export type DistributionType = 'distributeH' | 'distributeV'
 
 /**
  * 计算多个元素的公共边界
@@ -397,9 +402,8 @@ export function distributeElements(
   }, 0)
 
   // 计算总可用空间
-  const totalSpace = distribution === 'distributeH'
-    ? bounds.maxX - bounds.minX
-    : bounds.maxY - bounds.minY
+  const totalSpace =
+    distribution === 'distributeH' ? bounds.maxX - bounds.minX : bounds.maxY - bounds.minY
 
   // 计算每个间隙的大小
   const gapCount = sorted.length - 1

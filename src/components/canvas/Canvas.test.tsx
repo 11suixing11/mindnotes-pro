@@ -62,6 +62,7 @@ describe('Canvas', () => {
       color: '#2c2416',
       size: 4,
       bgColor: '#ffffff',
+      backgroundStyle: 'plain',
       selectedIds: [],
       undoStack: [],
       redoStack: [],

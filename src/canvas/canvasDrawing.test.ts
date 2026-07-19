@@ -463,6 +463,23 @@ describe('canvasDrawing', () => {
       drawCanvasBackground(ctx, { w: 800, h: 600 }, '#1C1A24', true)
       expect(ctx.fillRect).toHaveBeenCalled()
     })
+
+    it('should draw dot backgrounds', () => {
+      drawCanvasBackground(ctx, { w: 120, h: 80 }, '#ffffff', false, 'dots')
+      expect(ctx.arc).toHaveBeenCalled()
+      expect(ctx.fill).toHaveBeenCalled()
+    })
+
+    it('should draw grid backgrounds', () => {
+      drawCanvasBackground(ctx, { w: 120, h: 80 }, '#ffffff', false, 'grid')
+      expect(ctx.lineTo).toHaveBeenCalled()
+      expect(ctx.stroke).toHaveBeenCalled()
+    })
+
+    it('should draw the notebook margin', () => {
+      drawCanvasBackground(ctx, { w: 120, h: 80 }, '#ffffff', false, 'notebook')
+      expect(ctx.stroke).toHaveBeenCalledTimes(2)
+    })
   })
 
   describe('drawZoomLevel', () => {
