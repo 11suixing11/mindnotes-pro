@@ -194,10 +194,10 @@ body::after {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 90% 70% at 15% 25%, rgba(184, 160, 208, 0.15), transparent 60%),
-    radial-gradient(ellipse 70% 90% at 85% 75%, rgba(144, 180, 208, 0.12), transparent 60%),
-    radial-gradient(ellipse 80% 60% at 50% 50%, rgba(208, 184, 136, 0.08), transparent 50%),
-    radial-gradient(ellipse 50% 40% at 70% 20%, rgba(212, 152, 152, 0.08), transparent 50%);
+    radial-gradient(90% 70% at 15% 25%, rgba(184, 160, 208, 0.15), transparent 60%),
+    radial-gradient(70% 90% at 85% 75%, rgba(144, 180, 208, 0.12), transparent 60%),
+    radial-gradient(80% 60% at 50% 50%, rgba(208, 184, 136, 0.08), transparent 50%),
+    radial-gradient(50% 40% at 70% 20%, rgba(212, 152, 152, 0.08), transparent 50%);
   pointer-events: none;
   z-index: 0;
   animation: ambientShift 20s ease-in-out infinite alternate;
@@ -220,9 +220,9 @@ body::after {
 }
 .dark body::after {
   background:
-    radial-gradient(ellipse 90% 70% at 15% 25%, rgba(122, 104, 144, 0.1), transparent 60%),
-    radial-gradient(ellipse 70% 90% at 85% 75%, rgba(88, 112, 128, 0.08), transparent 60%),
-    radial-gradient(ellipse 80% 60% at 50% 50%, rgba(152, 128, 88, 0.06), transparent 50%);
+    radial-gradient(90% 70% at 15% 25%, rgba(122, 104, 144, 0.1), transparent 60%),
+    radial-gradient(70% 90% at 85% 75%, rgba(88, 112, 128, 0.08), transparent 60%),
+    radial-gradient(80% 60% at 50% 50%, rgba(152, 128, 88, 0.06), transparent 50%);
 }
 
 #root {
@@ -909,9 +909,9 @@ body::after {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 60% 50% at 30% 40%, rgba(184, 160, 208, 0.15), transparent),
-    radial-gradient(ellipse 50% 60% at 70% 60%, rgba(144, 180, 208, 0.12), transparent),
-    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(208, 184, 136, 0.1), transparent);
+    radial-gradient(60% 50% at 30% 40%, rgba(184, 160, 208, 0.15), transparent),
+    radial-gradient(50% 60% at 70% 60%, rgba(144, 180, 208, 0.12), transparent),
+    radial-gradient(40% 40% at 50% 50%, rgba(208, 184, 136, 0.1), transparent);
   animation: waterRipple 6s ease-in-out infinite;
 }
 
