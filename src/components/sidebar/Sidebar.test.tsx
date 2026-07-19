@@ -1,0 +1,108 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useAppStore } from '../../store/appStore'
+import type { CanvasDoc } from '../../store/types'
+import Sidebar from './Sidebar'
+
+const { confirmMock } = vi.hoisted(() => ({
+  confirmMock: vi.fn(),
+}))
+
+vi.mock('../confirm-modal', () => ({
+  useConfirm: () => confirmMock,
+}))
+
+const doc: CanvasDoc = {
+  id: 'doc-1',
+  title: 'Original',
+  elements: [],
+  bgColor: '#ffffff',
+  folderId: null,
+  createdAt: 1,
+  updatedAt: 1,
+}
+
+describe('Sidebar document rename', () => {
+  const renameDoc = vi.fn(async (id: string, title: string) => {
+    useAppStore.setState((state) => ({
+      docs: state.docs.map((item) => (item.id === id ? { ...item, title } : item)),
+    }))
+  })
+
+  beforeEach(() => {
+    confirmMock.mockReset()
+    renameDoc.mockClear()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => null)
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      callback(0)
+      return 1
+    })
+    useAppStore.setState({
+      docs: [doc],
+      currentDocId: doc.id,
+      sidebarOpen: true,
+      renameDoc,
+      openDoc: vi.fn(async () => undefined),
+      createDoc: vi.fn(async () => 'doc-2'),
+      duplicateDoc: vi.fn(async () => undefined),
+      deleteDoc: vi.fn(async () => undefined),
+    })
+  })
+
+  it('confirms an inline rename with Enter and updates the sidebar', async () => {
+    confirmMock.mockResolvedValue(true)
+    render(<Sidebar />)
+
+    fireEvent.doubleClick(screen.getByText('Original'))
+    const input = screen.getByRole('textbox', { name: 'Rename Original' })
+    fireEvent.change(input, { target: { value: 'Renamed' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() =>
+      expect(confirmMock).toHaveBeenCalledWith('Rename "Original" to "Renamed"?', {
+        confirmLabel: 'Rename',
+        cancelLabel: 'Keep editing',
+        danger: false,
+      })
+    )
+    await waitFor(() => expect(renameDoc).toHaveBeenCalledWith(doc.id, 'Renamed'))
+    expect(screen.getByText('Renamed')).toBeTruthy()
+  })
+
+  it('cancels an inline rename with Escape', () => {
+    render(<Sidebar />)
+
+    fireEvent.doubleClick(screen.getByText('Original'))
+    const input = screen.getByRole('textbox', { name: 'Rename Original' })
+    fireEvent.change(input, { target: { value: 'Discarded' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+
+    expect(confirmMock).not.toHaveBeenCalled()
+    expect(renameDoc).not.toHaveBeenCalled()
+    expect(screen.getByText('Original')).toBeTruthy()
+  })
+
+  it('keeps editing and restores focus when blur confirmation is declined', async () => {
+    confirmMock.mockResolvedValue(false)
+    render(<Sidebar />)
+
+    fireEvent.doubleClick(screen.getByText('Original'))
+    const input = screen.getByRole('textbox', { name: 'Rename Original' })
+    fireEvent.change(input, { target: { value: 'Maybe Later' } })
+    fireEvent.blur(input)
+
+    await waitFor(() => expect(confirmMock).toHaveBeenCalled())
+    await waitFor(() => expect(document.activeElement).toBe(input))
+    expect(renameDoc).not.toHaveBeenCalled()
+    expect((input as HTMLInputElement).value).toBe('Maybe Later')
+  })
+
+  it('starts inline editing from the document context menu', () => {
+    render(<Sidebar />)
+
+    fireEvent.contextMenu(screen.getByRole('listitem'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }))
+
+    expect(screen.getByRole('textbox', { name: 'Rename Original' })).toBeTruthy()
+  })
+})

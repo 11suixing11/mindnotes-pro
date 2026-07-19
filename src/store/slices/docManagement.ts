@@ -158,12 +158,43 @@ export function createDocManagementSlice(
     },
 
     renameDoc: async (id, title) => {
-      const doc = await storage.get<CanvasDoc>('docs', id)
-      if (doc) {
-        await storage.put('docs', { ...doc, title, updatedAt: Date.now() })
-        set({
-          docs: (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt),
+      const nextTitle = title.trim()
+      const state = get()
+      const doc = state.docs.find((item: CanvasDoc) => item.id === id)
+      if (!doc || !nextTitle || doc.title === nextTitle) return
+
+      const updatedDoc = { ...doc, title: nextTitle, updatedAt: Date.now() }
+      const previousDocs = state.docs
+      const storedDocPromise = storage.get<CanvasDoc>('docs', id)
+
+      set({
+        docs: previousDocs
+          .map((item: CanvasDoc) => (item.id === id ? updatedDoc : item))
+          .sort((a: CanvasDoc, b: CanvasDoc) => b.updatedAt - a.updatedAt),
+      })
+
+      const rollback = () => {
+        set((current: DocManagementState) => ({
+          docs: current.docs
+            .map((item) => (item.id === id && item.updatedAt === updatedDoc.updatedAt ? doc : item))
+            .sort((a, b) => b.updatedAt - a.updatedAt),
+        }))
+      }
+
+      try {
+        const storedDoc = await storedDocPromise
+        if (!storedDoc) {
+          rollback()
+          return
+        }
+        await storage.put('docs', {
+          ...storedDoc,
+          title: nextTitle,
+          updatedAt: updatedDoc.updatedAt,
         })
+      } catch (error) {
+        rollback()
+        throw error
       }
     },
 
