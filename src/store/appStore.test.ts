@@ -12,6 +12,7 @@ describe('useAppStore', () => {
       color: '#2c2416',
       size: 4,
       bgColor: '#ffffff',
+      backgroundStyle: 'plain',
       selectedIds: [],
       undoStack: [],
       redoStack: [],
@@ -166,6 +167,11 @@ describe('useAppStore', () => {
   it('should set size', () => {
     useAppStore.getState().setSize(8)
     expect(useAppStore.getState().size).toBe(8)
+  })
+
+  it('should set the canvas background style', () => {
+    useAppStore.getState().setBackgroundStyle('ruled')
+    expect(useAppStore.getState().backgroundStyle).toBe('ruled')
   })
 
   it('should undo', () => {

@@ -5,6 +5,7 @@ import type {
   TextElement,
   ImageElement,
   BrushType,
+  CanvasBackgroundStyle,
 } from '../store/types'
 import { getImage } from './canvasUtils'
 import getStroke from 'perfect-freehand'
@@ -209,7 +210,9 @@ const strokeOutlineCache = new LRUCache<string, number[][]>(STROKE_CACHE_MAX_SIZ
 function getStrokeCacheKey(el: StrokeElement): string {
   // 取首尾点和中间点坐标作为哈希，检测点坐标变化
   const firstPoint = el.points[0] ? `${el.points[0][0]}:${el.points[0][1]}` : ''
-  const lastPoint = el.points[el.points.length - 1] ? `${el.points[el.points.length - 1][0]}:${el.points[el.points.length - 1][1]}` : ''
+  const lastPoint = el.points[el.points.length - 1]
+    ? `${el.points[el.points.length - 1][0]}:${el.points[el.points.length - 1][1]}`
+    : ''
   const midIndex = Math.floor(el.points.length / 2)
   const midPoint = el.points[midIndex] ? `${el.points[midIndex][0]}:${el.points[midIndex][1]}` : ''
   return `${el.id}:${el.points.length}:${el.size}:${firstPoint}:${lastPoint}:${midPoint}`
@@ -841,7 +844,15 @@ export function drawMonetGrid(
   ctx.fillStyle = isDarkMode ? `rgba(160,150,180,${alpha})` : `rgba(155,142,127,${alpha})`
 
   // 包含 zoom 参数在缓存检查中，缩放时正确重建网格
-  const currentParams = { startX: sx, startY: sy, endX: ex, endY: ey, gridSize: gs, dotSize, zoom: viewBox.zoom }
+  const currentParams = {
+    startX: sx,
+    startY: sy,
+    endX: ex,
+    endY: ey,
+    gridSize: gs,
+    dotSize,
+    zoom: viewBox.zoom,
+  }
   const paramsChanged =
     !cachedMonetGridParams ||
     cachedMonetGridParams.startX !== currentParams.startX ||
@@ -984,7 +995,9 @@ export function drawCanvasBackground(
   ctx: CanvasRenderingContext2D,
   canvasSize: { w: number; h: number },
   bgColor: string,
-  isDarkMode: boolean
+  isDarkMode: boolean,
+  backgroundStyle: CanvasBackgroundStyle = 'plain',
+  viewBox: { x: number; y: number; zoom: number } = { x: 0, y: 0, zoom: 1 }
 ) {
   ctx.fillStyle = bgColor
   ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
@@ -995,6 +1008,70 @@ export function drawCanvasBackground(
     ctx.fillStyle = g
     ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
   }
+
+  if (backgroundStyle === 'plain') return
+
+  const zoom = Math.max(viewBox.zoom, 0.01)
+  const lineColor = isDarkMode ? 'rgba(200, 190, 220, 0.16)' : 'rgba(86, 104, 128, 0.16)'
+  const dotColor = isDarkMode ? 'rgba(210, 200, 225, 0.28)' : 'rgba(76, 92, 112, 0.28)'
+
+  const screenOffset = (worldOffset: number, spacing: number) => {
+    const raw = (worldOffset - viewBox.x) * zoom
+    return ((raw % spacing) + spacing) % spacing
+  }
+
+  ctx.save()
+  ctx.lineWidth = 1
+
+  if (backgroundStyle === 'dots') {
+    const spacing = Math.max(12, 24 * zoom)
+    const startX = screenOffset(0, spacing)
+    const startY = (((-viewBox.y * zoom) % spacing) + spacing) % spacing
+    ctx.fillStyle = dotColor
+    ctx.beginPath()
+    for (let x = startX; x <= canvasSize.w; x += spacing) {
+      for (let y = startY; y <= canvasSize.h; y += spacing) {
+        ctx.moveTo(x + 1.25, y)
+        ctx.arc(x, y, 1.25, 0, Math.PI * 2)
+      }
+    }
+    ctx.fill()
+    ctx.restore()
+    return
+  }
+
+  const spacingWorld = backgroundStyle === 'grid' ? 24 : 28
+  const spacing = Math.max(12, spacingWorld * zoom)
+  const startY = (((-viewBox.y * zoom) % spacing) + spacing) % spacing
+  ctx.strokeStyle = lineColor
+  ctx.beginPath()
+
+  if (backgroundStyle === 'grid') {
+    const startX = screenOffset(0, spacing)
+    for (let x = startX; x <= canvasSize.w; x += spacing) {
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, canvasSize.h)
+    }
+  }
+
+  for (let y = startY; y <= canvasSize.h; y += spacing) {
+    ctx.moveTo(0, y)
+    ctx.lineTo(canvasSize.w, y)
+  }
+  ctx.stroke()
+
+  if (backgroundStyle === 'notebook') {
+    const marginX = (72 - viewBox.x) * zoom
+    if (marginX >= 0 && marginX <= canvasSize.w) {
+      ctx.strokeStyle = isDarkMode ? 'rgba(220, 140, 155, 0.34)' : 'rgba(205, 92, 92, 0.34)'
+      ctx.beginPath()
+      ctx.moveTo(marginX, 0)
+      ctx.lineTo(marginX, canvasSize.h)
+      ctx.stroke()
+    }
+  }
+
+  ctx.restore()
 }
 export function drawMinimap(
   ctx: CanvasRenderingContext2D,
