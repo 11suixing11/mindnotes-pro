@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Canvas } from './components/canvas'
 import { Toolbar } from './components/toolbar'
+import { Sidebar } from './components/sidebar'
 import { useEraserKeyboardShortcuts } from './eraser/useEraserKeyboardShortcuts'
 import { ToastContainer } from './components/toast'
 import { ConfirmModal } from './components/confirm-modal'
@@ -148,7 +149,7 @@ export default function App() {
         // 优先使用 usePointerEngine 中跟踪的悬停元素 ID（最准确）
         const hoveredRef = (window as any).__mindnotes_hovered_element_id__
         const hoveredId = hoveredRef?.current ?? null
-        
+
         if (hoveredId) {
           // 有悬停元素：直接复制其样式
           state.applyStyleFromElement(hoveredId)
@@ -221,6 +222,7 @@ export default function App() {
         role="application"
         aria-label="MindNotes Pro - Whiteboard Application"
       >
+        <Sidebar />
         <div
           ref={mainContentRef}
           tabIndex={-1}
