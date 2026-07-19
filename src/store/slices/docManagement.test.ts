@@ -139,6 +139,35 @@ describe('docManagement slice', () => {
       const doc = useAppStore.getState().docs.find((d) => d.id === id)
       expect(doc?.title).toBe('Renamed')
     })
+
+    it('updates state before storage persistence completes', async () => {
+      const id = await useAppStore.getState().createDoc('Original')
+      let resolvePut: (() => void) | undefined
+      storageMock.put.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolvePut = resolve
+          })
+      )
+
+      const renamePromise = useAppStore.getState().renameDoc(id, 'Immediate')
+
+      expect(useAppStore.getState().docs.find((doc) => doc.id === id)?.title).toBe('Immediate')
+
+      await vi.waitFor(() => expect(resolvePut).toBeTypeOf('function'))
+      resolvePut?.()
+      await renamePromise
+    })
+
+    it('trims titles and ignores blank names', async () => {
+      const id = await useAppStore.getState().createDoc('Original')
+
+      await useAppStore.getState().renameDoc(id, '  Trimmed  ')
+      expect(useAppStore.getState().docs.find((doc) => doc.id === id)?.title).toBe('Trimmed')
+
+      await useAppStore.getState().renameDoc(id, '   ')
+      expect(useAppStore.getState().docs.find((doc) => doc.id === id)?.title).toBe('Trimmed')
+    })
   })
 
   describe('duplicateDoc', () => {

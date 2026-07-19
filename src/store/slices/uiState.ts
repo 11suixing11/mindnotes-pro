@@ -1,9 +1,11 @@
 export interface UIState {
   saveStatus: 'idle' | 'saving' | 'saved'
+  sidebarOpen: boolean
 }
 
 export interface UIActions {
   setSaveStatus: (s: 'idle' | 'saving' | 'saved') => void
+  setSidebarOpen: (open: boolean) => void
 }
 
 export function createUISlice(
@@ -14,6 +16,8 @@ export function createUISlice(
 ): UIState & UIActions {
   return {
     saveStatus: 'idle',
+    sidebarOpen: true,
     setSaveStatus: (s) => set({ saveStatus: s }),
+    setSidebarOpen: (open) => set({ sidebarOpen: open }),
   }
 }

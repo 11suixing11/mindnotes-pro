@@ -8,7 +8,7 @@ describe('uiState slice', () => {
   let slice: ReturnType<typeof createUISlice>
 
   beforeEach(() => {
-    state = { saveStatus: 'idle' }
+    state = { saveStatus: 'idle', sidebarOpen: true }
     set = vi.fn((update: any) => {
       if (typeof update === 'function') {
         Object.assign(state, update(state))
@@ -23,6 +23,10 @@ describe('uiState slice', () => {
   describe('initial state', () => {
     it('starts with saveStatus idle', () => {
       expect(slice.saveStatus).toBe('idle')
+    })
+
+    it('starts with the document sidebar open', () => {
+      expect(slice.sidebarOpen).toBe(true)
     })
   })
 
@@ -50,6 +54,13 @@ describe('uiState slice', () => {
         slice.setSaveStatus(status)
         expect(set).toHaveBeenCalledWith({ saveStatus: status })
       }
+    })
+  })
+
+  describe('setSidebarOpen', () => {
+    it('updates sidebar visibility', () => {
+      slice.setSidebarOpen(false)
+      expect(set).toHaveBeenCalledWith({ sidebarOpen: false })
     })
   })
 })
