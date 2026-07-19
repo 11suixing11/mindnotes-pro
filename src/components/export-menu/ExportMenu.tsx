@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, memo } from 'react'
+import { useRef, useState, useCallback, useEffect, memo } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore } from '../../store/appStore'
 import { useThemeStore } from '../../store/useThemeStore'
@@ -7,6 +7,7 @@ import type { CanvasElement } from '../../store/types'
 import { buildSVGString } from '../../canvas/svgExport'
 
 const DARK_BG = '#1C1A24'
+const DEFAULT_JPEG_QUALITY = 85
 
 const I = {
   download: (
@@ -95,11 +96,25 @@ function withBg(c: HTMLCanvasElement, bg: string) {
   return t
 }
 
+function estimateDataUrlBytes(dataUrl: string) {
+  const base64 = dataUrl.split(',')[1] ?? ''
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0
+  return Math.max(0, Math.floor((base64.length * 3) / 4) - padding)
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 const ExportMenu = memo(function ExportMenu() {
   const exportBtnRef = useRef<HTMLButtonElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [showExport, setShowExport] = useState(false)
   const [exportPos, setExportPos] = useState({ top: 0, right: 0 })
+  const [jpegQuality, setJpegQuality] = useState(DEFAULT_JPEG_QUALITY)
+  const [jpegEstimate, setJpegEstimate] = useState('待估算')
   // 移除 elements 订阅，只在导出时通过 getState() 获取
   // 避免任何元素变化都触发 ExportMenu re-render
   const isDarkMode = useThemeStore((s) => s.isDarkMode)
@@ -127,7 +142,31 @@ const ExportMenu = memo(function ExportMenu() {
       }
     })
   }
-  const exportJPG = () => {
+  const updateJpegEstimate = useCallback(() => {
+    const applyEstimate = (nextEstimate: string) => {
+      setJpegEstimate((current) => (current === nextEstimate ? current : nextEstimate))
+    }
+
+    const c = getCanvas()
+    if (!c) {
+      applyEstimate('画布未就绪')
+      return
+    }
+
+    try {
+      const t = withBg(c, '#fff')
+      const dataUrl = t.toDataURL('image/jpeg', jpegQuality / 100)
+      applyEstimate(formatBytes(estimateDataUrlBytes(dataUrl)))
+    } catch {
+      applyEstimate('无法估算')
+    }
+  }, [jpegQuality])
+
+  useEffect(() => {
+    if (showExport) updateJpegEstimate()
+  }, [showExport, updateJpegEstimate])
+
+  const exportJPEG = () => {
     const c = requireCanvas()
     if (!c) return
     const t = withBg(c, '#fff')
@@ -135,13 +174,13 @@ const ExportMenu = memo(function ExportMenu() {
       (b) => {
         if (b) {
           download(b, `mindnotes-${ts()}.jpg`)
-          showToast('JPG 导出成功', 'success')
+          showToast('JPEG 导出成功', 'success')
         } else {
-          showToast('JPG 导出失败', 'error')
+          showToast('JPEG 导出失败', 'error')
         }
       },
       'image/jpeg',
-      0.92
+      jpegQuality / 100
     )
   }
   const exportPDF = async () => {
@@ -267,7 +306,6 @@ const ExportMenu = memo(function ExportMenu() {
 
   const EXPORTS = [
     { icon: I.image, label: 'PNG 图片', desc: '透明背景', action: exportPNG },
-    { icon: I.image, label: 'JPG 图片', desc: '白色背景', action: exportJPG },
     { icon: I.file, label: 'PDF 文档', desc: 'mm 单位自适应', action: exportPDF },
     { icon: I.image, label: 'SVG 矢量', desc: '含图片+多行文字', action: exportSVG },
     { icon: I.file, label: 'Word 文档', desc: '嵌入截图', action: exportWord },
@@ -281,6 +319,25 @@ const ExportMenu = memo(function ExportMenu() {
     }
     setShowExport(!showExport)
   }, [showExport])
+
+  const renderExportItem = (item: (typeof EXPORTS)[number]) => (
+    <button
+      key={item.label}
+      onClick={() => {
+        item.action()
+        setShowExport(false)
+      }}
+      className="ditem"
+      role="menuitem"
+      aria-label={item.label}
+    >
+      <span className="di em-icon">{item.icon}</span>
+      <div className="em-labels">
+        <span className="dl">{item.label}</span>
+        <span className="dd">{item.desc}</span>
+      </div>
+    </button>
+  )
 
   return (
     <>
@@ -305,24 +362,42 @@ const ExportMenu = memo(function ExportMenu() {
               aria-label="导出选项"
               style={{ top: exportPos.top, right: exportPos.right }}
             >
-              {EXPORTS.map((item) => (
+              {EXPORTS.slice(0, 1).map(renderExportItem)}
+              <div className="em-jpeg-panel" role="group" aria-label="JPEG 导出设置">
                 <button
-                  key={item.label}
                   onClick={() => {
-                    item.action()
+                    exportJPEG()
                     setShowExport(false)
                   }}
-                  className="ditem"
+                  className="ditem em-jpeg-action"
                   role="menuitem"
-                  aria-label={item.label}
+                  aria-label="JPEG 图片"
                 >
-                  <span className="di em-icon">{item.icon}</span>
+                  <span className="di em-icon">{I.image}</span>
                   <div className="em-labels">
-                    <span className="dl">{item.label}</span>
-                    <span className="dd">{item.desc}</span>
+                    <span className="dl">JPEG 图片</span>
+                    <span className="dd">
+                      白色背景 · {jpegQuality}% · 预计 {jpegEstimate}
+                    </span>
                   </div>
                 </button>
-              ))}
+                <label className="em-quality-row">
+                  <span>质量</span>
+                  <strong>{jpegQuality}%</strong>
+                  <input
+                    aria-label="JPEG 质量"
+                    type="range"
+                    min="1"
+                    max="100"
+                    value={jpegQuality}
+                    onChange={(event) => setJpegQuality(Number(event.target.value))}
+                  />
+                </label>
+                <div className="em-estimate" aria-live="polite">
+                  预计大小：{jpegEstimate}
+                </div>
+              </div>
+              {EXPORTS.slice(1).map(renderExportItem)}
               <div className="dsep" />
               <button
                 onClick={() => {
