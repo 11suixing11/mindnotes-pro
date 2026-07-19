@@ -774,6 +774,41 @@ body::after {
   flex-direction: column;
 }
 
+.em-jpeg-panel {
+  margin: 2px 0;
+}
+
+.em-jpeg-action {
+  margin-bottom: 2px;
+}
+
+.em-quality-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 2px 40px;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.em-quality-row strong {
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.em-quality-row input {
+  width: 100%;
+  accent-color: var(--primary);
+}
+
+.em-estimate {
+  padding: 0 12px 6px 40px;
+  color: var(--text-4);
+  font-size: 10px;
+}
+
 .em-hidden-input {
   position: absolute;
   width: 0;
