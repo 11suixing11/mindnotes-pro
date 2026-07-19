@@ -172,8 +172,8 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
     const vw = window.innerWidth
     const vh = window.innerHeight
 
-    let targetX = 0
-    let targetY = 0
+    let targetX: number
+    let targetY: number
 
     if (allBounds) {
       // 居中显示所有元素
