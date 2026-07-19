@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import ColorPicker from './ColorPicker'
 import { useAppStore } from '../../store/appStore'
 
@@ -16,6 +16,7 @@ describe('ColorPicker', () => {
       fillColor: 'transparent',
       size: 4,
       bgColor: '#ffffff',
+      backgroundStyle: 'plain',
       colorHistory: [],
       elements: [],
     })
@@ -61,6 +62,13 @@ describe('ColorPicker', () => {
   it('renders background color button', () => {
     render(<ColorPicker />)
     expect(screen.getByLabelText('背景色')).toBeTruthy()
+  })
+
+  it('changes the document background style', () => {
+    render(<ColorPicker />)
+    fireEvent.click(screen.getByLabelText('背景色'))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /点阵/ }))
+    expect(useAppStore.getState().backgroundStyle).toBe('dots')
   })
 
   it('renders image import button', () => {

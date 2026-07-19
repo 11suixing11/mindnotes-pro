@@ -1,4 +1,5 @@
-import { useRef, useCallback, memo } from 'react'
+import { useRef, useCallback, memo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useToastStore } from '../../store/toastStore'
@@ -6,12 +7,22 @@ import { useConfirm } from '../confirm-modal'
 import { useShallow } from 'zustand/react/shallow'
 import { icons } from './icons'
 import { sanitizeSvgDataUrl } from '../../canvas/svgSanitizer'
+import type { CanvasBackgroundStyle } from '../../store/types'
 
 // 扩展调色板 - 基于 tldraw #1665 用户需求
 // 灰度色系 (5)
 const GRAY_COLORS = ['#1A1A1A', '#4A4A4A', '#7A7A7A', '#A0A0A0', '#D0D0D0']
 // 基础色系 (8)
-const BASE_COLORS = ['#E03131', '#F59F00', '#2B8A3E', '#1971C2', '#7950F2', '#BE4BDB', '#C2255C', '#3A2E22']
+const BASE_COLORS = [
+  '#E03131',
+  '#F59F00',
+  '#2B8A3E',
+  '#1971C2',
+  '#7950F2',
+  '#BE4BDB',
+  '#C2255C',
+  '#3A2E22',
+]
 // 亮色系 (6)
 const LIGHT_COLORS = ['#FF8787', '#FFD43B', '#69DB7C', '#74C0FC', '#B197FC', '#F783AC']
 // 深色系 (5)
@@ -56,6 +67,52 @@ const COLOR_NAMES: Record<string, string> = {
   '#3A2A5C': '深紫',
 }
 const SIZE_LABELS: Record<number, string> = { 2: '极细', 4: '细', 8: '中等', 16: '粗' }
+const BACKGROUND_OPTIONS: {
+  value: CanvasBackgroundStyle
+  label: string
+  description: string
+  preview: React.CSSProperties
+}[] = [
+  { value: 'plain', label: '默认', description: '保留当前画布质感', preview: {} },
+  {
+    value: 'grid',
+    label: '方格',
+    description: '适合图表与布局',
+    preview: {
+      backgroundImage:
+        'linear-gradient(rgba(86,104,128,.25) 1px, transparent 1px), linear-gradient(90deg, rgba(86,104,128,.25) 1px, transparent 1px)',
+      backgroundSize: '8px 8px',
+    },
+  },
+  {
+    value: 'dots',
+    label: '点阵',
+    description: '轻量的对齐参考',
+    preview: {
+      backgroundImage: 'radial-gradient(circle, rgba(76,92,112,.45) 1px, transparent 1.2px)',
+      backgroundSize: '8px 8px',
+    },
+  },
+  {
+    value: 'ruled',
+    label: '横线',
+    description: '适合连续书写',
+    preview: {
+      backgroundImage: 'linear-gradient(rgba(86,104,128,.25) 1px, transparent 1px)',
+      backgroundSize: '100% 8px',
+    },
+  },
+  {
+    value: 'notebook',
+    label: '笔记本',
+    description: '横线与页边距',
+    preview: {
+      backgroundImage:
+        'linear-gradient(90deg, transparent 8px, rgba(205,92,92,.45) 8px, rgba(205,92,92,.45) 9px, transparent 9px), linear-gradient(rgba(86,104,128,.25) 1px, transparent 1px)',
+      backgroundSize: '100% 100%, 100% 8px',
+    },
+  },
+]
 
 function getCanvas() {
   return document.getElementById('main-canvas') as HTMLCanvasElement | null
@@ -63,6 +120,8 @@ function getCanvas() {
 
 const ColorPicker = memo(function ColorPicker() {
   const toast = useToastStore((s) => s.show)
+  const [showBackground, setShowBackground] = useState(false)
+  const [backgroundPos, setBackgroundPos] = useState({ top: 0, left: 0 })
   const {
     tool,
     color,
@@ -73,6 +132,8 @@ const ColorPicker = memo(function ColorPicker() {
     setSize,
     canvasBg,
     setCanvasBg,
+    backgroundStyle,
+    setBackgroundStyle,
     clearAll,
     addElement,
     colorHistory,
@@ -87,6 +148,8 @@ const ColorPicker = memo(function ColorPicker() {
       setSize: s.setSize,
       canvasBg: s.bgColor,
       setCanvasBg: s.setBgColor,
+      backgroundStyle: s.backgroundStyle,
+      setBackgroundStyle: s.setBackgroundStyle,
       clearAll: s.clearAll,
       addElement: s.addElement,
       colorHistory: s.colorHistory,
@@ -98,6 +161,15 @@ const ColorPicker = memo(function ColorPicker() {
   const colorRef = useRef<HTMLInputElement>(null)
   const fillColorRef = useRef<HTMLInputElement>(null)
   const bgRef = useRef<HTMLInputElement>(null)
+  const backgroundBtnRef = useRef<HTMLButtonElement>(null)
+
+  const toggleBackgroundMenu = useCallback(() => {
+    if (!showBackground && backgroundBtnRef.current) {
+      const rect = backgroundBtnRef.current.getBoundingClientRect()
+      setBackgroundPos({ top: rect.bottom + 8, left: Math.max(8, rect.left - 8) })
+    }
+    setShowBackground((visible) => !visible)
+  }, [showBackground])
 
   const importImage = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,7 +196,15 @@ const ColorPicker = memo(function ColorPicker() {
           const vb = useViewStore.getState().viewBox
           const x = (cssW / 2 - w / 2) / vb.zoom + vb.x
           const y = (cssH / 2 - h / 2) / vb.zoom + vb.y
-          addElement({ type: 'image', id: `img-${Date.now()}`, x, y, width: w, height: h, dataUrl: safeDataUrl })
+          addElement({
+            type: 'image',
+            id: `img-${Date.now()}`,
+            x,
+            y,
+            width: w,
+            height: h,
+            dataUrl: safeDataUrl,
+          })
         }
         img.onerror = () => {
           toast('图片加载失败', 'error')
@@ -198,16 +278,74 @@ const ColorPicker = memo(function ColorPicker() {
       <div className="tb-sep" role="separator" />
 
       <button
-        onClick={() => bgRef.current?.click()}
+        ref={backgroundBtnRef}
+        onClick={toggleBackgroundMenu}
         className="abtn"
-        data-tip="背景色"
+        data-tip="背景设置"
         aria-label="背景色"
+        aria-haspopup="menu"
+        aria-expanded={showBackground}
       >
         <span
           className="inline-block w-[14px] h-[14px] rounded-[4px] border-[1.5px] border-[var(--border)]"
-          style={{ background: canvasBg }}
+          style={{
+            backgroundColor: canvasBg,
+            ...BACKGROUND_OPTIONS.find((option) => option.value === backgroundStyle)?.preview,
+          }}
         />
       </button>
+
+      {showBackground &&
+        createPortal(
+          <>
+            <div
+              className="panel em-menu"
+              role="menu"
+              aria-label="背景样式"
+              style={{ top: backgroundPos.top, left: backgroundPos.left }}
+            >
+              {BACKGROUND_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className="ditem"
+                  role="menuitemradio"
+                  aria-checked={backgroundStyle === option.value}
+                  onClick={() => {
+                    setBackgroundStyle(option.value)
+                    setShowBackground(false)
+                  }}
+                >
+                  <span
+                    className="di rounded-[3px] border border-[var(--border)]"
+                    style={{ width: 28, height: 22, backgroundColor: canvasBg, ...option.preview }}
+        />
+                  <span className="em-labels">
+                    <span className="dl">{option.label}</span>
+                    <span className="dd">{option.description}</span>
+                  </span>
+      </button>
+              ))}
+              <div className="dsep" />
+              <button
+                type="button"
+                className="ditem"
+                onClick={() => {
+                  bgRef.current?.click()
+                  setShowBackground(false)
+                }}
+              >
+                <span
+                  className="di rounded-full border border-[var(--border)]"
+                  style={{ width: 18, height: 18, backgroundColor: canvasBg }}
+                />
+                <span className="dl">自定义背景色</span>
+              </button>
+            </div>
+            <div className="em-overlay" onClick={() => setShowBackground(false)} />
+          </>,
+          document.body
+        )}
 
       {(tool === 'rectangle' || tool === 'circle') && (
         <>

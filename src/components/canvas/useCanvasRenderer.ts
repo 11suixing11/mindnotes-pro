@@ -66,8 +66,22 @@ export function useCanvasRenderer(
   // P1 性能优化: 橡皮擦光标颜色缓存 - 避免每帧创建相同的颜色字符串
   // 性能提升: 减少 GC 压力，每帧减少 ~15 次字符串分配
   const eraserColorCacheRef = useRef<{
-    dark: { stroke: string; fill: string; center: string; glow0: string; glow6: string; glow1: string }
-    light: { stroke: string; fill: string; center: string; glow0: string; glow6: string; glow1: string }
+    dark: {
+      stroke: string
+      fill: string
+      center: string
+      glow0: string
+      glow6: string
+      glow1: string
+    }
+    light: {
+      stroke: string
+      fill: string
+      center: string
+      glow0: string
+      glow6: string
+      glow1: string
+    }
   }>({
     dark: {
       stroke: 'rgba(200,160,176, 0.35)',
@@ -141,8 +155,14 @@ export function useCanvasRenderer(
     dark: string[]
     light: string[]
   }>({
-    dark: Array.from({ length: 16 }, (_, i) => `rgba(200,160,176, ${(0.15 + (i / 15) * 0.15).toFixed(3)})`),
-    light: Array.from({ length: 16 }, (_, i) => `rgba(176,125,110, ${(0.15 + (i / 15) * 0.15).toFixed(3)})`),
+    dark: Array.from(
+      { length: 16 },
+      (_, i) => `rgba(200,160,176, ${(0.15 + (i / 15) * 0.15).toFixed(3)})`
+    ),
+    light: Array.from(
+      { length: 16 },
+      (_, i) => `rgba(176,125,110, ${(0.15 + (i / 15) * 0.15).toFixed(3)})`
+    ),
   })
   // P0 性能优化: 橡皮擦光晕渐变缓存 - 避免每帧创建新的 RadialGradient
   // 性能提升: 橡皮擦光标渲染减少 1 次渐变对象创建，减少 GC 压力
@@ -261,7 +281,9 @@ export function useCanvasRenderer(
     ctx.save()
     ctx.scale(vb.zoom, vb.zoom)
     ctx.translate(-vb.x, -vb.y)
+    if (st.backgroundStyle === 'plain') {
     drawMonetGrid(ctx, vb, canvasSize, dark)
+    }
     const vl = vb.x,
       vt = vb.y,
       vw = canvasSize.w / vb.zoom,
@@ -309,7 +331,7 @@ export function useCanvasRenderer(
     const ds = getDrawState()
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, canvasSize.w, canvasSize.h)
-    drawCanvasBackground(ctx, canvasSize, st.bgColor, dark)
+    drawCanvasBackground(ctx, canvasSize, st.bgColor, dark, st.backgroundStyle, vb)
     // Draw grid overlay if enabled
     if (ds.showGrid) {
       ctx.save()
@@ -646,6 +668,19 @@ export function useCanvasRenderer(
   useEffect(() => {
     redraw()
   }, [redraw, canvasSize])
+  useEffect(() => {
+    let prevColor = useAppStore.getState().bgColor
+    let prevStyle = useAppStore.getState().backgroundStyle
+    const unsub = useAppStore.subscribe((s) => {
+      if (s.bgColor !== prevColor || s.backgroundStyle !== prevStyle) {
+        prevColor = s.bgColor
+        prevStyle = s.backgroundStyle
+        elementsDirtyRef.current = true
+        scheduleRedraw()
+      }
+    })
+    return unsub
+  }, [scheduleRedraw])
   // P0 修复 + 增量更新 bounds 缓存，精确检测元素修改
   // 避免每帧创建完整 Map，使用引用比较 + Set 差集
   useEffect(() => {

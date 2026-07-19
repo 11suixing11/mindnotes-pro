@@ -43,6 +43,7 @@ describe('docManagement slice', () => {
       loaded: false,
       elements: [],
       bgColor: '#ffffff',
+      backgroundStyle: 'plain',
       undoStack: [],
       redoStack: [],
       selectedIds: [],
@@ -69,6 +70,7 @@ describe('docManagement slice', () => {
       const stored = storageMock.__store['docs']?.[id]
       expect(stored).toBeTruthy()
       expect(stored.title).toBe('Test')
+      expect(stored.backgroundStyle).toBe('plain')
     })
 
     it('assigns default title when none provided', async () => {
@@ -183,6 +185,48 @@ describe('docManagement slice', () => {
       await useAppStore.getState().openDoc(id)
       expect(useAppStore.getState().elements).toHaveLength(1)
       expect(useAppStore.getState().currentDocId).toBe(id)
+    })
+
+    it('loads each document background style', async () => {
+      const id = `doc-${Date.now()}`
+      storageMock.__store['docs'] = {
+        [id]: {
+          id,
+          title: 'Dotted Canvas',
+          elements: [],
+          bgColor: '#fffdf5',
+          backgroundStyle: 'dots',
+          folderId: null,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      }
+      useAppStore.setState({ currentDocId: null } as any)
+
+      await useAppStore.getState().openDoc(id)
+
+      expect(useAppStore.getState().bgColor).toBe('#fffdf5')
+      expect(useAppStore.getState().backgroundStyle).toBe('dots')
+    })
+
+    it('defaults legacy documents to a plain background', async () => {
+      const id = `doc-${Date.now()}`
+      storageMock.__store['docs'] = {
+        [id]: {
+          id,
+          title: 'Legacy Canvas',
+          elements: [],
+          bgColor: '#ffffff',
+          folderId: null,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      }
+      useAppStore.setState({ currentDocId: null } as any)
+
+      await useAppStore.getState().openDoc(id)
+
+      expect(useAppStore.getState().backgroundStyle).toBe('plain')
     })
 
     it('clears selectedIds when opening', async () => {

@@ -69,6 +69,7 @@ describe('useCanvasRenderer', () => {
       elements: [],
       selectedIds: [],
       bgColor: '#ffffff',
+      backgroundStyle: 'plain',
     })
     useViewStore.setState({ viewBox: { x: 0, y: 0, zoom: 1 }, isPanning: false })
     useThemeStore.setState({ isDarkMode: false })

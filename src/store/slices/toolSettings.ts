@@ -1,5 +1,5 @@
-import type { ToolType, BrushType } from '../types'
-import { scheduleSave } from '../saveManager'
+import type { ToolType, BrushType, CanvasBackgroundStyle } from '../types'
+import { incrementSaveGeneration, scheduleSave } from '../saveManager'
 
 // 扩展颜色历史记录 - 基于 tldraw #1665 用户需求
 const MAX_COLOR_HISTORY = 8
@@ -11,6 +11,7 @@ export interface ToolSettingsState {
   fillColor: string
   size: number
   bgColor: string
+  backgroundStyle: CanvasBackgroundStyle
   colorHistory: string[]
   // 样式吸管 (Eyedropper)
   // 按 Q 键激活，悬停在元素上复制其样式（颜色、大小、画笔类型）
@@ -25,9 +26,12 @@ export interface ToolSettingsActions {
   setFillColor: (c: string) => void
   setSize: (s: number) => void
   setBgColor: (c: string) => void
+  setBackgroundStyle: (style: CanvasBackgroundStyle) => void
   addColorToHistory: (c: string) => void
   toggleStyleEyedropper: () => void
-  setStyleEyedropperPreview: (preview: { color: string; size: number; brush: BrushType } | null) => void
+  setStyleEyedropperPreview: (
+    preview: { color: string; size: number; brush: BrushType } | null
+  ) => void
   applyStyleFromElement: (elementId: string) => void
   // G 键循环切换几何工具
   cycleGeometryTool: () => void
@@ -47,6 +51,7 @@ export function createToolSettingsSlice(
     fillColor: 'transparent',
     size: 4,
     bgColor: '#ffffff',
+    backgroundStyle: 'plain',
     colorHistory: [],
     // 样式吸管状态
     styleEyedropperActive: false,
@@ -62,7 +67,13 @@ export function createToolSettingsSlice(
     setFillColor: (c) => set({ fillColor: c }),
     setSize: (s) => set({ size: s }),
     setBgColor: (c) => {
+      incrementSaveGeneration()
       set({ bgColor: c })
+      scheduleSave()
+    },
+    setBackgroundStyle: (backgroundStyle) => {
+      incrementSaveGeneration()
+      set({ backgroundStyle })
       scheduleSave()
     },
     addColorToHistory: (c: string) => {
