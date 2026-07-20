@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from '../appStore'
+import { useToastStore } from '../toastStore'
+import { getHistoryFeedbackMessage } from './history'
 import type { StrokeElement, ShapeElement } from '../types'
 
 const makeStroke = (id: string, overrides?: Partial<StrokeElement>): StrokeElement => ({
@@ -38,6 +40,7 @@ describe('history slice', () => {
       undoStack: [],
       redoStack: [],
     })
+    useToastStore.setState({ toasts: [] })
   })
 
   afterEach(() => {
@@ -94,6 +97,18 @@ describe('history slice', () => {
       // 由于撤销了 add 操作，元素被删除，所以 selectedIds 应该为空
       expect(useAppStore.getState().selectedIds).toEqual([])
     })
+
+    it('shows a toast with action name and remaining undo steps', () => {
+      useAppStore.getState().addElement(makeStroke('s1'))
+      useAppStore.getState().addElement(makeShape('sh1'))
+
+      useAppStore.getState().undo()
+
+      const toasts = useToastStore.getState().toasts
+      expect(toasts[toasts.length - 1]?.message).toBe(
+        'Undo: Draw rectangle · 1 undo step left'
+      )
+    })
   })
 
   describe('redo', () => {
@@ -139,6 +154,40 @@ describe('history slice', () => {
       // redo 后自动选中受影响的元素（Figma/tldraw 标准行为）
       // 重做了 add 操作，元素被恢复，所以选中该元素
       expect(useAppStore.getState().selectedIds).toEqual(['s1'])
+    })
+
+    it('shows a toast with action name and remaining redo steps', () => {
+      useAppStore.getState().addElement(makeStroke('s1'))
+      useAppStore.getState().addElement(makeShape('sh1'))
+      useAppStore.getState().undo()
+      useToastStore.setState({ toasts: [] })
+
+      useAppStore.getState().redo()
+
+      const toasts = useToastStore.getState().toasts
+      expect(toasts[toasts.length - 1]?.message).toBe(
+        'Redo: Draw rectangle · 0 redo steps left'
+      )
+    })
+  })
+
+  describe('feedback message formatting', () => {
+    it('formats delete and move history actions', () => {
+      expect(
+        getHistoryFeedbackMessage(
+          'Undo',
+          { type: 'remove', items: [{ el: makeStroke('s1'), index: 0 }] },
+          0
+        )
+      ).toBe('Undo: Delete element · 0 undo steps left')
+
+      expect(
+        getHistoryFeedbackMessage(
+          'Redo',
+          { type: 'move', deltas: [{ id: 's1', dx: 10, dy: 5 }] },
+          2
+        )
+      ).toBe('Redo: Move element · 2 redo steps left')
     })
   })
 

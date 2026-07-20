@@ -3,6 +3,7 @@ import { shallowClone, snapshot, applyMoveDelta, reverseMoveDelta } from '../hel
 import { scheduleSave } from '../saveManager'
 import { getContentBounds } from '../../canvas/canvasUtils'
 import { useViewStore } from '../useViewStore'
+import { useToastStore } from '../toastStore'
 
 export const MAX_HISTORY = 50
 
@@ -59,6 +60,71 @@ function focusAffectedElements(
     }
   }
 }
+
+function getElementActionLabel(element?: CanvasElement): string {
+  if (!element) return 'Update element'
+
+  if (element.type === 'stroke') return 'Draw stroke'
+  if (element.type === 'text') return 'Add text'
+  if (element.type === 'image') return 'Insert image'
+  if (element.kind === 'rectangle') return 'Draw rectangle'
+  if (element.kind === 'circle') return 'Draw circle'
+  if (element.kind === 'line') return 'Draw line'
+  if (element.kind === 'arrow') return 'Draw arrow'
+  return 'Add shape'
+}
+
+export function getHistoryActionLabel(action: UndoAction): string {
+  switch (action.type) {
+    case 'add':
+      return action.els?.length === 1
+        ? getElementActionLabel(action.els[0])
+        : `Add ${action.ids.length} elements`
+    case 'remove':
+      return action.items.length === 1 ? 'Delete element' : `Delete ${action.items.length} elements`
+    case 'clear':
+      return 'Clear canvas'
+    case 'move':
+      return action.deltas.length === 1 ? 'Move element' : `Move ${action.deltas.length} elements`
+    case 'erase':
+      return 'Erase stroke'
+    case 'group':
+      return `Group ${action.elementIds.length} elements`
+    case 'ungroup':
+      return action.groupIds.length === 1
+        ? 'Ungroup elements'
+        : `Ungroup ${action.groupIds.length} groups`
+    case 'lock':
+      return action.elementIds.length === 1
+        ? 'Lock element'
+        : `Lock ${action.elementIds.length} elements`
+    case 'unlock':
+      return action.elementIds.length === 1
+        ? 'Unlock element'
+        : `Unlock ${action.elementIds.length} elements`
+  }
+}
+
+export function getHistoryFeedbackMessage(
+  direction: 'Undo' | 'Redo',
+  action: UndoAction,
+  stepsRemaining: number
+): string {
+  const historyName = direction === 'Undo' ? 'undo' : 'redo'
+  const stepLabel = stepsRemaining === 1 ? 'step' : 'steps'
+  return `${direction}: ${getHistoryActionLabel(action)} · ${stepsRemaining} ${historyName} ${stepLabel} left`
+}
+
+function showHistoryFeedback(
+  direction: 'Undo' | 'Redo',
+  action: UndoAction,
+  stepsRemaining: number
+) {
+  useToastStore
+    .getState()
+    .show(getHistoryFeedbackMessage(direction, action, stepsRemaining), 'info', 1800)
+}
+
 export interface HistoryState {
   undoStack: UndoAction[]
   redoStack: UndoAction[]
@@ -254,6 +320,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           idToIndex.set(el.id, i)
         }
       }
+      showHistoryFeedback('Undo', action, undoStack.length - 1)
       scheduleSave()
     },
 
@@ -418,6 +485,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           idToIndex.set(el.id, i)
         }
       }
+      showHistoryFeedback('Redo', action, redoStack.length - 1)
       scheduleSave()
     },
   }
