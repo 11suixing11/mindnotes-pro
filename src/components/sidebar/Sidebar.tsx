@@ -285,10 +285,7 @@ export default function Sidebar() {
                   setContext({ x: event.clientX, y: event.clientY, docId: doc.id })
                 }}
               >
-                <CanvasPreview
-                  elements={doc.elements}
-                  bgColor={isActive ? 'var(--primary-bg)' : doc.bgColor}
-                />
+                <CanvasPreview elements={doc.elements} bgColor={doc.bgColor} />
                 {renamingId === doc.id ? (
                   <input
                     ref={renameInputRef}
