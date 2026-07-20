@@ -1289,6 +1289,39 @@ body::after {
   color: var(--text);
 }
 
+.sb-sort-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.sb-sort-label {
+  color: var(--text-4);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sb-sort-select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.sb-sort-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-bg);
+}
+
 .sb-recent-searches {
   display: flex;
   flex-wrap: wrap;

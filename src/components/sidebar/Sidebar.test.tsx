@@ -30,6 +30,12 @@ function makeDoc(overrides: Partial<CanvasDoc>): CanvasDoc {
   }
 }
 
+function listedDocumentTitles() {
+  return screen
+    .getAllByRole('listitem')
+    .map((item) => item.querySelector('.sb-doc-title')?.textContent ?? '')
+}
+
 describe('Sidebar document rename', () => {
   const renameDoc = vi.fn(async (id: string, title: string) => {
     useAppStore.setState((state) => ({
@@ -201,12 +207,44 @@ describe('Sidebar document rename', () => {
     expect(screen.queryByText('Original')).toBeNull()
   })
 
+  it('sorts documents by name, creation date, and update date', () => {
+    useAppStore.setState({
+      docs: [
+        makeDoc({ id: 'doc-beta', title: 'Beta', createdAt: 300, updatedAt: 100 }),
+        makeDoc({ id: 'doc-alpha', title: 'Alpha', createdAt: 100, updatedAt: 300 }),
+        makeDoc({ id: 'doc-gamma', title: 'Gamma', createdAt: 200, updatedAt: 200 }),
+      ],
+      currentDocId: 'doc-alpha',
+    })
+    render(<Sidebar />)
+
+    const sort = screen.getByRole('combobox', { name: 'Sort documents' })
+    expect(listedDocumentTitles()).toEqual(['Alpha', 'Gamma', 'Beta'])
+
+    fireEvent.change(sort, { target: { value: 'title-asc' } })
+    expect(listedDocumentTitles()).toEqual(['Alpha', 'Beta', 'Gamma'])
+
+    fireEvent.change(sort, { target: { value: 'title-desc' } })
+    expect(listedDocumentTitles()).toEqual(['Gamma', 'Beta', 'Alpha'])
+
+    fireEvent.change(sort, { target: { value: 'created-asc' } })
+    expect(listedDocumentTitles()).toEqual(['Alpha', 'Gamma', 'Beta'])
+
+    fireEvent.change(sort, { target: { value: 'created-desc' } })
+    expect(listedDocumentTitles()).toEqual(['Beta', 'Gamma', 'Alpha'])
+
+    fireEvent.change(sort, { target: { value: 'updated-asc' } })
+    expect(listedDocumentTitles()).toEqual(['Beta', 'Gamma', 'Alpha'])
+  })
+
   it('stores recent searches and can run them again', () => {
     render(<Sidebar />)
 
     const input = screen.getByRole('searchbox', { name: 'Search documents' }) as HTMLInputElement
     fireEvent.change(input, { target: { value: 'original' } })
-    fireEvent.submit(input.closest('form')!)
+    const form = input.closest('form') as HTMLFormElement | null
+    if (!form) throw new Error('Search form not found')
+    fireEvent.submit(form)
 
     expect(screen.getByRole('button', { name: 'Search again: original' })).toBeTruthy()
     expect(JSON.parse(localStorage.getItem('mn-sidebar-searches') ?? '[]')).toEqual(['original'])
