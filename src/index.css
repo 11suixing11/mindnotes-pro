@@ -920,6 +920,16 @@ body::after {
   background: var(--border);
 }
 
+.status-feedback {
+  color: var(--text-4);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.status-feedback:hover {
+  color: var(--primary);
+}
+
 .hints {
   position: absolute;
   bottom: 16px;

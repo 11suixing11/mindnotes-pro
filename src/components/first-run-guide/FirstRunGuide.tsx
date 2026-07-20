@@ -1,4 +1,5 @@
 import { useState, useEffect, memo } from 'react'
+import { FEEDBACK_DISCUSSION_URL } from '../../productLinks'
 
 const STEPS = [
   {
@@ -70,6 +71,15 @@ export default memo(function FirstRunGuide() {
           ))}
         </div>
         <div className="flex gap-[8px] justify-center">
+          <a
+            href={FEEDBACK_DISCUSSION_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="py-[7px] px-[14px] rounded-[8px] border border-[var(--border)] bg-transparent text-[var(--primary)] text-[12px] cursor-pointer font-semibold no-underline"
+            aria-label="反馈"
+          >
+            反馈
+          </a>
           <button
             onClick={() => {
               setVisible(false)
