@@ -1,4 +1,13 @@
-export type BrushType = 'pen' | 'highlighter' | 'pencil' | 'calligraphy' | 'dashed' | 'glow'
+export type BrushType =
+  | 'pen'
+  | 'highlighter'
+  | 'pencil'
+  | 'calligraphy'
+  | 'marker'
+  | 'watercolor'
+  | 'crayon'
+  | 'dashed'
+  | 'glow'
 export type ShapeKind = 'rectangle' | 'circle' | 'line' | 'arrow'
 export type ToolType = 'select' | 'pen' | 'eraser' | 'pan' | 'text' | ShapeKind
 export type CanvasBackgroundStyle = 'plain' | 'grid' | 'dots' | 'ruled' | 'notebook'
@@ -365,7 +374,7 @@ export function alignElements(
  * 分布多个选中元素（等间距分布）
  * 支持 2 种分布方式：水平分布、垂直分布
  * 完全对齐 Figma / tldraw 的专业行为
- * 
+ *
  * 算法：
  * 1. 计算所有元素的总宽度/高度（最左到最右/最上到最下）
  * 2. 计算所有元素的宽度/高度之和
@@ -415,7 +424,7 @@ export function distributeElements(
 
   for (const el of sorted) {
     const elBounds = elementBounds(el)
-    
+
     if (distribution === 'distributeH') {
       const dx = currentPos - elBounds.x
       newPositions.set(el.id, { dx, dy: 0 })
