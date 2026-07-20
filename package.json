@@ -5,7 +5,7 @@
   "description": "A beautiful, local-first whiteboard that feels like painting on real paper.",
   "main": "electron/main.ts",
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.22.1"
   },
   "scripts": {
     "dev": "vite",
@@ -79,7 +79,7 @@
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.7.0",
     "jsdom": "^29.1.1",
-    "lint-staged": "^15.2.10",
+    "lint-staged": "^17.1.0",
     "postcss": "^8.4.49",
     "prettier": "^3.4.2",
     "tailwindcss": "^4.3.3",
