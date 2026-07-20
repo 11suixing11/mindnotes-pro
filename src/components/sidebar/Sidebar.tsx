@@ -6,6 +6,20 @@ import CanvasPreview from './CanvasPreview'
 import SidebarContextMenu from './SidebarContextMenu'
 import type { SidebarContextState } from './SidebarContextMenu'
 
+type DocumentSortMode =
+  'updated-desc' | 'updated-asc' | 'created-desc' | 'created-asc' | 'title-asc' | 'title-desc'
+
+const DOCUMENT_SORT_OPTIONS: { value: DocumentSortMode; label: string }[] = [
+  { value: 'updated-desc', label: 'Modified newest' },
+  { value: 'updated-asc', label: 'Modified oldest' },
+  { value: 'created-desc', label: 'Created newest' },
+  { value: 'created-asc', label: 'Created oldest' },
+  { value: 'title-asc', label: 'Name A-Z' },
+  { value: 'title-desc', label: 'Name Z-A' },
+]
+
+const titleCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
 
@@ -76,6 +90,31 @@ function highlightMatch(text: string, query: string) {
   )
 }
 
+function compareByTitle(a: CanvasDoc, b: CanvasDoc) {
+  const byTitle = titleCollator.compare(a.title, b.title)
+  if (byTitle !== 0) return byTitle
+
+  return b.updatedAt - a.updatedAt || b.createdAt - a.createdAt || titleCollator.compare(a.id, b.id)
+}
+
+function compareDocs(a: CanvasDoc, b: CanvasDoc, sortMode: DocumentSortMode) {
+  switch (sortMode) {
+    case 'updated-asc':
+      return a.updatedAt - b.updatedAt || compareByTitle(a, b)
+    case 'created-desc':
+      return b.createdAt - a.createdAt || compareByTitle(a, b)
+    case 'created-asc':
+      return a.createdAt - b.createdAt || compareByTitle(a, b)
+    case 'title-asc':
+      return compareByTitle(a, b)
+    case 'title-desc':
+      return -compareByTitle(a, b)
+    case 'updated-desc':
+    default:
+      return b.updatedAt - a.updatedAt || compareByTitle(a, b)
+  }
+}
+
 export default function Sidebar() {
   const isMobile = useIsMobile()
   const docs = useAppStore((state) => state.docs)
@@ -94,6 +133,7 @@ export default function Sidebar() {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [context, setContext] = useState<SidebarContextState | null>(null)
+  const [sortMode, setSortMode] = useState<DocumentSortMode>('updated-desc')
   const renameInputRef = useRef<HTMLInputElement>(null)
   const cancellingRef = useRef(false)
   const confirmingRef = useRef(false)
@@ -103,8 +143,9 @@ export default function Sidebar() {
     () =>
       docs
         .map((doc) => ({ doc, match: getSearchMatch(doc, normalizedSearch) }))
-        .filter((item) => !normalizedSearch || item.match),
-    [docs, normalizedSearch]
+        .filter((item) => !normalizedSearch || item.match)
+        .sort((a, b) => compareDocs(a.doc, b.doc, sortMode)),
+    [docs, normalizedSearch, sortMode]
   )
 
   const saveRecentSearch = useCallback(
@@ -247,6 +288,24 @@ export default function Sidebar() {
               </button>
             )}
           </form>
+          <div className="sb-sort-row">
+            <label htmlFor="document-sort" className="sb-sort-label">
+              Sort
+            </label>
+            <select
+              id="document-sort"
+              aria-label="Sort documents"
+              className="sb-sort-select"
+              value={sortMode}
+              onChange={(event) => setSortMode(event.target.value as DocumentSortMode)}
+            >
+              {DOCUMENT_SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
           {recentSearches.length > 0 && (
             <div className="sb-recent-searches" aria-label="Recent document searches">
               {recentSearches.map((item) => (
