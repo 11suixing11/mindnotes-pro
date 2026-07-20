@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import ColorPicker from './ColorPicker'
 import { useAppStore } from '../../store/appStore'
+import { COLOR_HISTORY_KEY } from '../../store/slices/toolSettings'
 
 // Mock useConfirm
 vi.mock('../confirm-modal', () => ({
@@ -10,6 +11,7 @@ vi.mock('../confirm-modal', () => ({
 
 describe('ColorPicker', () => {
   beforeEach(() => {
+    localStorage.clear()
     useAppStore.setState({
       tool: 'pen',
       color: '#3A2E22',
@@ -136,5 +138,15 @@ describe('ColorPicker', () => {
   it('hides color history when empty', () => {
     render(<ColorPicker />)
     expect(screen.queryByLabelText('最近使用的颜色')).toBeNull()
+  })
+
+  it('adds selected palette colors to recent colors and persists them', () => {
+    render(<ColorPicker />)
+
+    fireEvent.click(screen.getByLabelText('红色'))
+
+    expect(screen.getByLabelText('最近使用的颜色')).toBeTruthy()
+    expect(screen.getByLabelText('最近颜色 #E03131')).toBeTruthy()
+    expect(JSON.parse(localStorage.getItem(COLOR_HISTORY_KEY) ?? '[]')).toEqual(['#E03131'])
   })
 })

@@ -224,6 +224,23 @@ const ColorPicker = memo(function ColorPicker() {
 
   return (
     <>
+      {colorHistory.length > 0 && (
+        <>
+          <div className="tb-group" aria-label="最近使用的颜色">
+            {colorHistory.map((hex) => (
+              <button
+                key={`history-${hex}`}
+                onClick={() => setColor(hex)}
+                className={`cdot ${color === hex ? 'on' : ''}`}
+                style={{ backgroundColor: hex }}
+                aria-label={`最近颜色 ${hex}`}
+              />
+            ))}
+          </div>
+          <div className="tb-sep" role="separator" />
+        </>
+      )}
+
       <div className="tb-group">
         {COLORS.map((hex) => (
           <button
@@ -242,23 +259,6 @@ const ColorPicker = memo(function ColorPicker() {
           +
         </button>
       </div>
-
-      {colorHistory.length > 0 && (
-        <>
-          <div className="tb-sep" role="separator" />
-          <div className="tb-group" aria-label="最近使用的颜色">
-            {colorHistory.map((hex) => (
-              <button
-                key={`history-${hex}`}
-                onClick={() => setColor(hex)}
-                className={`cdot ${color === hex ? 'on' : ''}`}
-                style={{ backgroundColor: hex }}
-                aria-label={`最近颜色 ${hex}`}
-              />
-            ))}
-          </div>
-        </>
-      )}
 
       <div className="tb-sep" role="separator" />
 
@@ -319,12 +319,12 @@ const ColorPicker = memo(function ColorPicker() {
                   <span
                     className="di rounded-[3px] border border-[var(--border)]"
                     style={{ width: 28, height: 22, backgroundColor: canvasBg, ...option.preview }}
-        />
+                  />
                   <span className="em-labels">
                     <span className="dl">{option.label}</span>
                     <span className="dd">{option.description}</span>
                   </span>
-      </button>
+                </button>
               ))}
               <div className="dsep" />
               <button
