@@ -40,6 +40,8 @@ Owns rendering and export behavior that can be tested without React.
 Current shared drawing metadata:
 
 - `src/canvas/brushPresets.ts` is the single source of truth for brush labels, descriptions, default opacity, stroke-width multipliers, dash patterns, and SVG-only brush output details.
+- `src/canvas/strokeElements.ts` owns stroke creation and point normalization.
+- `src/canvas/resizeRules.ts` owns pure resize/aspect-ratio rules used by interaction hooks.
 
 ### `src/components`
 
