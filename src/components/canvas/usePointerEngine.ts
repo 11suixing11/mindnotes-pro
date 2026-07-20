@@ -3,8 +3,6 @@ import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useThemeStore } from '../../store/useThemeStore'
-import { getBrushDefaultOpacity } from '../../canvas/brushPresets'
-import type { StrokeElement } from '../../store/types'
 import type {
   CanvasElement,
   ShapeElement,
@@ -12,13 +10,9 @@ import type {
   ShapeKind,
   ToolType,
 } from '../../store/types'
-import {
-  simplifyPts,
-  distToSegSq,
-  elementBounds,
-  isTransparentImagePixel,
-} from '../../canvas/canvasUtils'
+import { distToSegSq, elementBounds, isTransparentImagePixel } from '../../canvas/canvasUtils'
 import { drawElement } from '../../canvas/canvasDrawing'
+import { createStrokeElement } from '../../canvas/strokeElements'
 // P12 箭头绑定: 导入绑定工具函数
 import { tryBindToShape } from '../../store/bindingUtils'
 // 物理擦除引擎集成
@@ -1563,21 +1557,14 @@ export function usePointerEngine(opts: {
         drawingRef.current = false
         const curTool = useAppStore.getState().tool
         if (curTool === 'pen') {
-          if (currentPtsRef.current.length >= 1) {
-            let pts = currentPtsRef.current
-            if (pts.length === 1) {
-              pts = [pts[0], [pts[0][0] + 0.1, pts[0][1] + 0.1]]
-            }
-            const el: StrokeElement = {
-              type: 'stroke',
-              id: `stroke-${Date.now()}`,
-              points: simplifyPts(pts, 1),
-              color: curColor,
-              size: curSize,
-              brush: curBrush,
-            }
-            const defaultOpacity = getBrushDefaultOpacity(curBrush)
-            if (defaultOpacity !== undefined) el.opacity = defaultOpacity
+          const el = createStrokeElement({
+            id: `stroke-${Date.now()}`,
+            points: currentPtsRef.current,
+            color: curColor,
+            size: curSize,
+            brush: curBrush,
+          })
+          if (el) {
             addElement(el)
           }
           currentPtsRef.current = []
