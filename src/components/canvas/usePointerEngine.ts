@@ -4,8 +4,19 @@ import { useViewStore } from '../../store/useViewStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useThemeStore } from '../../store/useThemeStore'
 import type { StrokeElement } from '../../store/types'
-import type { CanvasElement, ShapeElement, TextElement, ShapeKind, ToolType } from '../../store/types'
-import { simplifyPts, distToSegSq, elementBounds, isTransparentImagePixel } from '../../canvas/canvasUtils'
+import type {
+  CanvasElement,
+  ShapeElement,
+  TextElement,
+  ShapeKind,
+  ToolType,
+} from '../../store/types'
+import {
+  simplifyPts,
+  distToSegSq,
+  elementBounds,
+  isTransparentImagePixel,
+} from '../../canvas/canvasUtils'
 import { drawElement } from '../../canvas/canvasDrawing'
 // P12 箭头绑定: 导入绑定工具函数
 import { tryBindToShape } from '../../store/bindingUtils'
@@ -26,6 +37,28 @@ const CURSOR_MAP: Record<string, string> = {
 }
 // P5 样式吸管光标 - 使用 CSS 自定义光标
 const EYEDROPPER_CURSOR = 'crosshair'
+
+export function shouldPreserveResizeAspectRatio(
+  elementType: CanvasElement['type'] | undefined,
+  handle: number,
+  shiftPressed: boolean
+): boolean {
+  const isCornerHandle = handle >= 0 && handle <= 3
+  if (!isCornerHandle) return false
+
+  // Images follow common editor behavior: keep aspect ratio by default, hold Shift for freeform.
+  if (elementType === 'image') return !shiftPressed
+
+  // Existing behavior for non-image elements: hold Shift to preserve aspect ratio.
+  return shiftPressed
+}
+
+export function lockResizeScalesToAspectRatio(sx: number, sy: number): { sx: number; sy: number } {
+  const scale = Math.max(Math.abs(sx), Math.abs(sy))
+  const signX = Math.sign(sx) || 1
+  const signY = Math.sign(sy) || 1
+  return { sx: scale * signX, sy: scale * signY }
+}
 
 export function usePointerEngine(opts: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>
@@ -411,7 +444,7 @@ export function usePointerEngine(opts: {
         if (Math.abs(px - rotateHandleX) < rotateHr && Math.abs(py - rotateHandleY) < rotateHr) {
           return { handle: 99, id: selId, bounds: b, isRotate: true }
         }
-        
+
         // 边缘手柄命中检测
         // 手柄编号约定:
         // 0-3: 角落手柄 (左上、右上、左下、右下)
@@ -419,7 +452,7 @@ export function usePointerEngine(opts: {
         // 5: 下边缘中点
         // 6: 左边缘中点
         // 7: 右边缘中点
-        
+
         // 小形状防重叠 - 动态计算边缘手柄实际位置
         // 与 drawSelBox 中的逻辑保持一致
         const zoom = useViewStore.getState().viewBox.zoom || 1
@@ -427,12 +460,12 @@ export function usePointerEngine(opts: {
         const edgeR = 3.5 / zoom
         const minSafeWidth = (cornerR + edgeR + 4 / zoom) * 2
         const minSafeHeight = (cornerR + edgeR + 4 / zoom) * 2
-        
+
         let edgeTopY = b.y
         let edgeBottomY = b.y + b.h
         let edgeLeftX = b.x
         let edgeRightX = b.x + b.w
-        
+
         if (b.w < minSafeWidth) {
           const offset = (minSafeWidth - b.w) / 2 + 2 / zoom
           edgeLeftX = b.x + offset
@@ -443,15 +476,15 @@ export function usePointerEngine(opts: {
           edgeTopY = b.y + offset
           edgeBottomY = b.y + b.h - offset
         }
-        
+
         // 边缘手柄（优先级低于角落手柄，所以先检测角落）
         const edges: [number, number, number][] = [
-          [b.x + b.w / 2, edgeTopY, 4],      // 上边缘中点
-          [b.x + b.w / 2, edgeBottomY, 5],   // 下边缘中点
-          [edgeLeftX, b.y + b.h / 2, 6],      // 左边缘中点
-          [edgeRightX, b.y + b.h / 2, 7],     // 右边缘中点
+          [b.x + b.w / 2, edgeTopY, 4], // 上边缘中点
+          [b.x + b.w / 2, edgeBottomY, 5], // 下边缘中点
+          [edgeLeftX, b.y + b.h / 2, 6], // 左边缘中点
+          [edgeRightX, b.y + b.h / 2, 7], // 右边缘中点
         ]
-        
+
         // 角落手柄（优先级最高）
         const corners: [number, number, number][] = [
           [b.x, b.y, 0],
@@ -459,13 +492,13 @@ export function usePointerEngine(opts: {
           [b.x, b.y + b.h, 2],
           [b.x + b.w, b.y + b.h, 3],
         ]
-        
+
         // 先检测角落手柄（用户优先想要抓住角落）
         for (const [cx, cy, handle] of corners) {
           if (Math.abs(px - cx) < hr && Math.abs(py - cy) < hr)
             return { handle, id: selId, bounds: b }
         }
-        
+
         // 再检测边缘手柄
         for (const [ex, ey, handle] of edges) {
           if (Math.abs(px - ex) < edgeHr && Math.abs(py - ey) < edgeHr)
@@ -564,7 +597,13 @@ export function usePointerEngine(opts: {
    * topOnly 参数 - 只擦除最顶层元素
    */
   const eraseAtPhysics = useCallback(
-    (x: number, y: number, pressure: number = 0.5, e?: MouseEvent | TouchEvent, topOnly: boolean = false) => {
+    (
+      x: number,
+      y: number,
+      pressure: number = 0.5,
+      e?: MouseEvent | TouchEvent,
+      topOnly: boolean = false
+    ) => {
       const state = useAppStore.getState()
       const eraserStore = useEraserStore.getState()
 
@@ -640,7 +679,13 @@ export function usePointerEngine(opts: {
    * topOnly 参数 - 只擦除最顶层元素
    */
   const eraseAt = useCallback(
-    (x: number, y: number, pressure?: number, e?: MouseEvent | TouchEvent, topOnly: boolean = false) => {
+    (
+      x: number,
+      y: number,
+      pressure?: number,
+      e?: MouseEvent | TouchEvent,
+      topOnly: boolean = false
+    ) => {
       const eraserStore = useEraserStore.getState()
       if (eraserStore.shouldUsePhysics()) {
         eraseAtPhysics(x, y, pressure, e, topOnly)
@@ -693,8 +738,8 @@ export function usePointerEngine(opts: {
       // 按住 Space 键临时切换 Pan 工具
       // 如果 Space 键已激活，直接进入平移模式
       if (spacePanRef.current.isActive && spacePanRef.current.enabled) {
-        const cx = "touches" in e ? e.touches[0].clientX : (e as MouseEvent).clientX
-        const cy = "touches" in e ? e.touches[0].clientY : (e as MouseEvent).clientY
+        const cx = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
+        const cy = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
         spacePanRef.current.wasPanning = true
         startPan(cx, cy)
         return
@@ -716,11 +761,14 @@ export function usePointerEngine(opts: {
             if (h.isRotate) {
               const st = useAppStore.getState()
               const selectedIds = st.selectedIds.length > 0 ? st.selectedIds : [h.id]
-              
+
               // 计算所有选中元素的共同中心点（用于批量旋转）
-              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+              let minX = Infinity,
+                minY = Infinity,
+                maxX = -Infinity,
+                maxY = -Infinity
               const origRotations = new Map<string, number>()
-              
+
               for (const id of selectedIds) {
                 const selEl = st.idToElement.get(id)
                 if (!selEl) continue
@@ -731,7 +779,7 @@ export function usePointerEngine(opts: {
                 maxY = Math.max(maxY, b.y + b.h)
                 origRotations.set(id, (selEl as any).rotation || 0)
               }
-              
+
               // 初始化旋转状态
               rotateRef.current = {
                 ids: selectedIds,
@@ -764,7 +812,7 @@ export function usePointerEngine(opts: {
           const hitEl = st.idToElement.get(hit)
           let effectiveHit = hit
           const groupMembers: string[] = []
-          
+
           // 如果点击的元素属于某个组，选中整个组
           if (hitEl?.groupId) {
             const groupId = hitEl.groupId
@@ -776,25 +824,27 @@ export function usePointerEngine(opts: {
             }
             // 如果组内成员都已选中，则使用原点击元素（允许单独选择）
             // 否则选中整个组
-            const allGroupSelected = groupMembers.every(id => st.selectedIds.includes(id))
+            const allGroupSelected = groupMembers.every((id) => st.selectedIds.includes(id))
             if (!allGroupSelected && groupMembers.length > 0) {
               effectiveHit = groupMembers[0]
             }
           }
-          
-          const ids = st.selectedIds.includes(effectiveHit) 
-            ? st.selectedIds 
-            : (groupMembers.length > 0 ? groupMembers : [effectiveHit])
-            
+
+          const ids = st.selectedIds.includes(effectiveHit)
+            ? st.selectedIds
+            : groupMembers.length > 0
+              ? groupMembers
+              : [effectiveHit]
+
           // Cmd/Ctrl+click 添加到多选
           // 匹配 Figma/Sketch/Photoshop 专业工具标准：Shift 或 Cmd/Ctrl 都支持多选
           const isMultiSelectKey = e.shiftKey || e.metaKey || e.ctrlKey
-          
+
           if (isMultiSelectKey) {
             // Shift/Cmd/Ctrl+click: 切换选中状态（添加或移除）
             if (groupMembers.length > 0) {
               // 点击组元素: 切换整个组的选中状态
-              const allSelected = groupMembers.every(id => st.selectedIds.includes(id))
+              const allSelected = groupMembers.every((id) => st.selectedIds.includes(id))
               if (allSelected) {
                 setSelectedIds(st.selectedIds.filter((id) => !groupMembers.includes(id)))
               } else {
@@ -810,7 +860,7 @@ export function usePointerEngine(opts: {
           } else {
             if (groupMembers.length > 0) {
               // 点击组元素: 选中整个组
-              const allGroupSelected = groupMembers.every(id => st.selectedIds.includes(id))
+              const allGroupSelected = groupMembers.every((id) => st.selectedIds.includes(id))
               if (!allGroupSelected) {
                 setSelectedIds(groupMembers)
               }
@@ -834,7 +884,7 @@ export function usePointerEngine(opts: {
           // 使用屏幕坐标而非世界坐标，确保阈值在所有缩放级别下一致
           const screenX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
           const screenY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
-          
+
           // Alt/Option + 拖拽复制选中元素
           // 检测 Alt 键是否按下，初始化复制状态
           const altPressed = 'altKey' in e && (e as MouseEvent).altKey
@@ -854,11 +904,11 @@ export function usePointerEngine(opts: {
               hasDuplicated: false,
             }
           }
-          
-          dragRef.current = { 
-            x: pos.x, 
-            y: pos.y, 
-            id: hit, 
+
+          dragRef.current = {
+            x: pos.x,
+            y: pos.y,
+            id: hit,
             startPositions,
             dragStarted: false,
             startScreenX: screenX,
@@ -870,15 +920,15 @@ export function usePointerEngine(opts: {
         // 按住 Cmd/Ctrl 框选追加选区
         // 匹配 Figma/Sketch/Photoshop 行业标准：按住修饰键框选时追加选区而非替换
         const isAppendSelectKey = e.metaKey || e.ctrlKey
-        
+
         marqueeRef.current = { startX: pos.x, startY: pos.y, endX: pos.x, endY: pos.y }
-        
+
         // 只有在不按住 Cmd/Ctrl 时才清空选区
         // 按住 Cmd/Ctrl 时保留现有选区，框选结果将追加到选区中
         if (!isAppendSelectKey) {
           setSelectedIds([])
         }
-        
+
         scheduleRedraw()
         return
       }
@@ -963,11 +1013,11 @@ export function usePointerEngine(opts: {
       // 当样式吸管激活时，检测悬停元素并更新样式预览
       const st = useAppStore.getState()
       const hitId = hitTest(pos.x, pos.y)
-      
+
       // 更新悬停元素跟踪
       // 用于 Q 键快速复制样式：悬停在元素上按 Q 键直接复制样式
       hoveredElementIdRef.current = hitId
-      
+
       if (st.styleEyedropperActive) {
         if (hitId) {
           const el = st.idToElement.get(hitId)
@@ -1036,12 +1086,12 @@ export function usePointerEngine(opts: {
         const { handle, id, startX, startY, origBounds: ob } = resizeRef.current
         const totalDx = pos.x - startX,
           totalDy = pos.y - startY
-        
+
         if (ob.w < 1 || ob.h < 1) {
           scheduleRedraw()
           return
         }
-        
+
         // 边缘手柄缩放支持
         // 手柄编号约定:
         // 0-3: 角落手柄 (左上、右上、左下、右下) - 同时调整宽高
@@ -1049,26 +1099,28 @@ export function usePointerEngine(opts: {
         // 5: 下边缘中点 - 只调整高度
         // 6: 左边缘中点 - 只调整宽度
         // 7: 右边缘中点 - 只调整宽度
-        
+
         // 角落手柄锚点（对角点）
         const cornerAnchors: [number, number][] = [
-          [ob.x + ob.w, ob.y + ob.h],  // 0: 左上 -> 右下锚点
-          [ob.x, ob.y + ob.h],         // 1: 右上 -> 左下锚点
-          [ob.x + ob.w, ob.y],         // 2: 左下 -> 右上锚点
-          [ob.x, ob.y],                // 3: 右下 -> 左上锚点
+          [ob.x + ob.w, ob.y + ob.h], // 0: 左上 -> 右下锚点
+          [ob.x, ob.y + ob.h], // 1: 右上 -> 左下锚点
+          [ob.x + ob.w, ob.y], // 2: 左下 -> 右上锚点
+          [ob.x, ob.y], // 3: 右下 -> 左上锚点
         ]
-        
+
         // 角落手柄原始位置
         const cornerOrigins: [number, number][] = [
-          [ob.x, ob.y],                // 0: 左上
-          [ob.x + ob.w, ob.y],         // 1: 右上
-          [ob.x, ob.y + ob.h],         // 2: 左下
-          [ob.x + ob.w, ob.y + ob.h],  // 3: 右下
+          [ob.x, ob.y], // 0: 左上
+          [ob.x + ob.w, ob.y], // 1: 右上
+          [ob.x, ob.y + ob.h], // 2: 左下
+          [ob.x + ob.w, ob.y + ob.h], // 3: 右下
         ]
-        
-        let ax = 0, ay = 0
-        let nsx = 1, nsy = 1
-        
+
+        let ax = 0,
+          ay = 0
+        let nsx = 1,
+          nsy = 1
+
         if (handle >= 0 && handle <= 3) {
           // 角落手柄：同时调整宽高
           ax = cornerAnchors[handle][0]
@@ -1076,7 +1128,7 @@ export function usePointerEngine(opts: {
           const orig = cornerOrigins[handle]
           const targetX = orig[0] + totalDx
           const targetY = orig[1] + totalDy
-          
+
           nsx = Math.max(
             0.1,
             Math.min(
@@ -1095,40 +1147,47 @@ export function usePointerEngine(opts: {
                 : (ay - targetY) / (ay - orig[1] || 1)
             )
           )
-          
-          // Shift + 拖拽等比例缩放
+
+          // Images preserve aspect ratio by default; Shift allows freeform image resizing.
+          // Non-image elements keep the existing Shift-to-preserve behavior.
           const shiftPressed = 'shiftKey' in e && (e as MouseEvent).shiftKey
-          if (shiftPressed) {
-            const scale = Math.max(Math.abs(nsx), Math.abs(nsy))
-            nsx = scale * Math.sign(nsx)
-            nsy = scale * Math.sign(nsy)
+          if (
+            shouldPreserveResizeAspectRatio(
+              resizeRef.current.origElement?.type,
+              handle,
+              shiftPressed
+            )
+          ) {
+            const locked = lockResizeScalesToAspectRatio(nsx, nsy)
+            nsx = locked.sx
+            nsy = locked.sy
           }
         } else if (handle === 4) {
           // 上边缘中点：只调整高度（向下锚定）
           ax = ob.x + ob.w / 2
-          ay = ob.y + ob.h  // 底部作为锚点
+          ay = ob.y + ob.h // 底部作为锚点
           const targetY = ob.y + totalDy
           nsy = Math.max(0.1, Math.min(10, (ay - targetY) / ob.h))
         } else if (handle === 5) {
           // 下边缘中点：只调整高度（向上锚定）
           ax = ob.x + ob.w / 2
-          ay = ob.y  // 顶部作为锚点
+          ay = ob.y // 顶部作为锚点
           const targetY = ob.y + ob.h + totalDy
           nsy = Math.max(0.1, Math.min(10, (targetY - ay) / ob.h))
         } else if (handle === 6) {
           // 左边缘中点：只调整宽度（向右锚定）
-          ax = ob.x + ob.w  // 右侧作为锚点
+          ax = ob.x + ob.w // 右侧作为锚点
           ay = ob.y + ob.h / 2
           const targetX = ob.x + totalDx
           nsx = Math.max(0.1, Math.min(10, (ax - targetX) / ob.w))
         } else if (handle === 7) {
           // 右边缘中点：只调整宽度（向左锚定）
-          ax = ob.x  // 左侧作为锚点
+          ax = ob.x // 左侧作为锚点
           ay = ob.y + ob.h / 2
           const targetX = ob.x + ob.w + totalDx
           nsx = Math.max(0.1, Math.min(10, (targetX - ax) / ob.w))
         }
-        
+
         resizeElementById(id, ax, ay, nsx, nsy)
         scheduleRedraw()
         return
@@ -1137,22 +1196,23 @@ export function usePointerEngine(opts: {
       // 支持批量旋转多个选中元素
       // 专业设计工具标准：拖拽选择框顶部的旋转手柄旋转元素
       if (curTool === 'select' && rotateRef.current) {
-        const { ids, startX, startY, origRotations, commonCenterX, commonCenterY } = rotateRef.current
-        
+        const { ids, startX, startY, origRotations, commonCenterX, commonCenterY } =
+          rotateRef.current
+
         // 计算起始向量：从共同中心点到起始拖拽点
         const startVecX = startX - commonCenterX
         const startVecY = startY - commonCenterY
         // 计算当前向量：从共同中心点到当前鼠标位置
         const currentVecX = pos.x - commonCenterX
         const currentVecY = pos.y - commonCenterY
-        
+
         // 使用 Math.atan2 计算两个向量的角度
         const startAngle = Math.atan2(startVecY, startVecX)
         const currentAngle = Math.atan2(currentVecY, currentVecX)
-        
+
         // 计算角度差（弧度）
         let angleDelta = currentAngle - startAngle
-        
+
         // Shift 键步进旋转
         // 专业设计工具标准：按住 Shift 键时旋转对齐到 15° 的整数倍
         const shiftPressed = 'shiftKey' in e && (e as MouseEvent).shiftKey
@@ -1166,11 +1226,11 @@ export function usePointerEngine(opts: {
           const snappedAngle = Math.round(totalAngle / step) * step
           angleDelta = snappedAngle - firstOrigRotation
         }
-        
+
         // 批量旋转所有选中元素
         // 所有元素围绕共同中心点旋转相同角度
         useAppStore.getState().rotateElementsById(ids, angleDelta, commonCenterX, commonCenterY)
-        
+
         scheduleRedraw()
         return
       }
@@ -1183,17 +1243,15 @@ export function usePointerEngine(opts: {
         const y1 = Math.min(m.startY, m.endY)
         const x2 = Math.max(m.startX, m.endX)
         const y2 = Math.max(m.startY, m.endY)
-        
+
         // 只有当框选区域有一定大小时才触发自动拖拽
         const marqueeSize = Math.max(x2 - x1, y2 - y1)
         const now = performance.now()
-        
+
         if (marqueeToDragRef.current.enabled && marqueeSize > 20) {
           // 检测鼠标是否向选择区域内部移动
-          const isMovingInside = 
-            pos.x >= x1 && pos.x <= x2 && 
-            pos.y >= y1 && pos.y <= y2
-          
+          const isMovingInside = pos.x >= x1 && pos.x <= x2 && pos.y >= y1 && pos.y <= y2
+
           // 检测鼠标移动方向是否是"收缩"而不是"扩大"
           const prevWidth = x2 - x1
           const prevHeight = y2 - y1
@@ -1203,9 +1261,9 @@ export function usePointerEngine(opts: {
           const newY2 = Math.max(m.startY, pos.y)
           const newWidth = newX2 - newX1
           const newHeight = newY2 - newY1
-          
+
           const isShrinking = newWidth < prevWidth * 0.95 || newHeight < prevHeight * 0.95
-          
+
           // 如果鼠标在选择区域内，或者区域在收缩，说明用户想开始拖拽
           if ((isMovingInside || isShrinking) && now - marqueeToDragRef.current.lastMoveTime > 50) {
             // 先完成选择
@@ -1218,10 +1276,10 @@ export function usePointerEngine(opts: {
               const b = cachedBounds(el)
               if (b.x + b.w >= x1 && b.x <= x2 && b.y + b.h >= y1 && b.y <= y2) hits.push(el.id)
             }
-            
+
             if (hits.length > 0) {
               setSelectedIds(hits)
-              
+
               // 立即进入拖拽模式，无缝衔接
               const startPositions = new Map<string, { x: number; y: number }>()
               for (const id of hits) {
@@ -1232,10 +1290,10 @@ export function usePointerEngine(opts: {
                 else if (el.type === 'shape' || el.type === 'text' || el.type === 'image')
                   startPositions.set(id, { x: el.x, y: el.y })
               }
-              
+
               const screenX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
               const screenY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
-              
+
               dragRef.current = {
                 x: pos.x,
                 y: pos.y,
@@ -1245,7 +1303,7 @@ export function usePointerEngine(opts: {
                 startScreenX: screenX,
                 startScreenY: screenY,
               }
-              
+
               marqueeRef.current = null
               marqueeToDragRef.current.selectionComplete = true
               scheduleRedraw()
@@ -1253,7 +1311,7 @@ export function usePointerEngine(opts: {
             }
           }
         }
-        
+
         marqueeToDragRef.current.lastMoveTime = now
         marqueeRef.current = { ...marqueeRef.current, endX: pos.x, endY: pos.y }
         scheduleRedraw()
@@ -1268,16 +1326,16 @@ export function usePointerEngine(opts: {
           const dxScreen = screenX - dragRef.current.startScreenX
           const dyScreen = screenY - dragRef.current.startScreenY
           const distSq = dxScreen * dxScreen + dyScreen * dyScreen
-          
+
           // 移动距离小于阈值时，不执行拖动
           if (distSq < DRAG_THRESHOLD * DRAG_THRESHOLD) {
             return
           }
-          
+
           // 超过阈值，标记拖动开始
           dragRef.current.dragStarted = true
         }
-        
+
         // Alt 拖拽复制时保持原始元素位置不变
         // 问题: 之前按住 Alt 拖拽时，原始元素会跟着鼠标一起移动
         // 修复: 匹配 Figma/Excalidraw/Sketch 专业工具标准行为 - 原始元素保持原位，只有新复制的元素跟随鼠标
@@ -1290,41 +1348,41 @@ export function usePointerEngine(opts: {
           const st = useAppStore.getState()
           const newIds: string[] = []
           const newStartPositions = new Map<string, { x: number; y: number }>()
-          
+
           // 1. 复制所有原始选中元素
           for (const id of altDragDuplicateRef.current.originalSelectedIds) {
             const el = st.idToElement.get(id)
             if (!el) continue
-            
+
             // 深拷贝元素，生成新 ID
             const newId = `${el.type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
             const newEl = { ...el, id: newId }
-            
+
             // stroke 类型需要特殊处理 points 数组
             if (el.type === 'stroke') {
               ;(newEl as any).points = el.points.map((p: number[]) => [...p])
             }
-            
+
             addElement(newEl)
             newIds.push(newId)
-            
+
             // 记录新元素的起始位置（用于拖拽计算）
             if (el.type === 'stroke') {
-              newStartPositions.set(newId, { 
-                x: (el as any).points[0]?.[0] ?? 0, 
-                y: (el as any).points[0]?.[1] ?? 0 
+              newStartPositions.set(newId, {
+                x: (el as any).points[0]?.[0] ?? 0,
+                y: (el as any).points[0]?.[1] ?? 0,
               })
             } else if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
               newStartPositions.set(newId, { x: (el as any).x, y: (el as any).y })
             }
           }
-          
+
           // 2. 关键修复: 将原始元素移回原位（撤销已发生的移动）
           // 因为在复制发生前，原始元素已经跟随鼠标移动了一段距离
           // 我们需要把它们移回 startPositions 记录的起始位置
           const originalIds = altDragDuplicateRef.current.originalSelectedIds
           const startPositions = dragRef.current.startPositions
-          
+
           if (!startPositions) {
             // 如果没有起始位置记录，直接跳过修复（理论上不会发生）
             setSelectedIds(newIds)
@@ -1332,21 +1390,21 @@ export function usePointerEngine(opts: {
             altDragDuplicateRef.current.hasDuplicated = true
             return
           }
-          
+
           for (const id of originalIds) {
             const el = st.idToElement.get(id)
             if (!el) continue
-            
+
             const startPos = startPositions.get(id)
             if (!startPos) continue
-            
+
             if (el.type === 'stroke') {
               // 计算 stroke 当前位置与起始位置的偏移
               const currentX = el.points[0]?.[0] ?? 0
               const currentY = el.points[0]?.[1] ?? 0
               const dx = startPos.x - currentX
               const dy = startPos.y - currentY
-              
+
               // 只有当确实有偏移时才移动
               if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
                 moveElementById(id, dx, dy)
@@ -1355,24 +1413,24 @@ export function usePointerEngine(opts: {
               // 计算元素当前位置与起始位置的偏移
               const dx = startPos.x - el.x
               const dy = startPos.y - el.y
-              
+
               // 只有当确实有偏移时才移动
               if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
                 moveElementById(id, dx, dy)
               }
             }
           }
-          
+
           // 3. 选中新复制的元素（让用户拖拽的是新元素）
           setSelectedIds(newIds)
-          
+
           // 4. 更新 dragRef 的 startPositions 为新元素的位置
           dragRef.current.startPositions = newStartPositions
-          
+
           // 5. 标记已复制，防止多次复制
           altDragDuplicateRef.current.hasDuplicated = true
         }
-        
+
         let dx = pos.x - dragRef.current.x,
           dy = pos.y - dragRef.current.y
         const st = useAppStore.getState()
@@ -1399,9 +1457,9 @@ export function usePointerEngine(opts: {
         snapLinesRef.current = { x: snap.linesX, y: snap.linesY }
         if (ids.length > 1) moveElementsById(ids, dx, dy)
         else moveElementById(dragRef.current.id, dx, dy)
-        dragRef.current = { 
-          x: pos.x + snap.dx, 
-          y: pos.y + snap.dy, 
+        dragRef.current = {
+          x: pos.x + snap.dx,
+          y: pos.y + snap.dy,
           id: dragRef.current.id,
           dragStarted: dragRef.current.dragStarted,
           startScreenX: dragRef.current.startScreenX,
@@ -1536,12 +1594,12 @@ export function usePointerEngine(opts: {
               // 计算起点和终点坐标
               const startPoint: [number, number] = [shape.x, shape.y]
               const endPoint: [number, number] = [shape.x + shape.w, shape.y + shape.h]
-              
+
               // 检测起点绑定
               const startBinding = tryBindToShape(startPoint, st.elements, shape.id)
               // 检测终点绑定
               const endBinding = tryBindToShape(endPoint, st.elements, shape.id)
-              
+
               // 如果有绑定，更新形状的绑定信息
               if (startBinding || endBinding) {
                 const updatedShape = { ...shape }
@@ -1586,7 +1644,7 @@ export function usePointerEngine(opts: {
               const b = cachedBounds(el)
               if (b.x + b.w >= x1 && b.x <= x2 && b.y + b.h >= y1 && b.y <= y2) hits.push(el.id)
             }
-            
+
             // 按住 Cmd/Ctrl 框选追加选区
             // 匹配 Figma/Sketch/Photoshop 行业标准：按住修饰键框选时追加选区而非替换
             const isAppendSelectKey = e.metaKey || e.ctrlKey
@@ -1648,18 +1706,16 @@ export function usePointerEngine(opts: {
           // 保存所有旋转元素的原始状态到撤销栈
           useAppStore.getState().pushUndo({
             type: 'clear',
-            snapshot: useAppStore
-              .getState()
-              .elements.map((e) => {
-                if (idSet.has(e.id)) {
-                  // 创建旋转前的元素副本
-                  const origEl = { ...e }
-                  const origRotation = origRotations.get(e.id) || 0
-                  ;(origEl as any).rotation = origRotation
-                  return origEl
-                }
-                return e
-              }),
+            snapshot: useAppStore.getState().elements.map((e) => {
+              if (idSet.has(e.id)) {
+                // 创建旋转前的元素副本
+                const origEl = { ...e }
+                const origRotation = origRotations.get(e.id) || 0
+                ;(origEl as any).rotation = origRotation
+                return origEl
+              }
+              return e
+            }),
           })
         }
         dragRef.current = null
@@ -1725,7 +1781,7 @@ export function usePointerEngine(opts: {
     // 按住 Space 键临时切换 Pan 工具
     // 监听 Space 键按下/松开，临时切换到平移模式
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "Space" && !e.repeat && spacePanRef.current.enabled) {
+      if (e.code === 'Space' && !e.repeat && spacePanRef.current.enabled) {
         // 防止 Space 键触发滚动
         e.preventDefault()
         // 只在未激活时才切换，避免重复触发
@@ -1735,13 +1791,13 @@ export function usePointerEngine(opts: {
           spacePanRef.current.originalTool = st.tool
           spacePanRef.current.isActive = true
           spacePanRef.current.wasPanning = false
-          st.setTool("pan" as ToolType)
+          st.setTool('pan' as ToolType)
           scheduleRedraw()
         }
       }
     }
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === "Space" && spacePanRef.current.enabled) {
+      if (e.code === 'Space' && spacePanRef.current.enabled) {
         if (spacePanRef.current.isActive) {
           // 如果正在平移，先结束平移
           if (spacePanRef.current.wasPanning || useViewStore.getState().isPanning) {
@@ -1761,9 +1817,8 @@ export function usePointerEngine(opts: {
       }
     }
     // 使用 window 监听，确保焦点在 canvas 外也能工作
-    window.addEventListener("keydown", onKeyDown)
-    window.addEventListener("keyup", onKeyUp)
-
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
 
     canvas.addEventListener('mousedown', onStart)
     canvas.addEventListener('mousemove', onMove)
@@ -1790,12 +1845,12 @@ export function usePointerEngine(opts: {
       if (!hitId) return
       const el = useAppStore.getState().idToElement.get(hitId)
       if (!el) return
-      
+
       const canvas = canvasRef.current
       if (!canvas) return
       const rect = canvas.getBoundingClientRect()
       const vb = useViewStore.getState().viewBox
-      
+
       // 双击文本元素进入编辑模式
       if (el.type === 'text') {
         const screenX = (el.x - vb.x) * vb.zoom + rect.left
@@ -1817,7 +1872,7 @@ export function usePointerEngine(opts: {
         const textY = b.y + b.h / 2
         const screenX = (textX - vb.x) * vb.zoom + rect.left
         const screenY = (textY - vb.y) * vb.zoom + rect.top
-        
+
         // 使用形状的颜色作为文本颜色，保持视觉一致性
         // 默认字号 16，与工具栏默认一致
         startEditText(textX, textY, screenX, screenY, el.color)
@@ -1830,8 +1885,8 @@ export function usePointerEngine(opts: {
     canvas.addEventListener('touchmove', onMove, { passive: false })
     canvas.addEventListener('touchend', onEnd, { passive: false })
     return () => {
-      window.removeEventListener("keydown", onKeyDown)
-      window.removeEventListener("keyup", onKeyUp)
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
 
       canvas.removeEventListener('mousedown', onStart)
       canvas.removeEventListener('mousemove', onMove)
@@ -1946,9 +2001,9 @@ export function usePointerEngine(opts: {
         // 6: 左边缘中点 - 左右光标
         // 7: 右边缘中点 - 左右光标
         if (h.handle === 4 || h.handle === 5) {
-          return 'ns-resize'  // 上下边缘：垂直调整光标
+          return 'ns-resize' // 上下边缘：垂直调整光标
         } else if (h.handle === 6 || h.handle === 7) {
-          return 'ew-resize'  // 左右边缘：水平调整光标
+          return 'ew-resize' // 左右边缘：水平调整光标
         } else {
           // 角落手柄
           return ['nwse-resize', 'nesw-resize', 'nesw-resize', 'nwse-resize'][h.handle]
@@ -2024,23 +2079,23 @@ export function usePointerEngine(opts: {
       const { startX, startY, commonCenterX, commonCenterY, origRotations, ids } = rotateRef.current
       const mouseX = mouseRef.current?.x ?? startX
       const mouseY = mouseRef.current?.y ?? startY
-      
+
       // 计算从起始点到当前点的角度变化
       const startVecX = startX - commonCenterX
       const startVecY = startY - commonCenterY
       const startAngle = Math.atan2(startVecY, startVecX)
-      
+
       const currentVecX = mouseX - commonCenterX
       const currentVecY = mouseY - commonCenterY
       const currentAngle = Math.atan2(currentVecY, currentVecX)
-      
+
       const angleDelta = currentAngle - startAngle
       const firstOrigRotation = origRotations.get(ids[0]) || 0
       const totalAngle = firstOrigRotation + angleDelta
-      
+
       // 转换为度数并归一化到 0-360
-      const degrees = ((totalAngle * 180 / Math.PI) % 360 + 360) % 360
-      
+      const degrees = ((((totalAngle * 180) / Math.PI) % 360) + 360) % 360
+
       rotationAngle = {
         angle: degrees,
         centerX: commonCenterX,

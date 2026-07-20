@@ -45,6 +45,12 @@ export function useKeyboardBindings(options: Options = {}) {
         return
       }
 
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault()
+        vs.resetView()
+        return
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
         e.preventDefault()
         st.copySelected()
@@ -57,21 +63,21 @@ export function useKeyboardBindings(options: Options = {}) {
         e.preventDefault()
         const clipReadText = navigator.clipboard?.readText?.bind(navigator.clipboard)
         if (!clipReadText) return
-        
+
         clipReadText()
           .then((text: string) => {
             if (!text || text.trim().length === 0) return
-            
+
             const center = getViewportCenter()
             const fontSize = 16
             // Estimate width based on character count (average 0.6 * fontSize per char)
             const avgCharWidth = fontSize * 0.6
             const lineHeight = fontSize * 1.4
             const lines = text.split('\n')
-            const maxLineLength = Math.max(...lines.map(l => l.length))
+            const maxLineLength = Math.max(...lines.map((l) => l.length))
             const width = Math.max(100, Math.min(600, Math.round(maxLineLength * avgCharWidth)))
             const height = Math.round(lines.length * lineHeight + 16)
-            
+
             st.addElement({
               type: 'text',
               id: `text-${Date.now()}`,
@@ -89,7 +95,7 @@ export function useKeyboardBindings(options: Options = {}) {
           })
         return
       }
-      
+
       // Regular paste: Ctrl+V / Cmd+V
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v' && !e.shiftKey) {
         e.preventDefault()
@@ -219,7 +225,7 @@ export function useKeyboardBindings(options: Options = {}) {
           let step = 1
           if (e.ctrlKey || e.metaKey) step = 10
           else if (e.shiftKey) step = 50
-          
+
           const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
           const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
           st.moveElementsById(st.selectedIds, dx, dy)
@@ -251,11 +257,11 @@ export function useKeyboardBindings(options: Options = {}) {
       // 用户价值：专业用户快速采样样式，无需点击，减少一次模式切换
       if ((e.key === 'q' || e.key === 'Q') && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault()
-        
+
         // 检查是否有悬停元素
         const hoveredRef = (window as any).__mindnotes_hovered_element_id__
         const hoveredElementId = hoveredRef?.current
-        
+
         if (hoveredElementId) {
           // 有悬停元素：直接复制样式（快速模式）
           const el = st.idToElement.get(hoveredElementId)
@@ -272,7 +278,13 @@ export function useKeyboardBindings(options: Options = {}) {
       // Quick Zoom Navigation (Z 键鹰眼模式)
       // 设计参考: tldraw, Figma, Sketch - 专业设计工具标准导航功能
       // 按 Z 键进入鹰眼模式（全局预览），松开或点击确认放大，ESC 取消
-      if ((e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+      if (
+        (e.key === 'z' || e.key === 'Z') &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        !e.shiftKey
+      ) {
         e.preventDefault()
         const vs = useViewStore.getState()
         if (vs.eagleEye.isActive) {

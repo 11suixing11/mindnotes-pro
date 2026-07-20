@@ -191,6 +191,15 @@ describe('useKeyboardBindings', () => {
       press('-')
       expect(useViewStore.getState().viewBox.zoom).toBeLessThan(1)
     })
+
+    it('Ctrl+0 should reset the canvas view', () => {
+      useViewStore.setState({ viewBox: { x: 120, y: -80, zoom: 2.5 } })
+      renderHook(() => useKeyboardBindings())
+
+      press('0', { ctrlKey: true })
+
+      expect(useViewStore.getState().viewBox).toEqual({ x: 0, y: 0, zoom: 1 })
+    })
   })
 
   describe('textarea/input focus', () => {
