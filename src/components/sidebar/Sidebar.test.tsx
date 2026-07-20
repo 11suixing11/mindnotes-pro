@@ -22,6 +22,14 @@ const doc: CanvasDoc = {
   updatedAt: 1,
 }
 
+function makeDoc(overrides: Partial<CanvasDoc>): CanvasDoc {
+  return {
+    ...doc,
+    ...overrides,
+    elements: overrides.elements ?? doc.elements,
+  }
+}
+
 describe('Sidebar document rename', () => {
   const renameDoc = vi.fn(async (id: string, title: string) => {
     useAppStore.setState((state) => ({
@@ -30,6 +38,7 @@ describe('Sidebar document rename', () => {
   })
 
   beforeEach(() => {
+    localStorage.clear()
     confirmMock.mockReset()
     renameDoc.mockClear()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => null)
@@ -41,6 +50,8 @@ describe('Sidebar document rename', () => {
       docs: [doc],
       currentDocId: doc.id,
       sidebarOpen: true,
+      documentSearchQuery: '',
+      recentDocumentSearches: [],
       renameDoc,
       openDoc: vi.fn(async () => undefined),
       createDoc: vi.fn(async () => 'doc-2'),
@@ -104,5 +115,82 @@ describe('Sidebar document rename', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }))
 
     expect(screen.getByRole('textbox', { name: 'Rename Original' })).toBeTruthy()
+  })
+
+  it('filters documents by title and highlights matching text', () => {
+    useAppStore.setState({
+      docs: [
+        doc,
+        makeDoc({
+          id: 'doc-2',
+          title: 'Project Plan',
+          updatedAt: 2,
+        }),
+      ],
+    })
+    render(<Sidebar />)
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search documents' }), {
+      target: { value: 'project' },
+    })
+
+    expect(screen.getByText('Project')).toBeTruthy()
+    expect(screen.getByText('Project').closest('mark')).toBeTruthy()
+    expect(screen.getByText('1 of 2 documents')).toBeTruthy()
+    expect(screen.queryByText('Original')).toBeNull()
+  })
+
+  it('searches document text elements and shows a highlighted snippet', () => {
+    useAppStore.setState({
+      docs: [
+        doc,
+        makeDoc({
+          id: 'doc-2',
+          title: 'Meeting Notes',
+          elements: [
+            {
+              type: 'text',
+              id: 'text-1',
+              x: 0,
+              y: 0,
+              width: 200,
+              height: 40,
+              content: 'Budget timeline and launch checklist',
+              fontSize: 16,
+              color: '#111111',
+            },
+          ],
+          updatedAt: 2,
+        }),
+      ],
+    })
+    render(<Sidebar />)
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search documents' }), {
+      target: { value: 'timeline' },
+    })
+
+    expect(screen.getByText('Meeting Notes')).toBeTruthy()
+    expect(screen.getByText('timeline')).toBeTruthy()
+    expect(screen.getByText('timeline').closest('mark')).toBeTruthy()
+    expect(screen.getByText('1 of 2 documents')).toBeTruthy()
+    expect(screen.queryByText('Original')).toBeNull()
+  })
+
+  it('stores recent searches and can run them again', () => {
+    render(<Sidebar />)
+
+    const input = screen.getByRole('searchbox', { name: 'Search documents' }) as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'original' } })
+    fireEvent.submit(input.closest('form')!)
+
+    expect(screen.getByRole('button', { name: 'Search again: original' })).toBeTruthy()
+    expect(JSON.parse(localStorage.getItem('mn-sidebar-searches') ?? '[]')).toEqual(['original'])
+
+    fireEvent.change(input, { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Search again: original' }))
+
+    expect(input.value).toBe('original')
+    expect(screen.getByText('Original')).toBeTruthy()
   })
 })

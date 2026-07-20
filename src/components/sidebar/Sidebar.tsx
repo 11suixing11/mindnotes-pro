@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '../../store/appStore'
 import type { CanvasDoc } from '../../store/types'
 import { useConfirm } from '../confirm-modal'
@@ -27,6 +27,55 @@ function formatTime(timestamp: number) {
   }).format(timestamp)
 }
 
+function documentText(doc: CanvasDoc) {
+  return doc.elements
+    .filter((element) => element.type === 'text')
+    .map((element) => element.content)
+    .join('\n')
+}
+
+function makeContentSnippet(content: string, query: string) {
+  const normalizedContent = content.toLowerCase()
+  const index = normalizedContent.indexOf(query)
+  if (index === -1) return content.slice(0, 80)
+
+  const start = Math.max(0, index - 24)
+  const end = Math.min(content.length, index + query.length + 32)
+  const prefix = start > 0 ? '…' : ''
+  const suffix = end < content.length ? '…' : ''
+  return `${prefix}${content.slice(start, end)}${suffix}`
+}
+
+function getSearchMatch(doc: CanvasDoc, query: string) {
+  if (!query) return { type: 'none' as const, snippet: '' }
+
+  if (doc.title.toLowerCase().includes(query)) {
+    return { type: 'title' as const, snippet: doc.title }
+  }
+
+  const content = documentText(doc)
+  if (content.toLowerCase().includes(query)) {
+    return { type: 'content' as const, snippet: makeContentSnippet(content, query) }
+  }
+
+  return null
+}
+
+function highlightMatch(text: string, query: string) {
+  if (!query) return text
+
+  const index = text.toLowerCase().indexOf(query)
+  if (index === -1) return text
+
+  return (
+    <>
+      {text.slice(0, index)}
+      <mark className="sb-search-mark">{text.slice(index, index + query.length)}</mark>
+      {text.slice(index + query.length)}
+    </>
+  )
+}
+
 export default function Sidebar() {
   const isMobile = useIsMobile()
   const docs = useAppStore((state) => state.docs)
@@ -36,6 +85,10 @@ export default function Sidebar() {
   const createDoc = useAppStore((state) => state.createDoc)
   const openDoc = useAppStore((state) => state.openDoc)
   const renameDoc = useAppStore((state) => state.renameDoc)
+  const searchQuery = useAppStore((state) => state.documentSearchQuery)
+  const recentSearches = useAppStore((state) => state.recentDocumentSearches)
+  const setSearchQuery = useAppStore((state) => state.setDocumentSearchQuery)
+  const addRecentSearch = useAppStore((state) => state.addRecentDocumentSearch)
   const confirm = useConfirm()
 
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -44,6 +97,22 @@ export default function Sidebar() {
   const renameInputRef = useRef<HTMLInputElement>(null)
   const cancellingRef = useRef(false)
   const confirmingRef = useRef(false)
+
+  const normalizedSearch = searchQuery.trim().toLowerCase()
+  const visibleDocs = useMemo(
+    () =>
+      docs
+        .map((doc) => ({ doc, match: getSearchMatch(doc, normalizedSearch) }))
+        .filter((item) => !normalizedSearch || item.match),
+    [docs, normalizedSearch]
+  )
+
+  const saveRecentSearch = useCallback(
+    (value: string) => {
+      addRecentSearch(value)
+    },
+    [addRecentSearch]
+  )
 
   const startRename = useCallback((doc: CanvasDoc) => {
     setRenamingId(doc.id)
@@ -99,10 +168,11 @@ export default function Sidebar() {
   const openDocument = useCallback(
     (id: string) => {
       if (renamingId === id) return
+      saveRecentSearch(searchQuery)
       void openDoc(id)
       if (isMobile) setSidebarOpen(false)
     },
-    [isMobile, openDoc, renamingId, setSidebarOpen]
+    [isMobile, openDoc, renamingId, saveRecentSearch, searchQuery, setSidebarOpen]
   )
 
   if (!sidebarOpen) {
@@ -150,11 +220,59 @@ export default function Sidebar() {
           <button type="button" className="sb-btn-new" onClick={() => void createDoc()}>
             + New document
           </button>
+          <form
+            className="sb-search"
+            role="search"
+            onSubmit={(event) => {
+              event.preventDefault()
+              saveRecentSearch(searchQuery)
+            }}
+          >
+            <input
+              type="search"
+              aria-label="Search documents"
+              className="sb-search-input"
+              placeholder="Search documents…"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                aria-label="Clear document search"
+                className="sb-search-clear"
+                onClick={() => setSearchQuery('')}
+              >
+                ×
+              </button>
+            )}
+          </form>
+          {recentSearches.length > 0 && (
+            <div className="sb-recent-searches" aria-label="Recent document searches">
+              {recentSearches.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className="sb-recent-chip"
+                  aria-label={`Search again: ${item}`}
+                  onClick={() => setSearchQuery(item)}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div role="list" aria-label="Document list" className="sb-tree">
-          {docs.map((doc) => {
+          {visibleDocs.length === 0 && (
+            <div className="sb-empty-search" role="status">
+              No documents found
+            </div>
+          )}
+          {visibleDocs.map(({ doc, match }) => {
             const isActive = doc.id === currentDocId
+            const contentMatch = normalizedSearch && match?.type === 'content' ? match.snippet : ''
             return (
               <div
                 key={doc.id}
@@ -204,9 +322,15 @@ export default function Sidebar() {
                     }}
                   >
                     <div className={`sb-doc-title${isActive ? ' sb-doc-title-active' : ''}`}>
-                      {doc.title}
+                      {highlightMatch(doc.title, normalizedSearch)}
                     </div>
-                    <div className="sb-doc-meta">{formatTime(doc.updatedAt)}</div>
+                    <div className={`sb-doc-meta${contentMatch ? ' sb-doc-match' : ''}`}>
+                      {contentMatch ? (
+                        <>Text: {highlightMatch(contentMatch, normalizedSearch)}</>
+                      ) : (
+                        formatTime(doc.updatedAt)
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -215,7 +339,9 @@ export default function Sidebar() {
         </div>
 
         <div className="sb-footer" aria-live="polite">
-          {docs.length} {docs.length === 1 ? 'document' : 'documents'}
+          {normalizedSearch
+            ? `${visibleDocs.length} of ${docs.length} ${docs.length === 1 ? 'document' : 'documents'}`
+            : `${docs.length} ${docs.length === 1 ? 'document' : 'documents'}`}
         </div>
       </nav>
 

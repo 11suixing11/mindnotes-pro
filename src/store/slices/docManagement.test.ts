@@ -41,6 +41,8 @@ describe('docManagement slice', () => {
       docs: [],
       currentDocId: null,
       loaded: false,
+      documentSearchQuery: '',
+      recentDocumentSearches: [],
       elements: [],
       bgColor: '#ffffff',
       backgroundStyle: 'plain',
@@ -266,6 +268,44 @@ describe('docManagement slice', () => {
       useAppStore.setState({ currentDocId: null } as any)
       await useAppStore.getState().openDoc(id)
       expect(useAppStore.getState().selectedIds).toEqual([])
+    })
+  })
+
+  describe('document search state', () => {
+    it('updates the document search query', () => {
+      useAppStore.getState().setDocumentSearchQuery('roadmap')
+
+      expect(useAppStore.getState().documentSearchQuery).toBe('roadmap')
+    })
+
+    it('stores recent document searches with deduplication and persistence', () => {
+      const state = useAppStore.getState()
+
+      state.addRecentDocumentSearch('alpha')
+      state.addRecentDocumentSearch('beta')
+      state.addRecentDocumentSearch(' Alpha ')
+
+      expect(useAppStore.getState().recentDocumentSearches).toEqual(['Alpha', 'beta'])
+      expect(JSON.parse(localStorage.getItem('mn-sidebar-searches') ?? '[]')).toEqual([
+        'Alpha',
+        'beta',
+      ])
+    })
+
+    it('keeps only the five most recent document searches', () => {
+      const state = useAppStore.getState()
+
+      for (const query of ['one', 'two', 'three', 'four', 'five', 'six']) {
+        state.addRecentDocumentSearch(query)
+      }
+
+      expect(useAppStore.getState().recentDocumentSearches).toEqual([
+        'six',
+        'five',
+        'four',
+        'three',
+        'two',
+      ])
     })
   })
 })
