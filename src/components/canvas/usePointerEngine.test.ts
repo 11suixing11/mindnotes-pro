@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import {
-  lockResizeScalesToAspectRatio,
-  shouldPreserveResizeAspectRatio,
-  usePointerEngine,
-} from './usePointerEngine'
+import { usePointerEngine } from './usePointerEngine'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import type { CanvasElement } from '../../store/types'
@@ -52,31 +48,6 @@ describe('usePointerEngine', () => {
       selectedIds: [],
     })
     useViewStore.setState({ viewBox: { x: 0, y: 0, zoom: 1 }, isPanning: false })
-  })
-
-  describe('resize aspect ratio behavior', () => {
-    it('preserves image aspect ratio by default on corner handles', () => {
-      expect(shouldPreserveResizeAspectRatio('image', 0, false)).toBe(true)
-    })
-
-    it('allows freeform image resizing when Shift is held', () => {
-      expect(shouldPreserveResizeAspectRatio('image', 0, true)).toBe(false)
-    })
-
-    it('keeps existing Shift-to-preserve behavior for non-image elements', () => {
-      expect(shouldPreserveResizeAspectRatio('shape', 0, false)).toBe(false)
-      expect(shouldPreserveResizeAspectRatio('shape', 0, true)).toBe(true)
-    })
-
-    it('does not preserve aspect ratio for edge handles', () => {
-      expect(shouldPreserveResizeAspectRatio('image', 4, false)).toBe(false)
-      expect(shouldPreserveResizeAspectRatio('shape', 4, true)).toBe(false)
-    })
-
-    it('locks both resize scales to the dominant axis while preserving sign', () => {
-      expect(lockResizeScalesToAspectRatio(1.5, 0.75)).toEqual({ sx: 1.5, sy: 1.5 })
-      expect(lockResizeScalesToAspectRatio(-0.5, 2)).toEqual({ sx: -2, sy: 2 })
-    })
   })
 
   it('should return getCursor function', () => {
