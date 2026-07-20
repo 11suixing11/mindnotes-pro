@@ -7,6 +7,9 @@ const BRUSHES: { id: BrushType; label: string; desc: string }[] = [
   { id: 'highlighter', label: '\u8367\u5149\u7b14', desc: '\u534a\u900f\u660e\u5bbd\u7b14' },
   { id: 'pencil', label: '\u94c5\u7b14', desc: '\u7c97\u7cd9\u8d28\u611f' },
   { id: 'calligraphy', label: '\u4e66\u6cd5\u7b14', desc: '\u7c97\u7ec6\u53d8\u5316' },
+  { id: 'marker', label: '\u9a6c\u514b\u7b14', desc: '\u7a33\u5b9a\u7c97\u7ebf' },
+  { id: 'watercolor', label: '\u6c34\u5f69\u7b14', desc: '\u534a\u900f\u660e\u53e0\u8272' },
+  { id: 'crayon', label: '\u8721\u7b14', desc: '\u7c97\u7cd9\u8fb9\u7f18' },
   { id: 'dashed', label: '\u865a\u7ebf\u7b14', desc: '\u865a\u7ebf\u7b14\u8ff9' },
   { id: 'glow', label: '\u5f69\u8679\u7b14', desc: '\u53d1\u5149\u6548\u679c' },
 ]

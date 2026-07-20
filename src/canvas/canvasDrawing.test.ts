@@ -66,6 +66,7 @@ function createMockCtx(): CanvasRenderingContext2D {
     lineCap: 'butt',
     lineJoin: 'miter',
     globalAlpha: 1,
+    globalCompositeOperation: 'source-over',
     font: '',
     textAlign: 'start',
     textBaseline: 'alphabetic',
@@ -230,6 +231,63 @@ describe('canvasDrawing', () => {
       }
       drawStrokeEl(ctx, el, false)
       expect(ctx.beginPath).toHaveBeenCalled()
+    })
+
+    it('should draw marker strokes with a bold consistent width', () => {
+      const el: StrokeElement = {
+        type: 'stroke',
+        id: 's1',
+        points: [
+          [0, 0],
+          [10, 10],
+        ],
+        color: '#000',
+        size: 4,
+        brush: 'marker',
+      }
+      drawStrokeEl(ctx, el, false)
+      expect(ctx.save).toHaveBeenCalled()
+      expect(ctx.lineWidth).toBe(8.8)
+      expect(ctx.stroke).toHaveBeenCalled()
+      expect(ctx.restore).toHaveBeenCalled()
+    })
+
+    it('should draw watercolor strokes with transparent blending passes', () => {
+      const el: StrokeElement = {
+        type: 'stroke',
+        id: 's1',
+        points: [
+          [0, 0],
+          [10, 10],
+          [20, 5],
+        ],
+        color: '#228be6',
+        size: 4,
+        brush: 'watercolor',
+      }
+      drawStrokeEl(ctx, el, false)
+      expect(ctx.globalCompositeOperation).toBe('multiply')
+      expect(ctx.beginPath).toHaveBeenCalledTimes(3)
+      expect(ctx.stroke).toHaveBeenCalledTimes(3)
+    })
+
+    it('should draw crayon strokes with rough layered edges', () => {
+      const el: StrokeElement = {
+        type: 'stroke',
+        id: 's1',
+        points: [
+          [0, 0],
+          [10, 10],
+          [20, 5],
+        ],
+        color: '#d9480f',
+        size: 4,
+        brush: 'crayon',
+      }
+      drawStrokeEl(ctx, el, false)
+      expect(ctx.beginPath).toHaveBeenCalledTimes(4)
+      expect(ctx.stroke).toHaveBeenCalledTimes(4)
+      expect(ctx.restore).toHaveBeenCalled()
     })
 
     it('should draw dashed strokes', () => {
