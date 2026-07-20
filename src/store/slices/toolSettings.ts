@@ -2,7 +2,33 @@ import type { ToolType, BrushType, CanvasBackgroundStyle } from '../types'
 import { incrementSaveGeneration, scheduleSave } from '../saveManager'
 
 // 扩展颜色历史记录 - 基于 tldraw #1665 用户需求
-const MAX_COLOR_HISTORY = 8
+export const COLOR_HISTORY_KEY = 'mn-recent-colors'
+export const MAX_COLOR_HISTORY = 10
+
+function loadColorHistory(): string[] {
+  if (typeof localStorage === 'undefined') return []
+
+  try {
+    const parsed = JSON.parse(localStorage.getItem(COLOR_HISTORY_KEY) ?? '[]')
+    return Array.isArray(parsed)
+      ? parsed
+          .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+          .slice(0, MAX_COLOR_HISTORY)
+      : []
+  } catch {
+    return []
+  }
+}
+
+function persistColorHistory(colors: string[]) {
+  if (typeof localStorage === 'undefined') return
+
+  try {
+    localStorage.setItem(COLOR_HISTORY_KEY, JSON.stringify(colors))
+  } catch {
+    // Recent colors remain usable during this session even when persistence is unavailable.
+  }
+}
 
 export interface ToolSettingsState {
   tool: ToolType
@@ -52,7 +78,7 @@ export function createToolSettingsSlice(
     size: 4,
     bgColor: '#ffffff',
     backgroundStyle: 'plain',
-    colorHistory: [],
+    colorHistory: loadColorHistory(),
     // 样式吸管状态
     styleEyedropperActive: false,
     styleEyedropperPreview: null,
@@ -77,9 +103,13 @@ export function createToolSettingsSlice(
       scheduleSave()
     },
     addColorToHistory: (c: string) => {
+      const color = c.trim()
+      if (!color) return
+
       const current = _get().colorHistory as string[]
-      const filtered = current.filter((h) => h !== c)
-      const next = [c, ...filtered].slice(0, MAX_COLOR_HISTORY)
+      const filtered = current.filter((h) => h !== color)
+      const next = [color, ...filtered].slice(0, MAX_COLOR_HISTORY)
+      persistColorHistory(next)
       set({ colorHistory: next })
     },
     // 样式吸管动作
@@ -132,7 +162,7 @@ export function createToolSettingsSlice(
       const currentTool = _get().tool as ToolType
       const geometryTools: ToolType[] = ['rectangle', 'circle', 'line', 'arrow']
       const currentIndex = geometryTools.indexOf(currentTool)
-      
+
       if (currentIndex === -1) {
         // 当前不在几何工具中，切换到第一个几何工具（矩形）
         set({ tool: 'rectangle' })
