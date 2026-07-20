@@ -218,6 +218,32 @@ describe('useCanvasRenderer', () => {
       })
       expect(result.current.elementsDirtyRef.current).toBe(true)
     })
+
+    it('should not mark elements dirty when only the background color changes', () => {
+      const { result } = renderHook(() =>
+        useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
+      )
+      result.current.elementsDirtyRef.current = false
+
+      act(() => {
+        useAppStore.setState({ bgColor: '#f5f0e8' })
+      })
+
+      expect(result.current.elementsDirtyRef.current).toBe(false)
+    })
+
+    it('should mark elements dirty when switching the plain background layer on or off', () => {
+      const { result } = renderHook(() =>
+        useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
+      )
+      result.current.elementsDirtyRef.current = false
+
+      act(() => {
+        useAppStore.setState({ backgroundStyle: 'dots' })
+      })
+
+      expect(result.current.elementsDirtyRef.current).toBe(true)
+    })
   })
 
   describe('redraw', () => {
