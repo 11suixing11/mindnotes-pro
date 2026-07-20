@@ -5,6 +5,7 @@ import type {
   TextElement,
   ImageElement,
 } from '../store/types'
+import { getSvgBrushStyle } from './brushPresets'
 import { sanitizeSvgDataUrl } from './svgSanitizer'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -29,41 +30,15 @@ function strokeToSVG(el: StrokeElement): string {
     d += `L${el.points[i][0]} ${el.points[i][1]}`
   }
 
-  let strokeWidth = el.size
-  let opacity: number | undefined
+  const { strokeWidth, opacity, dashArray, filterId } = getSvgBrushStyle(
+    el.brush,
+    el.size,
+    el.opacity
+  )
   let extraAttrs = ''
 
-  // Opacity for brushes that use it
-  if (el.brush === 'highlighter') {
-    opacity = el.opacity ?? 0.3
-    strokeWidth = el.size * 4
-  } else if (el.brush === 'pencil') {
-    opacity = el.opacity ?? 0.65
-    strokeWidth = el.size * 0.6
-  } else if (el.brush === 'marker') {
-    opacity = el.opacity ?? 0.9
-    strokeWidth = el.size * 2.2
-  } else if (el.brush === 'watercolor') {
-    opacity = el.opacity ?? 0.28
-    strokeWidth = el.size * 2.6
-  } else if (el.brush === 'crayon') {
-    opacity = el.opacity ?? 0.78
-    strokeWidth = el.size * 1.15
-  }
-
-  // Dashed stroke
-  if (el.brush === 'dashed') {
-    const dashLen = el.size * 2
-    const gapLen = el.size * 1.5
-    extraAttrs += ` stroke-dasharray="${dashLen} ${gapLen}"`
-  }
-
-  // Glow effect via filter
-  if (el.brush === 'glow') {
-    strokeWidth = el.size * 0.7
-    opacity = 0.9
-    extraAttrs += ` filter="url(#glow)"`
-  }
+  if (dashArray) extraAttrs += ` stroke-dasharray="${dashArray[0]} ${dashArray[1]}"`
+  if (filterId) extraAttrs += ` filter="url(#${filterId})"`
 
   const opacityAttr = opacity === undefined ? '' : ` opacity="${opacity}"`
   const attrs = `d="${d}" stroke="${el.color}" stroke-width="${strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round"${opacityAttr}${extraAttrs}`

@@ -7,6 +7,7 @@ import type {
   BrushType,
   CanvasBackgroundStyle,
 } from '../store/types'
+import { getBrushDashArray, getBrushDefaultOpacity, getCanvasStrokeWidth } from './brushPresets'
 import { getImage } from './canvasUtils'
 import getStroke from 'perfect-freehand'
 
@@ -464,9 +465,9 @@ export function drawStrokeEl(
     ctx.globalAlpha = 1
   } else if (b === 'highlighter') {
     ctx.save()
-    ctx.globalAlpha = el.opacity ?? 0.3
+    ctx.globalAlpha = el.opacity ?? getBrushDefaultOpacity(b) ?? 1
     ctx.strokeStyle = el.color
-    ctx.lineWidth = el.size * 4
+    ctx.lineWidth = getCanvasStrokeWidth(b, el.size)
     ctx.lineCap = 'square'
     ctx.beginPath()
     ctx.moveTo(pts[0][0], pts[0][1])
@@ -475,9 +476,9 @@ export function drawStrokeEl(
     ctx.restore()
   } else if (b === 'pencil') {
     ctx.save()
-    ctx.globalAlpha = el.opacity ?? 0.65
+    ctx.globalAlpha = el.opacity ?? getBrushDefaultOpacity(b) ?? 1
     ctx.strokeStyle = el.color
-    ctx.lineWidth = el.size * 0.6
+    ctx.lineWidth = getCanvasStrokeWidth(b, el.size)
     ctx.lineCap = 'round'
     // P0 性能优化: 批量绘制所有线段为单次 beginPath/stroke，减少 O(n) → O(1) 绘制调用
     ctx.beginPath()
@@ -553,9 +554,9 @@ export function drawStrokeEl(
     bucketCounts.fill(0)
   } else if (b === 'marker') {
     ctx.save()
-    ctx.globalAlpha = el.opacity ?? 0.9
+    ctx.globalAlpha = el.opacity ?? getBrushDefaultOpacity(b) ?? 1
     ctx.strokeStyle = el.color
-    ctx.lineWidth = el.size * 2.2
+    ctx.lineWidth = getCanvasStrokeWidth(b, el.size)
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.beginPath()
@@ -592,7 +593,10 @@ export function drawStrokeEl(
       ctx.stroke()
     }
 
-    drawWatercolorPass(el.size * 3.2, el.opacity ?? 0.22)
+    drawWatercolorPass(
+      getCanvasStrokeWidth(b, el.size),
+      el.opacity ?? getBrushDefaultOpacity(b) ?? 1
+    )
     drawWatercolorPass(el.size * 2.1, 0.18, el.size * 0.18)
     drawWatercolorPass(el.size * 1.4, 0.14, -el.size * 0.16)
     ctx.restore()
@@ -604,8 +608,8 @@ export function drawStrokeEl(
 
     for (let pass = 0; pass < 4; pass++) {
       const passOffset = (pass - 1.5) * el.size * 0.18
-      ctx.globalAlpha = pass === 0 ? (el.opacity ?? 0.78) : 0.34
-      ctx.lineWidth = pass === 0 ? el.size * 1.15 : el.size * 0.42
+      ctx.globalAlpha = pass === 0 ? (el.opacity ?? getBrushDefaultOpacity(b) ?? 1) : 0.34
+      ctx.lineWidth = pass === 0 ? getCanvasStrokeWidth(b, el.size) : el.size * 0.42
       ctx.beginPath()
       for (let i = 1; i < pts.length; i++) {
         const p = pts[i - 1],
@@ -624,7 +628,7 @@ export function drawStrokeEl(
     ctx.strokeStyle = el.color
     ctx.lineWidth = el.size
     ctx.lineCap = 'round'
-    ctx.setLineDash([el.size * 2, el.size * 1.5])
+    ctx.setLineDash(getBrushDashArray(b, el.size) ?? [])
     ctx.moveTo(pts[0][0], pts[0][1])
     for (let i = 1; i < pts.length; i++) {
       const p = pts[i - 1],
