@@ -282,7 +282,7 @@ const ColorPicker = memo(function ColorPicker() {
         onClick={toggleBackgroundMenu}
         className="abtn"
         data-tip="背景设置"
-        aria-label="背景色"
+        aria-label="背景设置"
         aria-haspopup="menu"
         aria-expanded={showBackground}
       >
