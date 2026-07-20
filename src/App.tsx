@@ -15,6 +15,7 @@ import { LoadingScreen } from './components/loading-screen'
 import { EmptyCanvasHint } from './components/empty-canvas-hint'
 import { useScreenPen, ScreenPenControls } from './components/screen-pen'
 import { EraserControls } from './components/eraser'
+import { FEEDBACK_DISCUSSION_URL } from './productLinks'
 import type { ToolType } from './store/types'
 
 const TOOL_LABELS: Record<string, string> = {
@@ -284,6 +285,17 @@ export default function App() {
                   ? '\u2713'
                   : ''}
             </span>
+            <span className="vl" aria-hidden="true" />
+            <a
+              href={FEEDBACK_DISCUSSION_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="status-feedback"
+              title="Share feedback"
+              aria-label="Share feedback"
+            >
+              Feedback
+            </a>
             <span className="vl" aria-hidden="true" />
             <button
               onClick={() => setShortcutsOpen(true)}

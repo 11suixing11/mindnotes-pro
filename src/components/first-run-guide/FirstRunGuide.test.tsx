@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import FirstRunGuide from './FirstRunGuide'
+import { FEEDBACK_DISCUSSION_URL } from '../../productLinks'
 
 describe('FirstRunGuide', () => {
   beforeEach(() => {
@@ -22,6 +23,11 @@ describe('FirstRunGuide', () => {
     render(<FirstRunGuide />)
     expect(screen.getByText('🎨')).toBeTruthy()
     expect(screen.getByText(/一个轻量的本地白板/)).toBeTruthy()
+  })
+
+  it('links to the product feedback discussion', () => {
+    render(<FirstRunGuide />)
+    expect(screen.getByLabelText('反馈').getAttribute('href')).toBe(FEEDBACK_DISCUSSION_URL)
   })
 
   it('navigates to next step', () => {
