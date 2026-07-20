@@ -33,6 +33,9 @@ describe('BrushSelector', () => {
     expect(screen.getByText('荧光笔')).toBeTruthy()
     expect(screen.getByText('铅笔')).toBeTruthy()
     expect(screen.getByText('书法笔')).toBeTruthy()
+    expect(screen.getByText('马克笔')).toBeTruthy()
+    expect(screen.getByText('水彩笔')).toBeTruthy()
+    expect(screen.getByText('蜡笔')).toBeTruthy()
     expect(screen.getByText('虚线笔')).toBeTruthy()
     expect(screen.getByText('彩虹笔')).toBeTruthy()
   })
@@ -42,6 +45,13 @@ describe('BrushSelector', () => {
     fireEvent.click(screen.getByText('钢笔').closest('button')!)
     fireEvent.click(screen.getByText('荧光笔').closest('[role="menuitem"]')!)
     expect(setBrush).toHaveBeenCalledWith('highlighter')
+  })
+
+  it('calls setBrush for new brush types', () => {
+    render(<BrushSelector brush="pen" setBrush={setBrush} tool="pen" />)
+    fireEvent.click(screen.getByText('钢笔').closest('button')!)
+    fireEvent.click(screen.getByText('水彩笔').closest('[role="menuitem"]')!)
+    expect(setBrush).toHaveBeenCalledWith('watercolor')
   })
 
   it('shows check mark for current brush', () => {

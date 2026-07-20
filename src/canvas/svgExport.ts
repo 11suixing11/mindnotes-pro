@@ -29,38 +29,44 @@ function strokeToSVG(el: StrokeElement): string {
     d += `L${el.points[i][0]} ${el.points[i][1]}`
   }
 
-  let attrs = `d="${d}" stroke="${el.color}" stroke-width="${el.size}" fill="none" stroke-linecap="round" stroke-linejoin="round"`
+  let strokeWidth = el.size
+  let opacity: number | undefined
+  let extraAttrs = ''
 
   // Opacity for brushes that use it
   if (el.brush === 'highlighter') {
-    attrs += ` opacity="${el.opacity ?? 0.3}"`
+    opacity = el.opacity ?? 0.3
+    strokeWidth = el.size * 4
   } else if (el.brush === 'pencil') {
-    attrs += ` opacity="${el.opacity ?? 0.65}"`
+    opacity = el.opacity ?? 0.65
+    strokeWidth = el.size * 0.6
+  } else if (el.brush === 'marker') {
+    opacity = el.opacity ?? 0.9
+    strokeWidth = el.size * 2.2
+  } else if (el.brush === 'watercolor') {
+    opacity = el.opacity ?? 0.28
+    strokeWidth = el.size * 2.6
+  } else if (el.brush === 'crayon') {
+    opacity = el.opacity ?? 0.78
+    strokeWidth = el.size * 1.15
   }
 
   // Dashed stroke
   if (el.brush === 'dashed') {
     const dashLen = el.size * 2
     const gapLen = el.size * 1.5
-    attrs += ` stroke-dasharray="${dashLen} ${gapLen}"`
-  }
-
-  // Highlighter uses thicker strokes
-  if (el.brush === 'highlighter') {
-    attrs += ` stroke-width="${el.size * 4}"`
-    attrs = attrs.replace(`stroke-width="${el.size}"`, `stroke-width="${el.size * 4}"`)
-  }
-
-  // Pencil uses thinner strokes
-  if (el.brush === 'pencil') {
-    attrs = attrs.replace(`stroke-width="${el.size}"`, `stroke-width="${el.size * 0.6}"`)
+    extraAttrs += ` stroke-dasharray="${dashLen} ${gapLen}"`
   }
 
   // Glow effect via filter
   if (el.brush === 'glow') {
-    attrs += ` filter="url(#glow)" stroke-width="${el.size * 0.7}" opacity="0.9"`
-    attrs = attrs.replace(`stroke-width="${el.size}"`, '')
+    strokeWidth = el.size * 0.7
+    opacity = 0.9
+    extraAttrs += ` filter="url(#glow)"`
   }
+
+  const opacityAttr = opacity === undefined ? '' : ` opacity="${opacity}"`
+  const attrs = `d="${d}" stroke="${el.color}" stroke-width="${strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round"${opacityAttr}${extraAttrs}`
 
   return `<path ${attrs}/>\n`
 }

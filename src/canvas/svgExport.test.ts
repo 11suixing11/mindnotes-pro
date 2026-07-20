@@ -146,6 +146,57 @@ describe('buildSVGString', () => {
       expect(svg).toContain('stroke-dasharray="4 3"')
     })
 
+    it('should render marker stroke as a bold semi-opaque path', () => {
+      const el: StrokeElement = {
+        type: 'stroke',
+        id: 's1',
+        points: [
+          [0, 0],
+          [100, 100],
+        ],
+        color: '#111111',
+        size: 5,
+        brush: 'marker',
+      }
+      const svg = buildSVGString([el], { width: W, height: H })
+      expect(svg).toContain('stroke-width="11"')
+      expect(svg).toContain('opacity="0.9"')
+    })
+
+    it('should render watercolor stroke with transparent wider output', () => {
+      const el: StrokeElement = {
+        type: 'stroke',
+        id: 's1',
+        points: [
+          [0, 0],
+          [100, 100],
+        ],
+        color: '#228be6',
+        size: 5,
+        brush: 'watercolor',
+      }
+      const svg = buildSVGString([el], { width: W, height: H })
+      expect(svg).toContain('stroke-width="13"')
+      expect(svg).toContain('opacity="0.28"')
+    })
+
+    it('should render crayon stroke with rough-style opacity', () => {
+      const el: StrokeElement = {
+        type: 'stroke',
+        id: 's1',
+        points: [
+          [0, 0],
+          [100, 100],
+        ],
+        color: '#d9480f',
+        size: 5,
+        brush: 'crayon',
+      }
+      const svg = buildSVGString([el], { width: W, height: H })
+      expect(svg).toContain('stroke-width="5.75"')
+      expect(svg).toContain('opacity="0.78"')
+    })
+
     it('should render glow stroke with filter', () => {
       const el: StrokeElement = {
         type: 'stroke',

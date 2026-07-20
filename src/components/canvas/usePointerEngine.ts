@@ -1576,6 +1576,10 @@ export function usePointerEngine(opts: {
               brush: curBrush,
             }
             if (curBrush === 'highlighter') el.opacity = 0.3
+            else if (curBrush === 'pencil') el.opacity = 0.65
+            else if (curBrush === 'marker') el.opacity = 0.9
+            else if (curBrush === 'watercolor') el.opacity = 0.22
+            else if (curBrush === 'crayon') el.opacity = 0.78
             addElement(el)
           }
           currentPtsRef.current = []

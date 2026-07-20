@@ -370,15 +370,15 @@ function applyRotationTransform(
 ): boolean {
   const rotation = (el as any).rotation
   if (!rotation || Math.abs(rotation) < 0.001) return false
-  
+
   const centerX = bounds.x + bounds.w / 2
   const centerY = bounds.y + bounds.h / 2
-  
+
   ctx.save()
   ctx.translate(centerX, centerY)
   ctx.rotate(rotation)
   ctx.translate(-centerX, -centerY)
-  
+
   return true
 }
 
@@ -393,7 +393,7 @@ export function drawElement(
     drawStrokeEl(ctx, el, isDarkMode)
     return
   }
-  
+
   // 为 shape/text/image 应用旋转变换
   const bounds = {
     x: el.type === 'shape' ? Math.min(el.x, el.x + el.w) : el.x,
@@ -401,13 +401,13 @@ export function drawElement(
     w: el.type === 'shape' ? Math.abs(el.w) : (el as any).width,
     h: el.type === 'shape' ? Math.abs(el.h) : (el as any).height,
   }
-  
+
   const hasRotation = applyRotationTransform(ctx, el, bounds)
-  
+
   if (el.type === 'shape') drawShapeEl(ctx, el)
   else if (el.type === 'text') drawTextEl(ctx, el, editingTextId)
   else if (el.type === 'image') drawImageEl(ctx, el)
-  
+
   if (hasRotation) {
     ctx.restore()
   }
@@ -551,6 +551,74 @@ export function drawStrokeEl(
     // 重置统计数组供下次复用
     bucketWfSums.fill(0)
     bucketCounts.fill(0)
+  } else if (b === 'marker') {
+    ctx.save()
+    ctx.globalAlpha = el.opacity ?? 0.9
+    ctx.strokeStyle = el.color
+    ctx.lineWidth = el.size * 2.2
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.beginPath()
+    ctx.moveTo(pts[0][0], pts[0][1])
+    for (let i = 1; i < pts.length; i++) {
+      const p = pts[i - 1],
+        c = pts[i]
+      ctx.quadraticCurveTo(p[0], p[1], (p[0] + c[0]) / 2, (p[1] + c[1]) / 2)
+    }
+    ctx.stroke()
+    ctx.restore()
+  } else if (b === 'watercolor') {
+    ctx.save()
+    ctx.globalCompositeOperation = isDarkMode ? 'screen' : 'multiply'
+    ctx.strokeStyle = el.color
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+
+    const drawWatercolorPass = (lineWidth: number, alpha: number, offset = 0) => {
+      ctx.globalAlpha = alpha
+      ctx.lineWidth = lineWidth
+      ctx.beginPath()
+      ctx.moveTo(pts[0][0] + offset, pts[0][1] - offset)
+      for (let i = 1; i < pts.length; i++) {
+        const p = pts[i - 1],
+          c = pts[i]
+        ctx.quadraticCurveTo(
+          p[0] + offset,
+          p[1] - offset,
+          (p[0] + c[0]) / 2 + offset,
+          (p[1] + c[1]) / 2 - offset
+        )
+      }
+      ctx.stroke()
+    }
+
+    drawWatercolorPass(el.size * 3.2, el.opacity ?? 0.22)
+    drawWatercolorPass(el.size * 2.1, 0.18, el.size * 0.18)
+    drawWatercolorPass(el.size * 1.4, 0.14, -el.size * 0.16)
+    ctx.restore()
+  } else if (b === 'crayon') {
+    ctx.save()
+    ctx.strokeStyle = el.color
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+
+    for (let pass = 0; pass < 4; pass++) {
+      const passOffset = (pass - 1.5) * el.size * 0.18
+      ctx.globalAlpha = pass === 0 ? (el.opacity ?? 0.78) : 0.34
+      ctx.lineWidth = pass === 0 ? el.size * 1.15 : el.size * 0.42
+      ctx.beginPath()
+      for (let i = 1; i < pts.length; i++) {
+        const p = pts[i - 1],
+          c = pts[i]
+        const seed = (((i + pass * 17) * 7919) % 100) / 100
+        const jitterX = (seed - 0.5) * el.size * 0.9 + passOffset
+        const jitterY = (((seed * 1.7) % 1) - 0.5) * el.size * 0.9 - passOffset
+        ctx.moveTo(p[0] + jitterX, p[1] + jitterY)
+        ctx.lineTo(c[0] + jitterX, c[1] + jitterY)
+      }
+      ctx.stroke()
+    }
+    ctx.restore()
   } else if (b === 'dashed') {
     ctx.beginPath()
     ctx.strokeStyle = el.color
@@ -717,55 +785,55 @@ export function drawSelBox(
   ctx.setLineDash([])
   ctx.fillStyle = primaryLight
   ctx.fillRect(b.x, b.y, b.w, b.h)
-  
+
   // 边缘调整手柄 + 小形状防重叠优化
   // 问题: 小形状上角落手柄和边缘手柄重叠，用户很难准确抓住目标手柄
-  // 解决方案: 
+  // 解决方案:
   // 1. 添加 4 个边缘中间手柄（上、下、左、右）
   // 2. 当形状太小时，动态调整手柄位置避免重叠
   // 3. 角落手柄和边缘手柄使用不同大小，便于区分
-  
+
   const cornerR = 4 / zoom
-  const edgeR = 3.5 / zoom  // 边缘手柄略小于角落手柄，便于区分
-  
+  const edgeR = 3.5 / zoom // 边缘手柄略小于角落手柄，便于区分
+
   // 计算最小安全间距，防止手柄重叠
   // 当形状尺寸小于 2 * (cornerR + edgeR + 间距) 时，边缘手柄会与角落手柄重叠
   const minSafeWidth = (cornerR + edgeR + 4 / zoom) * 2
   const minSafeHeight = (cornerR + edgeR + 4 / zoom) * 2
-  
+
   // 动态计算边缘手柄位置，确保不与角落手柄重叠
   let edgeTopY = b.y
   let edgeBottomY = b.y + b.h
   let edgeLeftX = b.x
   let edgeRightX = b.x + b.w
-  
+
   // 如果形状太窄，将左右边缘手柄向内偏移，避免与上下角落手柄重叠
   if (b.w < minSafeWidth) {
     const offset = (minSafeWidth - b.w) / 2 + 2 / zoom
     edgeLeftX = b.x + offset
     edgeRightX = b.x + b.w - offset
   }
-  
+
   // 如果形状太矮，将上下边缘手柄向内偏移，避免与左右角落手柄重叠
   if (b.h < minSafeHeight) {
     const offset = (minSafeHeight - b.h) / 2 + 2 / zoom
     edgeTopY = b.y + offset
     edgeBottomY = b.y + b.h - offset
   }
-  
+
   ctx.fillStyle = primary
   ctx.shadowColor = isDarkMode ? 'rgba(200,160,176,0.3)' : 'rgba(176,125,110,0.3)'
   ctx.shadowBlur = 4 / zoom
-  
+
   // 先绘制边缘手柄（在角落手柄下方）
   // 边缘手柄：上、下、左、右四边中点
   ctx.beginPath()
-  ctx.arc(b.x + b.w / 2, edgeTopY, edgeR, 0, Math.PI * 2)      // 上边缘中点
-  ctx.arc(b.x + b.w / 2, edgeBottomY, edgeR, 0, Math.PI * 2)   // 下边缘中点
-  ctx.arc(edgeLeftX, b.y + b.h / 2, edgeR, 0, Math.PI * 2)      // 左边缘中点
-  ctx.arc(edgeRightX, b.y + b.h / 2, edgeR, 0, Math.PI * 2)     // 右边缘中点
+  ctx.arc(b.x + b.w / 2, edgeTopY, edgeR, 0, Math.PI * 2) // 上边缘中点
+  ctx.arc(b.x + b.w / 2, edgeBottomY, edgeR, 0, Math.PI * 2) // 下边缘中点
+  ctx.arc(edgeLeftX, b.y + b.h / 2, edgeR, 0, Math.PI * 2) // 左边缘中点
+  ctx.arc(edgeRightX, b.y + b.h / 2, edgeR, 0, Math.PI * 2) // 右边缘中点
   ctx.fill()
-  
+
   // P0 性能优化: 合并 4 个角落手柄为单次 beginPath/fill 调用
   // 角落手柄（后绘制，显示在边缘手柄上方）
   ctx.beginPath()
