@@ -16,6 +16,7 @@ import {
   lockResizeScalesToAspectRatio,
   shouldPreserveResizeAspectRatio,
 } from '../../canvas/resizeRules'
+import { createShapeElement, shouldCommitShape, updateShapeDraft } from '../../canvas/shapeElements'
 import { createStrokeElement } from '../../canvas/strokeElements'
 // P12 箭头绑定: 导入绑定工具函数
 import { tryBindToShape } from '../../store/bindingUtils'
@@ -943,18 +944,14 @@ export function usePointerEngine(opts: {
         eraseAt(pos.x, pos.y, undefined, e, topOnly)
       } else {
         shapeStartRef.current = pos
-        currentShapeRef.current = {
-          type: 'shape',
+        currentShapeRef.current = createShapeElement({
           id: `shape-${Date.now()}`,
           kind: curTool as ShapeKind,
-          x: pos.x,
-          y: pos.y,
-          w: 0,
-          h: 0,
+          start: pos,
           color: curColor,
           size: curSize,
-          fillColor: curFillColor !== 'transparent' ? curFillColor : undefined,
-        }
+          fillColor: curFillColor,
+        })
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1481,19 +1478,13 @@ export function usePointerEngine(opts: {
         }
         currentPtsRef.current.push([pos.x, pos.y])
       } else if (shapeStartRef.current && currentShapeRef.current) {
-        let w = pos.x - shapeStartRef.current.x,
-          h = pos.y - shapeStartRef.current.y
         const shift = 'shiftKey' in e && (e as MouseEvent).shiftKey
-        if (
-          shift &&
-          (currentShapeRef.current.kind === 'rectangle' ||
-            currentShapeRef.current.kind === 'circle')
-        ) {
-          const sz = Math.max(Math.abs(w), Math.abs(h))
-          w = sz * Math.sign(w || 1)
-          h = sz * Math.sign(h || 1)
-        }
-        currentShapeRef.current = { ...currentShapeRef.current, w, h }
+        currentShapeRef.current = updateShapeDraft(
+          currentShapeRef.current,
+          shapeStartRef.current,
+          pos,
+          shift
+        )
       }
       scheduleRedraw()
     },
@@ -1556,7 +1547,7 @@ export function usePointerEngine(opts: {
           erasedRef.current.clear()
           currentPtsRef.current = []
         } else if (currentShapeRef.current) {
-          if (Math.abs(currentShapeRef.current.w) > 2 || Math.abs(currentShapeRef.current.h) > 2) {
+          if (shouldCommitShape(currentShapeRef.current)) {
             // P12 箭头绑定: 检测箭头/线条端点是否靠近形状边缘
             // 如果靠近，自动建立绑定关系
             const shape = currentShapeRef.current
