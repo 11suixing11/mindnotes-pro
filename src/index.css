@@ -1216,6 +1216,74 @@ body::after {
   opacity: 0.9;
 }
 
+.sb-search {
+  position: relative;
+  margin-top: 8px;
+}
+
+.sb-search-input {
+  width: 100%;
+  padding: 7px 28px 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  background: var(--card);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.sb-search-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-bg);
+}
+
+.sb-search-clear {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  width: 18px;
+  height: 18px;
+  transform: translateY(-50%);
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-4);
+  font-size: 14px;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.sb-search-clear:hover {
+  background: var(--primary-bg);
+  color: var(--text);
+}
+
+.sb-recent-searches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.sb-recent-chip {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sb-recent-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
 .sb-tree {
   flex: 1;
   overflow: auto;
@@ -1279,6 +1347,24 @@ body::after {
   margin-top: 1px;
   color: var(--text-4);
   font-size: 10px;
+}
+
+.sb-doc-match {
+  color: var(--primary);
+}
+
+.sb-search-mark {
+  border-radius: 3px;
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 0 2px;
+}
+
+.sb-empty-search {
+  padding: 20px 12px;
+  color: var(--text-4);
+  font-size: 11px;
+  text-align: center;
 }
 
 .sb-rename-input {

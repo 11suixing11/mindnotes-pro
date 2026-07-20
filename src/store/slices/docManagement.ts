@@ -4,10 +4,15 @@ import { useViewStore } from '../useViewStore'
 import { migrateOld, removeMigratedData } from '../migration'
 import { saveDocNow, clearSaveTimer } from '../saveManager'
 
+const DOCUMENT_SEARCH_HISTORY_KEY = 'mn-sidebar-searches'
+const MAX_RECENT_DOCUMENT_SEARCHES = 5
+
 export interface DocManagementState {
   docs: CanvasDoc[]
   currentDocId: string | null
   loaded: boolean
+  documentSearchQuery: string
+  recentDocumentSearches: string[]
 }
 
 export interface DocManagementActions {
@@ -17,7 +22,34 @@ export interface DocManagementActions {
   renameDoc: (id: string, title: string) => Promise<void>
   deleteDoc: (id: string) => Promise<void>
   duplicateDoc: (id: string) => Promise<void>
+  setDocumentSearchQuery: (query: string) => void
+  addRecentDocumentSearch: (query: string) => void
   saveNow: () => Promise<void>
+}
+
+function loadRecentDocumentSearches(): string[] {
+  if (typeof localStorage === 'undefined') return []
+
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DOCUMENT_SEARCH_HISTORY_KEY) ?? '[]')
+    return Array.isArray(parsed)
+      ? parsed
+          .filter((item): item is string => typeof item === 'string')
+          .slice(0, MAX_RECENT_DOCUMENT_SEARCHES)
+      : []
+  } catch {
+    return []
+  }
+}
+
+function persistRecentDocumentSearches(searches: string[]) {
+  if (typeof localStorage === 'undefined') return
+
+  try {
+    localStorage.setItem(DOCUMENT_SEARCH_HISTORY_KEY, JSON.stringify(searches))
+  } catch {
+    // Search remains usable even when persisted history is unavailable.
+  }
 }
 
 export function createDocManagementSlice(
@@ -31,6 +63,8 @@ export function createDocManagementSlice(
     docs: [],
     currentDocId: null,
     loaded: false,
+    documentSearchQuery: '',
+    recentDocumentSearches: loadRecentDocumentSearches(),
 
     // Actions
     init: async () => {
@@ -237,6 +271,25 @@ export function createDocManagementSlice(
       set({
         docs: (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt),
       })
+    },
+
+    setDocumentSearchQuery: (query) => {
+      set({ documentSearchQuery: query })
+    },
+
+    addRecentDocumentSearch: (query) => {
+      const nextSearch = query.trim()
+      if (!nextSearch) return
+
+      const recentDocumentSearches = [
+        nextSearch,
+        ...get().recentDocumentSearches.filter(
+          (item: string) => item.toLowerCase() !== nextSearch.toLowerCase()
+        ),
+      ].slice(0, MAX_RECENT_DOCUMENT_SEARCHES)
+
+      persistRecentDocumentSearches(recentDocumentSearches)
+      set({ recentDocumentSearches })
     },
 
     saveNow: async () => {
