@@ -282,7 +282,7 @@ export function useCanvasRenderer(
     ctx.scale(vb.zoom, vb.zoom)
     ctx.translate(-vb.x, -vb.y)
     if (st.backgroundStyle === 'plain') {
-    drawMonetGrid(ctx, vb, canvasSize, dark)
+      drawMonetGrid(ctx, vb, canvasSize, dark)
     }
     const vl = vb.x,
       vt = vb.y,
@@ -532,10 +532,10 @@ export function useCanvasRenderer(
       // 转换为屏幕坐标，在元素中心上方显示
       const screenX = (centerX - vb.x) * vb.zoom
       const screenY = (centerY - vb.y) * vb.zoom - 50 // 在元素上方 50 像素显示
-      
+
       ctx.save()
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      
+
       // 背景圆角矩形
       const text = `${Math.round(angle)}°`
       ctx.font = '500 14px "Noto Sans SC", sans-serif'
@@ -543,19 +543,19 @@ export function useCanvasRenderer(
       const padding = 8
       const bgW = metrics.width + padding * 2
       const bgH = 28
-      
+
       // 半透明背景
       ctx.fillStyle = dark ? 'rgba(28, 26, 36, 0.9)' : 'rgba(255, 255, 255, 0.95)'
       ctx.beginPath()
       ctx.roundRect(screenX - bgW / 2, screenY - bgH / 2, bgW, bgH, 6)
       ctx.fill()
-      
+
       // 角度文本
       ctx.fillStyle = dark ? '#C8A0B0' : '#B07D6E'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(text, screenX, screenY)
-      
+
       ctx.restore()
     }
 
@@ -568,35 +568,35 @@ export function useCanvasRenderer(
     if (eagleEye.isActive && eagleEye.originalViewBox) {
       ctx.save()
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      
+
       const vw = canvasSize.w
       const vh = canvasSize.h
       const originalZoom = eagleEye.originalViewBox.zoom
-      
+
       // 1. 计算目标视口矩形（用户选择的放大区域）
       const targetViewW = vw / originalZoom
       const targetViewH = vh / originalZoom
       const targetViewX = eagleEye.targetX - targetViewW / 2
       const targetViewY = eagleEye.targetY - targetViewH / 2
-      
+
       // 转换为屏幕坐标（鹰眼模式下）
       const screenTargetX = (targetViewX - vb.x) * vb.zoom
       const screenTargetY = (targetViewY - vb.y) * vb.zoom
       const screenTargetW = targetViewW * vb.zoom
       const screenTargetH = targetViewH * vb.zoom
-      
+
       // 2. 半透明遮罩（变暗整个画布，突出目标区域）
       ctx.fillStyle = dark ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.25)'
       ctx.fillRect(0, 0, vw, vh)
-      
+
       // 3. 目标区域高亮（清除遮罩，显示正常亮度）
       ctx.clearRect(screenTargetX, screenTargetY, screenTargetW, screenTargetH)
-      
+
       // 4. 目标区域边框（高亮指示）
       ctx.strokeStyle = dark ? '#C8A0B0' : '#B07D6E'
       ctx.lineWidth = 2.5
       ctx.strokeRect(screenTargetX, screenTargetY, screenTargetW, screenTargetH)
-      
+
       // 5. 目标区域内部十字准星
       ctx.strokeStyle = dark ? 'rgba(200, 160, 176, 0.6)' : 'rgba(176, 125, 110, 0.6)'
       ctx.lineWidth = 1
@@ -609,33 +609,33 @@ export function useCanvasRenderer(
       ctx.moveTo(centerX, centerY - crossSize)
       ctx.lineTo(centerX, centerY + crossSize)
       ctx.stroke()
-      
+
       // 6. 原始视口位置指示（小矩形）
       const origViewX = eagleEye.originalViewBox.x
       const origViewY = eagleEye.originalViewBox.y
       const origViewW = vw / originalZoom
       const origViewH = vh / originalZoom
-      
+
       const screenOrigX = (origViewX - vb.x) * vb.zoom
       const screenOrigY = (origViewY - vb.y) * vb.zoom
       const screenOrigW = origViewW * vb.zoom
       const screenOrigH = origViewH * vb.zoom
-      
+
       ctx.strokeStyle = dark ? 'rgba(200, 160, 176, 0.4)' : 'rgba(176, 125, 110, 0.4)'
       ctx.lineWidth = 1.5
       ctx.setLineDash([4, 4])
       ctx.strokeRect(screenOrigX, screenOrigY, screenOrigW, screenOrigH)
       ctx.setLineDash([])
-      
+
       // 7. 鹰眼模式提示文本
       ctx.font = '500 13px "Noto Sans SC", sans-serif'
       ctx.fillStyle = dark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.8)'
       ctx.textAlign = 'center'
       ctx.fillText('🔍 鹰眼模式 - 移动鼠标选择位置，按 Z 确认，ESC 取消', vw / 2, vh - 30)
-      
+
       ctx.restore()
     }
-    
+
     drawMinimap(ctx, st.elements, cachedBounds, vb, canvasSize, dark, st.bgColor)
     drawZoomLevel(ctx, vb, canvasSize, dark, dpr)
   }, [dpr, canvasSize, getOrCreateEC, renderElementsToCache, canvasRef, getDrawState])
@@ -673,9 +673,10 @@ export function useCanvasRenderer(
     let prevStyle = useAppStore.getState().backgroundStyle
     const unsub = useAppStore.subscribe((s) => {
       if (s.bgColor !== prevColor || s.backgroundStyle !== prevStyle) {
+        const plainLayerChanged = (s.backgroundStyle === 'plain') !== (prevStyle === 'plain')
         prevColor = s.bgColor
         prevStyle = s.backgroundStyle
-        elementsDirtyRef.current = true
+        if (plainLayerChanged) elementsDirtyRef.current = true
         scheduleRedraw()
       }
     })

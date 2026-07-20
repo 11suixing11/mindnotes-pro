@@ -61,14 +61,14 @@ describe('ColorPicker', () => {
     expect(screen.getByLabelText('粗 16像素')).toBeTruthy()
   })
 
-  it('renders background color button', () => {
+  it('renders background settings button', () => {
     render(<ColorPicker />)
-    expect(screen.getByLabelText('背景色')).toBeTruthy()
+    expect(screen.getByLabelText('背景设置')).toBeTruthy()
   })
 
   it('changes the document background style', () => {
     render(<ColorPicker />)
-    fireEvent.click(screen.getByLabelText('背景色'))
+    fireEvent.click(screen.getByLabelText('背景设置'))
     fireEvent.click(screen.getByRole('menuitemradio', { name: /点阵/ }))
     expect(useAppStore.getState().backgroundStyle).toBe('dots')
   })
