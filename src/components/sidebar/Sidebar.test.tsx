@@ -117,6 +117,30 @@ describe('Sidebar document rename', () => {
     expect(screen.getByRole('textbox', { name: 'Rename Original' })).toBeTruthy()
   })
 
+  it('uses the real document background color for the active canvas preview', async () => {
+    const fillStyles: string[] = []
+    const context = {
+      set fillStyle(value: string) {
+        fillStyles.push(value)
+      },
+      get fillStyle() {
+        return fillStyles[fillStyles.length - 1] ?? '#000000'
+      },
+      setTransform: vi.fn(),
+      fillRect: vi.fn(),
+    } as unknown as CanvasRenderingContext2D
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context)
+    useAppStore.setState({
+      docs: [makeDoc({ bgColor: '#fef3c7' })],
+      currentDocId: doc.id,
+    })
+
+    render(<Sidebar />)
+
+    await waitFor(() => expect(fillStyles).toContain('#fef3c7'))
+    expect(fillStyles).not.toContain('var(--primary-bg)')
+  })
+
   it('filters documents by title and highlights matching text', () => {
     useAppStore.setState({
       docs: [
