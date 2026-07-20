@@ -639,6 +639,27 @@ body::after {
   color: var(--primary);
   transform: scale(1.06);
 }
+
+.abtn.history-pulse {
+  animation: historyPulse 0.36s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--primary);
+}
+
+@keyframes historyPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: none;
+  }
+  45% {
+    transform: scale(1.14);
+    box-shadow: 0 0 0 4px var(--primary-light);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: none;
+  }
+}
+
 .abtn:active {
   transform: scale(0.92);
 }

@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useThemeStore } from '../../store/useThemeStore'
@@ -10,6 +11,9 @@ import ColorPicker from './ColorPicker'
 import { icons } from './icons'
 
 export default function Toolbar() {
+  const [historyPulse, setHistoryPulse] = useState<'undo' | 'redo' | null>(null)
+  const pulseTimerRef = useRef<number | null>(null)
+  const previousHistoryCountsRef = useRef<{ undoLen: number; redoLen: number } | null>(null)
   const { tool, setTool, brush, setBrush, clearAll, undo, redo, undoLen, redoLen } = useAppStore(
     useShallow((s) => ({
       tool: s.tool,
@@ -36,6 +40,35 @@ export default function Toolbar() {
   const { isDarkMode, toggleTheme } = useThemeStore()
   const confirm = useConfirm()
 
+  const pulseHistoryButton = useCallback((kind: 'undo' | 'redo') => {
+    if (pulseTimerRef.current !== null) {
+      window.clearTimeout(pulseTimerRef.current)
+    }
+    setHistoryPulse(kind)
+    pulseTimerRef.current = window.setTimeout(() => {
+      setHistoryPulse(null)
+      pulseTimerRef.current = null
+    }, 360)
+  }, [])
+
+  useEffect(() => {
+    const previous = previousHistoryCountsRef.current
+    previousHistoryCountsRef.current = { undoLen, redoLen }
+    if (!previous) return
+
+    if (undoLen === previous.undoLen - 1 && redoLen === previous.redoLen + 1) {
+      pulseHistoryButton('undo')
+    } else if (redoLen === previous.redoLen - 1 && undoLen === previous.undoLen + 1) {
+      pulseHistoryButton('redo')
+    }
+  }, [pulseHistoryButton, redoLen, undoLen])
+
+  useEffect(() => {
+    return () => {
+      if (pulseTimerRef.current !== null) window.clearTimeout(pulseTimerRef.current)
+    }
+  }, [])
+
   return (
     <>
       <div className="brand" aria-hidden="true">
@@ -52,7 +85,7 @@ export default function Toolbar() {
           <button
             onClick={undo}
             disabled={undoLen === 0}
-            className="abtn"
+            className={`abtn ${historyPulse === 'undo' ? 'history-pulse' : ''}`}
             data-tip="Undo Ctrl+Z"
             aria-label="Undo"
           >
@@ -61,7 +94,7 @@ export default function Toolbar() {
           <button
             onClick={redo}
             disabled={redoLen === 0}
-            className="abtn"
+            className={`abtn ${historyPulse === 'redo' ? 'history-pulse' : ''}`}
             data-tip="Redo Ctrl+Shift+Z"
             aria-label="Redo"
           >
