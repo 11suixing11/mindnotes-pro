@@ -1,223 +1,106 @@
-# MindNotes Pro 双轨架构方案
+# MindNotes Pro Architecture
 
-## 架构概览
+This document describes the current codebase boundaries. Keep it updated when moving shared logic between layers.
 
-```
-mindnotes-pro/
-├── src/                    # 共享代码（Web + Desktop 复用）
-│   ├── canvas/             # 绘图引擎
-│   ├── components/         # UI 组件
-│   ├── store/              # 状态管理
-│   └── utils/              # 工具函数
-├── src-web/                # Web 专属代码
-│   └── main.tsx            # Web 入口
-├── src-desktop/            # Desktop 专属代码
-│   ├── main.ts             # Electron/Tauri 主进程
-│   ├── screen-pen.ts       # 系统级屏幕画笔
-│   └── overlay-window.ts   # 全局覆盖窗口
-├── electron/               # Electron 配置
-├── src-tauri/              # Tauri 配置（可选）
-├── package.json
-└── vite.config.ts
+## Runtime shape
+
+MindNotes Pro is a local-first React whiteboard app with an optional Electron shell.
+
+```text
+src/
+├── canvas/        Pure canvas, SVG export, and drawing-domain helpers
+├── components/    React UI and interaction hooks
+├── eraser/        Physics eraser domain, rendering, preferences, and tests
+├── store/         Zustand state, persistence, migrations, and shared app types
+├── App.tsx        Main app composition
+└── main.tsx       Web entry
+
+electron/
+└── main.ts        Desktop shell entry
 ```
 
-## 技术选型
+## Layer rules
 
-### 方案 A: Electron（推荐）
-**优点：**
-- 成熟稳定，社区资源丰富
-- 可以创建透明覆盖窗口
-- 支持系统级快捷键
-- 可以最小化到系统托盘
+### `src/store`
 
-**缺点：**
-- 体积大（~150MB）
-- 内存占用高
+Owns application state, persisted data shape, migrations, and shared TypeScript types.
 
-### 方案 B: Tauri
-**优点：**
-- 体积小（~10MB）
-- 内存占用低
-- 性能好
+- Store slices should not import React components.
+- Persistence changes must include migration tests when saved data shape changes.
+- Shared element types live in `src/store/types.ts` until a domain module fully owns that type.
 
-**缺点：**
-- 较新，社区资源少
-- 需要 Rust 知识
-- 透明覆盖窗口实现复杂
+### `src/canvas`
 
-## 决策：使用 Electron
+Owns rendering and export behavior that can be tested without React.
 
-对于"屏幕画笔"功能，Electron 更容易实现：
-- `BrowserWindow` 支持 `transparent: true`
-- 可以设置 `alwaysOnTop: true`
-- 可以设置 `frame: false` 无边框
-- 可以穿透鼠标事件（`setIgnoreMouseEvents`）
+- Canvas rendering should remain pure against `CanvasRenderingContext2D` inputs where possible.
+- SVG export should use the same domain defaults as Canvas rendering unless the export format intentionally needs a separate value.
+- Drawing-domain metadata belongs here, not inside toolbar components.
 
-## 实现方案
+Current shared drawing metadata:
 
-### 1. 屏幕画笔功能（桌面版）
+- `src/canvas/brushPresets.ts` is the single source of truth for brush labels, descriptions, default opacity, stroke-width multipliers, dash patterns, and SVG-only brush output details.
 
-```typescript
-// electron/screen-pen.ts
-import { BrowserWindow, ipcMain, globalShortcut } from 'electron'
+### `src/components`
 
-let overlayWindow: BrowserWindow | null = null
+Owns React rendering, UI state wiring, and browser interaction hooks.
 
-function createOverlayWindow() {
-  overlayWindow = new BrowserWindow({
-    width: screen.getPrimaryDisplay().workAreaSize.width,
-    height: screen.getPrimaryDisplay().workAreaSize.height,
-    transparent: true,
-    frame: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    resizable: false,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-    }
-  })
+- Components should read domain metadata from `src/canvas` or `src/store` instead of duplicating constants.
+- Large interaction hooks may contain orchestration, but new domain rules should be extracted before adding more feature branches.
+- Tests stay next to the component or hook they cover.
 
-  overlayWindow.loadFile('overlay.html')
-  overlayWindow.setIgnoreMouseEvents(false) // 默认捕获鼠标事件
-}
+### `src/eraser`
 
-// 注册全局快捷键
-globalShortcut.register('CommandOrControl+Shift+P', () => {
-  if (overlayWindow?.isVisible()) {
-    overlayWindow.hide()
-  } else {
-    overlayWindow?.show()
-  }
-})
-```
+Owns the physics eraser feature as a separate domain.
 
-### 2. overlay.html（覆盖层）
+- Eraser simulation, particles, preferences, audio, and performance helpers stay inside this folder.
+- Shared canvas element mutations should go through store APIs instead of reaching across into unrelated slices.
 
-```html
-<!DOCTYPE html>
-<html>
-<body style="margin:0; padding:0; background:transparent;">
-<canvas id="canvas" style="position:fixed; top:0; left:0; width:100%; height:100%;"></canvas>
-<script>
-const canvas = document.getElementById('canvas')
-const ctx = canvas.getContext('2d')
-canvas.width = window.innerWidth
-canvas.height = window.innerHeight
+### `electron`
 
-let drawing = false
-let lastX = 0
-let lastY = 0
+Owns desktop shell behavior only.
 
-canvas.addEventListener('mousedown', (e) => {
-  drawing = true
-  lastX = e.clientX
-  lastY = e.clientY
-})
+- The Electron entry should load the built web app and handle shell-level APIs.
+- Shared whiteboard behavior should stay in `src`, not in Electron-specific files.
 
-canvas.addEventListener('mousemove', (e) => {
-  if (!drawing) return
-  ctx.beginPath()
-  ctx.moveTo(lastX, lastY)
-  ctx.lineTo(e.clientX, e.clientY)
-  ctx.strokeStyle = 'red'
-  ctx.lineWidth = 3
-  ctx.stroke()
-  lastX = e.clientX
-  lastY = e.clientY
-})
+## Refactor priorities
 
-canvas.addEventListener('mouseup', () => drawing = false)
-</script>
-</body>
-</html>
-```
+The current highest-risk files are large, mixed-responsibility modules. Split them only behind tests and in small PRs.
 
-### 3. 主窗口（白板应用）
+1. `src/components/canvas/usePointerEngine.ts`
+   - Separate pointer mode routing from per-tool behavior.
+   - Extract stroke creation helpers before adding more input features.
 
-```typescript
-// electron/main.ts
-import { app, BrowserWindow, ipcMain } from 'electron'
+2. `src/canvas/canvasDrawing.ts`
+   - Keep brush rendering helpers near shared brush presets.
+   - Avoid duplicating defaults already defined in `brushPresets.ts`.
 
-let mainWindow: BrowserWindow
+3. `src/index.css`
+   - Split by component/domain when touching related UI.
+   - Avoid unrelated formatting-only rewrites in feature PRs.
 
-function createMainWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-    }
-  })
+4. `src/store/slices/canvasElements.ts`
+   - Keep geometry transforms, grouping, ordering, and persistence concerns separated.
+   - Add focused tests before moving mutation logic.
 
-  // 加载现有的 Web 应用
-  mainWindow.loadURL('http://localhost:3000') // 开发模式
-  // mainWindow.loadFile('dist/index.html') // 生产模式
-}
-```
+## Change policy
 
-## 项目结构
+For architecture cleanup PRs:
 
-```
-mindnotes-pro/
-├── src/                    # 共享代码
-│   ├── canvas/             # 绘图引擎（Web + Desktop 复用）
-│   ├── components/         # UI 组件（Web + Desktop 复用）
-│   ├── store/              # 状态管理（Web + Desktop 复用）
-│   └── utils/              # 工具函数
-├── electron/               # Electron 专属
-│   ├── main.ts             # 主进程
-│   ├── preload.ts          # 预加载脚本
-│   ├── screen-pen.ts       # 屏幕画笔逻辑
-│   └── overlay.html        # 覆盖层页面
-├── src/                    # Web 入口（现有）
-├── package.json
-├── vite.config.ts
-├── electron-builder.json   # Electron 打包配置
-└── tsconfig.json
-```
-
-## 开发计划
-
-### Phase 1: 基础架构（1-2天）
-- [ ] 安装 Electron 依赖
-- [ ] 配置 Electron + Vite
-- [ ] 创建基础窗口
-
-### Phase 2: 屏幕画笔（2-3天）
-- [ ] 创建透明覆盖窗口
-- [ ] 实现绘画功能
-- [ ] 添加工具栏
-- [ ] 注册全局快捷键
-
-### Phase 3: 打包发布（1天）
-- [ ] 配置 electron-builder
-- [ ] 打包 Windows exe
-- [ ] 测试安装包
-
-## 依赖
-
-```json
-{
-  "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.0.0",
-    "vite": "^5.0.0",
-    "typescript": "^5.0.0"
-  }
-}
-```
-
-## 启动命令
+- Prefer one boundary per PR.
+- Preserve behavior unless the PR explicitly says otherwise.
+- Add or update regression tests for moved logic.
+- Run at minimum:
 
 ```bash
-# 开发模式（Web）
-npm run dev
-
-# 开发模式（Desktop）
-npm run dev:desktop
-
-# 打包 Desktop
-npm run build:desktop
+npm run lint
+npx tsc --noEmit
+npm run test:run
+npm run build
 ```
+
+For user-facing features:
+
+- Reuse domain helpers instead of introducing new duplicated constants.
+- Add a UI test or browser smoke check when the change affects visible behavior.
+- Keep issue fixes separate from broad cleanup unless the cleanup directly enables the fix.

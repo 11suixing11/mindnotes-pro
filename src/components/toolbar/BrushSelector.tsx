@@ -1,18 +1,7 @@
 import { useRef, useState, useCallback, memo } from 'react'
 import { createPortal } from 'react-dom'
 import type { BrushType, ToolType } from '../../store/types'
-
-const BRUSHES: { id: BrushType; label: string; desc: string }[] = [
-  { id: 'pen', label: '\u94a2\u7b14', desc: '\u5e73\u6ed1\u6d41\u7545' },
-  { id: 'highlighter', label: '\u8367\u5149\u7b14', desc: '\u534a\u900f\u660e\u5bbd\u7b14' },
-  { id: 'pencil', label: '\u94c5\u7b14', desc: '\u7c97\u7cd9\u8d28\u611f' },
-  { id: 'calligraphy', label: '\u4e66\u6cd5\u7b14', desc: '\u7c97\u7ec6\u53d8\u5316' },
-  { id: 'marker', label: '\u9a6c\u514b\u7b14', desc: '\u7a33\u5b9a\u7c97\u7ebf' },
-  { id: 'watercolor', label: '\u6c34\u5f69\u7b14', desc: '\u534a\u900f\u660e\u53e0\u8272' },
-  { id: 'crayon', label: '\u8721\u7b14', desc: '\u7c97\u7cd9\u8fb9\u7f18' },
-  { id: 'dashed', label: '\u865a\u7ebf\u7b14', desc: '\u865a\u7ebf\u7b14\u8ff9' },
-  { id: 'glow', label: '\u5f69\u8679\u7b14', desc: '\u53d1\u5149\u6548\u679c' },
-]
+import { BRUSH_PRESETS, getBrushPreset } from '../../canvas/brushPresets'
 
 const ARROW = '\u25BE'
 const CHECK = '\u2713'
@@ -27,6 +16,7 @@ const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: Bru
   const brushBtnRef = useRef<HTMLButtonElement>(null)
   const [showBrush, setShowBrush] = useState(false)
   const [brushPos, setBrushPos] = useState({ top: 0, left: 0 })
+  const currentBrush = getBrushPreset(brush)
 
   const handleToggle = useCallback(() => {
     if (!showBrush && brushBtnRef.current) {
@@ -48,7 +38,7 @@ const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: Bru
               animation: 'popIn 0.18s cubic-bezier(0.16,1,0.3,1)',
             }}
           >
-            {BRUSHES.map((b) => (
+            {BRUSH_PRESETS.map((b) => (
               <button
                 key={b.id}
                 onClick={() => {
@@ -65,7 +55,7 @@ const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: Bru
                   {b.label}
                 </span>
                 <div className="flex flex-col">
-                  <span className="dd">{b.desc}</span>
+                  <span className="dd">{b.description}</span>
                 </div>
                 {brush === b.id && (
                   <span className="ml-auto text-[var(--primary)] font-bold text-[14px]">
@@ -90,11 +80,11 @@ const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: Bru
         onClick={handleToggle}
         className="pill-btn ghost"
         style={{ whiteSpace: 'nowrap' }}
-        aria-label={`Brush: ${BRUSHES.find((b) => b.id === brush)?.label}`}
+        aria-label={`Brush: ${currentBrush.label}`}
         aria-haspopup="true"
         aria-expanded={showBrush}
       >
-        <span>{BRUSHES.find((b) => b.id === brush)?.label}</span>
+        <span>{currentBrush.label}</span>
         <span className="text-[9px] opacity-50">{ARROW}</span>
       </button>
       <div className="tb-sep" />

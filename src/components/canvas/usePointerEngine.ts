@@ -3,6 +3,7 @@ import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useThemeStore } from '../../store/useThemeStore'
+import { getBrushDefaultOpacity } from '../../canvas/brushPresets'
 import type { StrokeElement } from '../../store/types'
 import type {
   CanvasElement,
@@ -1575,11 +1576,8 @@ export function usePointerEngine(opts: {
               size: curSize,
               brush: curBrush,
             }
-            if (curBrush === 'highlighter') el.opacity = 0.3
-            else if (curBrush === 'pencil') el.opacity = 0.65
-            else if (curBrush === 'marker') el.opacity = 0.9
-            else if (curBrush === 'watercolor') el.opacity = 0.22
-            else if (curBrush === 'crayon') el.opacity = 0.78
+            const defaultOpacity = getBrushDefaultOpacity(curBrush)
+            if (defaultOpacity !== undefined) el.opacity = defaultOpacity
             addElement(el)
           }
           currentPtsRef.current = []
