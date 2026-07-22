@@ -58,8 +58,8 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.3",
     "@eslint/js": "^10.0.1",
+    "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@types/react": "^18.3.12",
@@ -69,7 +69,7 @@
     "@vitejs/plugin-react": "^6.0.3",
     "@vitest/coverage-v8": "^4.1.10",
     "autoprefixer": "^10.4.20",
-    "concurrently": "^10.0.3",
+    "concurrently": "^9.2.4",
     "electron": "^43.1.1",
     "electron-builder": "^26.15.3",
     "eslint": "^10.7.0",
