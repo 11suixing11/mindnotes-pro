@@ -17,6 +17,21 @@ updates:
     commit-message:
       prefix: 'chore(deps)'
     groups:
+      react-major:
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - '@types/react'
+          - '@types/react-dom'
+        update-types:
+          - 'major'
+      typescript-toolchain-major:
+        patterns:
+          - 'typescript'
+          - 'typescript-eslint'
+          - '@typescript-eslint/*'
+        update-types:
+          - 'major'
       dev-dependencies:
         dependency-type: 'development'
         update-types:
