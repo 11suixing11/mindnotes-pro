@@ -335,4 +335,24 @@ export const icons = {
       <rect x="14" y="14" width="7" height="7" />
     </svg>
   ),
+  snap: (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 3v6a6 6 0 0 0 12 0V3" />
+      <path d="M6 9h4" />
+      <path d="M14 9h4" />
+      <path d="M6 3h4" />
+      <path d="M14 3h4" />
+      <path d="M12 15v6" />
+      <path d="M9 21h6" />
+    </svg>
+  ),
 }

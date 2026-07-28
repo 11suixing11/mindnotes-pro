@@ -3,6 +3,10 @@ import { getContentBounds } from '../canvas/canvasUtils'
 import { elementBounds } from './types'
 import { useAppStore } from './appStore'
 
+export const GRID_SIZE_OPTIONS = [10, 20, 40] as const
+export type GridSize = (typeof GRID_SIZE_OPTIONS)[number]
+export const DEFAULT_GRID_SIZE: GridSize = 20
+
 interface ViewState {
   viewBox: {
     x: number
@@ -12,6 +16,8 @@ interface ViewState {
   isPanning: boolean
   lastPanPosition: { x: number; y: number } | null
   showGrid: boolean
+  snapToGrid: boolean
+  gridSize: GridSize
   // Quick Zoom Navigation (鹰眼模式)
   // 按 Z 键进入鹰眼模式，快速全局预览后定位到目标区域
   // 设计参考: tldraw, Figma, Sketch - 专业设计工具标准导航功能
@@ -36,6 +42,10 @@ interface ViewActions {
   // 设计参考: Figma Cmd+2, Sketch Cmd+2, Graphic Cmd+2 - 行业标准快捷键
   zoomToSelection: () => void
   toggleGrid: () => void
+  toggleSnapToGrid: () => void
+  setSnapToGrid: (enabled: boolean) => void
+  setGridSize: (gridSize: GridSize) => void
+  cycleGridSize: () => void
   // 鹰眼模式方法
   startEagleEye: () => void
   updateEagleEyeTarget: (x: number, y: number) => void
@@ -51,6 +61,8 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
   isPanning: false,
   lastPanPosition: null,
   showGrid: false,
+  snapToGrid: false,
+  gridSize: DEFAULT_GRID_SIZE,
   eagleEye: {
     isActive: false,
     originalViewBox: null,
@@ -152,6 +164,30 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
   },
 
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
+
+  toggleSnapToGrid: () =>
+    set((state) => {
+      const enabled = !state.snapToGrid
+      return {
+        snapToGrid: enabled,
+        showGrid: enabled ? true : state.showGrid,
+      }
+    }),
+
+  setSnapToGrid: (enabled) =>
+    set((state) => ({
+      snapToGrid: enabled,
+      showGrid: enabled ? true : state.showGrid,
+    })),
+
+  setGridSize: (gridSize) => set({ gridSize }),
+
+  cycleGridSize: () =>
+    set((state) => {
+      const index = GRID_SIZE_OPTIONS.indexOf(state.gridSize)
+      const nextIndex = index === -1 ? 0 : (index + 1) % GRID_SIZE_OPTIONS.length
+      return { gridSize: GRID_SIZE_OPTIONS[nextIndex] }
+    }),
 
   // 启动鹰眼模式
   // 1. 保存当前视口

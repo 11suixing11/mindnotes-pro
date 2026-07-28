@@ -250,6 +250,12 @@ export function useKeyboardBindings(options: Options = {}) {
         return
       }
 
+      if ((e.key === 's' || e.key === 'S') && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault()
+        useViewStore.getState().toggleSnapToGrid()
+        return
+      }
+
       // 样式吸管 (Q 键)
       // Q 键悬停快速复制样式
       // - 鼠标悬停在元素上按 Q 键：直接复制该元素样式（无需进入吸管模式）

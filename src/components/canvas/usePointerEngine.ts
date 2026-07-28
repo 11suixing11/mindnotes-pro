@@ -10,7 +10,14 @@ import type {
   ShapeKind,
   ToolType,
 } from '../../store/types'
-import { distToSegSq, elementBounds, isTransparentImagePixel } from '../../canvas/canvasUtils'
+import {
+  distToSegSq,
+  elementBounds,
+  getGridSnapDelta,
+  isTransparentImagePixel,
+  snapPointToGrid,
+  snapValueToGrid,
+} from '../../canvas/canvasUtils'
 import { drawElement } from '../../canvas/canvasDrawing'
 import {
   lockResizeScalesToAspectRatio,
@@ -113,6 +120,26 @@ export function usePointerEngine(opts: {
   const eraserTrailIndexRef = useRef(0)
   const eraserTrailCountRef = useRef(0)
   const penVelocityRef = useRef(0)
+
+  const snapPointIfGridEnabled = useCallback((point: { x: number; y: number }) => {
+    const { snapToGrid, gridSize } = useViewStore.getState()
+    return snapToGrid ? snapPointToGrid(point, gridSize) : point
+  }, [])
+
+  const snapResizeTargetIfGridEnabled = useCallback((target: { x?: number; y?: number }) => {
+    const { snapToGrid, gridSize } = useViewStore.getState()
+    if (!snapToGrid) return { ...target, linesX: [], linesY: [] }
+
+    const x = target.x === undefined ? undefined : snapValueToGrid(target.x, gridSize)
+    const y = target.y === undefined ? undefined : snapValueToGrid(target.y, gridSize)
+
+    return {
+      x,
+      y,
+      linesX: x === undefined || x === target.x ? [] : [x],
+      linesY: y === undefined || y === target.y ? [] : [y],
+    }
+  }, [])
 
   // 物理擦除状态
   const lastErasePointRef = useRef<{ x: number; y: number; time: number } | null>(null)
@@ -913,8 +940,9 @@ export function usePointerEngine(opts: {
       if (curTool === 'text') {
         const rect = canvasRef.current?.getBoundingClientRect()
         if (rect) {
-          const screenX = (pos.x - curVB.x) * curVB.zoom + rect.left
-          const screenY = (pos.y - curVB.y) * curVB.zoom + rect.top
+          const textPos = snapPointIfGridEnabled(pos)
+          const screenX = (textPos.x - curVB.x) * curVB.zoom + rect.left
+          const screenY = (textPos.y - curVB.y) * curVB.zoom + rect.top
           const hitEl = hitTest(pos.x, pos.y)
           const existing = hitEl
             ? (useAppStore.getState().idToElement.get(hitEl) as TextElement | undefined)
@@ -928,7 +956,7 @@ export function usePointerEngine(opts: {
               existing.color,
               { id: existing.id, content: existing.content, fontSize: existing.fontSize }
             )
-          else startEditText(pos.x, pos.y, screenX, screenY, curColor)
+          else startEditText(textPos.x, textPos.y, screenX, screenY, curColor)
           setTimeout(() => textRef.current?.focus(), 50)
         }
         return
@@ -943,11 +971,12 @@ export function usePointerEngine(opts: {
         const topOnly = e.metaKey || e.ctrlKey
         eraseAt(pos.x, pos.y, undefined, e, topOnly)
       } else {
-        shapeStartRef.current = pos
+        const start = snapPointIfGridEnabled(pos)
+        shapeStartRef.current = start
         currentShapeRef.current = createShapeElement({
           id: `shape-${Date.now()}`,
           kind: curTool as ShapeKind,
-          start: pos,
+          start,
           color: curColor,
           size: curSize,
           fillColor: curFillColor,
@@ -967,6 +996,7 @@ export function usePointerEngine(opts: {
       hitTest,
       hitHandle,
       eraseAt,
+      snapPointIfGridEnabled,
     ]
   )
 
@@ -1094,14 +1124,22 @@ export function usePointerEngine(opts: {
           ay = 0
         let nsx = 1,
           nsy = 1
+        let linesX: number[] = []
+        let linesY: number[] = []
 
         if (handle >= 0 && handle <= 3) {
           // 角落手柄：同时调整宽高
           ax = cornerAnchors[handle][0]
           ay = cornerAnchors[handle][1]
           const orig = cornerOrigins[handle]
-          const targetX = orig[0] + totalDx
-          const targetY = orig[1] + totalDy
+          const snappedTarget = snapResizeTargetIfGridEnabled({
+            x: orig[0] + totalDx,
+            y: orig[1] + totalDy,
+          })
+          const targetX = snappedTarget.x ?? orig[0] + totalDx
+          const targetY = snappedTarget.y ?? orig[1] + totalDy
+          linesX = snappedTarget.linesX
+          linesY = snappedTarget.linesY
 
           nsx = Math.max(
             0.1,
@@ -1140,28 +1178,37 @@ export function usePointerEngine(opts: {
           // 上边缘中点：只调整高度（向下锚定）
           ax = ob.x + ob.w / 2
           ay = ob.y + ob.h // 底部作为锚点
-          const targetY = ob.y + totalDy
+          const snappedTarget = snapResizeTargetIfGridEnabled({ y: ob.y + totalDy })
+          const targetY = snappedTarget.y ?? ob.y + totalDy
+          linesY = snappedTarget.linesY
           nsy = Math.max(0.1, Math.min(10, (ay - targetY) / ob.h))
         } else if (handle === 5) {
           // 下边缘中点：只调整高度（向上锚定）
           ax = ob.x + ob.w / 2
           ay = ob.y // 顶部作为锚点
-          const targetY = ob.y + ob.h + totalDy
+          const snappedTarget = snapResizeTargetIfGridEnabled({ y: ob.y + ob.h + totalDy })
+          const targetY = snappedTarget.y ?? ob.y + ob.h + totalDy
+          linesY = snappedTarget.linesY
           nsy = Math.max(0.1, Math.min(10, (targetY - ay) / ob.h))
         } else if (handle === 6) {
           // 左边缘中点：只调整宽度（向右锚定）
           ax = ob.x + ob.w // 右侧作为锚点
           ay = ob.y + ob.h / 2
-          const targetX = ob.x + totalDx
+          const snappedTarget = snapResizeTargetIfGridEnabled({ x: ob.x + totalDx })
+          const targetX = snappedTarget.x ?? ob.x + totalDx
+          linesX = snappedTarget.linesX
           nsx = Math.max(0.1, Math.min(10, (ax - targetX) / ob.w))
         } else if (handle === 7) {
           // 右边缘中点：只调整宽度（向左锚定）
           ax = ob.x // 左侧作为锚点
           ay = ob.y + ob.h / 2
-          const targetX = ob.x + ob.w + totalDx
+          const snappedTarget = snapResizeTargetIfGridEnabled({ x: ob.x + ob.w + totalDx })
+          const targetX = snappedTarget.x ?? ob.x + ob.w + totalDx
+          linesX = snappedTarget.linesX
           nsx = Math.max(0.1, Math.min(10, (targetX - ax) / ob.w))
         }
 
+        snapLinesRef.current = { x: linesX, y: linesY }
         resizeElementById(id, ax, ay, nsx, nsy)
         scheduleRedraw()
         return
@@ -1422,22 +1469,41 @@ export function usePointerEngine(opts: {
           maxX = Math.max(maxX, b.x + b.w)
           maxY = Math.max(maxY, b.y + b.h)
         }
-        const snap = findSnaps(
-          { x: minX + dx, y: minY + dy, w: maxX - minX, h: maxY - minY },
-          idSet
-        )
-        dx += snap.dx
-        dy += snap.dy
-        snapLinesRef.current = { x: snap.linesX, y: snap.linesY }
+        const movingBounds = { x: minX + dx, y: minY + dy, w: maxX - minX, h: maxY - minY }
+        const snap = findSnaps(movingBounds, idSet)
+        let snapDx = snap.dx
+        let snapDy = snap.dy
+        let linesX = snap.linesX
+        let linesY = snap.linesY
+
+        const { snapToGrid, gridSize } = useViewStore.getState()
+        if (snapToGrid) {
+          const snappedBounds = {
+            ...movingBounds,
+            x: movingBounds.x + snapDx,
+            y: movingBounds.y + snapDy,
+          }
+          const gridSnap = getGridSnapDelta(snappedBounds, gridSize)
+          if (snap.dx === 0) {
+            snapDx += gridSnap.dx
+            linesX = gridSnap.linesX
+          }
+          if (snap.dy === 0) {
+            snapDy += gridSnap.dy
+            linesY = gridSnap.linesY
+          }
+        }
+
+        dx += snapDx
+        dy += snapDy
+        snapLinesRef.current = { x: linesX, y: linesY }
         if (ids.length > 1) moveElementsById(ids, dx, dy)
         else moveElementById(dragRef.current.id, dx, dy)
         dragRef.current = {
-          x: pos.x + snap.dx,
-          y: pos.y + snap.dy,
+          ...dragRef.current,
+          x: pos.x + snapDx,
+          y: pos.y + snapDy,
           id: dragRef.current.id,
-          dragStarted: dragRef.current.dragStarted,
-          startScreenX: dragRef.current.startScreenX,
-          startScreenY: dragRef.current.startScreenY,
         }
         scheduleRedraw()
         return
@@ -1479,10 +1545,11 @@ export function usePointerEngine(opts: {
         currentPtsRef.current.push([pos.x, pos.y])
       } else if (shapeStartRef.current && currentShapeRef.current) {
         const shift = 'shiftKey' in e && (e as MouseEvent).shiftKey
+        const draftPos = snapPointIfGridEnabled(pos)
         currentShapeRef.current = updateShapeDraft(
           currentShapeRef.current,
           shapeStartRef.current,
-          pos,
+          draftPos,
           shift
         )
       }
@@ -1500,6 +1567,8 @@ export function usePointerEngine(opts: {
       findSnaps,
       snapLinesRef,
       eraseAt,
+      snapPointIfGridEnabled,
+      snapResizeTargetIfGridEnabled,
     ]
   )
 
@@ -2065,6 +2134,8 @@ export function usePointerEngine(opts: {
       }
     }
 
+    const viewState = useViewStore.getState()
+
     return {
       drawing: drawingRef.current,
       currentPts: currentPtsRef.current,
@@ -2076,9 +2147,9 @@ export function usePointerEngine(opts: {
       color: useAppStore.getState().color,
       size: useAppStore.getState().size,
       brush: useAppStore.getState().brush,
-      showGrid: useViewStore.getState().showGrid ?? false,
+      showGrid: viewState.showGrid ?? false,
       showRulers: false,
-      gridSize: 20,
+      gridSize: viewState.gridSize,
       eraserTrail: trail,
       penVelocity: penVelocityRef.current,
       rotationAngle,

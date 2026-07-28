@@ -755,14 +755,16 @@ export function useCanvasRenderer(
     window.addEventListener('image-loaded', h)
     return () => window.removeEventListener('image-loaded', h)
   }, [redraw])
-  // 仅订阅 viewBox/showGrid 变化触发重绘
+  // 仅订阅 viewBox/showGrid/gridSize 变化触发重绘
   useEffect(() => {
     let prevVB = useViewStore.getState().viewBox
     let prevGrid = useViewStore.getState().showGrid
+    let prevGridSize = useViewStore.getState().gridSize
     const unsub = useViewStore.subscribe((s) => {
-      if (s.viewBox !== prevVB || s.showGrid !== prevGrid) {
+      if (s.viewBox !== prevVB || s.showGrid !== prevGrid || s.gridSize !== prevGridSize) {
         prevVB = s.viewBox
         prevGrid = s.showGrid
+        prevGridSize = s.gridSize
         scheduleRedraw()
       }
     })

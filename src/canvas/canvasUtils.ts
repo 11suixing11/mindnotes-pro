@@ -188,6 +188,40 @@ export function isVisibleInView(
 
 export { elementBounds }
 
+export function snapValueToGrid(value: number, gridSize: number): number {
+  if (gridSize <= 0) return value
+  return Math.round(value / gridSize) * gridSize
+}
+
+export function snapPointToGrid(
+  point: { x: number; y: number },
+  gridSize: number
+): { x: number; y: number } {
+  return {
+    x: snapValueToGrid(point.x, gridSize),
+    y: snapValueToGrid(point.y, gridSize),
+  }
+}
+
+export function getGridSnapDelta(
+  bounds: { x: number; y: number; w: number; h: number },
+  gridSize: number
+): { dx: number; dy: number; linesX: number[]; linesY: number[] } {
+  if (gridSize <= 0) return { dx: 0, dy: 0, linesX: [], linesY: [] }
+
+  const snappedX = snapValueToGrid(bounds.x, gridSize)
+  const snappedY = snapValueToGrid(bounds.y, gridSize)
+  const dx = snappedX - bounds.x
+  const dy = snappedY - bounds.y
+
+  return {
+    dx,
+    dy,
+    linesX: dx === 0 ? [] : [snappedX],
+    linesY: dy === 0 ? [] : [snappedY],
+  }
+}
+
 export function getContentBounds(
   elements: CanvasElement[],
   padding = 0

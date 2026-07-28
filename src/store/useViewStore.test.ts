@@ -7,6 +7,9 @@ describe('useViewStore', () => {
       viewBox: { x: 0, y: 0, zoom: 1 },
       isPanning: false,
       lastPanPosition: null,
+      showGrid: false,
+      snapToGrid: false,
+      gridSize: 20,
     })
   })
 
@@ -16,6 +19,9 @@ describe('useViewStore', () => {
     expect(state.viewBox).toEqual({ x: 0, y: 0, zoom: 1 })
     expect(state.isPanning).toBe(false)
     expect(state.lastPanPosition).toBeNull()
+    expect(state.showGrid).toBe(false)
+    expect(state.snapToGrid).toBe(false)
+    expect(state.gridSize).toBe(20)
   })
 
   it('should zoom in', () => {
@@ -155,6 +161,50 @@ describe('useViewStore', () => {
       useViewStore.setState({ showGrid: true })
       useViewStore.getState().toggleGrid()
       expect(useViewStore.getState().showGrid).toBe(false)
+    })
+  })
+
+  describe('grid snapping', () => {
+    it('enables snap to grid and reveals the grid', () => {
+      useViewStore.getState().toggleSnapToGrid()
+
+      expect(useViewStore.getState().snapToGrid).toBe(true)
+      expect(useViewStore.getState().showGrid).toBe(true)
+    })
+
+    it('disables snap to grid without hiding an already visible grid', () => {
+      useViewStore.setState({ showGrid: true, snapToGrid: true })
+
+      useViewStore.getState().toggleSnapToGrid()
+
+      expect(useViewStore.getState().snapToGrid).toBe(false)
+      expect(useViewStore.getState().showGrid).toBe(true)
+    })
+
+    it('sets snap to grid explicitly', () => {
+      useViewStore.getState().setSnapToGrid(true)
+
+      expect(useViewStore.getState().snapToGrid).toBe(true)
+      expect(useViewStore.getState().showGrid).toBe(true)
+    })
+
+    it('sets the grid size', () => {
+      useViewStore.getState().setGridSize(40)
+
+      expect(useViewStore.getState().gridSize).toBe(40)
+    })
+
+    it('cycles through grid sizes', () => {
+      useViewStore.setState({ gridSize: 10 })
+
+      useViewStore.getState().cycleGridSize()
+      expect(useViewStore.getState().gridSize).toBe(20)
+
+      useViewStore.getState().cycleGridSize()
+      expect(useViewStore.getState().gridSize).toBe(40)
+
+      useViewStore.getState().cycleGridSize()
+      expect(useViewStore.getState().gridSize).toBe(10)
     })
   })
 
