@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import ColorPicker from './ColorPicker'
 import { useAppStore } from '../../store/appStore'
+import { useViewStore } from '../../store/useViewStore'
 import { COLOR_HISTORY_KEY } from '../../store/slices/toolSettings'
+import { getTemplateBounds } from '../../templates/canvasTemplates'
 
 // Mock useConfirm
 vi.mock('../confirm-modal', () => ({
@@ -21,7 +23,11 @@ describe('ColorPicker', () => {
       backgroundStyle: 'plain',
       colorHistory: [],
       elements: [],
+      selectedIds: [],
+      undoStack: [],
+      redoStack: [],
     })
+    useViewStore.setState({ viewBox: { x: 0, y: 0, zoom: 1 } })
   })
 
   it('renders color buttons', () => {
@@ -76,6 +82,11 @@ describe('ColorPicker', () => {
   it('renders image import button', () => {
     render(<ColorPicker />)
     expect(screen.getByLabelText('插入图片')).toBeTruthy()
+  })
+
+  it('renders template library button', () => {
+    render(<ColorPicker />)
+    expect(screen.getByLabelText('模板库')).toBeTruthy()
   })
 
   it('renders clear button', () => {
@@ -148,5 +159,47 @@ describe('ColorPicker', () => {
     expect(screen.getByLabelText('最近使用的颜色')).toBeTruthy()
     expect(screen.getByLabelText('最近颜色 #E03131')).toBeTruthy()
     expect(JSON.parse(localStorage.getItem(COLOR_HISTORY_KEY) ?? '[]')).toEqual(['#E03131'])
+  })
+
+  it('opens the template picker and inserts a built-in template', () => {
+    useViewStore.setState({ viewBox: { x: 100, y: 200, zoom: 2 } })
+    render(<ColorPicker />)
+
+    fireEvent.click(screen.getByLabelText('模板库'))
+    fireEvent.click(screen.getByRole('button', { name: '插入 Flowchart 模板' }))
+
+    const state = useAppStore.getState()
+    expect(state.elements.length).toBeGreaterThan(0)
+    expect(state.selectedIds).toEqual([])
+    expect(state.undoStack[state.undoStack.length - 1]?.type).toBe('add')
+  })
+
+  it('uses the visible browser viewport instead of oversized canvas dimensions for insertion', () => {
+    const canvas = document.createElement('canvas')
+    canvas.id = 'main-canvas'
+    canvas.width = 1040
+    canvas.height = 7580
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+      x: 240,
+      y: 0,
+      left: 240,
+      top: 0,
+      right: 1280,
+      bottom: 7580,
+      width: 1040,
+      height: 7580,
+      toJSON: () => ({}),
+    })
+    document.body.appendChild(canvas)
+
+    render(<ColorPicker />)
+
+    fireEvent.click(screen.getByLabelText('模板库'))
+    fireEvent.click(screen.getByRole('button', { name: '插入 Flowchart 模板' }))
+
+    const bounds = getTemplateBounds(useAppStore.getState().elements)
+    if (!bounds) throw new Error('Expected inserted template bounds')
+    expect(bounds.x + bounds.w / 2).toBeCloseTo(632 - 240, 5)
+    expect(bounds.y + bounds.h / 2).toBeCloseTo(768 / 2, 5)
   })
 })
