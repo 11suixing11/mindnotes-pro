@@ -1,5 +1,8 @@
 import { app, BrowserWindow, ipcMain, globalShortcut, screen } from 'electron'
 import * as path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let mainWindow: BrowserWindow | null = null
 let overlayWindow: BrowserWindow | null = null
