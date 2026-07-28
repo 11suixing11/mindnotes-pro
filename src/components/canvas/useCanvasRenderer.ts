@@ -3,6 +3,7 @@ import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useThemeStore } from '../../store/useThemeStore'
 import type { CanvasElement, ShapeElement, BrushType } from '../../store/types'
+import { getElementLayerId, getRenderableElements, isLayerLocked } from '../../store/layers'
 import { isVisibleInView, elementBounds } from '../../canvas/canvasUtils'
 import {
   drawElement,
@@ -273,7 +274,7 @@ export function useCanvasRenderer(
     if (!ctx) return
 
     const st = useAppStore.getState()
-    const els = st.elements
+    const renderableElements = getRenderableElements(st.elements, st.layers)
     const selSet = getCachedSelectedIds() // 使用缓存的 Set
     const dark = useThemeStore.getState().isDarkMode
     const vb = useViewStore.getState().viewBox
@@ -294,26 +295,24 @@ export function useCanvasRenderer(
     // 大画布场景下（1000+ 元素），性能提升 10-100x
     const visibleIds = st.spatialIndex?.queryVisible(vl, vt, vw, vh)
 
-    if (visibleIds && visibleIds.length > 0) {
-      // 使用 idToElement O(1) 查找，只遍历视口内元素
-      // 复杂度从 O(n) → O(k)，大画布场景提升 10-100x
-      for (const id of visibleIds) {
-        const el = st.idToElement.get(id)
-        if (!el) continue
+    if (visibleIds) {
+      const visibleSet = new Set(visibleIds)
+      for (const el of renderableElements) {
+        if (!visibleSet.has(el.id)) continue
         drawElement(ctx, el, dark)
         // 锁定元素视觉指示器（小锁图标）
-        if (el.locked) drawLockIcon(ctx, cachedBounds(el), dark)
-        if (selSet.has(id)) drawSelBox(ctx, cachedBounds(el), dark, vb.zoom)
+        if (el.locked || isLayerLocked(st.layers, getElementLayerId(el)))
+          drawLockIcon(ctx, cachedBounds(el), dark)
+        if (selSet.has(el.id)) drawSelBox(ctx, cachedBounds(el), dark, vb.zoom)
       }
-    } else if (visibleIds) {
-      // 空间索引可用但视口为空，跳过渲染
     } else {
       // 降级: 空间索引不可用时使用原有 O(n) 遍历
-      for (const el of els) {
+      for (const el of renderableElements) {
         if (!isVisibleInView(el, vl, vt, vw, vh)) continue
         drawElement(ctx, el, dark)
         // 锁定元素视觉指示器（小锁图标）
-        if (el.locked) drawLockIcon(ctx, cachedBounds(el), dark)
+        if (el.locked || isLayerLocked(st.layers, getElementLayerId(el)))
+          drawLockIcon(ctx, cachedBounds(el), dark)
         if (selSet.has(el.id)) drawSelBox(ctx, cachedBounds(el), dark, vb.zoom)
       }
     }
@@ -637,7 +636,15 @@ export function useCanvasRenderer(
       ctx.restore()
     }
 
-    drawMinimap(ctx, st.elements, cachedBounds, vb, canvasSize, dark, st.bgColor)
+    drawMinimap(
+      ctx,
+      getRenderableElements(st.elements, st.layers),
+      cachedBounds,
+      vb,
+      canvasSize,
+      dark,
+      st.bgColor
+    )
     drawZoomLevel(ctx, vb, canvasSize, dark, dpr)
   }, [dpr, canvasSize, getOrCreateEC, renderElementsToCache, canvasRef, getDrawState])
   const scheduleRedraw = useCallback(() => {
@@ -687,6 +694,7 @@ export function useCanvasRenderer(
   // 避免每帧创建完整 Map，使用引用比较 + Set 差集
   useEffect(() => {
     let prevElements = useAppStore.getState().elements
+    let prevLayers = useAppStore.getState().layers
     let prevIdSet = new Set(prevElements.map((e) => e.id))
     const prevRefMap = new Map<string, CanvasElement>()
     for (const e of prevElements) prevRefMap.set(e.id, e)
@@ -694,7 +702,8 @@ export function useCanvasRenderer(
     // subscribe 仅处理 elements 变化，非 elements 变化快速退出
     const unsub = useAppStore.subscribe((s) => {
       const currElements = s.elements
-      if (currElements === prevElements) return // 快速退出：非 elements 变化
+      const currLayers = s.layers
+      if (currElements === prevElements && currLayers === prevLayers) return
 
       {
         // elements 变化处理块
@@ -735,6 +744,7 @@ export function useCanvasRenderer(
         }
         // 更新快照引用
         prevElements = currElements
+        prevLayers = currLayers
         prevIdSet = currIdSet
       }
 

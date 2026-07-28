@@ -20,6 +20,13 @@ import {
 } from '../../canvas/canvasUtils'
 import { drawElement } from '../../canvas/canvasDrawing'
 import {
+  getElementLayerId,
+  getLayerOrderMap,
+  getRenderableElements,
+  isElementLayerEditable,
+  isElementLayerVisible,
+} from '../../store/layers'
+import {
   lockResizeScalesToAspectRatio,
   shouldPreserveResizeAspectRatio,
 } from '../../canvas/resizeRules'
@@ -299,90 +306,11 @@ export function usePointerEngine(opts: {
         idToIndexCacheRef.current = { els, map }
       }
       const idToIndex = idToIndexCacheRef.current.map
+      const layerOrder = getLayerOrderMap(state.layers)
 
-      // P0 性能优化: 先用空间索引快速筛选候选元素（O(log n)）
-      const candidateIds = state.spatialIndex?.search({
-        x: px - r,
-        y: py - r,
-        w: r * 2,
-        h: r * 2,
-      })
+      const isHit = (el: CanvasElement): boolean => {
+        if (!isElementLayerEditable(el, state.layers)) return false
 
-      // 如果空间索引可用，直接遍历候选元素而非全部元素
-      // 从后向前遍历以保持 Z-order（后绘制的在上层）
-      if (candidateIds && candidateIds.length > 0) {
-        // 使用缓存的 idToIndex 排序，避免每次重建
-        candidateIds.sort((a, b) => {
-          return (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
-        })
-
-        for (const id of candidateIds) {
-          const idx = idToIndex.get(id)
-          if (idx === undefined) continue
-          const el = els[idx]
-
-          // 跳过锁定的元素，无法选中
-          if (el.locked) continue
-
-          // 精确检测
-          if (el.type === 'image') {
-            if (
-              px >= el.x - r &&
-              px <= el.x + el.width + r &&
-              py >= el.y - r &&
-              py <= el.y + el.height + r
-            ) {
-              // 图片透明像素点击穿透
-              // 点击图片透明区域时，跳过该图片，继续检测下面的元素
-              // 遵循常见设计工具行为
-              if (isTransparentImagePixel(el, px, py)) {
-                continue
-              }
-              return el.id
-            }
-          } else if (el.type === 'text') {
-            if (
-              px >= el.x - r &&
-              px <= el.x + (el.width || 100) + r &&
-              py >= el.y - r &&
-              py <= el.y + (el.height || 30) + r
-            )
-              return el.id
-          } else if (el.type === 'shape') {
-            const b = cachedBounds(el)
-            if (px >= b.x - r && px <= b.x + b.w + r && py >= b.y - r && py <= b.y + b.h + r)
-              return el.id
-          } else if (el.type === 'stroke' && el.points.length >= 2) {
-            // P1 性能优化: 使用边界框快速排除，避免逐点距离计算
-            const b = cachedBounds(el)
-            if (px < b.x - r || px > b.x + b.w + r || py < b.y - r || py > b.y + b.h + r) continue
-
-            // P1 性能优化: 使用平方距离比较，避免 Math.sqrt 开销
-            const threshold = r + el.size / 2
-            const thresholdSq = threshold * threshold
-            for (let j = 1; j < el.points.length; j++) {
-              if (
-                distToSegSq(
-                  px,
-                  py,
-                  el.points[j - 1][0],
-                  el.points[j - 1][1],
-                  el.points[j][0],
-                  el.points[j][1]
-                ) < thresholdSq
-              )
-                return el.id
-            }
-          }
-        }
-        return null
-      }
-
-      // 降级: 空间索引不可用时用原有的 O(n) 遍历
-      for (let i = els.length - 1; i >= 0; i--) {
-        const el = els[i]
-        // 跳过锁定的元素，无法选中
-        if (el.locked) continue
         if (el.type === 'image') {
           if (
             px >= el.x - r &&
@@ -391,24 +319,32 @@ export function usePointerEngine(opts: {
             py <= el.y + el.height + r
           ) {
             // 图片透明像素点击穿透
-            if (isTransparentImagePixel(el, px, py)) {
-              continue
-            }
-            return el.id
+            // 点击图片透明区域时，跳过该图片，继续检测下面的元素
+            // 遵循常见设计工具行为
+            return !isTransparentImagePixel(el, px, py)
           }
-        } else if (el.type === 'text') {
-          if (
+          return false
+        }
+
+        if (el.type === 'text') {
+          return (
             px >= el.x - r &&
             px <= el.x + (el.width || 100) + r &&
             py >= el.y - r &&
             py <= el.y + (el.height || 30) + r
           )
-            return el.id
-        } else if (el.type === 'shape') {
+        }
+
+        if (el.type === 'shape') {
           const b = cachedBounds(el)
-          if (px >= b.x - r && px <= b.x + b.w + r && py >= b.y - r && py <= b.y + b.h + r)
-            return el.id
-        } else if (el.type === 'stroke' && el.points.length >= 2) {
+          return px >= b.x - r && px <= b.x + b.w + r && py >= b.y - r && py <= b.y + b.h + r
+        }
+
+        if (el.type === 'stroke' && el.points.length >= 2) {
+          // P1 性能优化: 使用边界框快速排除，避免逐点距离计算
+          const b = cachedBounds(el)
+          if (px < b.x - r || px > b.x + b.w + r || py < b.y - r || py > b.y + b.h + r) return false
+
           // P1 性能优化: 使用平方距离比较，避免 Math.sqrt 开销
           const threshold = r + el.size / 2
           const thresholdSq = threshold * threshold
@@ -423,9 +359,48 @@ export function usePointerEngine(opts: {
                 el.points[j][1]
               ) < thresholdSq
             )
-              return el.id
+              return true
           }
         }
+
+        return false
+      }
+
+      // P0 性能优化: 先用空间索引快速筛选候选元素（O(log n)）
+      const candidateIds = state.spatialIndex?.search({
+        x: px - r,
+        y: py - r,
+        w: r * 2,
+        h: r * 2,
+      })
+
+      // 如果空间索引可用，直接遍历候选元素而非全部元素
+      // 按 layer order + 元素顺序排序，保持与渲染一致的 Z-order
+      if (candidateIds && candidateIds.length > 0) {
+        candidateIds.sort((a, b) => {
+          const aIndex = idToIndex.get(a)
+          const bIndex = idToIndex.get(b)
+          const aEl = state.idToElement.get(a) ?? (aIndex === undefined ? undefined : els[aIndex])
+          const bEl = state.idToElement.get(b) ?? (bIndex === undefined ? undefined : els[bIndex])
+          const layerDiff =
+            (bEl ? (layerOrder.get(getElementLayerId(bEl)) ?? 0) : 0) -
+            (aEl ? (layerOrder.get(getElementLayerId(aEl)) ?? 0) : 0)
+          return layerDiff || (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
+        })
+
+        for (const id of candidateIds) {
+          const idx = idToIndex.get(id)
+          const el = (idx === undefined ? state.idToElement.get(id) : els[idx]) ?? null
+          if (el && isHit(el)) return el.id
+        }
+        return null
+      }
+
+      // 降级: 空间索引不可用时按渲染顺序反向遍历
+      const renderableElements = getRenderableElements(els, state.layers)
+      for (let i = renderableElements.length - 1; i >= 0; i--) {
+        const el = renderableElements[i]
+        if (isHit(el)) return el.id
       }
       return null
     },
@@ -454,6 +429,7 @@ export function usePointerEngine(opts: {
       for (const selId of selIds) {
         const el = state.idToElement.get(selId)
         if (!el) continue
+        if (!isElementLayerEditable(el, state.layers)) continue
         const b = cachedBounds(el)
         // 先检测旋转手柄（优先级高于缩放手柄）
         const rotateHandleX = b.x + b.w / 2
@@ -556,10 +532,20 @@ export function usePointerEngine(opts: {
         idToIndexCacheRef.current = { els: state.elements, map }
       }
       const idToIndex = idToIndexCacheRef.current.map
+      const layerOrder = getLayerOrderMap(state.layers)
 
       // 按 Z-order 降序排列（最上层在前）
       const sortedIds = (candidateIds ?? state.elements.map((e) => e.id)).sort((a, b) => {
-        return (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
+        const aIndex = idToIndex.get(a)
+        const bIndex = idToIndex.get(b)
+        const aEl =
+          state.idToElement.get(a) ?? (aIndex === undefined ? undefined : state.elements[aIndex])
+        const bEl =
+          state.idToElement.get(b) ?? (bIndex === undefined ? undefined : state.elements[bIndex])
+        const layerDiff =
+          (bEl ? (layerOrder.get(getElementLayerId(bEl)) ?? 0) : 0) -
+          (aEl ? (layerOrder.get(getElementLayerId(aEl)) ?? 0) : 0)
+        return layerDiff || (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
       })
 
       let topElementErased = false
@@ -570,6 +556,7 @@ export function usePointerEngine(opts: {
         if (erasedRef.current.has(id)) continue
         const el = state.idToElement.get(id)
         if (!el) continue
+        if (!isElementLayerEditable(el, state.layers)) continue
 
         if (el.type === 'stroke') {
           const segments: number[][][] = []
@@ -661,7 +648,10 @@ export function usePointerEngine(opts: {
       eraserStore.engine.setBaseSize(useAppStore.getState().size)
 
       // 执行物理擦除
-      const result = eraserStore.addErasePoint(erasePoint, state.elements)
+      const editableElements = state.elements.filter((el) =>
+        isElementLayerEditable(el, state.layers)
+      )
+      const result = eraserStore.addErasePoint(erasePoint, editableElements)
 
       // 发射橡皮屑粒子
       eraserStore.emitParticles(erasePoint)
@@ -849,7 +839,7 @@ export function usePointerEngine(opts: {
             const groupId = hitEl.groupId
             // 收集该组的所有成员
             for (const el of st.elements) {
-              if (el.groupId === groupId) {
+              if (el.groupId === groupId && isElementLayerEditable(el, st.layers)) {
                 groupMembers.push(el.id)
               }
             }
@@ -1335,7 +1325,7 @@ export function usePointerEngine(opts: {
             const hits: string[] = []
             for (const id of candidateIds ?? []) {
               const el = st.idToElement.get(id)
-              if (!el) continue
+              if (!el || !isElementLayerEditable(el, st.layers)) continue
               const b = cachedBounds(el)
               if (b.x + b.w >= x1 && b.x <= x2 && b.y + b.h >= y1 && b.y <= y2) hits.push(el.id)
             }
@@ -1505,6 +1495,7 @@ export function usePointerEngine(opts: {
           maxY = -Infinity
         for (const el of st.elements) {
           if (!idSet.has(el.id)) continue
+          if (!isElementLayerEditable(el, st.layers)) continue
           const b = cachedBounds(el)
           minX = Math.min(minX, b.x)
           minY = Math.min(minY, b.y)
@@ -1512,6 +1503,7 @@ export function usePointerEngine(opts: {
           maxY = Math.max(maxY, b.y + b.h)
         }
         const movingBounds = { x: minX + dx, y: minY + dy, w: maxX - minX, h: maxY - minY }
+        if (!Number.isFinite(movingBounds.x) || !Number.isFinite(movingBounds.y)) return
         const snap = findSnaps(movingBounds, idSet)
         let snapDx = snap.dx
         let snapDy = snap.dy
@@ -1687,10 +1679,13 @@ export function usePointerEngine(opts: {
               const startPoint: [number, number] = [shape.x, shape.y]
               const endPoint: [number, number] = [shape.x + shape.w, shape.y + shape.h]
 
+              const visibleElements = st.elements.filter((el) =>
+                isElementLayerVisible(el, st.layers)
+              )
               // 检测起点绑定
-              const startBinding = tryBindToShape(startPoint, st.elements, shape.id)
+              const startBinding = tryBindToShape(startPoint, visibleElements, shape.id)
               // 检测终点绑定
-              const endBinding = tryBindToShape(endPoint, st.elements, shape.id)
+              const endBinding = tryBindToShape(endPoint, visibleElements, shape.id)
 
               // 如果有绑定，更新形状的绑定信息
               if (startBinding || endBinding) {
@@ -1733,7 +1728,7 @@ export function usePointerEngine(opts: {
             const hits: string[] = []
             for (const id of candidateIds ?? []) {
               const el = st.idToElement.get(id)
-              if (!el) continue
+              if (!el || !isElementLayerEditable(el, st.layers)) continue
               const b = cachedBounds(el)
               if (b.x + b.w >= x1 && b.x <= x2 && b.y + b.h >= y1 && b.y <= y2) hits.push(el.id)
             }
@@ -1759,6 +1754,7 @@ export function usePointerEngine(opts: {
           for (const el of st.elements) {
             const startPos = sp.get(el.id)
             if (!startPos) continue
+            if (!isElementLayerEditable(el, st.layers)) continue
             let cx: number, cy: number
             if (el.type === 'stroke') {
               cx = el.points[0]?.[0] ?? 0
@@ -2184,7 +2180,7 @@ export function usePointerEngine(opts: {
     // 新实现: O(els.length) = 1000 次哈希查找
     const selSet = new Set(selIds)
     const els = st.elements
-    const selEls = els.filter((e) => selSet.has(e.id))
+    const selEls = els.filter((e) => selSet.has(e.id) && isElementLayerVisible(e, st.layers))
     if (selEls.length === 0) return
     let minX = Infinity,
       minY = Infinity,

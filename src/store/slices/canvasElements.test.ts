@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from '../appStore'
 import type { ShapeElement, StrokeElement, TextElement, ImageElement } from '../types'
+import { createDefaultLayer } from '../layers'
 
 const makeStroke = (id: string, overrides?: Partial<StrokeElement>): StrokeElement => ({
   type: 'stroke',
@@ -56,8 +57,15 @@ describe('canvasElements slice', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     localStorage.clear()
+    const defaultLayer = createDefaultLayer(1)
+    const state = useAppStore.getState()
+    state.idToElement.clear()
+    state.idToIndex.clear()
+    state.spatialIndex.clear()
     useAppStore.setState({
       elements: [],
+      layers: [defaultLayer],
+      activeLayerId: defaultLayer.id,
       selectedIds: [],
       clipboard: [],
       undoStack: [],
@@ -272,6 +280,7 @@ describe('canvasElements slice', () => {
 
   describe('setSelectedIds', () => {
     it('replaces selectedIds', () => {
+      useAppStore.setState({ elements: [makeStroke('a'), makeStroke('b')] })
       useAppStore.getState().setSelectedIds(['a', 'b'])
       expect(useAppStore.getState().selectedIds).toEqual(['a', 'b'])
     })
@@ -347,6 +356,88 @@ describe('canvasElements slice', () => {
       })
       useAppStore.getState().batchErase([], [])
       expect(useAppStore.getState().selectedIds).toEqual([])
+    })
+  })
+
+  describe('layers', () => {
+    it('assigns new elements to the active layer', () => {
+      const layerId = useAppStore.getState().createLayer('Foreground')
+
+      useAppStore.getState().addElement(makeShape('sh1'))
+
+      expect(useAppStore.getState().elements[0].layerId).toBe(layerId)
+    })
+
+    it('renames layers and keeps blank names unchanged', () => {
+      const layerId = useAppStore.getState().createLayer('Draft')
+
+      useAppStore.getState().renameLayer(layerId, 'Annotations')
+      useAppStore.getState().renameLayer(layerId, '   ')
+
+      expect(useAppStore.getState().layers.find((layer) => layer.id === layerId)?.name).toBe(
+        'Annotations'
+      )
+    })
+
+    it('moves selected elements to a target layer', () => {
+      const sourceLayerId = useAppStore.getState().createLayer('Source')
+      useAppStore.getState().addElement(makeShape('sh1'))
+      const targetLayerId = useAppStore.getState().createLayer('Target')
+      useAppStore.setState({ selectedIds: ['sh1'] })
+
+      useAppStore.getState().moveSelectedToLayer(targetLayerId)
+
+      expect(sourceLayerId).toBeTruthy()
+      expect(useAppStore.getState().elements[0].layerId).toBe(targetLayerId)
+    })
+
+    it('moves elements to another layer when deleting their layer', () => {
+      const defaultLayerId = useAppStore.getState().layers[0].id
+      const layerId = useAppStore.getState().createLayer('Temporary')
+      useAppStore.getState().addElement(makeShape('sh1'))
+
+      useAppStore.getState().deleteLayer(layerId)
+
+      expect(useAppStore.getState().layers.some((layer) => layer.id === layerId)).toBe(false)
+      expect(useAppStore.getState().elements[0].layerId).toBe(defaultLayerId)
+    })
+
+    it('clears selection when hiding a layer', () => {
+      const layerId = useAppStore.getState().createLayer('Notes')
+      useAppStore.getState().addElement(makeShape('sh1'))
+      useAppStore.setState({ selectedIds: ['sh1'] })
+
+      useAppStore.getState().setLayerVisibility(layerId, false)
+
+      expect(useAppStore.getState().selectedIds).toEqual([])
+      expect(useAppStore.getState().layers.find((layer) => layer.id === layerId)?.visible).toBe(
+        false
+      )
+    })
+
+    it('prevents movement and deletion on locked layers', () => {
+      const layerId = useAppStore.getState().createLayer('Locked')
+      useAppStore.getState().addElement(makeShape('sh1', { x: 10, y: 20 }))
+
+      useAppStore.getState().setLayerLocked(layerId, true)
+      useAppStore.getState().moveElementById('sh1', 20, 20)
+      useAppStore.getState().removeElement('sh1')
+
+      const element = useAppStore.getState().elements[0] as ShapeElement
+      expect(element.x).toBe(10)
+      expect(element.y).toBe(20)
+      expect(useAppStore.getState().elements).toHaveLength(1)
+    })
+
+    it('reorders layers', () => {
+      const firstLayerId = useAppStore.getState().createLayer('First')
+      const secondLayerId = useAppStore.getState().createLayer('Second')
+
+      useAppStore.getState().moveLayer(firstLayerId, 'up')
+
+      const first = useAppStore.getState().layers.find((layer) => layer.id === firstLayerId)
+      const second = useAppStore.getState().layers.find((layer) => layer.id === secondLayerId)
+      expect(first?.order).toBeGreaterThan(second?.order ?? -1)
     })
   })
 })

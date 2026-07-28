@@ -5,6 +5,7 @@ import { useConfirm } from '../confirm-modal'
 import CanvasPreview from './CanvasPreview'
 import SidebarContextMenu from './SidebarContextMenu'
 import type { SidebarContextState } from './SidebarContextMenu'
+import LayersPanel from '../layers/LayersPanel'
 
 type DocumentSortMode =
   'updated-desc' | 'updated-asc' | 'created-desc' | 'created-asc' | 'title-asc' | 'title-desc'
@@ -344,7 +345,7 @@ export default function Sidebar() {
                   setContext({ x: event.clientX, y: event.clientY, docId: doc.id })
                 }}
               >
-                <CanvasPreview elements={doc.elements} bgColor={doc.bgColor} />
+                <CanvasPreview elements={doc.elements} layers={doc.layers} bgColor={doc.bgColor} />
                 {renamingId === doc.id ? (
                   <input
                     ref={renameInputRef}
@@ -393,6 +394,8 @@ export default function Sidebar() {
             )
           })}
         </div>
+
+        <LayersPanel />
 
         <div className="sb-footer" aria-live="polite">
           {normalizedSearch
