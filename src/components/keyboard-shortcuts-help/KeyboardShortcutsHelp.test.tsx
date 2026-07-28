@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp'
+import { useShortcutStore } from '../../store/useShortcutStore'
 
 describe('KeyboardShortcutsHelp', () => {
   const onClose = vi.fn()
 
   beforeEach(() => {
     onClose.mockClear()
+    localStorage.clear()
+    useShortcutStore.getState().resetShortcuts()
   })
 
   it('renders nothing when closed', () => {
@@ -19,7 +22,7 @@ describe('KeyboardShortcutsHelp', () => {
     expect(screen.getByText('Keyboard Shortcuts')).toBeTruthy()
     expect(screen.getByText('Undo')).toBeTruthy()
     expect(screen.getByText('Redo')).toBeTruthy()
-    expect(screen.getByText('Pen Tool')).toBeTruthy()
+    expect(screen.getByText('Pen tool')).toBeTruthy()
   })
 
   it('renders all shortcut labels', () => {
@@ -33,6 +36,24 @@ describe('KeyboardShortcutsHelp', () => {
     expect(screen.getByText('Zoom out')).toBeTruthy()
   })
 
+  it('renders customized shortcut keys', () => {
+    useShortcutStore.getState().setShortcut('tool.pen', { key: 'P' })
+
+    render(<KeyboardShortcutsHelp open={true} onClose={onClose} />)
+
+    expect(screen.getByText('Pen tool')).toBeTruthy()
+    expect(screen.getAllByText('P').length).toBeGreaterThan(0)
+  })
+
+  it('calls onCustomize when customize button is clicked', () => {
+    const onCustomize = vi.fn()
+    render(<KeyboardShortcutsHelp open={true} onClose={onClose} onCustomize={onCustomize} />)
+
+    fireEvent.click(screen.getByText('Customize'))
+
+    expect(onCustomize).toHaveBeenCalled()
+  })
+
   it('calls onClose when close button is clicked', () => {
     render(<KeyboardShortcutsHelp open={true} onClose={onClose} />)
     fireEvent.click(screen.getByLabelText('Close'))
@@ -41,7 +62,9 @@ describe('KeyboardShortcutsHelp', () => {
 
   it('calls onClose when overlay is clicked', () => {
     const { container } = render(<KeyboardShortcutsHelp open={true} onClose={onClose} />)
-    const overlay = container.querySelector('[class*="fixed"]')!
+    const overlay = container.querySelector('[class*="fixed"]')
+    expect(overlay).not.toBeNull()
+    if (!overlay) return
     fireEvent.click(overlay)
     expect(onClose).toHaveBeenCalled()
   })
@@ -55,6 +78,12 @@ describe('KeyboardShortcutsHelp', () => {
   it('closes on F1 key', () => {
     render(<KeyboardShortcutsHelp open={true} onClose={onClose} />)
     fireEvent.keyDown(window, { key: 'F1' })
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('closes on the configured help shortcut', () => {
+    render(<KeyboardShortcutsHelp open={true} onClose={onClose} />)
+    fireEvent.keyDown(window, { key: '?', shiftKey: true })
     expect(onClose).toHaveBeenCalled()
   })
 

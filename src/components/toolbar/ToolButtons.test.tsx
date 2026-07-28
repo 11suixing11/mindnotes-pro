@@ -1,9 +1,16 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import ToolButtons from './ToolButtons'
+import { useShortcutStore } from '../../store/useShortcutStore'
 
 describe('ToolButtons', () => {
   const setTool = vi.fn()
+
+  beforeEach(() => {
+    localStorage.clear()
+    useShortcutStore.getState().resetShortcuts()
+    setTool.mockClear()
+  })
 
   it('renders all tool buttons', () => {
     render(<ToolButtons tool="pen" setTool={setTool} />)
@@ -51,6 +58,15 @@ describe('ToolButtons', () => {
     expect(screen.getByText('1')).toBeTruthy()
     expect(screen.getByText('2')).toBeTruthy()
     expect(screen.getByText('3')).toBeTruthy()
+  })
+
+  it('renders customized shortcut hints', () => {
+    useShortcutStore.getState().setShortcut('tool.pen', { key: 'P' })
+
+    render(<ToolButtons tool="pen" setTool={setTool} />)
+
+    expect(screen.getByLabelText('Pen tool (P)')).toBeTruthy()
+    expect(screen.getByText('P')).toBeTruthy()
   })
 
   it('renders separators', () => {

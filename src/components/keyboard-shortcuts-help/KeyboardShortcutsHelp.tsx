@@ -1,54 +1,71 @@
-import { useState, useEffect, memo } from 'react'
-
-const SHORTCUTS = [
-  { keys: ['Ctrl', 'Z'], label: 'Undo' },
-  { keys: ['Ctrl', 'Shift', 'Z'], label: 'Redo' },
-  { keys: ['Ctrl', 'Y'], label: 'Redo (Windows)' },
-  { keys: ['Ctrl', 'C'], label: 'Copy' },
-  { keys: ['Ctrl', 'V'], label: 'Paste (image/text)' },
-  { keys: ['Ctrl', 'Shift', 'V'], label: 'Paste as plain text' },
-  { keys: ['Ctrl', 'A'], label: 'Select all' },
-  { keys: ['Ctrl', 'D'], label: 'Duplicate selected' },
-  { keys: ['Ctrl', 'G'], label: 'Group elements' },
-  { keys: ['Ctrl', 'Shift', 'G'], label: 'Ungroup elements' },
-  { keys: ['Delete'], label: 'Delete selected' },
-  { keys: ['1'], label: 'Select Tool' },
-  { keys: ['2'], label: 'Pen Tool' },
-  { keys: ['3'], label: 'Text Tool' },
-  { keys: ['4'], label: 'Rectangle Tool' },
-  { keys: ['5'], label: 'Circle Tool' },
-  { keys: ['6'], label: 'Line Tool' },
-  { keys: ['7'], label: 'Arrow Tool' },
-  { keys: ['8'], label: 'Eraser Tool' },
-  { keys: ['9'], label: 'Pan Tool' },
-  { keys: ['+'], label: 'Zoom in' },
-  { keys: ['-'], label: 'Zoom out' },
-  // G 键循环切换几何工具
-  { keys: ['G'], label: 'Cycle geometry tools' },
-  { keys: ['Shift', 'G'], label: 'Toggle grid' },
-  { keys: ['Shift', 'S'], label: 'Toggle grid snap' },
-  { keys: ['Arrow Keys'], label: 'Move selected' },
-  { keys: ['Shift', 'Arrow'], label: 'Fast move (10px)' },
-  { keys: ['Shift', 'Click'], label: 'Multi-select' },
-  { keys: ['Alt', '1-8'], label: 'Quick color select' },
-  { keys: ['Q'], label: 'Style Eyedropper' },
-  { keys: ['DblClick'], label: 'Edit text' },
-  { keys: ['?'], label: 'Toggle this panel' },
-  { keys: ['Ctrl', 'Shift', 'P'], label: 'Screen Pen (draw on screen)' },
-  // Z 键鹰眼模式
-  { keys: ['Z'], label: 'Eagle Eye (quick zoom navigation)' },
-  { keys: ['Esc'], label: 'Cancel Eagle Eye mode' },
-  // Ctrl+2 缩放到选中元素
-  { keys: ['Ctrl', '2'], label: 'Zoom to selection' },
-]
+import { useState, useEffect, memo, useMemo } from 'react'
+import {
+  FIXED_SHORTCUT_HELP,
+  SHORTCUT_DEFINITIONS,
+  findShortcutAction,
+  getShortcutCategoryLabel,
+  getShortcutKeyParts,
+  isEditableShortcutTarget,
+  type ShortcutCategory,
+} from '../../keyboard/shortcuts'
+import { useShortcutStore } from '../../store/useShortcutStore'
 
 interface KeyboardShortcutsHelpProps {
   open: boolean
   onClose: () => void
+  onCustomize?: () => void
 }
 
-export default memo(function KeyboardShortcutsHelp({ open, onClose }: KeyboardShortcutsHelpProps) {
+const CATEGORY_ORDER: ShortcutCategory[] = ['tools', 'edit', 'arrange', 'view', 'style', 'help']
+
+function Keys({ parts }: { parts: string[] }) {
+  return (
+    <div className="flex items-center gap-[3px]">
+      {parts.map((key, index) => (
+        <span key={`${key}-${index}`}>
+          <kbd className="inline-block px-[6px] py-[2px] text-[11px] font-semibold text-[var(--text)] bg-[var(--bg)] border border-[var(--border)] rounded-[5px] shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+            {key}
+          </kbd>
+          {index < parts.length - 1 && (
+            <span className="text-[var(--text-4)] text-[10px] mx-[1px]">+</span>
+          )}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+export default memo(function KeyboardShortcutsHelp({
+  open,
+  onClose,
+  onCustomize,
+}: KeyboardShortcutsHelpProps) {
   const [visible, setVisible] = useState(open)
+  const bindings = useShortcutStore((s) => s.bindings)
+
+  const groupedShortcuts = useMemo(
+    () =>
+      CATEGORY_ORDER.map((category) => {
+        const configurable = SHORTCUT_DEFINITIONS.filter(
+          (definition) => definition.category === category
+        ).map((definition) => ({
+          id: definition.id,
+          label: definition.label,
+          keyParts: getShortcutKeyParts(bindings[definition.id]),
+        }))
+
+        const fixed = FIXED_SHORTCUT_HELP.filter((shortcut) => shortcut.category === category).map(
+          (shortcut) => ({
+            id: `${shortcut.category}-${shortcut.label}`,
+            label: shortcut.label,
+            keyParts: shortcut.keys,
+          })
+        )
+
+        return { category, shortcuts: [...configurable, ...fixed] }
+      }).filter((group) => group.shortcuts.length > 0),
+    [bindings]
+  )
 
   useEffect(() => {
     setVisible(open)
@@ -57,7 +74,9 @@ export default memo(function KeyboardShortcutsHelp({ open, onClose }: KeyboardSh
   useEffect(() => {
     if (!visible) return
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || e.key === 'F1') {
+      if (isEditableShortcutTarget(e.target)) return
+      const action = findShortcutAction(e, useShortcutStore.getState().bindings)
+      if (e.key === 'Escape' || action === 'help.shortcuts') {
         e.preventDefault()
         setVisible(false)
         onClose()
@@ -80,54 +99,51 @@ export default memo(function KeyboardShortcutsHelp({ open, onClose }: KeyboardSh
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-[var(--card-solid)] rounded-[16px] py-[24px] px-[28px] max-w-[420px] w-[90vw] shadow-[0_8px_40px_rgba(0,0,0,0.2)] border border-[var(--border)]"
+        className="bg-[var(--card-solid)] rounded-[16px] py-[24px] px-[28px] max-w-[520px] w-[90vw] shadow-[0_8px_40px_rgba(0,0,0,0.2)] border border-[var(--border)]"
         style={{ animation: 'popIn 0.2s cubic-bezier(0.16,1,0.3,1)' }}
       >
-        <div className="flex items-center justify-between mb-[16px]">
+        <div className="flex items-center justify-between gap-[12px] mb-[16px]">
           <div className="text-[16px] font-bold text-[var(--text)]">Keyboard Shortcuts</div>
-          <button
-            onClick={() => {
-              setVisible(false)
-              onClose()
-            }}
-            className="w-[28px] h-[28px] rounded-[8px] flex items-center justify-center text-[var(--text-3)] hover:bg-[var(--primary-bg)] transition-colors text-[16px]"
-            aria-label="Close"
-          >
-            &times;
-          </button>
-        </div>
-        <div className="grid grid-cols-1 gap-[2px] max-h-[50vh] overflow-y-auto pr-[4px]">
-          {SHORTCUTS.map((s) => (
-            <div
-              key={s.label}
-              className="flex items-center justify-between py-[6px] px-[8px] rounded-[8px] hover:bg-[var(--primary-bg)] transition-colors"
+          <div className="flex items-center gap-[8px]">
+            {onCustomize && (
+              <button
+                onClick={onCustomize}
+                className="h-[28px] px-[10px] rounded-[8px] border border-[var(--border)] text-[12px] text-[var(--text-3)] hover:text-[var(--primary)] hover:border-[var(--primary)]"
+              >
+                Customize
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setVisible(false)
+                onClose()
+              }}
+              className="w-[28px] h-[28px] rounded-[8px] flex items-center justify-center text-[var(--text-3)] hover:bg-[var(--primary-bg)] transition-colors text-[16px]"
+              aria-label="Close"
             >
-              <span className="text-[13px] text-[var(--text-2)]">{s.label}</span>
-              <div className="flex items-center gap-[3px]">
-                {s.keys.map((k, i) => (
-                  <span key={i}>
-                    <kbd className="inline-block px-[6px] py-[2px] text-[11px] font-semibold text-[var(--text)] bg-[var(--bg)] border border-[var(--border)] rounded-[5px] shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
-                      {k}
-                    </kbd>
-                    {i < s.keys.length - 1 && (
-                      <span className="text-[var(--text-4)] text-[10px] mx-[1px]">+</span>
-                    )}
-                  </span>
+              &times;
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-[10px] max-h-[56vh] overflow-y-auto pr-[4px]">
+          {groupedShortcuts.map((group) => (
+            <section key={group.category}>
+              <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-4)] mb-[4px]">
+                {getShortcutCategoryLabel(group.category)}
+              </div>
+              <div className="grid grid-cols-1 gap-[2px]">
+                {group.shortcuts.map((shortcut) => (
+                  <div
+                    key={shortcut.id}
+                    className="flex items-center justify-between gap-[12px] py-[6px] px-[8px] rounded-[8px] hover:bg-[var(--primary-bg)] transition-colors"
+                  >
+                    <span className="text-[13px] text-[var(--text-2)]">{shortcut.label}</span>
+                    <Keys parts={shortcut.keyParts} />
+                  </div>
                 ))}
               </div>
-            </div>
+            </section>
           ))}
-        </div>
-        <div className="mt-[14px] text-center text-[11px] text-[var(--text-4)]">
-          Press{' '}
-          <kbd className="inline-block px-[5px] py-[1px] text-[10px] font-semibold text-[var(--text-3)] bg-[var(--bg)] border border-[var(--border)] rounded-[4px]">
-            ?
-          </kbd>{' '}
-          or{' '}
-          <kbd className="inline-block px-[5px] py-[1px] text-[10px] font-semibold text-[var(--text-3)] bg-[var(--bg)] border border-[var(--border)] rounded-[4px]">
-            F1
-          </kbd>{' '}
-          to toggle
         </div>
       </div>
     </div>
