@@ -7,6 +7,12 @@ import type {
 } from '../store/types'
 import { getSvgBrushStyle } from './brushPresets'
 import { sanitizeSvgDataUrl } from './svgSanitizer'
+import {
+  getTextAnchorX,
+  getTextLineHeight,
+  isVisibleTextBackground,
+  normalizeTextFormat,
+} from './textFormatting'
 import getStroke from 'perfect-freehand'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -94,15 +100,26 @@ function shapeToSVG(el: ShapeElement): string {
 
 function textToSVG(el: TextElement): string {
   const lines = el.content.split('\n')
-  const lineHeight = el.fontSize * 1.4
+  const format = normalizeTextFormat(el)
+  const lineHeight = getTextLineHeight(format.fontSize)
+  const textX = getTextAnchorX(el.x, el.width, format.textAlign)
+  const anchor =
+    format.textAlign === 'center' ? 'middle' : format.textAlign === 'right' ? 'end' : 'start'
+  const fontWeight = format.fontWeight === 'bold' ? ' font-weight="700"' : ''
+  const fontStyle = format.fontStyle === 'italic' ? ' font-style="italic"' : ''
+  const textDecoration = format.textDecoration === 'underline' ? ' text-decoration="underline"' : ''
+  const textAttrs = `x="${textX}" y="${el.y + format.fontSize}" fill="${format.color}" font-size="${format.fontSize}" font-family="sans-serif" text-anchor="${anchor}"${fontWeight}${fontStyle}${textDecoration}`
+  const background = isVisibleTextBackground(format.backgroundColor)
+    ? `<rect x="${el.x}" y="${el.y}" width="${el.width}" height="${Math.max(el.height, lines.length * lineHeight)}" fill="${format.backgroundColor}"/>\n`
+    : ''
 
   if (lines.length === 1) {
-    return `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${el.color}" font-size="${el.fontSize}" font-family="sans-serif">${esc(lines[0])}</text>\n`
+    return `${background}<text ${textAttrs}>${esc(lines[0])}</text>\n`
   }
 
-  let s = `<text x="${el.x}" y="${el.y + el.fontSize}" fill="${el.color}" font-size="${el.fontSize}" font-family="sans-serif">\n`
+  let s = `${background}<text ${textAttrs}>\n`
   for (let i = 0; i < lines.length; i++) {
-    s += `  <tspan x="${el.x}" dy="${i === 0 ? 0 : lineHeight}">${esc(lines[i])}</tspan>\n`
+    s += `  <tspan x="${textX}" dy="${i === 0 ? 0 : lineHeight}">${esc(lines[i])}</tspan>\n`
   }
   s += `</text>\n`
   return s

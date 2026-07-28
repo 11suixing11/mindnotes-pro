@@ -495,6 +495,35 @@ describe('canvasDrawing', () => {
       drawTextEl(ctx, el)
       expect(ctx.fillText).toHaveBeenCalled()
     })
+
+    it('should draw formatted text with background, alignment, and underline', () => {
+      const el: TextElement = {
+        type: 'text',
+        id: 't1',
+        x: 10,
+        y: 20,
+        width: 200,
+        height: 40,
+        content: 'Formatted',
+        fontSize: 20,
+        color: '#1971c2',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'underline',
+        textAlign: 'center',
+        backgroundColor: '#fff3bf',
+      }
+
+      drawTextEl(ctx, el)
+
+      expect(ctx.font).toContain('italic')
+      expect(ctx.font).toContain('700')
+      expect(ctx.textAlign).toBe('center')
+      expect(ctx.fillRect).toHaveBeenCalledWith(10, 20, 200, 40)
+      expect(ctx.fillText).toHaveBeenCalledWith('Formatted', 110, 20)
+      expect(ctx.beginPath).toHaveBeenCalled()
+      expect(ctx.stroke).toHaveBeenCalled()
+    })
   })
 
   describe('drawSelBox', () => {

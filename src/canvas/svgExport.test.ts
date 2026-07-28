@@ -431,6 +431,35 @@ describe('buildSVGString', () => {
       const svg = buildSVGString([el], { width: W, height: H })
       expect(svg).toContain('A &amp; B')
     })
+
+    it('should export formatted text attributes and background', () => {
+      const el: TextElement = {
+        type: 'text',
+        id: 't1',
+        x: 100,
+        y: 200,
+        width: 240,
+        height: 48,
+        content: 'Formatted',
+        fontSize: 24,
+        color: '#1971c2',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'underline',
+        textAlign: 'center',
+        backgroundColor: '#fff3bf',
+      }
+
+      const svg = buildSVGString([el], { width: W, height: H })
+
+      expect(svg).toContain('<rect x="100" y="200" width="240" height="48" fill="#fff3bf"')
+      expect(svg).toContain('x="220"')
+      expect(svg).toContain('text-anchor="middle"')
+      expect(svg).toContain('font-weight="700"')
+      expect(svg).toContain('font-style="italic"')
+      expect(svg).toContain('text-decoration="underline"')
+      expect(svg).toContain('Formatted')
+    })
   })
 
   // ── images ──────────────────────────────────────────────────────────────

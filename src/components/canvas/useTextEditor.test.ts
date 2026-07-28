@@ -36,16 +36,30 @@ describe('useTextEditor', () => {
       expect(et.color).toBe('#333')
       expect(et.content).toBe('')
       expect(et.fontSize).toBe(16)
+      expect(et.width).toBe(240)
+      expect(et.fontWeight).toBe('normal')
+      expect(et.fontStyle).toBe('normal')
+      expect(et.textDecoration).toBe('none')
+      expect(et.textAlign).toBe('left')
+      expect(et.backgroundColor).toBeUndefined()
       expect(et.id).toMatch(/^new-/)
     })
 
-    it('should set editingText for existing text element', () => {
+    it('should set editingText for existing text element with formatting', () => {
       const { result } = renderHook(() => useTextEditor(createMockCanvasRef()))
       act(() => {
         result.current.startEditText(50, 60, 70, 80, '#000', {
           id: 'text-1',
           content: 'hello',
           fontSize: 20,
+          color: '#123456',
+          width: 180,
+          height: 40,
+          fontWeight: 'bold',
+          fontStyle: 'italic',
+          textDecoration: 'underline',
+          textAlign: 'center',
+          backgroundColor: '#ffe8a3',
         })
       })
       const et2 = result.current.editingText
@@ -54,6 +68,14 @@ describe('useTextEditor', () => {
       expect(et2.id).toBe('text-1')
       expect(et2.content).toBe('hello')
       expect(et2.fontSize).toBe(20)
+      expect(et2.color).toBe('#123456')
+      expect(et2.width).toBe(180)
+      expect(et2.height).toBe(40)
+      expect(et2.fontWeight).toBe('bold')
+      expect(et2.fontStyle).toBe('italic')
+      expect(et2.textDecoration).toBe('underline')
+      expect(et2.textAlign).toBe('center')
+      expect(et2.backgroundColor).toBe('#ffe8a3')
     })
   })
 
@@ -89,6 +111,41 @@ describe('useTextEditor', () => {
       expect((els[0] as any).y).toBe(200)
     })
 
+    it('should add new text with selected formatting', () => {
+      const { result } = renderHook(() => useTextEditor(createMockCanvasRef()))
+      act(() => {
+        result.current.startEditText(100, 200, 150, 250, '#333')
+      })
+      act(() => {
+        result.current.setEditingText((current) =>
+          current
+            ? {
+                ...current,
+                fontSize: 24,
+                color: '#1971c2',
+                fontWeight: 'bold',
+                fontStyle: 'italic',
+                textDecoration: 'underline',
+                textAlign: 'right',
+                backgroundColor: '#fff3bf',
+              }
+            : current
+        )
+      })
+      act(() => {
+        result.current.commitTextEdit('Formatted')
+      })
+
+      const el = useAppStore.getState().elements[0] as any
+      expect(el.fontSize).toBe(24)
+      expect(el.color).toBe('#1971c2')
+      expect(el.fontWeight).toBe('bold')
+      expect(el.fontStyle).toBe('italic')
+      expect(el.textDecoration).toBe('underline')
+      expect(el.textAlign).toBe('right')
+      expect(el.backgroundColor).toBe('#fff3bf')
+    })
+
     it('should not add element when committing new text with empty content', () => {
       const { result } = renderHook(() => useTextEditor(createMockCanvasRef()))
       act(() => {
@@ -112,6 +169,7 @@ describe('useTextEditor', () => {
         content: 'old',
         fontSize: 16,
         color: '#000',
+        textAlign: 'center',
       })
       const { result } = renderHook(() => useTextEditor(createMockCanvasRef()))
       act(() => {
@@ -119,7 +177,24 @@ describe('useTextEditor', () => {
           id: 'text-1',
           content: 'old',
           fontSize: 16,
+          color: '#000',
+          width: 100,
+          height: 30,
+          textAlign: 'center',
         })
+      })
+      act(() => {
+        result.current.setEditingText((current) =>
+          current
+            ? {
+                ...current,
+                fontSize: 20,
+                color: '#e03131',
+                fontWeight: 'bold',
+                textAlign: 'left',
+              }
+            : current
+        )
       })
       act(() => {
         result.current.commitTextEdit('new content')
@@ -127,6 +202,10 @@ describe('useTextEditor', () => {
       expect(result.current.editingText).toBeNull()
       const el = useAppStore.getState().elements.find((e) => e.id === 'text-1') as any
       expect(el.content).toBe('new content')
+      expect(el.fontSize).toBe(20)
+      expect(el.color).toBe('#e03131')
+      expect(el.fontWeight).toBe('bold')
+      expect(el.textAlign).toBeUndefined()
     })
 
     it('should not add element when editingText is null', () => {

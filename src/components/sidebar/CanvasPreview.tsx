@@ -1,4 +1,10 @@
 import { useEffect, useRef } from 'react'
+import {
+  getTextAnchorX,
+  getTextFont,
+  isVisibleTextBackground,
+  normalizeTextFormat,
+} from '../../canvas/textFormatting'
 import type { CanvasElement } from '../../store/types'
 import { elementBounds } from '../../store/types'
 
@@ -89,9 +95,21 @@ export default function CanvasPreview({
           context.stroke()
         }
       } else if (element.type === 'text') {
+        const format = normalizeTextFormat(element)
+        const text = element.content.split('\n')[0].slice(0, 20)
+        if (isVisibleTextBackground(format.backgroundColor)) {
+          context.fillStyle = format.backgroundColor
+          context.fillRect(element.x, element.y, element.width, element.height)
+        }
         context.fillStyle = element.color
-        context.font = `${Math.max(10, element.fontSize)}px sans-serif`
-        context.fillText(element.content.split('\n')[0].slice(0, 20), element.x, element.y)
+        context.font = getTextFont(format)
+        context.textAlign = format.textAlign
+        context.textBaseline = 'top'
+        context.fillText(
+          text,
+          getTextAnchorX(element.x, element.width, format.textAlign),
+          element.y
+        )
       }
     }
 
