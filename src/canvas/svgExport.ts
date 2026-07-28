@@ -7,6 +7,7 @@ import type {
 } from '../store/types'
 import { getSvgBrushStyle } from './brushPresets'
 import { sanitizeSvgDataUrl } from './svgSanitizer'
+import getStroke from 'perfect-freehand'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -20,10 +21,37 @@ function esc(s: string): string {
 
 const DARK_BG = '#1C1A24'
 
+function hasPressureData(el: StrokeElement): el is StrokeElement & { pressures: number[] } {
+  return !!el.pressures && el.pressures.length === el.points.length
+}
+
+function pressureStrokeToSVG(el: StrokeElement & { pressures: number[] }): string {
+  const outline = getStroke(
+    el.points.map((point, index) => [point[0], point[1], el.pressures[index]]),
+    {
+      size: el.size,
+      thinning: 0.5,
+      smoothing: 0.5,
+      streamline: 0.5,
+      simulatePressure: false,
+    }
+  )
+  if (outline.length < 3) return ''
+
+  let d = `M${outline[0][0]} ${outline[0][1]}`
+  for (let i = 1; i < outline.length; i++) {
+    d += `L${outline[i][0]} ${outline[i][1]}`
+  }
+  d += 'Z'
+
+  return `<path d="${d}" fill="${el.color}"/>\n`
+}
+
 // ── per-element renderers ────────────────────────────────────────────────────
 
 function strokeToSVG(el: StrokeElement): string {
   if (el.points.length < 2) return ''
+  if (el.brush === 'pen' && hasPressureData(el)) return pressureStrokeToSVG(el)
 
   let d = `M${el.points[0][0]} ${el.points[0][1]}`
   for (let i = 1; i < el.points.length; i++) {

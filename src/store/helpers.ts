@@ -6,7 +6,11 @@ import { moveElement } from './types'
  * For strokes, deep-clones the points array.
  */
 export function shallowClone(el: CanvasElement): CanvasElement {
-  if (el.type === 'stroke') return { ...el, points: el.points.map((p) => [...p]) }
+  if (el.type === 'stroke') {
+    const clone = { ...el, points: el.points.map((p) => [...p]) }
+    if (el.pressures) clone.pressures = el.pressures.slice()
+    return clone
+  }
   return { ...el } as CanvasElement
 }
 

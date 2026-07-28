@@ -25,6 +25,14 @@ import {
 } from '../../canvas/resizeRules'
 import { createShapeElement, shouldCommitShape, updateShapeDraft } from '../../canvas/shapeElements'
 import { createStrokeElement } from '../../canvas/strokeElements'
+import {
+  DEFAULT_INPUT_PRESSURE,
+  changedTouchesInclude,
+  findAcceptedTouch,
+  getAcceptedTouches,
+  getEventInputContact,
+  isTouchEvent,
+} from './touchInput'
 // P12 箭头绑定: 导入绑定工具函数
 import { tryBindToShape } from '../../store/bindingUtils'
 // 物理擦除引擎集成
@@ -106,6 +114,10 @@ export function usePointerEngine(opts: {
   // Drawing state
   const drawingRef = useRef(false)
   const currentPtsRef = useRef<number[][]>([])
+  const currentPressuresRef = useRef<number[]>([])
+  const activeTouchIdRef = useRef<number | null>(null)
+  const activePenPointerIdRef = useRef<number | null>(null)
+  const isPinchingRef = useRef(false)
   const shapeStartRef = useRef<{ x: number; y: number } | null>(null)
   const currentShapeRef = useRef<ShapeElement | null>(null)
   const erasedRef = useRef<Set<string>>(new Set())
@@ -245,26 +257,26 @@ export function usePointerEngine(opts: {
     ;(window as any).__mindnotes_hovered_element_id__ = hoveredElementIdRef
   }, [])
 
-  const getPos = useCallback(
-    (e: MouseEvent | TouchEvent) => {
+  const getPosFromContact = useCallback(
+    (contact: { clientX: number; clientY: number }) => {
       const canvas = canvasRef.current
       if (!canvas) return { x: 0, y: 0 }
       const rect = canvas.getBoundingClientRect()
       const vb = useViewStore.getState().viewBox
-      let cx: number, cy: number
-      if ('touches' in e && e.touches.length > 0) {
-        cx = e.touches[0].clientX
-        cy = e.touches[0].clientY
-      } else if ('changedTouches' in e && e.changedTouches.length > 0) {
-        cx = e.changedTouches[0].clientX
-        cy = e.changedTouches[0].clientY
-      } else {
-        cx = (e as MouseEvent).clientX
-        cy = (e as MouseEvent).clientY
+      return {
+        x: (contact.clientX - rect.left) / vb.zoom + vb.x,
+        y: (contact.clientY - rect.top) / vb.zoom + vb.y,
       }
-      return { x: (cx - rect.left) / vb.zoom + vb.x, y: (cy - rect.top) / vb.zoom + vb.y }
     },
     [canvasRef]
+  )
+
+  const getPos = useCallback(
+    (e: MouseEvent | TouchEvent) => {
+      const contact = getEventInputContact(e, activeTouchIdRef.current)
+      return contact ? getPosFromContact(contact) : null
+    },
+    [getPosFromContact]
   )
 
   // 缓存 idToIndex Map，避免每次 hitTest 重建
@@ -704,7 +716,25 @@ export function usePointerEngine(opts: {
   const handleStart = useCallback(
     (e: MouseEvent | TouchEvent) => {
       e.preventDefault()
-      const pos = getPos(e)
+      let contact = getEventInputContact(e, activeTouchIdRef.current)
+      if (isTouchEvent(e)) {
+        if (isPinchingRef.current) return
+
+        const acceptedTouches = getAcceptedTouches(e.touches)
+        if (acceptedTouches.length >= 2) return
+
+        if (activeTouchIdRef.current !== null) {
+          const activeContact = findAcceptedTouch(e.touches, activeTouchIdRef.current)
+          if (activeContact) return
+          activeTouchIdRef.current = null
+        }
+
+        contact = acceptedTouches[0] ?? null
+        if (!contact) return
+        activeTouchIdRef.current = contact.identifier
+      }
+      if (!contact) return
+      const pos = getPosFromContact(contact)
       const st = useAppStore.getState()
 
       // 样式吸管点击应用
@@ -743,17 +773,13 @@ export function usePointerEngine(opts: {
       // 按住 Space 键临时切换 Pan 工具
       // 如果 Space 键已激活，直接进入平移模式
       if (spacePanRef.current.isActive && spacePanRef.current.enabled) {
-        const cx = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
-        const cy = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
         spacePanRef.current.wasPanning = true
-        startPan(cx, cy)
+        startPan(contact.clientX, contact.clientY)
         return
       }
 
       if (curTool === 'pan') {
-        const cx = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
-        const cy = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
-        startPan(cx, cy)
+        startPan(contact.clientX, contact.clientY)
         return
       }
       if (curTool === 'select') {
@@ -887,8 +913,8 @@ export function usePointerEngine(opts: {
           }
           // 记录屏幕坐标用于拖动阈值检测
           // 使用屏幕坐标而非世界坐标，确保阈值在所有缩放级别下一致
-          const screenX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
-          const screenY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
+          const screenX = contact.clientX
+          const screenY = contact.clientY
 
           // Alt/Option + 拖拽复制选中元素
           // 检测 Alt 键是否按下，初始化复制状态
@@ -963,14 +989,19 @@ export function usePointerEngine(opts: {
       }
       drawingRef.current = true
       erasedRef.current = new Set()
-      if (curTool === 'pen') currentPtsRef.current = [[pos.x, pos.y]]
-      else if (curTool === 'eraser') {
+      if (curTool === 'pen') {
+        currentPtsRef.current = [[pos.x, pos.y]]
+        currentPressuresRef.current =
+          contact.pressure === undefined ? [] : [contact.pressure ?? DEFAULT_INPUT_PRESSURE]
+      } else if (curTool === 'eraser') {
+        currentPressuresRef.current = []
         // P1-4 性能优化: 删除无用的全量快照克隆
         // batchErase 不再需要 preEraseSnapshot，避免每次擦除开始时克隆所有元素
         // 检测 Ctrl/Cmd 键，只擦除最顶层元素
         const topOnly = e.metaKey || e.ctrlKey
-        eraseAt(pos.x, pos.y, undefined, e, topOnly)
+        eraseAt(pos.x, pos.y, contact.pressure, e, topOnly)
       } else {
+        currentPressuresRef.current = []
         const start = snapPointIfGridEnabled(pos)
         shapeStartRef.current = start
         currentShapeRef.current = createShapeElement({
@@ -983,9 +1014,8 @@ export function usePointerEngine(opts: {
         })
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
-      getPos,
+      getPosFromContact,
       startPan,
       setSelectedIds,
       scheduleRedraw,
@@ -1003,7 +1033,19 @@ export function usePointerEngine(opts: {
   const handleMove = useCallback(
     (e: MouseEvent | TouchEvent) => {
       e.preventDefault()
-      const pos = getPos(e)
+      let contact = getEventInputContact(e, activeTouchIdRef.current)
+      if (isTouchEvent(e)) {
+        if (isPinchingRef.current) return
+
+        const acceptedTouches = getAcceptedTouches(e.touches)
+        if (acceptedTouches.length >= 2) return
+        if (activeTouchIdRef.current === null && acceptedTouches.length === 1) {
+          activeTouchIdRef.current = acceptedTouches[0].identifier
+          contact = acceptedTouches[0]
+        }
+      }
+      if (!contact) return
+      const pos = getPosFromContact(contact)
       mouseRef.current = pos
 
       // 鹰眼模式下更新目标位置
@@ -1509,9 +1551,7 @@ export function usePointerEngine(opts: {
         return
       }
       if (curTool === 'pan' && useViewStore.getState().isPanning) {
-        const cx = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
-        const cy = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
-        updatePan(cx, cy)
+        updatePan(contact.clientX, contact.clientY)
         scheduleRedraw()
         return
       }
@@ -1529,7 +1569,7 @@ export function usePointerEngine(opts: {
 
         // 检测 Ctrl/Cmd 键，只擦除最顶层元素
         const topOnly = e.metaKey || e.ctrlKey
-        if (drawingRef.current) eraseAt(pos.x, pos.y, undefined, e, topOnly)
+        if (drawingRef.current) eraseAt(pos.x, pos.y, contact.pressure, e, topOnly)
         scheduleRedraw()
         return
       }
@@ -1543,6 +1583,14 @@ export function usePointerEngine(opts: {
           penVelocityRef.current = Math.sqrt(dx * dx + dy * dy)
         }
         currentPtsRef.current.push([pos.x, pos.y])
+        if (currentPressuresRef.current.length > 0 || contact.pressure !== undefined) {
+          if (currentPressuresRef.current.length === 0) {
+            currentPressuresRef.current = new Array(currentPtsRef.current.length - 1).fill(
+              DEFAULT_INPUT_PRESSURE
+            )
+          }
+          currentPressuresRef.current.push(contact.pressure ?? DEFAULT_INPUT_PRESSURE)
+        }
       } else if (shapeStartRef.current && currentShapeRef.current) {
         const shift = 'shiftKey' in e && (e as MouseEvent).shiftKey
         const draftPos = snapPointIfGridEnabled(pos)
@@ -1557,7 +1605,7 @@ export function usePointerEngine(opts: {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
-      getPos,
+      getPosFromContact,
       updatePan,
       scheduleRedraw,
       moveElementById,
@@ -1575,6 +1623,15 @@ export function usePointerEngine(opts: {
   const handleEnd = useCallback(
     (e: MouseEvent | TouchEvent) => {
       e.preventDefault()
+      const isTouchEnd = isTouchEvent(e)
+      if (isTouchEnd) {
+        if (isPinchingRef.current) return
+        const activeTouchId = activeTouchIdRef.current
+        if (activeTouchId === null || !changedTouchesInclude(e, activeTouchId)) return
+      }
+      const clearEndedTouch = () => {
+        if (isTouchEnd) activeTouchIdRef.current = null
+      }
 
       // 右键拖拽平移画布
       // 处理右键释放
@@ -1589,6 +1646,7 @@ export function usePointerEngine(opts: {
           isPanning: false,
           moved: false,
         }
+        clearEndedTouch()
         return
       }
 
@@ -1605,16 +1663,19 @@ export function usePointerEngine(opts: {
             color: curColor,
             size: curSize,
             brush: curBrush,
+            pressures: currentPressuresRef.current,
           })
           if (el) {
             addElement(el)
           }
           currentPtsRef.current = []
+          currentPressuresRef.current = []
           penVelocityRef.current = 0
         } else if (curTool === 'eraser') {
           // P1-4 性能优化: 删除无用的全量快照克隆
           erasedRef.current.clear()
           currentPtsRef.current = []
+          currentPressuresRef.current = []
         } else if (currentShapeRef.current) {
           if (shouldCommitShape(currentShapeRef.current)) {
             // P12 箭头绑定: 检测箭头/线条端点是否靠近形状边缘
@@ -1652,6 +1713,7 @@ export function usePointerEngine(opts: {
           shapeStartRef.current = null
         }
         scheduleRedraw()
+        clearEndedTouch()
         return
       }
       const curTool = useAppStore.getState().tool
@@ -1763,21 +1825,44 @@ export function usePointerEngine(opts: {
           hasDuplicated: false,
         }
         scheduleRedraw()
+        clearEndedTouch()
         return
       }
       if (curTool === 'pan') {
         endPan()
+        clearEndedTouch()
         return
       }
+      clearEndedTouch()
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [addElement, endPan, setSelectedIds, scheduleRedraw, cachedBounds]
+  )
+
+  const cancelActiveInput = useCallback(
+    (e?: Event) => {
+      e?.preventDefault()
+      drawingRef.current = false
+      currentPtsRef.current = []
+      currentPressuresRef.current = []
+      currentShapeRef.current = null
+      shapeStartRef.current = null
+      erasedRef.current.clear()
+      activeTouchIdRef.current = null
+      activePenPointerIdRef.current = null
+      isPinchingRef.current = false
+      penVelocityRef.current = 0
+      if (useViewStore.getState().isPanning) endPan()
+      scheduleRedraw()
+    },
+    [endPan, scheduleRedraw]
   )
 
   // Pointer events
   const handleStartRef = useRef<(e: MouseEvent | TouchEvent) => void>(() => {})
   const handleMoveRef = useRef<(e: MouseEvent | TouchEvent) => void>(() => {})
   const handleEndRef = useRef<(e: MouseEvent | TouchEvent) => void>(() => {})
+  const handleCancelRef = useRef<(e: Event) => void>(() => {})
   useEffect(() => {
     handleStartRef.current = (e) => handleStart(e)
   }, [handleStart])
@@ -1787,6 +1872,9 @@ export function usePointerEngine(opts: {
   useEffect(() => {
     handleEndRef.current = (e) => handleEnd(e)
   }, [handleEnd])
+  useEffect(() => {
+    handleCancelRef.current = (e) => cancelActiveInput(e)
+  }, [cancelActiveInput])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1794,6 +1882,26 @@ export function usePointerEngine(opts: {
     const onStart = (e: MouseEvent | TouchEvent) => handleStartRef.current(e)
     const onMove = (e: MouseEvent | TouchEvent) => handleMoveRef.current(e)
     const onEnd = (e: MouseEvent | TouchEvent) => handleEndRef.current(e)
+    const onCancel = (e: Event) => handleCancelRef.current(e)
+    const onPointerStart = (e: PointerEvent) => {
+      if (e.pointerType !== 'pen') return
+      activePenPointerIdRef.current = e.pointerId
+      handleStartRef.current(e)
+    }
+    const onPointerMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'pen' || activePenPointerIdRef.current !== e.pointerId) return
+      handleMoveRef.current(e)
+    }
+    const onPointerEnd = (e: PointerEvent) => {
+      if (e.pointerType !== 'pen' || activePenPointerIdRef.current !== e.pointerId) return
+      handleEndRef.current(e)
+      activePenPointerIdRef.current = null
+    }
+    const onPointerCancel = (e: PointerEvent) => {
+      if (e.pointerType !== 'pen' || activePenPointerIdRef.current !== e.pointerId) return
+      handleCancelRef.current(e)
+      activePenPointerIdRef.current = null
+    }
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       const rect = canvas.getBoundingClientRect()
@@ -1855,6 +1963,10 @@ export function usePointerEngine(opts: {
     canvas.addEventListener('mousemove', onMove)
     canvas.addEventListener('mouseup', onEnd)
     canvas.addEventListener('mouseleave', onEnd)
+    canvas.addEventListener('pointerdown', onPointerStart)
+    canvas.addEventListener('pointermove', onPointerMove)
+    canvas.addEventListener('pointerup', onPointerEnd)
+    canvas.addEventListener('pointercancel', onPointerCancel)
 
     // 右键拖拽平移画布
     // 当正在进行右键平移时，阻止默认右键菜单
@@ -1872,6 +1984,7 @@ export function usePointerEngine(opts: {
     const onDblClick = (e: MouseEvent) => {
       if (useAppStore.getState().tool !== 'select') return
       const pos = getPos(e)
+      if (!pos) return
       const hitId = hitTest(pos.x, pos.y)
       if (!hitId) return
       const el = useAppStore.getState().idToElement.get(hitId)
@@ -1915,6 +2028,7 @@ export function usePointerEngine(opts: {
     canvas.addEventListener('touchstart', onStart, { passive: false })
     canvas.addEventListener('touchmove', onMove, { passive: false })
     canvas.addEventListener('touchend', onEnd, { passive: false })
+    canvas.addEventListener('touchcancel', onCancel, { passive: false })
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
@@ -1923,12 +2037,17 @@ export function usePointerEngine(opts: {
       canvas.removeEventListener('mousemove', onMove)
       canvas.removeEventListener('mouseup', onEnd)
       canvas.removeEventListener('mouseleave', onEnd)
+      canvas.removeEventListener('pointerdown', onPointerStart)
+      canvas.removeEventListener('pointermove', onPointerMove)
+      canvas.removeEventListener('pointerup', onPointerEnd)
+      canvas.removeEventListener('pointercancel', onPointerCancel)
       canvas.removeEventListener('contextmenu', onContextMenu)
       canvas.removeEventListener('wheel', onWheel)
       canvas.removeEventListener('dblclick', onDblClick)
       canvas.removeEventListener('touchstart', onStart)
       canvas.removeEventListener('touchmove', onMove)
       canvas.removeEventListener('touchend', onEnd)
+      canvas.removeEventListener('touchcancel', onCancel)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasRef])
@@ -1940,37 +2059,42 @@ export function usePointerEngine(opts: {
     let pinching = false,
       pinchDist = 0,
       pinchMid = { x: 0, y: 0 }
-    function getTouchDist(e: TouchEvent) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX,
-        dy = e.touches[0].clientY - e.touches[1].clientY
+    function getTouchDist(touches: ReturnType<typeof getAcceptedTouches>) {
+      const dx = touches[0].clientX - touches[1].clientX,
+        dy = touches[0].clientY - touches[1].clientY
       return Math.sqrt(dx * dx + dy * dy)
     }
-    function getTouchMid(e: TouchEvent) {
+    function getTouchMid(touches: ReturnType<typeof getAcceptedTouches>) {
       return {
-        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2,
       }
     }
     function onTouchStart(e: TouchEvent) {
-      if (e.touches.length === 2) {
+      const touches = getAcceptedTouches(e.touches)
+      if (touches.length >= 2) {
         // Cancel any ongoing single-finger drawing when a second finger touches
         if (drawingRef.current) {
           drawingRef.current = false
           currentPtsRef.current = []
+          currentPressuresRef.current = []
           currentShapeRef.current = null
           shapeStartRef.current = null
         }
+        activeTouchIdRef.current = null
         pinching = true
-        pinchDist = getTouchDist(e)
-        pinchMid = getTouchMid(e)
+        isPinchingRef.current = true
+        pinchDist = getTouchDist(touches)
+        pinchMid = getTouchMid(touches)
         e.preventDefault()
       }
     }
     function onTouchMove(e: TouchEvent) {
-      if (!pinching || e.touches.length < 2) return
+      const touches = getAcceptedTouches(e.touches)
+      if (!pinching || touches.length < 2) return
       e.preventDefault()
-      const newDist = getTouchDist(e),
-        newMid = getTouchMid(e),
+      const newDist = getTouchDist(touches),
+        newMid = getTouchMid(touches),
         scale = Math.max(0.1, Math.min(10, newDist / pinchDist))
       const vb = useViewStore.getState().viewBox
       const newZoom = Math.max(0.2, Math.min(5, vb.zoom * scale))
@@ -2001,15 +2125,25 @@ export function usePointerEngine(opts: {
       scheduleRedraw()
     }
     function onTouchEnd(e: TouchEvent) {
-      if (e.touches.length < 2) pinching = false
+      if (getAcceptedTouches(e.touches).length < 2) {
+        pinching = false
+        isPinchingRef.current = false
+      }
+    }
+    function onTouchCancel() {
+      pinching = false
+      isPinchingRef.current = false
+      activeTouchIdRef.current = null
     }
     canvas.addEventListener('touchstart', onTouchStart, { passive: false })
     canvas.addEventListener('touchmove', onTouchMove, { passive: false })
     canvas.addEventListener('touchend', onTouchEnd, { passive: false })
+    canvas.addEventListener('touchcancel', onTouchCancel, { passive: false })
     return () => {
       canvas.removeEventListener('touchstart', onTouchStart)
       canvas.removeEventListener('touchmove', onTouchMove)
       canvas.removeEventListener('touchend', onTouchEnd)
+      canvas.removeEventListener('touchcancel', onTouchCancel)
     }
   }, [canvasRef, scheduleRedraw])
 
@@ -2139,6 +2273,7 @@ export function usePointerEngine(opts: {
     return {
       drawing: drawingRef.current,
       currentPts: currentPtsRef.current,
+      currentPressures: currentPressuresRef.current,
       currentShape: currentShapeRef.current,
       mousePos: mouseRef.current,
       marquee: marqueeRef.current,

@@ -19,6 +19,7 @@ import { eraserParticleSystem } from '../../eraser'
 export interface DrawState {
   drawing: boolean
   currentPts: number[][]
+  currentPressures: number[]
   currentShape: ShapeElement | null
   mousePos: { x: number; y: number } | null
   // 旋转角度显示
@@ -352,7 +353,7 @@ export function useCanvasRenderer(
     // 渲染橡皮屑粒子
     eraserParticleSystem.render(ctx)
     if (ds.drawing && ds.tool === 'pen' && ds.currentPts.length > 1)
-      drawStrokeRaw(ctx, ds.currentPts, ds.color, ds.size, ds.brush, dark)
+      drawStrokeRaw(ctx, ds.currentPts, ds.color, ds.size, ds.brush, dark, ds.currentPressures)
     if (ds.currentShape) drawElement(ctx, ds.currentShape, dark)
 
     // 笔触绘制时：显示大小预览光标（半透明圆圈）

@@ -68,6 +68,27 @@ describe('buildSVGString', () => {
       expect(svg).toContain('stroke-linecap="round"')
     })
 
+    it('should export pressure-sensitive pen strokes as filled outlines', () => {
+      const el: StrokeElement = {
+        type: 'stroke',
+        id: 's1',
+        points: [
+          [10, 20],
+          [30, 40],
+          [50, 60],
+        ],
+        pressures: [0.2, 0.6, 1],
+        color: '#ff0000',
+        size: 8,
+        brush: 'pen',
+      }
+      const svg = buildSVGString([el], { width: W, height: H })
+
+      expect(svg).toContain('<path')
+      expect(svg).toContain('fill="#ff0000"')
+      expect(svg).not.toContain('stroke-width="8"')
+    })
+
     it('should skip stroke with fewer than 2 points', () => {
       const el: StrokeElement = {
         type: 'stroke',

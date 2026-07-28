@@ -19,6 +19,7 @@ export default function Canvas() {
   const getDrawStateRef = useRef<() => DrawState>(() => ({
     drawing: false,
     currentPts: [],
+    currentPressures: [],
     currentShape: null,
     mousePos: null,
     rotationAngle: null,

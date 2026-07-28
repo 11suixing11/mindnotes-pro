@@ -216,7 +216,21 @@ function getStrokeCacheKey(el: StrokeElement): string {
     : ''
   const midIndex = Math.floor(el.points.length / 2)
   const midPoint = el.points[midIndex] ? `${el.points[midIndex][0]}:${el.points[midIndex][1]}` : ''
-  return `${el.id}:${el.points.length}:${el.size}:${firstPoint}:${lastPoint}:${midPoint}`
+  const pressures = el.pressures
+  const pressureKey =
+    pressures && pressures.length === el.points.length
+      ? `${pressures.length}:${pressures[0]}:${pressures[midIndex]}:${pressures[pressures.length - 1]}`
+      : 'no-pressure'
+  return `${el.id}:${el.points.length}:${el.size}:${firstPoint}:${lastPoint}:${midPoint}:${pressureKey}`
+}
+
+function hasPressureData(el: StrokeElement): el is StrokeElement & { pressures: number[] } {
+  return !!el.pressures && el.pressures.length === el.points.length
+}
+
+function getFreehandPoints(el: StrokeElement): number[][] {
+  if (!hasPressureData(el)) return el.points
+  return el.points.map((point, index) => [point[0], point[1], el.pressures[index]])
 }
 
 function getCachedStrokeOutline(el: StrokeElement): number[][] | null {
@@ -227,17 +241,36 @@ function getCachedStrokeOutline(el: StrokeElement): number[][] | null {
   if (cached) return cached
 
   try {
-    const outline = getStroke(el.points, {
+    const outline = getStroke(getFreehandPoints(el), {
       size: el.size,
       thinning: 0.5,
       smoothing: 0.5,
       streamline: 0.5,
+      simulatePressure: !hasPressureData(el),
     })
     strokeOutlineCache.set(key, outline)
     return outline
   } catch {
     return null
   }
+}
+
+function fillStrokeOutline(
+  ctx: CanvasRenderingContext2D,
+  outline: number[][],
+  color: string,
+  alpha: number
+) {
+  if (outline.length <= 2) return
+  const previousAlpha = ctx.globalAlpha
+  ctx.globalAlpha = alpha
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.moveTo(outline[0][0], outline[0][1])
+  for (let i = 1; i < outline.length; i++) ctx.lineTo(outline[i][0], outline[i][1])
+  ctx.closePath()
+  ctx.fill()
+  ctx.globalAlpha = previousAlpha
 }
 
 // 文本换行缓存 - 避免每次渲染都进行昂贵的 measureText 计算
@@ -436,6 +469,15 @@ export function drawStrokeEl(
     pts = el.points
   if (b === 'pen') {
     if (pts.length < 2) return
+    if (hasPressureData(el)) {
+      const outline = getCachedStrokeOutline(el)
+      if (outline && outline.length > 2) {
+        fillStrokeOutline(ctx, outline, el.color, 1)
+        ctx.globalAlpha = 1
+        return
+      }
+    }
+
     ctx.beginPath()
     ctx.strokeStyle = el.color
     ctx.lineWidth = el.size
@@ -453,13 +495,7 @@ export function drawStrokeEl(
     // P1 性能优化：使用缓存的笔触结果，避免每帧重复计算
     const outline = getCachedStrokeOutline(el)
     if (outline && outline.length > 2) {
-      ctx.globalAlpha = 0.15
-      ctx.fillStyle = el.color
-      ctx.beginPath()
-      ctx.moveTo(outline[0][0], outline[0][1])
-      for (let i = 1; i < outline.length; i++) ctx.lineTo(outline[i][0], outline[i][1])
-      ctx.closePath()
-      ctx.fill()
+      fillStrokeOutline(ctx, outline, el.color, 0.15)
     }
 
     ctx.globalAlpha = 1
@@ -671,11 +707,12 @@ export function drawStrokeRaw(
   c: string,
   s: number,
   b: BrushType,
-  isDarkMode: boolean
+  isDarkMode: boolean,
+  pressures?: number[]
 ) {
   drawStrokeEl(
     ctx,
-    { type: 'stroke', id: '', points: pts, color: c, size: s, brush: b },
+    { type: 'stroke', id: '', points: pts, color: c, size: s, brush: b, pressures },
     isDarkMode
   )
 }

@@ -84,4 +84,25 @@ describe('createStrokeElement', () => {
 
     expect(stroke?.opacity).toBeUndefined()
   })
+
+  it('keeps stylus pressure samples aligned with simplified points', () => {
+    const stroke = createStrokeElement({
+      id: 'stroke-1',
+      points: [
+        [0, 0],
+        [0.2, 0.2],
+        [10, 10],
+      ],
+      pressures: [0.2, 0.6, 0.9],
+      color: '#000',
+      size: 4,
+      brush: 'pen',
+    })
+
+    expect(stroke?.points).toEqual([
+      [0, 0],
+      [10, 10],
+    ])
+    expect(stroke?.pressures).toEqual([0.2, 0.9])
+  })
 })
