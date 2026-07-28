@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useThemeStore } from '../../store/useThemeStore'
+import { formatShortcutBinding, type ShortcutActionId } from '../../keyboard/shortcuts'
+import { useShortcutStore } from '../../store/useShortcutStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useConfirm } from '../confirm-modal'
 import { ExportMenu } from '../export-menu'
@@ -53,7 +55,13 @@ export default function Toolbar() {
     }))
   )
   const { isDarkMode, toggleTheme } = useThemeStore()
+  const shortcutBindings = useShortcutStore((s) => s.bindings)
   const confirm = useConfirm()
+
+  const shortcut = useCallback(
+    (actionId: ShortcutActionId) => formatShortcutBinding(shortcutBindings[actionId]),
+    [shortcutBindings]
+  )
 
   const pulseHistoryButton = useCallback((kind: 'undo' | 'redo') => {
     if (pulseTimerRef.current !== null) {
@@ -101,7 +109,7 @@ export default function Toolbar() {
             onClick={undo}
             disabled={undoLen === 0}
             className={`abtn ${historyPulse === 'undo' ? 'history-pulse' : ''}`}
-            data-tip="Undo Ctrl+Z"
+            data-tip={`Undo ${shortcut('edit.undo')}`}
             aria-label="Undo"
           >
             {icons.undo}
@@ -110,7 +118,7 @@ export default function Toolbar() {
             onClick={redo}
             disabled={redoLen === 0}
             className={`abtn ${historyPulse === 'redo' ? 'history-pulse' : ''}`}
-            data-tip="Redo Ctrl+Shift+Z"
+            data-tip={`Redo ${shortcut('edit.redo')}`}
             aria-label="Redo"
           >
             {icons.redo}
@@ -160,7 +168,7 @@ export default function Toolbar() {
         <button
           onClick={toggleGrid}
           className="abtn"
-          data-tip={showGrid ? 'Hide grid' : 'Show grid (G)'}
+          data-tip={showGrid ? 'Hide grid' : `Show grid (${shortcut('view.toggleGrid')})`}
           style={showGrid ? { color: 'var(--primary)', opacity: 1 } : undefined}
           aria-label={showGrid ? 'Hide grid' : 'Show grid'}
           aria-pressed={showGrid}
@@ -170,7 +178,11 @@ export default function Toolbar() {
         <button
           onClick={toggleSnapToGrid}
           className="abtn"
-          data-tip={snapToGrid ? 'Disable grid snap (Shift+S)' : 'Snap to grid (Shift+S)'}
+          data-tip={
+            snapToGrid
+              ? `Disable grid snap (${shortcut('view.toggleGridSnap')})`
+              : `Snap to grid (${shortcut('view.toggleGridSnap')})`
+          }
           style={snapToGrid ? { color: 'var(--primary)', opacity: 1 } : undefined}
           aria-label={snapToGrid ? 'Disable grid snap' : 'Enable grid snap'}
           aria-pressed={snapToGrid}

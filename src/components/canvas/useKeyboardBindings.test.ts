@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useKeyboardBindings } from './useKeyboardBindings'
 import { useAppStore } from '../../store/appStore'
+import { useShortcutStore } from '../../store/useShortcutStore'
 import { useViewStore } from '../../store/useViewStore'
 
 function press(key: string, opts: Partial<KeyboardEventInit> = {}) {
@@ -11,6 +12,7 @@ function press(key: string, opts: Partial<KeyboardEventInit> = {}) {
 describe('useKeyboardBindings', () => {
   beforeEach(() => {
     localStorage.clear()
+    useShortcutStore.getState().resetShortcuts()
     useAppStore.setState({
       elements: [],
       tool: 'pen',
@@ -105,6 +107,61 @@ describe('useKeyboardBindings', () => {
     })
   })
 
+  describe('arrange shortcuts', () => {
+    it('Ctrl+D should duplicate selected elements', () => {
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'shape-1',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 40,
+        h: 30,
+        color: '#000',
+        size: 2,
+      })
+      useAppStore.setState({ selectedIds: ['shape-1'] })
+      renderHook(() => useKeyboardBindings())
+
+      press('d', { ctrlKey: true })
+
+      expect(useAppStore.getState().elements).toHaveLength(2)
+    })
+
+    it('Ctrl+G and Ctrl+Shift+G should group and ungroup selected elements', () => {
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'shape-1',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 40,
+        h: 30,
+        color: '#000',
+        size: 2,
+      })
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'shape-2',
+        kind: 'circle',
+        x: 50,
+        y: 0,
+        w: 30,
+        h: 30,
+        color: '#000',
+        size: 2,
+      })
+      useAppStore.setState({ selectedIds: ['shape-1', 'shape-2'] })
+      renderHook(() => useKeyboardBindings())
+
+      press('g', { ctrlKey: true })
+      expect(useAppStore.getState().elements.every((el) => Boolean(el.groupId))).toBe(true)
+
+      press('G', { ctrlKey: true, shiftKey: true })
+      expect(useAppStore.getState().elements.every((el) => !el.groupId)).toBe(true)
+    })
+  })
+
   describe('delete', () => {
     it('Delete key should remove selected elements', () => {
       useAppStore.getState().addElement({
@@ -176,6 +233,16 @@ describe('useKeyboardBindings', () => {
       press(key)
       expect(useAppStore.getState().tool).toBe(expectedTool)
     })
+
+    it('uses customized tool shortcuts from the shortcut store', () => {
+      useShortcutStore.getState().setShortcut('tool.pen', { key: 'P' })
+      useAppStore.setState({ tool: 'select' })
+      renderHook(() => useKeyboardBindings())
+
+      press('p')
+
+      expect(useAppStore.getState().tool).toBe('pen')
+    })
   })
 
   describe('zoom', () => {
@@ -204,6 +271,26 @@ describe('useKeyboardBindings', () => {
       press('0', { ctrlKey: true })
 
       expect(useViewStore.getState().viewBox).toEqual({ x: 0, y: 0, zoom: 1 })
+    })
+
+    it('Ctrl+2 should zoom to selected elements', () => {
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'shape-1',
+        kind: 'rectangle',
+        x: 100,
+        y: 100,
+        w: 40,
+        h: 30,
+        color: '#000',
+        size: 2,
+      })
+      useAppStore.setState({ selectedIds: ['shape-1'] })
+      renderHook(() => useKeyboardBindings())
+
+      press('2', { ctrlKey: true })
+
+      expect(useViewStore.getState().viewBox.zoom).not.toBe(1)
     })
   })
 

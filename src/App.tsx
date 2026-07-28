@@ -10,13 +10,17 @@ import { useViewStore } from './store/useViewStore'
 import { useThemeStore } from './store/useThemeStore'
 import { getContentBounds } from './canvas/canvasUtils'
 import { FirstRunGuide } from './components/first-run-guide'
-import { KeyboardShortcutsHelp } from './components/keyboard-shortcuts-help'
+import {
+  KeyboardShortcutsHelp,
+  KeyboardShortcutSettings,
+} from './components/keyboard-shortcuts-help'
 import { LoadingScreen } from './components/loading-screen'
 import { EmptyCanvasHint } from './components/empty-canvas-hint'
 import { useScreenPen, ScreenPenControls } from './components/screen-pen'
 import { EraserControls } from './components/eraser'
 import { FEEDBACK_DISCUSSION_URL } from './productLinks'
-import type { ToolType } from './store/types'
+import { findShortcutAction, isEditableShortcutTarget } from './keyboard/shortcuts'
+import { useShortcutStore } from './store/useShortcutStore'
 
 const TOOL_LABELS: Record<string, string> = {
   select: 'Select',
@@ -42,6 +46,7 @@ export default function App() {
   const docCount = useAppStore((s) => s.docs.length)
   const [hintsVisible, setHintsVisible] = useState(() => !localStorage.getItem('mn-hints-seen'))
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false)
   const saveStatus = useAppStore((s) => s.saveStatus)
   const zoom = useViewStore((s) => s.viewBox.zoom)
   const zoomToFit = useViewStore((s) => s.zoomToFit)
@@ -79,99 +84,13 @@ export default function App() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === '?' && !e.ctrlKey && !e.metaKey) setHintsVisible((v) => !v)
-      if (e.key === 'F1') {
+      if (isEditableShortcutTarget(e.target)) return
+
+      const action = findShortcutAction(e, useShortcutStore.getState().bindings)
+      if (action === 'help.shortcuts') {
         e.preventDefault()
+        setHintsVisible(false)
         setShortcutsOpen((v) => !v)
-      }
-      // Ctrl+D 快速复制，遵循常见设计工具交互
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-        e.preventDefault()
-        useAppStore.getState().duplicateSelected()
-      }
-      // Ctrl+G 元素分组
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'g') {
-        e.preventDefault()
-        useAppStore.getState().groupSelected()
-      }
-      // Ctrl+Shift+G 取消分组
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
-        e.preventDefault()
-        useAppStore.getState().ungroupSelected()
-      }
-
-      // 数字键 1-9 快速切换工具
-      if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && /^[1-9]$/.test(e.key)) {
-        e.preventDefault()
-        const toolMap: Record<string, ToolType | undefined> = {
-          '1': 'select',
-          '2': 'pen',
-          '3': 'text',
-          '4': 'rectangle',
-          '5': 'circle',
-          '6': 'line',
-          '7': 'arrow',
-          '8': 'eraser',
-          '9': 'pan',
-        }
-        const targetTool = toolMap[e.key]
-        if (targetTool) {
-          useAppStore.getState().setTool(targetTool)
-        }
-      }
-      // Shift + 数字键 1-9, 0 快速选择颜色
-      // 一键切换调色板前10个颜色，减少工具栏往返操作
-      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.shiftKey && /^[0-9]$/.test(e.key)) {
-        e.preventDefault()
-        // 调色板前10个颜色，按显示顺序映射：1-9 对应前9个，0 对应第10个
-        const colorPalette = [
-          '#1A1A1A', // 1: 纯黑
-          '#4A4A4A', // 2: 深灰
-          '#7A7A7A', // 3: 中灰
-          '#A0A0A0', // 4: 浅灰
-          '#D0D0D0', // 5: 亮灰
-          '#E03131', // 6: 红色
-          '#F59F00', // 7: 橙色
-          '#2B8A3E', // 8: 绿色
-          '#1971C2', // 9: 蓝色
-          '#7950F2', // 0: 靛蓝
-        ]
-        const index = e.key === '0' ? 9 : parseInt(e.key) - 1
-        const targetColor = colorPalette[index]
-        if (targetColor) {
-          useAppStore.getState().setColor(targetColor)
-        }
-      }
-      // Q 键快速复制悬停元素样式
-      // 悬停在元素上按 Q 键直接复制样式，减少一次模式切换
-      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'q') {
-        e.preventDefault()
-        const state = useAppStore.getState()
-        // 优先使用 usePointerEngine 中跟踪的悬停元素 ID（最准确）
-        const hoveredRef = (window as any).__mindnotes_hovered_element_id__
-        const hoveredId = hoveredRef?.current ?? null
-
-        if (hoveredId) {
-          // 有悬停元素：直接复制其样式
-          state.applyStyleFromElement(hoveredId)
-        } else {
-          // 无悬停元素：切换样式吸管模式（传统吸管模式）
-          state.toggleStyleEyedropper()
-        }
-      }
-      // G 键循环切换几何工具
-      // 遵循常见设计工具快捷键习惯
-      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'g') {
-        e.preventDefault()
-        useAppStore.getState().cycleGeometryTool()
-      }
-
-      // Cmd/Ctrl+2 缩放到选中元素
-      // 设计参考: Figma Cmd+2, Sketch Cmd+2, Graphic Cmd+2 - 行业标准快捷键
-      // 用户价值：复杂画布中一键定位到选中元素，无需手动滚动缩放
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === '2') {
-        e.preventDefault()
-        useViewStore.getState().zoomToSelection()
       }
     }
     window.addEventListener('keydown', handler)
@@ -321,16 +240,27 @@ export default function App() {
 
           {hintsVisible && (
             <div className="hints panel">
-              <kbd>1-9</kbd> Switch Tools · <kbd>Shift</kbd>+<kbd>1-0</kbd> Quick Colors · <kbd>Q</kbd> Copy Style · <kbd>G</kbd> Cycle Shapes · <kbd>Z</kbd> Eagle Eye · <kbd>Ctrl</kbd>+<kbd>2</kbd> Zoom Selection · <kbd>Double-click</kbd> Shape/Text to Edit · <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> Redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd>{' '}
-              Copy/Paste · <kbd>Ctrl</kbd>+<kbd>D</kbd> Duplicate · <kbd>Ctrl</kbd>+<kbd>G</kbd> Group ·{' '}
-              <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> Ungroup · <kbd>Ctrl</kbd>+<kbd>A</kbd> Select all · Scroll to zoom ·{' '}
-              <kbd>Del</kbd> Delete · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> Screen Pen
+              <kbd>0-8</kbd> Switch Tools · <kbd>Shift</kbd>+<kbd>1-0</kbd> Quick Colors ·{' '}
+              <kbd>?</kbd> Shortcuts · <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+
+              <kbd>Y</kbd> Redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> Copy/Paste · Scroll to
+              zoom
             </div>
           )}
 
           <EmptyCanvasHint />
           <FirstRunGuide />
-          <KeyboardShortcutsHelp open={shortcutsOpen} onClose={handleShortcutsClose} />
+          <KeyboardShortcutsHelp
+            open={shortcutsOpen}
+            onClose={handleShortcutsClose}
+            onCustomize={() => {
+              setShortcutsOpen(false)
+              setShortcutSettingsOpen(true)
+            }}
+          />
+          <KeyboardShortcutSettings
+            open={shortcutSettingsOpen}
+            onClose={() => setShortcutSettingsOpen(false)}
+          />
 
           {deferredPrompt && (
             <button

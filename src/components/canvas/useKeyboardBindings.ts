@@ -1,12 +1,54 @@
-import { useEffect, useRef } from 'react'
-import { useAppStore } from '../../store/appStore'
-import { useViewStore } from '../../store/useViewStore'
-import type { ToolType } from '../../store/types'
+import { useEffect, useRef, type MutableRefObject } from 'react'
 import { sanitizeSvgDataUrl } from '../../canvas/svgSanitizer'
+import {
+  findShortcutAction,
+  isEditableShortcutTarget,
+  type ShortcutActionId,
+} from '../../keyboard/shortcuts'
+import { useAppStore } from '../../store/appStore'
+import type { ToolType } from '../../store/types'
+import { useShortcutStore } from '../../store/useShortcutStore'
+import { useViewStore } from '../../store/useViewStore'
 
 interface Options {
   copySelectedToSystemClipboard?: () => void
 }
+
+const TOOL_BY_ACTION: Partial<Record<ShortcutActionId, ToolType>> = {
+  'tool.select': 'select',
+  'tool.pen': 'pen',
+  'tool.eraser': 'eraser',
+  'tool.pan': 'pan',
+  'tool.text': 'text',
+  'tool.rectangle': 'rectangle',
+  'tool.circle': 'circle',
+  'tool.line': 'line',
+  'tool.arrow': 'arrow',
+}
+
+const SHIFT_COLOR_PALETTE = [
+  '#1A1A1A',
+  '#4A4A4A',
+  '#7A7A7A',
+  '#A0A0A0',
+  '#D0D0D0',
+  '#E03131',
+  '#F59F00',
+  '#2B8A3E',
+  '#1971C2',
+  '#7950F2',
+]
+
+const ALT_COLOR_PRESETS = [
+  '#3A2E22',
+  '#C07856',
+  '#B8A0D0',
+  '#D49898',
+  '#90B888',
+  '#90B4D0',
+  '#D0B888',
+  '#A8CCE0',
+]
 
 function getViewportCenter(): { x: number; y: number } {
   const vb = useViewStore.getState().viewBox
@@ -18,312 +60,272 @@ function getViewportCenter(): { x: number; y: number } {
   }
 }
 
+function pastePlainTextAtViewportCenter(text: string): void {
+  if (!text || text.trim().length === 0) return
+
+  const st = useAppStore.getState()
+  const center = getViewportCenter()
+  const fontSize = 16
+  const avgCharWidth = fontSize * 0.6
+  const lineHeight = fontSize * 1.4
+  const lines = text.split('\n')
+  const maxLineLength = Math.max(...lines.map((line) => line.length))
+  const width = Math.max(100, Math.min(600, Math.round(maxLineLength * avgCharWidth)))
+  const height = Math.round(lines.length * lineHeight + 16)
+
+  st.addElement({
+    type: 'text',
+    id: `text-${Date.now()}`,
+    x: center.x - width / 2,
+    y: center.y - height / 2,
+    width,
+    height,
+    content: text,
+    fontSize,
+    color: '#1a1a1a',
+  })
+}
+
+function pasteImageAtViewportCenter(dataUrl: string): void {
+  const safeDataUrl = sanitizeSvgDataUrl(dataUrl)
+  const img = new Image()
+  img.onload = () => {
+    const st = useAppStore.getState()
+    const center = getViewportCenter()
+    const maxDim = 400
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
+    const width = Math.round(img.width * scale)
+    const height = Math.round(img.height * scale)
+    st.addElement({
+      type: 'image',
+      id: `img-${Date.now()}`,
+      x: center.x - width / 2,
+      y: center.y - height / 2,
+      width,
+      height,
+      dataUrl: safeDataUrl,
+    })
+  }
+  img.src = safeDataUrl
+}
+
+async function pasteClipboardImageOrCanvasSelection(): Promise<void> {
+  const st = useAppStore.getState()
+  const clipRead = navigator.clipboard?.read?.bind(navigator.clipboard)
+  if (!clipRead) {
+    st.paste()
+    return
+  }
+
+  try {
+    const items = await clipRead()
+    for (const item of items) {
+      for (const type of item.types) {
+        if (!type.startsWith('image/')) continue
+
+        const blob = await item.getType(type)
+        const reader = new FileReader()
+        reader.onload = () => pasteImageAtViewportCenter(reader.result as string)
+        reader.readAsDataURL(blob)
+        return
+      }
+    }
+    st.paste()
+  } catch {
+    st.paste()
+  }
+}
+
+function handleQuickColorShortcut(e: KeyboardEvent): boolean {
+  const st = useAppStore.getState()
+
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && e.shiftKey && /^[0-9]$/.test(e.key)) {
+    e.preventDefault()
+    const index = e.key === '0' ? 9 : parseInt(e.key, 10) - 1
+    const targetColor = SHIFT_COLOR_PALETTE[index]
+    if (targetColor) st.setColor(targetColor)
+    return true
+  }
+
+  const colorIndex = parseInt(e.key, 10) - 1
+  if (e.altKey && colorIndex >= 0 && colorIndex < ALT_COLOR_PRESETS.length) {
+    e.preventDefault()
+    st.setColor(ALT_COLOR_PRESETS[colorIndex])
+    return true
+  }
+
+  return false
+}
+
+function handleKeyboardNudge(e: KeyboardEvent): boolean {
+  if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return false
+
+  const st = useAppStore.getState()
+  if (st.selectedIds.length === 0) return false
+
+  e.preventDefault()
+  let step = 1
+  if (e.ctrlKey || e.metaKey) step = 10
+  else if (e.shiftKey) step = 50
+
+  const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
+  const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+  st.moveElementsById(st.selectedIds, dx, dy)
+  return true
+}
+
+function handleEagleEyeCancel(e: KeyboardEvent): boolean {
+  if (e.key !== 'Escape') return false
+
+  const vs = useViewStore.getState()
+  if (!vs.eagleEye.isActive) return false
+
+  e.preventDefault()
+  vs.cancelEagleEye()
+  return true
+}
+
+function executeShortcutAction(
+  action: ShortcutActionId,
+  e: KeyboardEvent,
+  optionsRef: MutableRefObject<Options>
+): boolean {
+  const st = useAppStore.getState()
+  const vs = useViewStore.getState()
+  const targetTool = TOOL_BY_ACTION[action]
+
+  if (targetTool) {
+    e.preventDefault()
+    st.setTool(targetTool)
+    return true
+  }
+
+  switch (action) {
+    case 'edit.undo':
+      e.preventDefault()
+      st.undo()
+      return true
+    case 'edit.redo':
+      e.preventDefault()
+      st.redo()
+      return true
+    case 'edit.copy':
+      e.preventDefault()
+      st.copySelected()
+      optionsRef.current.copySelectedToSystemClipboard?.()
+      return true
+    case 'edit.pastePlainText': {
+      e.preventDefault()
+      const clipReadText = navigator.clipboard?.readText?.bind(navigator.clipboard)
+      if (!clipReadText) return true
+      clipReadText()
+        .then(pastePlainTextAtViewportCenter)
+        .catch(() => {
+          // Clipboard access can be denied by the browser.
+        })
+      return true
+    }
+    case 'edit.paste':
+      e.preventDefault()
+      void pasteClipboardImageOrCanvasSelection()
+      return true
+    case 'edit.selectAll':
+      e.preventDefault()
+      st.setSelectedIds(st.elements.map((el) => el.id))
+      return true
+    case 'edit.delete':
+      e.preventDefault()
+      if (st.selectedIds.length > 0) st.removeElements(st.selectedIds)
+      return true
+    case 'edit.duplicate':
+      e.preventDefault()
+      st.duplicateSelected()
+      return true
+    case 'arrange.group':
+      e.preventDefault()
+      st.groupSelected()
+      return true
+    case 'arrange.ungroup':
+      e.preventDefault()
+      st.ungroupSelected()
+      return true
+    case 'arrange.lock':
+      e.preventDefault()
+      st.lockSelected()
+      return true
+    case 'arrange.unlock':
+      e.preventDefault()
+      st.unlockSelected()
+      return true
+    case 'view.zoomIn':
+      e.preventDefault()
+      vs.zoomIn()
+      return true
+    case 'view.zoomOut':
+      e.preventDefault()
+      vs.zoomOut()
+      return true
+    case 'view.reset':
+      e.preventDefault()
+      vs.resetView()
+      return true
+    case 'view.zoomToSelection':
+      e.preventDefault()
+      vs.zoomToSelection()
+      return true
+    case 'view.toggleGrid':
+      e.preventDefault()
+      vs.toggleGrid()
+      return true
+    case 'view.toggleGridSnap':
+      e.preventDefault()
+      vs.toggleSnapToGrid()
+      return true
+    case 'view.eagleEye':
+      e.preventDefault()
+      if (vs.eagleEye.isActive) vs.commitEagleEye()
+      else vs.startEagleEye()
+      return true
+    case 'style.eyedropper': {
+      e.preventDefault()
+      const hoveredRef = (
+        window as Window & {
+          __mindnotes_hovered_element_id__?: { current?: string | null }
+        }
+      ).__mindnotes_hovered_element_id__
+      const hoveredElementId = hoveredRef?.current
+      if (hoveredElementId && st.idToElement.get(hoveredElementId)) {
+        st.applyStyleFromElement(hoveredElementId)
+      } else {
+        st.toggleStyleEyedropper()
+      }
+      return true
+    }
+    case 'style.cycleGeometry':
+      e.preventDefault()
+      st.cycleGeometryTool()
+      return true
+    case 'help.shortcuts':
+      return false
+  }
+
+  return false
+}
+
 export function useKeyboardBindings(options: Options = {}) {
   const optionsRef = useRef(options)
   optionsRef.current = options
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null
-      if (target?.tagName === 'TEXTAREA' || target?.tagName === 'INPUT') return
+      if (isEditableShortcutTarget(e.target)) return
 
-      const st = useAppStore.getState()
-      const vs = useViewStore.getState()
+      const action = findShortcutAction(e, useShortcutStore.getState().bindings)
+      if (action && executeShortcutAction(action, e, optionsRef)) return
 
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault()
-        if (e.shiftKey) st.redo()
-        else st.undo()
-        return
-      }
-      // Ctrl+Y / Cmd+Y Redo support (Windows standard)
-      // 设计参考: Microsoft Whiteboard, Office, VS Code 等主流应用均支持此快捷键
-      // 用户价值: Windows 用户无需改变肌肉记忆，提升操作效率
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y' && !e.shiftKey) {
-        e.preventDefault()
-        st.redo()
-        return
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
-        e.preventDefault()
-        vs.resetView()
-        return
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
-        e.preventDefault()
-        st.copySelected()
-        optionsRef.current.copySelectedToSystemClipboard?.()
-        return
-      }
-
-      // Plain text paste: Ctrl+Shift+V / Cmd+Shift+V
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'v') {
-        e.preventDefault()
-        const clipReadText = navigator.clipboard?.readText?.bind(navigator.clipboard)
-        if (!clipReadText) return
-
-        clipReadText()
-          .then((text: string) => {
-            if (!text || text.trim().length === 0) return
-
-            const center = getViewportCenter()
-            const fontSize = 16
-            // Estimate width based on character count (average 0.6 * fontSize per char)
-            const avgCharWidth = fontSize * 0.6
-            const lineHeight = fontSize * 1.4
-            const lines = text.split('\n')
-            const maxLineLength = Math.max(...lines.map((l) => l.length))
-            const width = Math.max(100, Math.min(600, Math.round(maxLineLength * avgCharWidth)))
-            const height = Math.round(lines.length * lineHeight + 16)
-
-            st.addElement({
-              type: 'text',
-              id: `text-${Date.now()}`,
-              x: center.x - width / 2,
-              y: center.y - height / 2,
-              width,
-              height,
-              content: text,
-              fontSize,
-              color: '#1a1a1a',
-            })
-          })
-          .catch(() => {
-            // Silently fail if clipboard access is denied
-          })
-        return
-      }
-
-      // Regular paste: Ctrl+V / Cmd+V
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v' && !e.shiftKey) {
-        e.preventDefault()
-        const clipRead = navigator.clipboard?.read?.bind(navigator.clipboard)
-        if (!clipRead) {
-          st.paste()
-          return
-        }
-        clipRead()
-          .then(async (items) => {
-            for (const item of items) {
-              for (const type of item.types) {
-                if (type.startsWith('image/')) {
-                  const blob = await item.getType(type)
-                  const reader = new FileReader()
-                  reader.onload = () => {
-                    const dataUrl = reader.result as string
-                    // SVG 安全过滤 - 防止 XSS 攻击
-                    // 参考: 通用编辑器安全处理做法
-                    const safeDataUrl = sanitizeSvgDataUrl(dataUrl)
-                    const img = new Image()
-                    img.onload = () => {
-                      const center = getViewportCenter()
-                      const maxDim = 400
-                      const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
-                      const w = Math.round(img.width * scale)
-                      const h = Math.round(img.height * scale)
-                      st.addElement({
-                        type: 'image',
-                        id: `img-${Date.now()}`,
-                        x: center.x - w / 2,
-                        y: center.y - h / 2,
-                        width: w,
-                        height: h,
-                        dataUrl: safeDataUrl,
-                      })
-                    }
-                    img.src = safeDataUrl
-                  }
-                  reader.readAsDataURL(blob)
-                  return
-                }
-              }
-            }
-            st.paste()
-          })
-          .catch(() => {
-            st.paste()
-          })
-        return
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
-        e.preventDefault()
-        st.setSelectedIds(st.elements.map((el) => el.id))
-        return
-      }
-      // Ctrl+L / Cmd+L 锁定元素
-      // 常见设计工具快捷键习惯
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l' && !e.shiftKey) {
-        e.preventDefault()
-        st.lockSelected()
-        return
-      }
-      // Ctrl+Shift+L / Cmd+Shift+L 解锁元素
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
-        e.preventDefault()
-        st.unlockSelected()
-        return
-      }
-
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (st.selectedIds.length > 0) {
-          st.removeElements(st.selectedIds)
-          return
-        }
-      }
-
-      const toolMap: Record<string, ToolType> = {
-        '1': 'pen',
-        '2': 'eraser',
-        '3': 'pan',
-        '4': 'rectangle',
-        '5': 'circle',
-        '6': 'text',
-        '7': 'line',
-        '8': 'arrow',
-        '0': 'select',
-      }
-
-      if (toolMap[e.key] && !e.altKey) {
-        st.setTool(toolMap[e.key])
-        return
-      }
-
-      // Alt + 数字键快速选色
-      // 设计参考: 常见绘图工具的数字键快速选色
-      // 用户价值: 专业用户无需移动鼠标到工具栏，按键即可切换颜色，减少工具栏往返操作
-      // Alt+1 ~ Alt+8 对应工具栏 8 个预设颜色
-      const COLOR_PRESETS = [
-        '#3A2E22', // 黑色
-        '#C07856', // 棕色
-        '#B8A0D0', // 紫色
-        '#D49898', // 粉色
-        '#90B888', // 绿色
-        '#90B4D0', // 蓝色
-        '#D0B888', // 米色
-        '#A8CCE0', // 浅蓝
-      ]
-      const colorIndex = parseInt(e.key, 10) - 1
-      if (e.altKey && colorIndex >= 0 && colorIndex < COLOR_PRESETS.length) {
-        e.preventDefault()
-        st.setColor(COLOR_PRESETS[colorIndex])
-        return
-      }
-
-      // 键盘微调（Keyboard Nudge）- 符合 Figma / Excalidraw / tldraw 行业标准
-      // 设计参考:
-      // - Excalidraw: 方向键 1px, Ctrl+方向键 10px
-      // - Figma: 方向键 1px, Shift+方向键 10px
-      // - tldraw: 方向键 1px, Ctrl+方向键 10px
-      // 用户价值: 像素级精确调整，专业用户无需鼠标即可完成精细排版
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        if (st.selectedIds.length > 0) {
-          e.preventDefault()
-          // 标准步长: 方向键 = 1px, Ctrl/Cmd = 10px, Shift = 50px
-          let step = 1
-          if (e.ctrlKey || e.metaKey) step = 10
-          else if (e.shiftKey) step = 50
-
-          const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
-          const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
-          st.moveElementsById(st.selectedIds, dx, dy)
-          return
-        }
-      }
-
-      // G 键循环切换几何工具
-      // 设计参考: tldraw, Figma, Sketch - 专业设计工具标准快捷键
-      // - G 键: 循环切换几何工具（矩形 → 圆形 → 直线 → 箭头）
-      // - Shift+G: 切换网格显示（原 G 键功能）
-      // 用户价值: 专业用户无需移动鼠标到工具栏，一键切换几何工具，减少工具栏往返操作
-      if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault()
-        if (e.shiftKey) {
-          // Shift+G: 切换网格显示
-          useViewStore.getState().toggleGrid()
-        } else {
-          // G 键: 循环切换几何工具
-          st.cycleGeometryTool()
-        }
-        return
-      }
-
-      if ((e.key === 's' || e.key === 'S') && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault()
-        useViewStore.getState().toggleSnapToGrid()
-        return
-      }
-
-      // 样式吸管 (Q 键)
-      // Q 键悬停快速复制样式
-      // - 鼠标悬停在元素上按 Q 键：直接复制该元素样式（无需进入吸管模式）
-      // - 没有悬停元素时：切换吸管模式（原有功能）
-      // 用户价值：专业用户快速采样样式，无需点击，减少一次模式切换
-      if ((e.key === 'q' || e.key === 'Q') && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault()
-
-        // 检查是否有悬停元素
-        const hoveredRef = (window as any).__mindnotes_hovered_element_id__
-        const hoveredElementId = hoveredRef?.current
-
-        if (hoveredElementId) {
-          // 有悬停元素：直接复制样式（快速模式）
-          const el = st.idToElement.get(hoveredElementId)
-          if (el) {
-            st.applyStyleFromElement(hoveredElementId)
-          }
-        } else {
-          // 没有悬停元素：切换吸管模式（原有功能）
-          st.toggleStyleEyedropper()
-        }
-        return
-      }
-
-      // Quick Zoom Navigation (Z 键鹰眼模式)
-      // 设计参考: tldraw, Figma, Sketch - 专业设计工具标准导航功能
-      // 按 Z 键进入鹰眼模式（全局预览），松开或点击确认放大，ESC 取消
-      if (
-        (e.key === 'z' || e.key === 'Z') &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !e.altKey &&
-        !e.shiftKey
-      ) {
-        e.preventDefault()
-        const vs = useViewStore.getState()
-        if (vs.eagleEye.isActive) {
-          // 如果已经在鹰眼模式，确认选择
-          vs.commitEagleEye()
-        } else {
-          // 进入鹰眼模式
-          vs.startEagleEye()
-        }
-        return
-      }
-
-      // ESC 键取消鹰眼模式，返回原始视口
-      if (e.key === 'Escape') {
-        const vs = useViewStore.getState()
-        if (vs.eagleEye.isActive) {
-          e.preventDefault()
-          vs.cancelEagleEye()
-          return
-        }
-      }
-
-      if (e.key === '+' || e.key === '=') {
-        e.preventDefault()
-        vs.zoomIn()
-        return
-      }
-
-      if (e.key === '-') {
-        e.preventDefault()
-        vs.zoomOut()
-        return
-      }
+      if (handleQuickColorShortcut(e)) return
+      if (handleKeyboardNudge(e)) return
+      handleEagleEyeCancel(e)
     }
 
     window.addEventListener('keydown', handleKeyDown)
