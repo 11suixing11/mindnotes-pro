@@ -1,4 +1,4 @@
-import { useRef, useCallback, memo, useState } from 'react'
+import { useRef, useCallback, memo, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
@@ -8,6 +8,16 @@ import { useShallow } from 'zustand/react/shallow'
 import { icons } from './icons'
 import { sanitizeSvgDataUrl } from '../../canvas/svgSanitizer'
 import type { CanvasBackgroundStyle } from '../../store/types'
+import TemplatePicker from '../templates/TemplatePicker'
+import {
+  createTemplateFromElements,
+  deleteCustomTemplate,
+  getBuiltInTemplates,
+  instantiateTemplate,
+  loadCustomTemplates,
+  saveCustomTemplate,
+  type CanvasTemplate,
+} from '../../templates/canvasTemplates'
 
 // 扩展调色板 - 基于 tldraw #1665 用户需求
 // 灰度色系 (5)
@@ -118,10 +128,45 @@ function getCanvas() {
   return document.getElementById('main-canvas') as HTMLCanvasElement | null
 }
 
+function getVisibleCanvasViewport(canvas: HTMLCanvasElement | null) {
+  const vb = useViewStore.getState().viewBox
+  if (!canvas) {
+    const width = window.innerWidth || 1024
+    const height = window.innerHeight || 768
+    return {
+      width,
+      height,
+      centerX: vb.x + width / 2 / vb.zoom,
+      centerY: vb.y + height / 2 / vb.zoom,
+    }
+  }
+
+  const rect = canvas.getBoundingClientRect()
+  const left = Math.max(rect.left, 0)
+  const top = Math.max(rect.top, 0)
+  const right = Math.min(rect.right, window.innerWidth || rect.right)
+  const bottom = Math.min(rect.bottom, window.innerHeight || rect.bottom)
+  const visibleWidth = Math.max(0, right - left)
+  const visibleHeight = Math.max(0, bottom - top)
+  const screenX = visibleWidth > 0 ? left + visibleWidth / 2 : (window.innerWidth || rect.width) / 2
+  const screenY =
+    visibleHeight > 0 ? top + visibleHeight / 2 : (window.innerHeight || rect.height) / 2
+
+  return {
+    width: visibleWidth || rect.width || window.innerWidth || 1024,
+    height: visibleHeight || rect.height || window.innerHeight || 768,
+    centerX: vb.x + (screenX - rect.left) / vb.zoom,
+    centerY: vb.y + (screenY - rect.top) / vb.zoom,
+  }
+}
+
 const ColorPicker = memo(function ColorPicker() {
   const toast = useToastStore((s) => s.show)
   const [showBackground, setShowBackground] = useState(false)
   const [backgroundPos, setBackgroundPos] = useState({ top: 0, left: 0 })
+  const [showTemplates, setShowTemplates] = useState(false)
+  const [customTemplates, setCustomTemplates] = useState(() => loadCustomTemplates())
+  const builtInTemplates = useMemo(() => getBuiltInTemplates(), [])
   const {
     tool,
     color,
@@ -136,6 +181,10 @@ const ColorPicker = memo(function ColorPicker() {
     setBackgroundStyle,
     clearAll,
     addElement,
+    addElements,
+    setSelectedIds,
+    elements,
+    selectedIds,
     colorHistory,
   } = useAppStore(
     useShallow((s) => ({
@@ -152,6 +201,10 @@ const ColorPicker = memo(function ColorPicker() {
       setBackgroundStyle: s.setBackgroundStyle,
       clearAll: s.clearAll,
       addElement: s.addElement,
+      addElements: s.addElements,
+      setSelectedIds: s.setSelectedIds,
+      elements: s.elements,
+      selectedIds: s.selectedIds,
       colorHistory: s.colorHistory,
     }))
   )
@@ -162,6 +215,10 @@ const ColorPicker = memo(function ColorPicker() {
   const fillColorRef = useRef<HTMLInputElement>(null)
   const bgRef = useRef<HTMLInputElement>(null)
   const backgroundBtnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (showTemplates) setCustomTemplates(loadCustomTemplates())
+  }, [showTemplates])
 
   const toggleBackgroundMenu = useCallback(() => {
     if (!showBackground && backgroundBtnRef.current) {
@@ -185,17 +242,14 @@ const ColorPicker = memo(function ColorPicker() {
         img.onload = () => {
           const c = getCanvas()
           if (!c) return
-          const dpr = window.devicePixelRatio || 1
-          const cssW = c.width / dpr
-          const cssH = c.height / dpr
-          const maxW = cssW * 0.6,
-            maxH = cssH * 0.6
+          const viewport = getVisibleCanvasViewport(c)
+          const maxW = viewport.width * 0.6,
+            maxH = viewport.height * 0.6
           const scale = Math.min(maxW / img.width, maxH / img.height, 1)
           const w = img.width * scale,
             h = img.height * scale
-          const vb = useViewStore.getState().viewBox
-          const x = (cssW / 2 - w / 2) / vb.zoom + vb.x
-          const y = (cssH / 2 - h / 2) / vb.zoom + vb.y
+          const x = viewport.centerX - w / 2
+          const y = viewport.centerY - h / 2
           addElement({
             type: 'image',
             id: `img-${Date.now()}`,
@@ -217,10 +271,67 @@ const ColorPicker = memo(function ColorPicker() {
     [addElement, toast]
   )
 
+  const getTemplateSourceElements = useCallback(() => {
+    const state = useAppStore.getState()
+    if (state.selectedIds.length > 0) {
+      const selected = new Set(state.selectedIds)
+      const selectedElements = state.elements.filter((el) => selected.has(el.id))
+      if (selectedElements.length > 0) return selectedElements
+    }
+    return state.elements
+  }, [])
+
+  const insertTemplate = useCallback(
+    (template: CanvasTemplate) => {
+      const c = getCanvas()
+      const viewport = getVisibleCanvasViewport(c)
+      const inserted = instantiateTemplate(template, viewport.centerX, viewport.centerY)
+
+      if (inserted.length === 0) {
+        toast('模板为空', 'warning')
+        return
+      }
+
+      addElements(inserted)
+      setSelectedIds([])
+      setShowTemplates(false)
+      toast(`已插入 ${template.name}`, 'success')
+    },
+    [addElements, setSelectedIds, toast]
+  )
+
+  const saveTemplate = useCallback(
+    (name: string) => {
+      const template = createTemplateFromElements(name, getTemplateSourceElements())
+      if (!template) {
+        toast('没有可保存的元素', 'warning')
+        return
+      }
+
+      setCustomTemplates(saveCustomTemplate(template))
+      toast(`已保存 ${template.name}`, 'success')
+    },
+    [getTemplateSourceElements, toast]
+  )
+
+  const removeCustomTemplate = useCallback(
+    async (templateId: string) => {
+      if (!(await confirm('删除这个模板？'))) return
+      setCustomTemplates(deleteCustomTemplate(templateId))
+      toast('已删除模板', 'success')
+    },
+    [confirm, toast]
+  )
+
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen()
     else document.exitFullscreen()
   }, [])
+
+  const sourceElementCount =
+    selectedIds.length > 0
+      ? elements.filter((el) => selectedIds.includes(el.id)).length
+      : elements.length
 
   return (
     <>
@@ -381,6 +492,15 @@ const ColorPicker = memo(function ColorPicker() {
       <div className="tb-sep" role="separator" />
 
       <button
+        onClick={() => setShowTemplates(true)}
+        className="abtn"
+        data-tip="模板库"
+        aria-label="模板库"
+      >
+        {icons.file}
+      </button>
+
+      <button
         onClick={() => imgRef.current?.click()}
         className="abtn"
         data-tip="插入图片"
@@ -437,6 +557,17 @@ const ColorPicker = memo(function ColorPicker() {
         onChange={(e) => setCanvasBg(e.target.value)}
         aria-label="选择背景颜色"
         className="absolute w-0 h-0 opacity-0 pointer-events-none"
+      />
+
+      <TemplatePicker
+        isOpen={showTemplates}
+        builtInTemplates={builtInTemplates}
+        customTemplates={customTemplates}
+        sourceElementCount={sourceElementCount}
+        onClose={() => setShowTemplates(false)}
+        onInsert={insertTemplate}
+        onSaveCustom={saveTemplate}
+        onDeleteCustom={removeCustomTemplate}
       />
     </>
   )
