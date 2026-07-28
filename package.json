@@ -5,7 +5,7 @@
   "description": "A beautiful, local-first whiteboard that feels like painting on real paper.",
   "main": "electron/main.ts",
   "engines": {
-    "node": ">=22.22.1"
+    "node": ">=22.22.2"
   },
   "scripts": {
     "dev": "vite",
