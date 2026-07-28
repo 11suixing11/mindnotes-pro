@@ -1,6 +1,6 @@
 import { useRef, useCallback, useState } from 'react'
 import { useAppStore } from '../../store/appStore'
-import { useViewStore } from '../../store/useViewStore'
+import { DEFAULT_GRID_SIZE, useViewStore } from '../../store/useViewStore'
 import { useThemeStore } from '../../store/useThemeStore'
 import { ContextMenu } from '../context-menu'
 import type { DrawState } from './useCanvasRenderer'
@@ -30,7 +30,7 @@ export default function Canvas() {
     brush: 'pen',
     showGrid: false,
     showRulers: false,
-    gridSize: 20,
+    gridSize: DEFAULT_GRID_SIZE,
     eraserTrail: [],
     penVelocity: 0,
   }))

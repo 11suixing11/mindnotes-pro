@@ -27,7 +27,18 @@ export default function Toolbar() {
       redoLen: s.redoStack.length,
     }))
   )
-  const { zoomIn, zoomOut, resetView, zoom, showGrid, toggleGrid } = useViewStore(
+  const {
+    zoomIn,
+    zoomOut,
+    resetView,
+    zoom,
+    showGrid,
+    toggleGrid,
+    snapToGrid,
+    toggleSnapToGrid,
+    gridSize,
+    cycleGridSize,
+  } = useViewStore(
     useShallow((s) => ({
       zoomIn: s.zoomIn,
       zoomOut: s.zoomOut,
@@ -35,6 +46,10 @@ export default function Toolbar() {
       zoom: s.viewBox.zoom,
       showGrid: s.showGrid,
       toggleGrid: s.toggleGrid,
+      snapToGrid: s.snapToGrid,
+      toggleSnapToGrid: s.toggleSnapToGrid,
+      gridSize: s.gridSize,
+      cycleGridSize: s.cycleGridSize,
     }))
   )
   const { isDarkMode, toggleTheme } = useThemeStore()
@@ -151,6 +166,24 @@ export default function Toolbar() {
           aria-pressed={showGrid}
         >
           {icons.grid}
+        </button>
+        <button
+          onClick={toggleSnapToGrid}
+          className="abtn"
+          data-tip={snapToGrid ? 'Disable grid snap (Shift+S)' : 'Snap to grid (Shift+S)'}
+          style={snapToGrid ? { color: 'var(--primary)', opacity: 1 } : undefined}
+          aria-label={snapToGrid ? 'Disable grid snap' : 'Enable grid snap'}
+          aria-pressed={snapToGrid}
+        >
+          {icons.snap}
+        </button>
+        <button
+          onClick={cycleGridSize}
+          className="abtn grid-size-btn"
+          data-tip={`Grid size ${gridSize}px`}
+          aria-label={`Grid size ${gridSize}px`}
+        >
+          {gridSize}
         </button>
         <div className="tb-sep" aria-hidden="true" />
         <ExportMenu />
