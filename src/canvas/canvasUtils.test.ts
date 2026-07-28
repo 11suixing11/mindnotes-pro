@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { simplifyPts, distToSeg, isVisibleInView } from './canvasUtils'
+import {
+  simplifyPts,
+  distToSeg,
+  isVisibleInView,
+  snapValueToGrid,
+  snapPointToGrid,
+  getGridSnapDelta,
+} from './canvasUtils'
 import type { StrokeElement, TextElement } from '../store/types'
 
 describe('simplifyPts', () => {
@@ -142,5 +149,37 @@ describe('isVisibleInView', () => {
       brush: 'pen',
     }
     expect(isVisibleInView(el, 0, 0, 200, 200)).toBe(true)
+  })
+})
+
+describe('grid snapping helpers', () => {
+  it('snaps values to the nearest grid line', () => {
+    expect(snapValueToGrid(6, 10)).toBe(10)
+    expect(snapValueToGrid(4, 10)).toBe(0)
+    expect(snapValueToGrid(-6, 10)).toBe(-10)
+  })
+
+  it('leaves values unchanged when grid size is not positive', () => {
+    expect(snapValueToGrid(13, 0)).toBe(13)
+    expect(snapValueToGrid(13, -10)).toBe(13)
+  })
+
+  it('snaps points on both axes', () => {
+    expect(snapPointToGrid({ x: 14, y: 31 }, 20)).toEqual({ x: 20, y: 40 })
+  })
+
+  it('returns movement delta needed to align bounds to the grid', () => {
+    const snap = getGridSnapDelta({ x: 13, y: 27, w: 50, h: 30 }, 20)
+
+    expect(snap.dx).toBe(7)
+    expect(snap.dy).toBe(-7)
+    expect(snap.linesX).toEqual([20])
+    expect(snap.linesY).toEqual([20])
+  })
+
+  it('does not emit snap lines when bounds are already aligned', () => {
+    const snap = getGridSnapDelta({ x: 20, y: 40, w: 50, h: 30 }, 20)
+
+    expect(snap).toEqual({ dx: 0, dy: 0, linesX: [], linesY: [] })
   })
 })

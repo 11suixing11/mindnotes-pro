@@ -28,6 +28,7 @@ describe('KeyboardShortcutsHelp', () => {
     expect(screen.getByText('Select all')).toBeTruthy()
     expect(screen.getByText('Delete selected')).toBeTruthy()
     expect(screen.getByText('Toggle grid')).toBeTruthy()
+    expect(screen.getByText('Toggle grid snap')).toBeTruthy()
     expect(screen.getByText('Zoom in')).toBeTruthy()
     expect(screen.getByText('Zoom out')).toBeTruthy()
   })

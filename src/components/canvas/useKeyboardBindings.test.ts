@@ -21,7 +21,12 @@ describe('useKeyboardBindings', () => {
       undoStack: [],
       redoStack: [],
     })
-    useViewStore.setState({ viewBox: { x: 0, y: 0, zoom: 1 } })
+    useViewStore.setState({
+      viewBox: { x: 0, y: 0, zoom: 1 },
+      showGrid: false,
+      snapToGrid: false,
+      gridSize: 20,
+    })
   })
 
   it('should register and unregister keydown listener', () => {
@@ -199,6 +204,25 @@ describe('useKeyboardBindings', () => {
       press('0', { ctrlKey: true })
 
       expect(useViewStore.getState().viewBox).toEqual({ x: 0, y: 0, zoom: 1 })
+    })
+  })
+
+  describe('grid shortcuts', () => {
+    it('Shift+G toggles grid visibility', () => {
+      renderHook(() => useKeyboardBindings())
+
+      press('G', { shiftKey: true })
+
+      expect(useViewStore.getState().showGrid).toBe(true)
+    })
+
+    it('Shift+S toggles grid snapping', () => {
+      renderHook(() => useKeyboardBindings())
+
+      press('S', { shiftKey: true })
+
+      expect(useViewStore.getState().snapToGrid).toBe(true)
+      expect(useViewStore.getState().showGrid).toBe(true)
     })
   })
 
