@@ -11,6 +11,10 @@ export type BrushType =
 export type ShapeKind = 'rectangle' | 'circle' | 'line' | 'arrow'
 export type ToolType = 'select' | 'pen' | 'eraser' | 'pan' | 'text' | ShapeKind
 export type CanvasBackgroundStyle = 'plain' | 'grid' | 'dots' | 'ruled' | 'notebook'
+export type TextFontWeight = 'normal' | 'bold'
+export type TextFontStyle = 'normal' | 'italic'
+export type TextDecoration = 'none' | 'underline'
+export type TextAlign = 'left' | 'center' | 'right'
 
 export interface StrokeElement {
   type: 'stroke'
@@ -76,6 +80,11 @@ export interface TextElement {
   content: string
   fontSize: number
   color: string
+  fontWeight?: TextFontWeight
+  fontStyle?: TextFontStyle
+  textDecoration?: TextDecoration
+  textAlign?: TextAlign
+  backgroundColor?: string
   groupId?: string
   // 元素旋转
   rotation?: number

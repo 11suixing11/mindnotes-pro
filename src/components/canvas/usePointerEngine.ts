@@ -63,7 +63,7 @@ export function usePointerEngine(opts: {
     screenX: number,
     screenY: number,
     color: string,
-    existing?: { id: string; content: string; fontSize: number }
+    existing?: TextElement
   ) => void
   textRef: React.RefObject<HTMLTextAreaElement | null>
   findSnaps: (
@@ -980,7 +980,7 @@ export function usePointerEngine(opts: {
               (existing.x - curVB.x) * curVB.zoom + rect.left,
               (existing.y - curVB.y) * curVB.zoom + rect.top,
               existing.color,
-              { id: existing.id, content: existing.content, fontSize: existing.fontSize }
+              existing
             )
           else startEditText(textPos.x, textPos.y, screenX, screenY, curColor)
           setTimeout(() => textRef.current?.focus(), 50)
@@ -1999,11 +1999,7 @@ export function usePointerEngine(opts: {
       if (el.type === 'text') {
         const screenX = (el.x - vb.x) * vb.zoom + rect.left
         const screenY = (el.y - vb.y) * vb.zoom + rect.top
-        startEditText(el.x, el.y, screenX, screenY, el.color, {
-          id: el.id,
-          content: el.content,
-          fontSize: el.fontSize,
-        })
+        startEditText(el.x, el.y, screenX, screenY, el.color, el)
         setTimeout(() => textRef.current?.focus(), 50)
       }
       // 双击形状内部添加文本

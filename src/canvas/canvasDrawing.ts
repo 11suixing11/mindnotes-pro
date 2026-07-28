@@ -9,6 +9,13 @@ import type {
 } from '../store/types'
 import { getBrushDashArray, getBrushDefaultOpacity, getCanvasStrokeWidth } from './brushPresets'
 import { getImage } from './canvasUtils'
+import {
+  getTextAnchorX,
+  getTextFont,
+  getTextLineHeight,
+  isVisibleTextBackground,
+  normalizeTextFormat,
+} from './textFormatting'
 import getStroke from 'perfect-freehand'
 
 // ==================== 性能缓存层 (P0 优化) ====================
@@ -280,7 +287,7 @@ const textWrapCache = new LRUCache<string, string[]>(TEXT_CACHE_MAX_SIZE, TEXT_C
 
 // P0 FIX: 使用内容前32个字符而非length，避免编辑文本后长度不变时缓存不失效
 function getTextCacheKey(el: TextElement): string {
-  return `${el.id}:${el.content.slice(0, 32)}:${el.width}:${el.fontSize}`
+  return `${el.id}:${el.content.slice(0, 32)}:${el.content.length}:${el.width}:${el.fontSize}:${el.fontWeight ?? ''}:${el.fontStyle ?? ''}`
 }
 function getCachedTextWrap(el: TextElement, ctx: CanvasRenderingContext2D): string[] {
   const key = getTextCacheKey(el)
@@ -783,16 +790,43 @@ export function drawShapeEl(ctx: CanvasRenderingContext2D, el: ShapeElement) {
 export function drawTextEl(ctx: CanvasRenderingContext2D, el: TextElement, editingTextId?: string) {
   if (el.id === editingTextId) return
   ctx.save()
-  ctx.font = `${el.fontSize}px 'Noto Sans SC', 'PingFang SC', sans-serif`
+  const format = normalizeTextFormat(el)
+  ctx.font = getTextFont(format)
   ctx.fillStyle = el.color
   ctx.textBaseline = 'top'
-  const lineHeight = el.fontSize * 1.6
+  ctx.textAlign = format.textAlign
+  const lineHeight = getTextLineHeight(format.fontSize)
+  const textX = getTextAnchorX(el.x, el.width, format.textAlign)
 
   // 使用缓存的换行结果 - P0 性能优化
   const wrappedLines = getCachedTextWrap(el, ctx)
 
+  if (isVisibleTextBackground(format.backgroundColor)) {
+    ctx.fillStyle = format.backgroundColor
+    ctx.fillRect(el.x, el.y, el.width, Math.max(el.height, wrappedLines.length * lineHeight))
+    ctx.fillStyle = el.color
+  }
+
   for (let i = 0; i < wrappedLines.length; i++) {
-    ctx.fillText(wrappedLines[i], el.x, el.y + i * lineHeight)
+    const y = el.y + i * lineHeight
+    ctx.fillText(wrappedLines[i], textX, y)
+    if (format.textDecoration === 'underline') {
+      const metrics = ctx.measureText(wrappedLines[i])
+      const textWidth = metrics.width
+      const startX =
+        format.textAlign === 'center'
+          ? textX - textWidth / 2
+          : format.textAlign === 'right'
+            ? textX - textWidth
+            : textX
+      const underlineY = y + format.fontSize * 1.18
+      ctx.beginPath()
+      ctx.moveTo(startX, underlineY)
+      ctx.lineTo(startX + textWidth, underlineY)
+      ctx.strokeStyle = el.color
+      ctx.lineWidth = Math.max(1, format.fontSize / 16)
+      ctx.stroke()
+    }
   }
   ctx.restore()
 }
