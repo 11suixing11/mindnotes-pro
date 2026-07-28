@@ -19,6 +19,7 @@ export type TextAlign = 'left' | 'center' | 'right'
 export interface StrokeElement {
   type: 'stroke'
   id: string
+  layerId?: string
   points: number[][]
   color: string
   size: number
@@ -51,6 +52,7 @@ export interface Binding {
 export interface ShapeElement {
   type: 'shape'
   id: string
+  layerId?: string
   kind: ShapeKind
   x: number
   y: number
@@ -73,6 +75,7 @@ export interface ShapeElement {
 export interface TextElement {
   type: 'text'
   id: string
+  layerId?: string
   x: number
   y: number
   width: number
@@ -95,6 +98,7 @@ export interface TextElement {
 export interface ImageElement {
   type: 'image'
   id: string
+  layerId?: string
   x: number
   y: number
   width: number
@@ -109,6 +113,16 @@ export interface ImageElement {
 }
 
 export type CanvasElement = StrokeElement | ShapeElement | TextElement | ImageElement
+
+export interface CanvasLayer {
+  id: string
+  name: string
+  visible: boolean
+  locked: boolean
+  order: number
+  createdAt: number
+  updatedAt: number
+}
 
 export type UndoAction =
   | { type: 'add'; ids: string[]; els?: CanvasElement[] }
@@ -130,6 +144,8 @@ export interface CanvasDoc {
   id: string
   title: string
   elements: CanvasElement[]
+  layers?: CanvasLayer[]
+  activeLayerId?: string
   bgColor: string
   backgroundStyle?: CanvasBackgroundStyle
   folderId: string | null
@@ -284,12 +300,7 @@ export function rotateElement(
 // 专业白板/设计工具标配：选中多个元素后一键对齐
 // 用户痛点："手动对齐5个矩形花了3分钟，还不齐" - 社区高频反馈
 export type AlignmentType =
-  | 'alignLeft'
-  | 'alignCenterH'
-  | 'alignRight'
-  | 'alignTop'
-  | 'alignCenterV'
-  | 'alignBottom'
+  'alignLeft' | 'alignCenterH' | 'alignRight' | 'alignTop' | 'alignCenterV' | 'alignBottom'
 
 // 元素分布
 // 专业设计工具标配：选中多个元素后一键等间距分布

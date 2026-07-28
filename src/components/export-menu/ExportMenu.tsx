@@ -5,6 +5,7 @@ import { useThemeStore } from '../../store/useThemeStore'
 import { useToastStore } from '../../store/toastStore'
 import type { CanvasElement } from '../../store/types'
 import { buildSVGString } from '../../canvas/svgExport'
+import { getRenderableElements } from '../../store/layers'
 
 const DARK_BG = '#1C1A24'
 const DEFAULT_JPEG_QUALITY = 85
@@ -207,7 +208,8 @@ const ExportMenu = memo(function ExportMenu() {
     const width = Math.round(c.width / dpr)
     const height = Math.round(c.height / dpr)
     // 导出时才获取 elements
-    const elements = useAppStore.getState().elements
+    const state = useAppStore.getState()
+    const elements = getRenderableElements(state.elements, state.layers)
     const svgStr = buildSVGString(elements, { width, height, isDarkMode })
     download(new Blob([svgStr], { type: 'image/svg+xml' }), `mindnotes-${ts()}.svg`)
     showToast('SVG 导出成功', 'success')
@@ -223,9 +225,23 @@ const ExportMenu = memo(function ExportMenu() {
   }
   const exportJSON = () => {
     // 导出时才获取 elements
-    const elements = useAppStore.getState().elements
+    const state = useAppStore.getState()
     download(
-      new Blob([JSON.stringify({ elements, version: 2 }, null, 2)], { type: 'application/json' }),
+      new Blob(
+        [
+          JSON.stringify(
+            {
+              elements: state.elements,
+              layers: state.layers,
+              activeLayerId: state.activeLayerId,
+              version: 3,
+            },
+            null,
+            2
+          ),
+        ],
+        { type: 'application/json' }
+      ),
       `mindnotes-${ts()}.json`
     )
   }
