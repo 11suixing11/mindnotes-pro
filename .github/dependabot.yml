@@ -41,6 +41,12 @@ updates:
         dependency-type: 'production'
         update-types:
           - 'patch'
+    ignore:
+      # TypeScript 7 currently cannot be resolved with the @typescript-eslint peer range.
+      # Keep lower major updates visible, and remove this once the toolchain supports TS 7.
+      - dependency-name: 'typescript'
+        versions:
+          - '>=7.0.0'
 
   # Keep GitHub Actions up to date
   - package-ecosystem: 'github-actions'
