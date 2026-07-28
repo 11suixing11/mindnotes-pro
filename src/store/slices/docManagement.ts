@@ -100,7 +100,7 @@ export function createDocManagementSlice(
           const layers = [createDefaultLayer(now)]
           const welcome: CanvasDoc = {
             id: `doc-${now}`,
-            title: '欢迎使用 MindNotes',
+            title: '欢迎使用 MindNotes Pro',
             elements: [
               {
                 type: 'text',
@@ -111,7 +111,7 @@ export function createDocManagementSlice(
                 width: 500,
                 height: 120,
                 content:
-                  '# 欢迎使用 MindNotes\n\n温暖纸笔化风格笔记本，支持自由绘图、形状绘制和文字记录。\n\n点击左上角按钮探索更多功能。',
+                  '# 欢迎使用 MindNotes Pro\n\n本地优先的白板，支持自由绘图、形状、文字、图层和可编辑模板。\n\n点击左上角按钮管理文档，或从顶部工具栏插入模板开始。',
                 fontSize: 16,
                 color: '#2c2416',
               },

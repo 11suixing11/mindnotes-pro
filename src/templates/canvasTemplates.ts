@@ -239,6 +239,11 @@ function cloneElement(
   return { ...base, id, groupId } as CanvasElement
 }
 
+function unlockTemplateElement(el: CanvasElement): CanvasElement {
+  if (!el.locked) return el
+  return { ...el, locked: false }
+}
+
 export function cloneTemplate(template: CanvasTemplate): CanvasTemplate {
   return { ...template, elements: template.elements.map((el) => cloneElement(el)) }
 }
@@ -282,7 +287,9 @@ export function instantiateTemplate(
   const dx = centerX - (bounds.x + bounds.w / 2)
   const dy = centerY - (bounds.y + bounds.h / 2)
 
-  return template.elements.map((el) => moveElement(cloneElement(el, idMap, groupMap), dx, dy))
+  return template.elements.map((el) =>
+    unlockTemplateElement(moveElement(cloneElement(el, idMap, groupMap), dx, dy))
+  )
 }
 
 export function createTemplateFromElements(
@@ -293,7 +300,9 @@ export function createTemplateFromElements(
   if (!bounds) return null
 
   const now = Date.now()
-  const normalized = elements.map((el) => moveElement(cloneElement(el), -bounds.x, -bounds.y))
+  const normalized = elements.map((el) =>
+    unlockTemplateElement(moveElement(cloneElement(el), -bounds.x, -bounds.y))
+  )
   const trimmedName = name.trim() || 'Custom template'
 
   return {

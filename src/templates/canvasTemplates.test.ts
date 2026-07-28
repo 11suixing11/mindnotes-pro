@@ -127,6 +127,15 @@ describe('canvas templates', () => {
     expect(template.height).toBeGreaterThan(0)
   })
 
+  it('does not persist locked state into reusable templates', () => {
+    const source = { ...makeShape('locked-source'), locked: true }
+    const template = requireTemplate(createTemplateFromElements('Editable scaffold', [source]))
+    const inserted = instantiateTemplate(template, 0, 0)
+
+    expect(template.elements.every((element) => !element.locked)).toBe(true)
+    expect(inserted.every((element) => !element.locked)).toBe(true)
+  })
+
   it('persists and deletes custom templates with malformed data fallback', () => {
     const template = requireTemplate(createTemplateFromElements('Saved', [makeShape('saved')]))
 

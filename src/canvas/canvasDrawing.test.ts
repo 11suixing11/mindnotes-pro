@@ -542,6 +542,15 @@ describe('canvasDrawing', () => {
       drawSelBox(ctx, { x: 0, y: 0, w: 100, h: 50 }, false, 2)
       expect(ctx.strokeRect).toHaveBeenCalled()
     })
+
+    it('starts each selection handle as its own path segment', () => {
+      drawSelBox(ctx, { x: 0, y: 0, w: 100, h: 50 }, false, 1)
+
+      expect(ctx.moveTo).toHaveBeenCalledWith(53.5, 0)
+      expect(ctx.moveTo).toHaveBeenCalledWith(53.5, 50)
+      expect(ctx.moveTo).toHaveBeenCalledWith(3.5, 25)
+      expect(ctx.moveTo).toHaveBeenCalledWith(103.5, 25)
+    })
   })
 
   describe('drawMonetGrid', () => {

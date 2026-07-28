@@ -17,6 +17,7 @@ import {
   invalidateDrawingCaches,
 } from '../../canvas/canvasDrawing'
 import { eraserParticleSystem } from '../../eraser'
+import { CANVAS_INVALIDATED_EVENT } from './renderEvents'
 export interface DrawState {
   drawing: boolean
   currentPts: number[][]
@@ -40,6 +41,34 @@ export interface DrawState {
   /** 笔触绘制时的速度（用于笔触光标反馈） */
   penVelocity: number
 }
+
+type ElementBounds = { x: number; y: number; w: number; h: number }
+
+export function mergeSelectionBounds<T extends { id: string }>(
+  elements: T[],
+  selectedIds: Set<string>,
+  getBounds: (element: T) => ElementBounds
+): ElementBounds | null {
+  let merged: ElementBounds | null = null
+
+  for (const element of elements) {
+    if (!selectedIds.has(element.id)) continue
+    const bounds = getBounds(element)
+    if (!merged) {
+      merged = { ...bounds }
+      continue
+    }
+
+    const minX = Math.min(merged.x, bounds.x)
+    const minY = Math.min(merged.y, bounds.y)
+    const maxX = Math.max(merged.x + merged.w, bounds.x + bounds.w)
+    const maxY = Math.max(merged.y + merged.h, bounds.y + bounds.h)
+    merged = { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+  }
+
+  return merged
+}
+
 export function useCanvasRenderer(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   containerRef: React.RefObject<HTMLDivElement | null>,
@@ -294,6 +323,7 @@ export function useCanvasRenderer(
     // P0 性能优化: 使用空间索引进行 O(log n) 视口裁剪
     // 大画布场景下（1000+ 元素），性能提升 10-100x
     const visibleIds = st.spatialIndex?.queryVisible(vl, vt, vw, vh)
+    const selectedVisibleElements: CanvasElement[] = []
 
     if (visibleIds) {
       const visibleSet = new Set(visibleIds)
@@ -303,7 +333,7 @@ export function useCanvasRenderer(
         // 锁定元素视觉指示器（小锁图标）
         if (el.locked || isLayerLocked(st.layers, getElementLayerId(el)))
           drawLockIcon(ctx, cachedBounds(el), dark)
-        if (selSet.has(el.id)) drawSelBox(ctx, cachedBounds(el), dark, vb.zoom)
+        if (selSet.has(el.id)) selectedVisibleElements.push(el)
       }
     } else {
       // 降级: 空间索引不可用时使用原有 O(n) 遍历
@@ -313,9 +343,15 @@ export function useCanvasRenderer(
         // 锁定元素视觉指示器（小锁图标）
         if (el.locked || isLayerLocked(st.layers, getElementLayerId(el)))
           drawLockIcon(ctx, cachedBounds(el), dark)
-        if (selSet.has(el.id)) drawSelBox(ctx, cachedBounds(el), dark, vb.zoom)
+        if (selSet.has(el.id)) selectedVisibleElements.push(el)
       }
     }
+
+    const selectionBounds =
+      selectedVisibleElements.length === 1
+        ? cachedBounds(selectedVisibleElements[0])
+        : mergeSelectionBounds(selectedVisibleElements, selSet, cachedBounds)
+    if (selectionBounds) drawSelBox(ctx, selectionBounds, dark, vb.zoom)
 
     ctx.restore()
     elementsDirtyRef.current = false
@@ -764,8 +800,22 @@ export function useCanvasRenderer(
       redraw()
     }
     window.addEventListener('image-loaded', h)
-    return () => window.removeEventListener('image-loaded', h)
+    window.addEventListener(CANVAS_INVALIDATED_EVENT, h)
+    return () => {
+      window.removeEventListener('image-loaded', h)
+      window.removeEventListener(CANVAS_INVALIDATED_EVENT, h)
+    }
   }, [redraw])
+  useEffect(() => {
+    let prevSelectedIds = useAppStore.getState().selectedIds
+    const unsub = useAppStore.subscribe((s) => {
+      if (s.selectedIds === prevSelectedIds) return
+      prevSelectedIds = s.selectedIds
+      elementsDirtyRef.current = true
+      scheduleRedraw()
+    })
+    return unsub
+  }, [scheduleRedraw])
   // 仅订阅 viewBox/showGrid/gridSize 变化触发重绘
   useEffect(() => {
     let prevVB = useViewStore.getState().viewBox

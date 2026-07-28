@@ -3,8 +3,8 @@ import { FEEDBACK_DISCUSSION_URL } from '../../productLinks'
 
 const STEPS = [
   {
-    title: '欢迎使用 MindNotes',
-    desc: '一个轻量的本地白板，打开即画，数据存在你的浏览器里。',
+    title: '欢迎使用 MindNotes Pro',
+    desc: '一个本地优先的白板，打开即画，数据存在你的浏览器里。',
     icon: '🎨',
   },
   {

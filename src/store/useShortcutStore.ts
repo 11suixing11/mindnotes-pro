@@ -106,7 +106,7 @@ export const useShortcutStore = create<ShortcutStore>((set, get) => ({
 
   importShortcuts: (json) => {
     const parsed = parseShortcutExport(json)
-    if (!parsed) return { ok: false, error: 'Shortcut import must be valid MindNotes JSON.' }
+    if (!parsed) return { ok: false, error: 'Shortcut import must be valid MindNotes Pro JSON.' }
 
     const bindings = mergeShortcutBindings(parsed.bindings)
     const conflict = validateShortcutBindings(bindings)

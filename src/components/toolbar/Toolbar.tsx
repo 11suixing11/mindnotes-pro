@@ -10,6 +10,7 @@ import { ExportMenu } from '../export-menu'
 import ToolButtons from './ToolButtons'
 import BrushSelector from './BrushSelector'
 import ColorPicker from './ColorPicker'
+import TemplateMenu from '../templates/TemplateMenu'
 import { icons } from './icons'
 
 export default function Toolbar() {
@@ -96,8 +97,7 @@ export default function Toolbar() {
     <>
       <div className="brand" aria-hidden="true">
         <div className="brand-icon">M</div>
-        <span className="brand-text">MindNotes</span>
-        <span className="brand-ver">v2.1</span>
+        <span className="brand-text">MindNotes Pro</span>
       </div>
 
       {/* Left toolbar: tools + undo/redo/clear only */}
@@ -140,6 +140,7 @@ export default function Toolbar() {
       <div className="topbar panel" role="toolbar" aria-label="Canvas tools">
         <BrushSelector brush={brush} setBrush={setBrush} tool={tool} />
         <ColorPicker />
+        <TemplateMenu />
         <div className="tb-sep" aria-hidden="true" />
         <button onClick={zoomIn} className="abtn" data-tip="Zoom in" aria-label="Zoom in">
           {icons.zoomIn}

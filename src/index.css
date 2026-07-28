@@ -848,14 +848,22 @@ body::after {
 
 .brand {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  left: 14px;
+  bottom: 14px;
   display: flex;
   align-items: center;
   gap: 10px;
+  max-width: min(260px, calc(100vw - 28px));
+  padding: 7px 10px;
   z-index: 20;
   animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
   user-select: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
 }
 
 .brand-icon {
@@ -879,20 +887,13 @@ body::after {
   font-size: 14px;
   font-weight: 700;
   color: var(--text);
-  letter-spacing: -0.4px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   background: linear-gradient(135deg, var(--text), var(--text-2));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-}
-
-.brand-ver {
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--primary);
-  padding: 2px 7px;
-  border-radius: 6px;
-  background: var(--primary-light);
-  letter-spacing: 0.3px;
 }
 
 .status {

@@ -850,6 +850,10 @@ export function drawSelBox(
   isDarkMode: boolean,
   zoom: number
 ) {
+  const addHandleCircle = (cx: number, cy: number, r: number) => {
+    ctx.moveTo(cx + r, cy)
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  }
   const primary = isDarkMode ? '#C8A0B0' : '#B07D6E'
   const primaryLight = isDarkMode ? 'rgba(200,160,176,0.12)' : 'rgba(176,125,110,0.1)'
   ctx.save()
@@ -903,19 +907,19 @@ export function drawSelBox(
   // 先绘制边缘手柄（在角落手柄下方）
   // 边缘手柄：上、下、左、右四边中点
   ctx.beginPath()
-  ctx.arc(b.x + b.w / 2, edgeTopY, edgeR, 0, Math.PI * 2) // 上边缘中点
-  ctx.arc(b.x + b.w / 2, edgeBottomY, edgeR, 0, Math.PI * 2) // 下边缘中点
-  ctx.arc(edgeLeftX, b.y + b.h / 2, edgeR, 0, Math.PI * 2) // 左边缘中点
-  ctx.arc(edgeRightX, b.y + b.h / 2, edgeR, 0, Math.PI * 2) // 右边缘中点
+  addHandleCircle(b.x + b.w / 2, edgeTopY, edgeR) // 上边缘中点
+  addHandleCircle(b.x + b.w / 2, edgeBottomY, edgeR) // 下边缘中点
+  addHandleCircle(edgeLeftX, b.y + b.h / 2, edgeR) // 左边缘中点
+  addHandleCircle(edgeRightX, b.y + b.h / 2, edgeR) // 右边缘中点
   ctx.fill()
 
   // P0 性能优化: 合并 4 个角落手柄为单次 beginPath/fill 调用
   // 角落手柄（后绘制，显示在边缘手柄上方）
   ctx.beginPath()
-  ctx.arc(b.x, b.y, cornerR, 0, Math.PI * 2)
-  ctx.arc(b.x + b.w, b.y, cornerR, 0, Math.PI * 2)
-  ctx.arc(b.x, b.y + b.h, cornerR, 0, Math.PI * 2)
-  ctx.arc(b.x + b.w, b.y + b.h, cornerR, 0, Math.PI * 2)
+  addHandleCircle(b.x, b.y, cornerR)
+  addHandleCircle(b.x + b.w, b.y, cornerR)
+  addHandleCircle(b.x, b.y + b.h, cornerR)
+  addHandleCircle(b.x + b.w, b.y + b.h, cornerR)
   ctx.fill()
 
   // 旋转手柄
@@ -938,7 +942,7 @@ export function drawSelBox(
   ctx.shadowColor = isDarkMode ? 'rgba(200,160,176,0.4)' : 'rgba(176,125,110,0.4)'
   ctx.shadowBlur = 6 / zoom
   ctx.beginPath()
-  ctx.arc(rotateHandleX, rotateHandleY, rotateHandleR, 0, Math.PI * 2)
+  addHandleCircle(rotateHandleX, rotateHandleY, rotateHandleR)
   ctx.fillStyle = primary
   ctx.fill()
 

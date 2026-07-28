@@ -10,7 +10,7 @@ describe('FirstRunGuide', () => {
 
   it('shows guide when no guide-seen key exists', () => {
     render(<FirstRunGuide />)
-    expect(screen.getByText('欢迎使用 MindNotes')).toBeTruthy()
+    expect(screen.getByText('欢迎使用 MindNotes Pro')).toBeTruthy()
   })
 
   it('hides guide when guide-seen key exists', () => {
@@ -22,7 +22,7 @@ describe('FirstRunGuide', () => {
   it('shows first step content', () => {
     render(<FirstRunGuide />)
     expect(screen.getByText('🎨')).toBeTruthy()
-    expect(screen.getByText(/一个轻量的本地白板/)).toBeTruthy()
+    expect(screen.getByText(/一个本地优先的白板/)).toBeTruthy()
   })
 
   it('links to the product feedback discussion', () => {

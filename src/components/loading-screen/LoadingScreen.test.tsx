@@ -5,12 +5,7 @@ import LoadingScreen from './LoadingScreen'
 describe('LoadingScreen', () => {
   it('renders the MindNotes branding', () => {
     render(<LoadingScreen />)
-    expect(screen.getByText('MindNotes')).toBeTruthy()
-  })
-
-  it('renders the Pro text', () => {
-    render(<LoadingScreen />)
-    expect(screen.getByText('Pro')).toBeTruthy()
+    expect(screen.getByText('MindNotes Pro')).toBeTruthy()
   })
 
   it('renders the M logo', () => {
