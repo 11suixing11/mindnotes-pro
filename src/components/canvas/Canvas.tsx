@@ -2,6 +2,7 @@ import { useRef, useCallback, useState } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { DEFAULT_GRID_SIZE, useViewStore } from '../../store/useViewStore'
 import { useThemeStore } from '../../store/useThemeStore'
+import { getTextLineHeight, type TextFormatState } from '../../canvas/textFormatting'
 import { ContextMenu } from '../context-menu'
 import type { DrawState } from './useCanvasRenderer'
 import { useTextEditor } from './useTextEditor'
@@ -9,10 +10,12 @@ import { useKeyboardBindings } from './useKeyboardBindings'
 import { useSelectionEngine } from './useSelectionEngine'
 import { useCanvasRenderer } from './useCanvasRenderer'
 import { usePointerEngine } from './usePointerEngine'
+import TextFormatToolbar from './TextFormatToolbar'
 
 export default function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const textToolbarRef = useRef<HTMLDivElement | null>(null)
   // 右键上下文菜单状态
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
 
@@ -119,6 +122,24 @@ export default function Canvas() {
     e.stopPropagation()
   }, [])
 
+  const updateEditingTextFormat = useCallback(
+    (patch: Partial<TextFormatState>) => {
+      setEditingText((current) => {
+        if (!current) return current
+        const fontSize = patch.fontSize ?? current.fontSize
+        const lineHeight = getTextLineHeight(fontSize)
+        const lineCount = Math.max(1, current.content.split('\n').length)
+        return {
+          ...current,
+          ...patch,
+          fontSize,
+          height: Math.max(current.height, lineHeight * lineCount),
+        }
+      })
+    },
+    [setEditingText]
+  )
+
   const { isDarkMode } = useThemeStore()
 
   // P1-1/P1-2 性能优化: 移除不必要的订阅
@@ -158,45 +179,81 @@ export default function Canvas() {
             const viewBox = useViewStore.getState().viewBox
             const screenX = (editingText.x - viewBox.x) * viewBox.zoom + rect.left
             const screenY = (editingText.y - viewBox.y) * viewBox.zoom + rect.top
+            const lineHeight = getTextLineHeight(editingText.fontSize)
+            const lineCount = Math.max(1, editingText.content.split('\n').length)
+            const editorHeight = Math.max(editingText.height, lineHeight * lineCount)
+            const toolbarLeft = Math.max(8, Math.min(screenX - 2, window.innerWidth - 8))
+            const toolbarTop = Math.max(8, screenY - 44)
+            const alignToolbarRight = toolbarLeft > window.innerWidth - 360
             return (
-              <textarea
-                ref={textRef}
-                autoFocus
-                value={editingText.content}
-                onChange={(e) => setEditingText({ ...editingText, content: e.target.value })}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
+              <>
+                <TextFormatToolbar
+                  editingText={editingText}
+                  toolbarRef={textToolbarRef}
+                  textAreaRef={textRef}
+                  left={toolbarLeft}
+                  top={toolbarTop}
+                  alignRight={alignToolbarRight}
+                  onChange={updateEditingTextFormat}
+                  onBlurOutside={() => commitTextEdit(editingText.content)}
+                />
+                <textarea
+                  ref={textRef}
+                  autoFocus
+                  value={editingText.content}
+                  onChange={(e) => {
+                    const content = e.target.value
+                    const nextLineCount = Math.max(1, content.split('\n').length)
+                    setEditingText({
+                      ...editingText,
+                      content,
+                      height: Math.max(editingText.height, lineHeight * nextLineCount),
+                    })
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      commitTextEdit(editingText.content)
+                    }
+                    if (e.key === 'Escape') setEditingText(null)
+                  }}
+                  onBlur={(e) => {
+                    const relatedTarget = e.relatedTarget as Node | null
+                    if (relatedTarget && textToolbarRef.current?.contains(relatedTarget)) return
                     commitTextEdit(editingText.content)
-                  }
-                  if (e.key === 'Escape') setEditingText(null)
-                }}
-                onBlur={() => commitTextEdit(editingText.content)}
-                style={{
-                  position: 'fixed',
-                  left: screenX - 2,
-                  top: screenY,
-                  minWidth: 40,
-                  maxWidth: 800,
-                  minHeight: editingText.fontSize * 1.6,
-                  padding: 0,
-                  fontSize: editingText.fontSize,
-                  lineHeight: 1.6,
-                  color: editingText.color,
-                  background: 'transparent',
-                  border: 'none',
-                  borderLeft: `2px solid ${isDarkMode ? 'rgba(200,160,176,0.6)' : 'rgba(176,125,110,0.6)'}`,
-                  outline: 'none',
-                  zIndex: 100,
-                  boxShadow: 'none',
-                  fontFamily: "'Noto Sans SC', 'PingFang SC', sans-serif",
-                  resize: 'none',
-                  overflow: 'hidden',
-                  caretColor: editingText.color,
-                  transform: `scale(${viewBox.zoom})`,
-                  transformOrigin: 'top left',
-                }}
-              />
+                  }}
+                  style={{
+                    position: 'fixed',
+                    left: screenX - 2,
+                    top: screenY,
+                    width: editingText.width,
+                    maxWidth: 800,
+                    height: editorHeight,
+                    minHeight: lineHeight,
+                    padding: '2px 4px',
+                    boxSizing: 'border-box',
+                    fontSize: editingText.fontSize,
+                    fontWeight: editingText.fontWeight,
+                    fontStyle: editingText.fontStyle,
+                    textDecoration: editingText.textDecoration,
+                    textAlign: editingText.textAlign,
+                    lineHeight: 1.6,
+                    color: editingText.color,
+                    background: editingText.backgroundColor ?? 'transparent',
+                    border: 'none',
+                    borderLeft: `2px solid ${isDarkMode ? 'rgba(200,160,176,0.6)' : 'rgba(176,125,110,0.6)'}`,
+                    outline: 'none',
+                    zIndex: 100,
+                    boxShadow: 'none',
+                    fontFamily: "'Noto Sans SC', 'PingFang SC', sans-serif",
+                    resize: 'none',
+                    overflow: 'hidden',
+                    caretColor: editingText.color,
+                    transform: `scale(${viewBox.zoom})`,
+                    transformOrigin: 'top left',
+                  }}
+                />
+              </>
             )
           })()}
       </div>
