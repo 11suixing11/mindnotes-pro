@@ -20,6 +20,7 @@ export interface StrokeElement {
   size: number
   brush: BrushType
   opacity?: number
+  pressures?: number[]
   groupId?: string
   // 元素旋转
   // 专业白板标准功能：选中元素后拖拽旋转手柄自由旋转

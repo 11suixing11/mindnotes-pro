@@ -47,6 +47,89 @@ function createMockTextRef(): React.RefObject<HTMLTextAreaElement | null> {
   return { current: null }
 }
 
+function renderPointerEngineHarness() {
+  const canvasRef = createMockCanvasRef()
+  const scheduleRedraw = vi.fn()
+  renderHook(() =>
+    usePointerEngine({
+      canvasRef,
+      cachedBounds: mockBounds,
+      scheduleRedraw,
+      startEditText: vi.fn(),
+      textRef: createMockTextRef(),
+      findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
+      snapLinesRef: { current: { x: [], y: [] } },
+    })
+  )
+
+  const canvas = canvasRef.current
+  if (!canvas) throw new Error('Expected mock canvas ref to be initialized')
+  return { canvas, scheduleRedraw }
+}
+
+function createMockTouch(
+  overrides: Partial<Touch> & { identifier: number; touchType?: string }
+): Touch {
+  return {
+    identifier: overrides.identifier,
+    target: document.body,
+    clientX: overrides.clientX ?? 0,
+    clientY: overrides.clientY ?? 0,
+    pageX: overrides.pageX ?? overrides.clientX ?? 0,
+    pageY: overrides.pageY ?? overrides.clientY ?? 0,
+    screenX: overrides.screenX ?? overrides.clientX ?? 0,
+    screenY: overrides.screenY ?? overrides.clientY ?? 0,
+    radiusX: overrides.radiusX ?? 10,
+    radiusY: overrides.radiusY ?? 10,
+    rotationAngle: overrides.rotationAngle ?? 0,
+    force: overrides.force ?? 0.5,
+    ...(overrides as Record<string, unknown>),
+  } as Touch
+}
+
+function createMockTouchEvent(
+  type: string,
+  touches: Touch[],
+  changedTouches: Touch[] = touches
+): TouchEvent {
+  const event = new Event(type, { bubbles: true, cancelable: true }) as TouchEvent
+  Object.defineProperty(event, 'touches', { value: touches })
+  Object.defineProperty(event, 'changedTouches', { value: changedTouches })
+  Object.defineProperty(event, 'targetTouches', { value: touches })
+  return event
+}
+
+function dispatchTouch(canvas: HTMLCanvasElement, event: TouchEvent) {
+  act(() => {
+    canvas.dispatchEvent(event)
+  })
+}
+
+function createMockPointerEvent(
+  type: string,
+  overrides: Partial<PointerEvent> & { pointerId: number; pointerType: string }
+): PointerEvent {
+  const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent
+  Object.defineProperties(event, {
+    pointerId: { value: overrides.pointerId },
+    pointerType: { value: overrides.pointerType },
+    clientX: { value: overrides.clientX ?? 0 },
+    clientY: { value: overrides.clientY ?? 0 },
+    pressure: { value: overrides.pressure ?? 0.5 },
+    tiltX: { value: overrides.tiltX ?? 0 },
+    tiltY: { value: overrides.tiltY ?? 0 },
+    button: { value: overrides.button ?? 0 },
+    buttons: { value: overrides.buttons ?? 1 },
+  })
+  return event
+}
+
+function dispatchPointer(canvas: HTMLCanvasElement, event: PointerEvent) {
+  act(() => {
+    canvas.dispatchEvent(event)
+  })
+}
+
 describe('usePointerEngine', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -386,6 +469,168 @@ describe('usePointerEngine', () => {
       })
       expect(snapLinesRef.current).toEqual({ x: [], y: [] })
       expect(scheduleRedraw).toHaveBeenCalled()
+    })
+  })
+
+  describe('touch interactions', () => {
+    it('draws a stroke from a single accepted touch', () => {
+      const { canvas } = renderPointerEngineHarness()
+      const start = createMockTouch({ identifier: 1, clientX: 10, clientY: 20 })
+      const move = createMockTouch({ identifier: 1, clientX: 30, clientY: 40 })
+
+      dispatchTouch(canvas, createMockTouchEvent('touchstart', [start], [start]))
+      dispatchTouch(canvas, createMockTouchEvent('touchmove', [move], [move]))
+      dispatchTouch(canvas, createMockTouchEvent('touchend', [], [move]))
+
+      const stroke = useAppStore.getState().elements[0]
+      expect(stroke).toMatchObject({
+        type: 'stroke',
+        points: [
+          [10, 20],
+          [30, 40],
+        ],
+      })
+    })
+
+    it('rejects palm touches before they start drawing', () => {
+      const { canvas } = renderPointerEngineHarness()
+      const palm = createMockTouch({
+        identifier: 1,
+        clientX: 100,
+        clientY: 120,
+        radiusX: 42,
+        radiusY: 38,
+      })
+
+      dispatchTouch(canvas, createMockTouchEvent('touchstart', [palm], [palm]))
+      dispatchTouch(canvas, createMockTouchEvent('touchmove', [palm], [palm]))
+      dispatchTouch(canvas, createMockTouchEvent('touchend', [], [palm]))
+
+      expect(useAppStore.getState().elements).toEqual([])
+    })
+
+    it('keeps drawing with the active finger when a palm lands', () => {
+      const { canvas } = renderPointerEngineHarness()
+      const start = createMockTouch({ identifier: 1, clientX: 10, clientY: 10 })
+      const moved = createMockTouch({ identifier: 1, clientX: 25, clientY: 25 })
+      const palm = createMockTouch({
+        identifier: 2,
+        clientX: 500,
+        clientY: 500,
+        radiusX: 44,
+        radiusY: 40,
+      })
+
+      dispatchTouch(canvas, createMockTouchEvent('touchstart', [start], [start]))
+      dispatchTouch(canvas, createMockTouchEvent('touchstart', [start, palm], [palm]))
+      dispatchTouch(canvas, createMockTouchEvent('touchmove', [moved, palm], [moved]))
+      dispatchTouch(canvas, createMockTouchEvent('touchend', [palm], [moved]))
+
+      const stroke = useAppStore.getState().elements[0]
+      expect(stroke).toMatchObject({
+        type: 'stroke',
+        points: [
+          [10, 10],
+          [25, 25],
+        ],
+      })
+    })
+
+    it('stores stylus force as pressure samples', () => {
+      const { canvas } = renderPointerEngineHarness()
+      const start = createMockTouch({
+        identifier: 1,
+        clientX: 10,
+        clientY: 20,
+        force: 0.2,
+        touchType: 'stylus',
+      })
+      const move = createMockTouch({
+        identifier: 1,
+        clientX: 40,
+        clientY: 60,
+        force: 0.9,
+        touchType: 'stylus',
+      })
+
+      dispatchTouch(canvas, createMockTouchEvent('touchstart', [start], [start]))
+      dispatchTouch(canvas, createMockTouchEvent('touchmove', [move], [move]))
+      dispatchTouch(canvas, createMockTouchEvent('touchend', [], [move]))
+
+      expect(useAppStore.getState().elements[0]).toMatchObject({
+        type: 'stroke',
+        pressures: [0.2, 0.9],
+      })
+    })
+
+    it('stores pen PointerEvent pressure samples', () => {
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 11,
+          pointerType: 'pen',
+          clientX: 10,
+          clientY: 20,
+          pressure: 0.25,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 11,
+          pointerType: 'pen',
+          clientX: 35,
+          clientY: 45,
+          pressure: 0.85,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 11,
+          pointerType: 'pen',
+          clientX: 35,
+          clientY: 45,
+          pressure: 0.85,
+          buttons: 0,
+        })
+      )
+
+      expect(useAppStore.getState().elements[0]).toMatchObject({
+        type: 'stroke',
+        pressures: [0.25, 0.85],
+      })
+    })
+
+    it('uses two accepted touches for pinch zoom without creating a stroke', () => {
+      const { canvas } = renderPointerEngineHarness()
+      const first = createMockTouch({ identifier: 1, clientX: 100, clientY: 100 })
+      const second = createMockTouch({ identifier: 2, clientX: 200, clientY: 100 })
+      const movedFirst = createMockTouch({ identifier: 1, clientX: 50, clientY: 100 })
+      const movedSecond = createMockTouch({ identifier: 2, clientX: 250, clientY: 100 })
+
+      dispatchTouch(canvas, createMockTouchEvent('touchstart', [first, second], [first, second]))
+      dispatchTouch(
+        canvas,
+        createMockTouchEvent('touchmove', [movedFirst, movedSecond], [movedFirst, movedSecond])
+      )
+
+      expect(useViewStore.getState().viewBox.zoom).toBeGreaterThan(1)
+      expect(useAppStore.getState().elements).toEqual([])
+    })
+
+    it('aborts the current stroke on touchcancel', () => {
+      const { canvas } = renderPointerEngineHarness()
+      const start = createMockTouch({ identifier: 1, clientX: 10, clientY: 20 })
+      const move = createMockTouch({ identifier: 1, clientX: 30, clientY: 40 })
+
+      dispatchTouch(canvas, createMockTouchEvent('touchstart', [start], [start]))
+      dispatchTouch(canvas, createMockTouchEvent('touchmove', [move], [move]))
+      dispatchTouch(canvas, createMockTouchEvent('touchcancel', [], [move]))
+
+      expect(useAppStore.getState().elements).toEqual([])
     })
   })
 

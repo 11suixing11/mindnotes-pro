@@ -45,6 +45,7 @@ function createDefaultDrawState(): DrawState {
   return {
     drawing: false,
     currentPts: [],
+    currentPressures: [],
     currentShape: null,
     mousePos: null,
     rotationAngle: null,
