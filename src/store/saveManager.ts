@@ -1,4 +1,10 @@
-import type { CanvasBackgroundStyle, CanvasDoc, CanvasElement, UndoAction } from './types'
+import type {
+  CanvasBackgroundStyle,
+  CanvasDoc,
+  CanvasElement,
+  CanvasLayer,
+  UndoAction,
+} from './types'
 import * as storage from './storage'
 const SAVE_DELAY = 1500
 interface StoreRef {
@@ -6,6 +12,8 @@ interface StoreRef {
   getState: () => {
     currentDocId: string | null
     elements: CanvasElement[]
+    layers: CanvasLayer[]
+    activeLayerId: string
     bgColor: string
     backgroundStyle: CanvasBackgroundStyle
     undoStack: UndoAction[]
@@ -86,7 +94,16 @@ export function scheduleSave(): void {
 export async function saveDocNow(): Promise<void> {
   if (!_storeRef) return
   const state = _storeRef.getState()
-  const { currentDocId, elements, bgColor, backgroundStyle, undoStack, redoStack } = state
+  const {
+    currentDocId,
+    elements,
+    layers,
+    activeLayerId,
+    bgColor,
+    backgroundStyle,
+    undoStack,
+    redoStack,
+  } = state
   if (!currentDocId) return
   // 使用 generation 计数器检测变化
   // 彻底解决中间元素修改无法被检测的数据丢失bug
@@ -106,6 +123,8 @@ export async function saveDocNow(): Promise<void> {
     id: currentDocId,
     title: existing?.title ?? '未命名画布',
     elements,
+    layers,
+    activeLayerId,
     bgColor,
     backgroundStyle,
     folderId: existing?.folderId ?? null,
@@ -125,6 +144,8 @@ export async function saveDocNow(): Promise<void> {
     id: currentDocId,
     title: existing?.title ?? '未命名画布',
     elements,
+    layers,
+    activeLayerId,
     bgColor,
     backgroundStyle,
     folderId: existing?.folderId ?? null,

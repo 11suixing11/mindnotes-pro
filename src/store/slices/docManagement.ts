@@ -1,8 +1,9 @@
-import type { CanvasDoc, CanvasFolder } from '../types'
+import type { CanvasDoc, CanvasElement, CanvasFolder } from '../types'
 import * as storage from '../storage'
 import { useViewStore } from '../useViewStore'
 import { migrateOld, removeMigratedData } from '../migration'
 import { saveDocNow, clearSaveTimer } from '../saveManager'
+import { createDefaultLayer, normalizeCanvasDocLayers } from '../layers'
 
 const DOCUMENT_SEARCH_HISTORY_KEY = 'mn-sidebar-searches'
 const MAX_RECENT_DOCUMENT_SEARCHES = 5
@@ -52,6 +53,24 @@ function persistRecentDocumentSearches(searches: string[]) {
   }
 }
 
+function loadRuntimeElementIndexes(
+  get: () => {
+    idToElement?: Map<string, CanvasElement>
+    idToIndex?: Map<string, number>
+    spatialIndex?: { bulkLoad: (elements: CanvasElement[]) => void }
+  },
+  elements: CanvasElement[]
+) {
+  const state = get()
+  state.idToElement?.clear()
+  state.idToIndex?.clear()
+  elements.forEach((element, index) => {
+    state.idToElement?.set(element.id, element)
+    state.idToIndex?.set(element.id, index)
+  })
+  state.spatialIndex?.bulkLoad(elements)
+}
+
 export function createDocManagementSlice(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   set: any,
@@ -78,6 +97,7 @@ export function createDocManagementSlice(
           docs = [migrated]
         } else {
           const now = Date.now()
+          const layers = [createDefaultLayer(now)]
           const welcome: CanvasDoc = {
             id: `doc-${now}`,
             title: '欢迎使用 MindNotes',
@@ -85,6 +105,7 @@ export function createDocManagementSlice(
               {
                 type: 'text',
                 id: `txt-${now}`,
+                layerId: layers[0].id,
                 x: 80,
                 y: 60,
                 width: 500,
@@ -95,6 +116,8 @@ export function createDocManagementSlice(
                 color: '#2c2416',
               },
             ],
+            layers,
+            activeLayerId: layers[0].id,
             bgColor: '#ffffff',
             backgroundStyle: 'plain',
             folderId: null,
@@ -117,6 +140,7 @@ export function createDocManagementSlice(
         folders = await storage.getAll<CanvasFolder>('folders')
       }
 
+      docs = docs.map((doc) => normalizeCanvasDocLayers(doc))
       docs.sort((a, b) => b.updatedAt - a.updatedAt)
       const current = docs[0]
 
@@ -125,6 +149,8 @@ export function createDocManagementSlice(
         folders,
         currentDocId: current?.id ?? null,
         elements: current?.elements ?? [],
+        layers: current?.layers ?? [createDefaultLayer()],
+        activeLayerId: current?.activeLayerId ?? createDefaultLayer().id,
         bgColor: current?.bgColor ?? '#ffffff',
         backgroundStyle: current?.backgroundStyle ?? 'plain',
         undoStack: current?.undoStack ?? [],
@@ -133,7 +159,7 @@ export function createDocManagementSlice(
       })
 
       // 初始化空间索引
-      get().spatialIndex?.bulkLoad(current?.elements ?? [])
+      loadRuntimeElementIndexes(get, current?.elements ?? [])
 
       removeMigratedData()
     },
@@ -141,10 +167,13 @@ export function createDocManagementSlice(
     createDoc: async (title = '未命名画布', folderId = null) => {
       const id = `doc-${Date.now()}`
       const now = Date.now()
+      const layers = [createDefaultLayer(now)]
       const doc: CanvasDoc = {
         id,
         title,
         elements: [],
+        layers,
+        activeLayerId: layers[0].id,
         bgColor: '#ffffff',
         backgroundStyle: 'plain',
         folderId,
@@ -152,13 +181,15 @@ export function createDocManagementSlice(
         updatedAt: now,
       }
       await storage.put('docs', doc)
-      const docs = (await storage.getAll<CanvasDoc>('docs')).sort(
-        (a, b) => b.updatedAt - a.updatedAt
-      )
+      const docs = (await storage.getAll<CanvasDoc>('docs'))
+        .map((doc) => normalizeCanvasDocLayers(doc))
+        .sort((a, b) => b.updatedAt - a.updatedAt)
       set({
         docs,
         currentDocId: id,
         elements: [],
+        layers,
+        activeLayerId: layers[0].id,
         bgColor: '#ffffff',
         backgroundStyle: 'plain',
         undoStack: [],
@@ -166,7 +197,7 @@ export function createDocManagementSlice(
         selectedIds: [],
       })
       // 新文档，清空空间索引
-      get().spatialIndex?.clear()
+      loadRuntimeElementIndexes(get, [])
       return id
     },
 
@@ -176,17 +207,20 @@ export function createDocManagementSlice(
       if (state.currentDocId) await saveDocNow()
       const doc = await storage.get<CanvasDoc>('docs', id)
       if (doc) {
+        const normalizedDoc = normalizeCanvasDocLayers(doc)
         set({
           currentDocId: id,
-          elements: doc.elements,
-          bgColor: doc.bgColor,
-          backgroundStyle: doc.backgroundStyle ?? 'plain',
-          undoStack: doc.undoStack ?? [],
-          redoStack: doc.redoStack ?? [],
+          elements: normalizedDoc.elements,
+          layers: normalizedDoc.layers,
+          activeLayerId: normalizedDoc.activeLayerId,
+          bgColor: normalizedDoc.bgColor,
+          backgroundStyle: normalizedDoc.backgroundStyle ?? 'plain',
+          undoStack: normalizedDoc.undoStack ?? [],
+          redoStack: normalizedDoc.redoStack ?? [],
           selectedIds: [],
         })
         // 加载新文档，重建空间索引
-        get().spatialIndex?.bulkLoad(doc.elements)
+        loadRuntimeElementIndexes(get, normalizedDoc.elements)
         useViewStore.getState().resetView()
       }
     },
@@ -239,18 +273,20 @@ export function createDocManagementSlice(
         (a, b) => b.updatedAt - a.updatedAt
       )
       if (currentDocId === id) {
-        const first = docs[0]
+        const first = docs[0] ? normalizeCanvasDocLayers(docs[0]) : undefined
         set({
           docs,
           currentDocId: first?.id ?? null,
           elements: first?.elements ?? [],
+          layers: first?.layers ?? [createDefaultLayer()],
+          activeLayerId: first?.activeLayerId ?? createDefaultLayer().id,
           bgColor: first?.bgColor ?? '#ffffff',
           backgroundStyle: first?.backgroundStyle ?? 'plain',
           undoStack: [],
           redoStack: [],
         })
         // 删除当前文档后加载第一个文档，重建空间索引
-        get().spatialIndex?.bulkLoad(first?.elements ?? [])
+        loadRuntimeElementIndexes(get, first?.elements ?? [])
       } else {
         set({ docs })
       }
@@ -261,7 +297,7 @@ export function createDocManagementSlice(
       if (!doc) return
       const now = Date.now()
       const dup: CanvasDoc = {
-        ...doc,
+        ...normalizeCanvasDocLayers(doc),
         id: `doc-${now}`,
         title: `${doc.title} (副本)`,
         createdAt: now,

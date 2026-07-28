@@ -1,4 +1,10 @@
-import type { AlignmentType, DistributionType, CanvasElement, UndoAction } from '../types'
+import type {
+  AlignmentType,
+  DistributionType,
+  CanvasElement,
+  CanvasLayer,
+  UndoAction,
+} from '../types'
 import {
   alignElements,
   distributeElements,
@@ -6,6 +12,16 @@ import {
   resizeElement,
   rotateElement,
 } from '../types'
+import {
+  assignElementLayer,
+  createCanvasLayer,
+  createDefaultLayer,
+  getElementLayerId,
+  getSortedLayers,
+  getWritableLayerId,
+  isElementLayerEditable,
+  isLayerWritable,
+} from '../layers'
 import { shallowClone, snapshot } from '../helpers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import { MAX_HISTORY } from './history'
@@ -15,6 +31,8 @@ import { updateBoundArrows } from '../bindingUtils'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
+  layers: CanvasLayer[]
+  activeLayerId: string
   selectedIds: string[]
   clipboard: CanvasElement[]
   spatialIndex: SpatialIndex
@@ -33,6 +51,15 @@ export interface CanvasElementsState {
 export interface CanvasElementsActions {
   addElement: (el: CanvasElement) => void
   addElements: (els: CanvasElement[]) => void
+  createLayer: (name?: string) => string
+  renameLayer: (id: string, name: string) => void
+  deleteLayer: (id: string) => void
+  setActiveLayer: (id: string) => void
+  setLayerVisibility: (id: string, visible: boolean) => void
+  setLayerLocked: (id: string, locked: boolean) => void
+  moveLayer: (id: string, direction: 'up' | 'down') => void
+  moveElementsToLayer: (ids: string[], layerId: string) => void
+  moveSelectedToLayer: (layerId: string) => void
   updateElement: (id: string, update: (el: CanvasElement) => CanvasElement) => void
   removeElement: (id: string) => void
   removeElements: (ids: string[]) => void
@@ -97,9 +124,51 @@ export function createCanvasElementsSlice(
     _indexDirty = false
   }
 
+  function getEditableIds(ids: string[], st = get()): string[] {
+    return ids.filter((id) => {
+      const el = st.idToElement.get(id) ?? st.elements.find((item: CanvasElement) => item.id === id)
+      return el && isElementLayerEditable(el, st.layers)
+    })
+  }
+
+  function getSelectableIds(ids: string[], st = get()): string[] {
+    return ids.filter((id) => {
+      const el = st.idToElement.get(id) ?? st.elements.find((item: CanvasElement) => item.id === id)
+      return el && isLayerWritable(st.layers, getElementLayerId(el))
+    })
+  }
+
+  function assignToWritableLayer(el: CanvasElement, st = get()): CanvasElement | null {
+    const preferredLayerId =
+      el.layerId && isLayerWritable(st.layers, el.layerId) ? el.layerId : st.activeLayerId
+    const layerId = getWritableLayerId(st.layers, preferredLayerId)
+    if (!layerId) return null
+    return assignElementLayer(el, layerId, st.layers)
+  }
+
+  function setElementCollection(next: CanvasElement[], st = get()) {
+    idToElement.clear()
+    st.idToElement.clear()
+    idToIndex.clear()
+    st.idToIndex.clear()
+    spatialIndex.clear()
+    next.forEach((el, index) => {
+      idToElement.set(el.id, el)
+      st.idToElement.set(el.id, el)
+      idToIndex.set(el.id, index)
+      st.idToIndex.set(el.id, index)
+      spatialIndex.insert(el)
+    })
+    _indexDirty = false
+  }
+
+  const defaultLayer = createDefaultLayer()
+
   return {
     // State
     elements: [],
+    layers: [defaultLayer],
+    activeLayerId: defaultLayer.id,
     selectedIds: [],
     clipboard: [],
     spatialIndex,
@@ -108,43 +177,223 @@ export function createCanvasElementsSlice(
     _indexDirty: false,
 
     // Actions
-    setSelectedIds: (ids) => set({ selectedIds: ids }),
+    setSelectedIds: (ids) => set({ selectedIds: getSelectableIds(ids) }),
+
+    createLayer: (name) => {
+      const st = get()
+      const order =
+        st.layers.length === 0
+          ? 0
+          : Math.max(...st.layers.map((layer: CanvasLayer) => layer.order)) + 1
+      const layer = createCanvasLayer(name ?? `Layer ${order + 1}`, order)
+      incrementSaveGeneration()
+      set({
+        layers: [...st.layers, layer],
+        activeLayerId: layer.id,
+      })
+      scheduleSave()
+      return layer.id
+    },
+
+    renameLayer: (id, name) => {
+      const nextName = name.trim()
+      if (!nextName) return
+      const st = get()
+      const layer = st.layers.find((item: CanvasLayer) => item.id === id)
+      if (!layer || layer.name === nextName) return
+      incrementSaveGeneration()
+      set({
+        layers: st.layers.map((item: CanvasLayer) =>
+          item.id === id ? { ...item, name: nextName, updatedAt: Date.now() } : item
+        ),
+      })
+      scheduleSave()
+    },
+
+    deleteLayer: (id) => {
+      const st = get()
+      if (st.layers.length <= 1) return
+      const target = st.layers.find((layer: CanvasLayer) => layer.id === id)
+      if (!target) return
+
+      const remaining = getSortedLayers(
+        st.layers.filter((layer: CanvasLayer) => layer.id !== id)
+      ).map((layer: CanvasLayer, order: number) => ({ ...layer, order }))
+      const fallbackLayerId = getWritableLayerId(remaining, st.activeLayerId) ?? remaining[0].id
+      const nextElements = st.elements.map((el: CanvasElement) =>
+        getElementLayerId(el) === id ? { ...el, layerId: fallbackLayerId } : el
+      )
+      const selectedIds = st.selectedIds.filter((selectedId: string) => {
+        const el = st.idToElement.get(selectedId)
+        return el ? getElementLayerId(el) !== id : false
+      })
+
+      incrementSaveGeneration()
+      set({
+        layers: remaining,
+        activeLayerId:
+          st.activeLayerId === id
+            ? fallbackLayerId
+            : (getWritableLayerId(remaining, st.activeLayerId) ?? fallbackLayerId),
+        elements: nextElements,
+        selectedIds,
+      })
+      setElementCollection(nextElements, get())
+      scheduleSave()
+    },
+
+    setActiveLayer: (id) => {
+      const st = get()
+      if (!isLayerWritable(st.layers, id) || st.activeLayerId === id) return
+      set({ activeLayerId: id })
+    },
+
+    setLayerVisibility: (id, visible) => {
+      const st = get()
+      const layer = st.layers.find((item: CanvasLayer) => item.id === id)
+      if (!layer || layer.visible === visible) return
+      const visibleCount = st.layers.filter((item: CanvasLayer) => item.visible).length
+      if (!visible && visibleCount <= 1) return
+
+      const nextLayers = st.layers.map((item: CanvasLayer) =>
+        item.id === id ? { ...item, visible, updatedAt: Date.now() } : item
+      )
+      const nextActiveLayerId =
+        !visible && st.activeLayerId === id
+          ? (getWritableLayerId(nextLayers) ?? nextLayers[0].id)
+          : (getWritableLayerId(nextLayers, st.activeLayerId) ?? nextLayers[0].id)
+      const hiddenIds = new Set(
+        st.elements
+          .filter((el: CanvasElement) => getElementLayerId(el) === id)
+          .map((el: CanvasElement) => el.id)
+      )
+
+      incrementSaveGeneration()
+      set({
+        layers: nextLayers,
+        activeLayerId: nextActiveLayerId,
+        selectedIds: visible
+          ? st.selectedIds
+          : st.selectedIds.filter((selectedId: string) => !hiddenIds.has(selectedId)),
+      })
+      scheduleSave()
+    },
+
+    setLayerLocked: (id, locked) => {
+      const st = get()
+      const layer = st.layers.find((item: CanvasLayer) => item.id === id)
+      if (!layer || layer.locked === locked) return
+
+      const nextLayers = st.layers.map((item: CanvasLayer) =>
+        item.id === id ? { ...item, locked, updatedAt: Date.now() } : item
+      )
+      const nextActiveLayerId =
+        locked && st.activeLayerId === id
+          ? (getWritableLayerId(nextLayers) ?? nextLayers[0].id)
+          : (getWritableLayerId(nextLayers, st.activeLayerId) ?? nextLayers[0].id)
+      const lockedIds = new Set(
+        st.elements
+          .filter((el: CanvasElement) => getElementLayerId(el) === id)
+          .map((el: CanvasElement) => el.id)
+      )
+
+      incrementSaveGeneration()
+      set({
+        layers: nextLayers,
+        activeLayerId: nextActiveLayerId,
+        selectedIds: locked
+          ? st.selectedIds.filter((selectedId: string) => !lockedIds.has(selectedId))
+          : st.selectedIds,
+      })
+      scheduleSave()
+    },
+
+    moveLayer: (id, direction) => {
+      const st = get()
+      const sorted = getSortedLayers(st.layers)
+      const index = sorted.findIndex((layer) => layer.id === id)
+      if (index < 0) return
+      const targetIndex = direction === 'up' ? index + 1 : index - 1
+      if (targetIndex < 0 || targetIndex >= sorted.length) return
+
+      const next = [...sorted]
+      ;[next[index], next[targetIndex]] = [next[targetIndex], next[index]]
+      const reordered = next.map((layer, order) => ({ ...layer, order, updatedAt: Date.now() }))
+
+      incrementSaveGeneration()
+      set({ layers: reordered })
+      scheduleSave()
+    },
+
+    moveElementsToLayer: (ids, layerId) => {
+      const st = get()
+      if (!isLayerWritable(st.layers, layerId)) return
+      const editableIds = getEditableIds(ids, st)
+      if (editableIds.length === 0) return
+      const idSet = new Set(editableIds)
+      let changed = false
+      const next = st.elements.map((el: CanvasElement) => {
+        if (!idSet.has(el.id) || getElementLayerId(el) === layerId) return el
+        changed = true
+        return { ...el, layerId }
+      })
+      if (!changed) return
+
+      incrementSaveGeneration()
+      set({ elements: next, selectedIds: editableIds })
+      setElementCollection(next, get())
+      scheduleSave()
+    },
+
+    moveSelectedToLayer: (layerId) => {
+      get().moveElementsToLayer(get().selectedIds, layerId)
+    },
 
     addElement: (el) => {
-      incrementSaveGeneration()
       const st = get()
-      const action: UndoAction = { type: 'add', ids: [el.id], els: [shallowClone(el)] }
+      const layeredEl = assignToWritableLayer(el, st)
+      if (!layeredEl) return
+      incrementSaveGeneration()
+      const action: UndoAction = {
+        type: 'add',
+        ids: [layeredEl.id],
+        els: [shallowClone(layeredEl)],
+      }
       const newIndex = st.elements.length
       set({
-        elements: [...st.elements, el],
+        elements: [...st.elements, layeredEl],
         undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
       // 同步更新 ID 映射（闭包和 store 都更新）
-      idToElement.set(el.id, el)
-      st.idToElement.set(el.id, el)
-      idToIndex.set(el.id, newIndex)
-      st.idToIndex.set(el.id, newIndex)
-      spatialIndex.insert(el)
+      idToElement.set(layeredEl.id, layeredEl)
+      st.idToElement.set(layeredEl.id, layeredEl)
+      idToIndex.set(layeredEl.id, newIndex)
+      st.idToIndex.set(layeredEl.id, newIndex)
+      spatialIndex.insert(layeredEl)
       scheduleSave()
     },
 
     addElements: (els) => {
-      incrementSaveGeneration()
       const st = get()
+      const layeredEls = els
+        .map((el) => assignToWritableLayer(el, st))
+        .filter((el: CanvasElement | null): el is CanvasElement => !!el)
+      if (layeredEls.length === 0) return
+      incrementSaveGeneration()
       const action: UndoAction = {
         type: 'add',
-        ids: els.map((e) => e.id),
-        els: els.map(shallowClone),
+        ids: layeredEls.map((e) => e.id),
+        els: layeredEls.map(shallowClone),
       }
       const baseIndex = st.elements.length
       set({
-        elements: [...st.elements, ...els],
+        elements: [...st.elements, ...layeredEls],
         undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
       // 同步更新 ID 映射（闭包和 store 都更新）
-      els.forEach((el, i) => {
+      layeredEls.forEach((el, i) => {
         idToElement.set(el.id, el)
         st.idToElement.set(el.id, el)
         idToIndex.set(el.id, baseIndex + i)
@@ -167,6 +416,7 @@ export function createCanvasElementsSlice(
       }
       if (idx === undefined || idx < 0) return
       const oldEl = st.elements[idx]
+      if (!isElementLayerEditable(oldEl, st.layers)) return
       const newEl = update(oldEl)
       // 原地修改数组副本，避免创建全新数组
       const next = [...st.elements]
@@ -191,8 +441,8 @@ export function createCanvasElementsSlice(
         idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
       }
       if (idx === undefined || idx < 0) return
-      // 跳过锁定的元素，禁止删除
-      if (st.elements[idx].locked) return
+      // 跳过锁定或不可见/锁定图层中的元素，禁止删除
+      if (!isElementLayerEditable(st.elements[idx], st.layers)) return
       const el = st.elements[idx]
       const action: UndoAction = {
         type: 'remove',
@@ -221,12 +471,8 @@ export function createCanvasElementsSlice(
     removeElements: (ids) => {
       incrementSaveGeneration()
       const st = get()
-      // 过滤掉锁定的元素，禁止删除
-      const unlockedIds = ids.filter((id) => {
-        const el =
-          st.idToElement.get(id) ?? st.elements.find((item: CanvasElement) => item.id === id)
-        return el && !el.locked
-      })
+      // 过滤掉锁定或不可见/锁定图层中的元素，禁止删除
+      const unlockedIds = getEditableIds(ids, st)
       if (unlockedIds.length === 0) return
       const idSet = new Set(unlockedIds)
       const items: { el: CanvasElement; index: number }[] = []
@@ -242,7 +488,7 @@ export function createCanvasElementsSlice(
         selectedIds: [],
       })
       // 同步更新 ID 映射（闭包和 store 都更新）
-      ids.forEach((id) => {
+      unlockedIds.forEach((id) => {
         idToElement.delete(id)
         st.idToElement.delete(id)
         idToIndex.delete(id)
@@ -270,8 +516,8 @@ export function createCanvasElementsSlice(
         idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
       }
       if (idx === undefined || idx < 0) return
-      // 跳过锁定的元素，禁止移动
-      if (st.elements[idx].locked) return
+      // 跳过锁定或不可见/锁定图层中的元素，禁止移动
+      if (!isElementLayerEditable(st.elements[idx], st.layers)) return
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
@@ -308,12 +554,8 @@ export function createCanvasElementsSlice(
       incrementSaveGeneration()
 
       const st = get()
-      // 过滤掉锁定的元素，禁止移动
-      const unlockedIds = ids.filter((id) => {
-        const el =
-          st.idToElement.get(id) ?? st.elements.find((item: CanvasElement) => item.id === id)
-        return el && !el.locked
-      })
+      // 过滤掉锁定或不可见/锁定图层中的元素，禁止移动
+      const unlockedIds = getEditableIds(ids, st)
       if (unlockedIds.length === 0) return
 
       const idSet = new Set(unlockedIds)
@@ -387,8 +629,8 @@ export function createCanvasElementsSlice(
         idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
       }
       if (idx === undefined || idx < 0) return
-      // 跳过锁定的元素，禁止缩放
-      if (st.elements[idx].locked) return
+      // 跳过锁定或不可见/锁定图层中的元素，禁止缩放
+      if (!isElementLayerEditable(st.elements[idx], st.layers)) return
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
@@ -422,8 +664,8 @@ export function createCanvasElementsSlice(
         idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
       }
       if (idx === undefined || idx < 0) return
-      // 跳过锁定的元素，禁止旋转
-      if (st.elements[idx].locked) return
+      // 跳过锁定或不可见/锁定图层中的元素，禁止旋转
+      if (!isElementLayerEditable(st.elements[idx], st.layers)) return
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
@@ -447,12 +689,8 @@ export function createCanvasElementsSlice(
       if (ids.length === 0) return
       incrementSaveGeneration()
       const st = get()
-      // 过滤掉锁定的元素，禁止旋转
-      const unlockedIds = ids.filter((id) => {
-        const el =
-          st.idToElement.get(id) ?? st.elements.find((item: CanvasElement) => item.id === id)
-        return el && !el.locked
-      })
+      // 过滤掉锁定或不可见/锁定图层中的元素，禁止旋转
+      const unlockedIds = getEditableIds(ids, st)
       if (unlockedIds.length === 0) return
       const idSet = new Set(unlockedIds)
       set((s: any) => {
@@ -505,17 +743,21 @@ export function createCanvasElementsSlice(
     },
 
     paste: () => {
-      incrementSaveGeneration()
       const st = get()
       const { clipboard, elements } = st
       if (clipboard.length === 0) return
       const now = Date.now()
       const newIds: string[] = []
-      const pasted = clipboard.map((el: CanvasElement, i: number) => {
+      const pasted: CanvasElement[] = []
+      clipboard.forEach((el: CanvasElement, i: number) => {
         const newId = `${el.type}-${now}-${i}`
+        const layeredEl = assignToWritableLayer(moveElement({ ...el, id: newId }, 20, 20), st)
+        if (!layeredEl) return
         newIds.push(newId)
-        return moveElement({ ...el, id: newId }, 20, 20)
+        pasted.push(layeredEl)
       })
+      if (pasted.length === 0) return
+      incrementSaveGeneration()
       const action: UndoAction = { type: 'add', ids: newIds, els: pasted.map(shallowClone) }
       const baseIndex = elements.length
       set({
@@ -540,20 +782,24 @@ export function createCanvasElementsSlice(
     // 一键复制选中元素并偏移 20px，比 Ctrl+C/V 少一次按键操作
     // 常见设计工具通常支持此快捷键
     duplicateSelected: () => {
-      incrementSaveGeneration()
       const st = get()
       const { elements, selectedIds } = st
       if (selectedIds.length === 0) return
       const now = Date.now()
-      const selSet = new Set(selectedIds)
+      const editableIds = getEditableIds(selectedIds, st)
+      if (editableIds.length === 0) return
+      const selSet = new Set(editableIds)
       const newIds: string[] = []
       const duplicated = elements
         .filter((e: CanvasElement) => selSet.has(e.id))
         .map((el: CanvasElement, i: number) => {
           const newId = `${el.type}-${now}-${i}`
           newIds.push(newId)
-          return moveElement({ ...el, id: newId }, 20, 20)
+          return assignToWritableLayer(moveElement({ ...el, id: newId }, 20, 20), st)
         })
+        .filter((el: CanvasElement | null): el is CanvasElement => !!el)
+      if (duplicated.length === 0) return
+      incrementSaveGeneration()
       const action: UndoAction = { type: 'add', ids: newIds, els: duplicated.map(shallowClone) }
       const baseIndex = elements.length
       set({
@@ -577,13 +823,14 @@ export function createCanvasElementsSlice(
     // 将选中的多个元素组合成一个组，点击组内任意元素选中整个组
     // 常见设计工具通常支持此功能
     groupSelected: () => {
-      incrementSaveGeneration()
       const st = get()
       const { elements, selectedIds } = st
       if (selectedIds.length < 2) return
+      const editableIds = getEditableIds(selectedIds, st)
+      if (editableIds.length < 2) return
 
       const groupId = `group-${Date.now()}`
-      const selSet = new Set(selectedIds)
+      const selSet = new Set(editableIds)
 
       // 记录分组前的状态用于撤销
       const beforeGroup = elements
@@ -605,13 +852,14 @@ export function createCanvasElementsSlice(
       const action: UndoAction = {
         type: 'group',
         groupId,
-        elementIds: selectedIds,
+        elementIds: editableIds,
         beforeGroup,
       }
 
+      incrementSaveGeneration()
       set({
         elements: next,
-        selectedIds,
+        selectedIds: editableIds,
         undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
@@ -622,12 +870,13 @@ export function createCanvasElementsSlice(
     // Ctrl+Shift+G 取消分组
     // 解散选中的组，组内元素恢复为独立可选择状态
     ungroupSelected: () => {
-      incrementSaveGeneration()
       const st = get()
       const { elements, selectedIds } = st
       if (selectedIds.length === 0) return
+      const editableIds = getEditableIds(selectedIds, st)
+      if (editableIds.length === 0) return
 
-      const selSet = new Set(selectedIds)
+      const selSet = new Set(editableIds)
       const affectedGroups = new Set<string>()
 
       // 收集所有选中元素所属的组
@@ -661,9 +910,10 @@ export function createCanvasElementsSlice(
         beforeUngroup,
       }
 
+      incrementSaveGeneration()
       set({
         elements: next,
-        selectedIds,
+        selectedIds: editableIds,
         undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
@@ -675,19 +925,20 @@ export function createCanvasElementsSlice(
     // 专业白板/设计工具标配：选中多个元素后一键对齐
     // 支持 6 种对齐方式：左对齐、水平居中、右对齐、顶对齐、垂直居中、底对齐
     alignSelected: (alignment) => {
-      incrementSaveGeneration()
       const st = get()
       const { elements, selectedIds } = st
       if (selectedIds.length < 2) return
+      const editableIds = getEditableIds(selectedIds, st)
+      if (editableIds.length < 2) return
 
       // 记录对齐前的位置用于撤销
-      const selSet = new Set(selectedIds)
+      const selSet = new Set(editableIds)
       const beforeMove = elements
         .filter((el: CanvasElement) => selSet.has(el.id))
         .map((el: CanvasElement) => shallowClone(el))
 
       // 执行对齐
-      const next = alignElements(elements, selectedIds, alignment)
+      const next = alignElements(elements, editableIds, alignment)
 
       // 检查是否有实际变化
       let hasChanges = false
@@ -717,9 +968,10 @@ export function createCanvasElementsSlice(
         deltas: beforeMove.map((el: CanvasElement) => ({ id: el.id, dx: 0, dy: 0 })),
       }
 
+      incrementSaveGeneration()
       set({
         elements: next,
-        selectedIds,
+        selectedIds: editableIds,
         undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
@@ -731,19 +983,20 @@ export function createCanvasElementsSlice(
     // 专业设计工具标配：选中多个元素后一键等间距分布
     // 支持 2 种分布方式：水平分布、垂直分布
     distributeSelected: (distribution) => {
-      incrementSaveGeneration()
       const st = get()
       const { elements, selectedIds } = st
       if (selectedIds.length < 3) return
+      const editableIds = getEditableIds(selectedIds, st)
+      if (editableIds.length < 3) return
 
       // 记录分布前的位置用于撤销
-      const selSet = new Set(selectedIds)
+      const selSet = new Set(editableIds)
       const beforeMove = elements
         .filter((el: CanvasElement) => selSet.has(el.id))
         .map((el: CanvasElement) => shallowClone(el))
 
       // 执行分布
-      const next = distributeElements(elements, selectedIds, distribution)
+      const next = distributeElements(elements, editableIds, distribution)
 
       // 检查是否有实际变化
       let hasChanges = false
@@ -773,9 +1026,10 @@ export function createCanvasElementsSlice(
         deltas: beforeMove.map((el: CanvasElement) => ({ id: el.id, dx: 0, dy: 0 })),
       }
 
+      incrementSaveGeneration()
       set({
         elements: next,
-        selectedIds,
+        selectedIds: editableIds,
         undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
         redoStack: [],
       })
@@ -867,7 +1121,7 @@ export function createCanvasElementsSlice(
       const selSet = new Set(selectedIds)
       // 记录锁定前的状态用于撤销
       const beforeLock = elements
-        .filter((el: CanvasElement) => selSet.has(el.id) && !el.locked)
+        .filter((el: CanvasElement) => selSet.has(el.id) && isElementLayerEditable(el, st.layers))
         .map((el: CanvasElement) => ({ id: el.id, wasLocked: !!el.locked }))
 
       if (beforeLock.length === 0) return
@@ -913,7 +1167,10 @@ export function createCanvasElementsSlice(
       const selSet = new Set(selectedIds)
       // 记录解锁前的状态用于撤销
       const beforeUnlock = elements
-        .filter((el: CanvasElement) => selSet.has(el.id) && el.locked)
+        .filter(
+          (el: CanvasElement) =>
+            selSet.has(el.id) && el.locked && isLayerWritable(st.layers, getElementLayerId(el))
+        )
         .map((el: CanvasElement) => ({ id: el.id, wasLocked: !!el.locked }))
 
       if (beforeUnlock.length === 0) return

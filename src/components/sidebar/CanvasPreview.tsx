@@ -6,10 +6,13 @@ import {
   normalizeTextFormat,
 } from '../../canvas/textFormatting'
 import type { CanvasElement } from '../../store/types'
+import type { CanvasLayer } from '../../store/types'
+import { getRenderableElements } from '../../store/layers'
 import { elementBounds } from '../../store/types'
 
 interface CanvasPreviewProps {
   elements: CanvasElement[]
+  layers?: CanvasLayer[]
   width?: number
   height?: number
   bgColor?: string
@@ -17,6 +20,7 @@ interface CanvasPreviewProps {
 
 export default function CanvasPreview({
   elements,
+  layers,
   width = 40,
   height = 28,
   bgColor = '#f6f0e6',
@@ -35,13 +39,15 @@ export default function CanvasPreview({
     context.fillStyle = bgColor
     context.fillRect(0, 0, width, height)
 
-    if (elements.length === 0) return
+    const previewElements = layers ? getRenderableElements(elements, layers) : elements
+
+    if (previewElements.length === 0) return
 
     let minX = Infinity
     let minY = Infinity
     let maxX = -Infinity
     let maxY = -Infinity
-    for (const element of elements) {
+    for (const element of previewElements) {
       const bounds = elementBounds(element)
       minX = Math.min(minX, bounds.x)
       minY = Math.min(minY, bounds.y)
@@ -58,7 +64,7 @@ export default function CanvasPreview({
     context.scale(scale, scale)
     context.translate(-minX, -minY)
 
-    for (const element of elements) {
+    for (const element of previewElements) {
       if (element.type === 'stroke' && element.points.length >= 2) {
         context.beginPath()
         context.strokeStyle = element.color
@@ -114,7 +120,7 @@ export default function CanvasPreview({
     }
 
     context.restore()
-  }, [bgColor, elements, height, width])
+  }, [bgColor, elements, height, layers, width])
 
   return (
     <canvas

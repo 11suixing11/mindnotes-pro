@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import type { CanvasElement } from '../../store/types'
+import { isElementLayerVisible } from '../../store/layers'
 
 export function useSelectionEngine(
   cachedBounds: (el: CanvasElement) => { x: number; y: number; w: number; h: number }
@@ -47,6 +48,7 @@ export function useSelectionEngine(
 
     for (const el of els) {
       if (excludeIds.has(el.id)) continue
+      if (!isElementLayerVisible(el, state.layers)) continue
       // 跳过不在候选集中的元素
       if (candidateSet && !candidateSet.has(el.id)) continue
 
