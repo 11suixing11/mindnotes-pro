@@ -181,6 +181,27 @@ describe('canvasDrawing', () => {
       expect(ctx.stroke).toHaveBeenCalled()
     })
 
+    it('should draw pressure-sensitive pen strokes as filled outlines', () => {
+      const el: StrokeElement = {
+        type: 'stroke',
+        id: 's1',
+        points: [
+          [0, 0],
+          [10, 10],
+          [20, 5],
+        ],
+        pressures: [0.2, 0.7, 1],
+        color: '#000',
+        size: 8,
+        brush: 'pen',
+      }
+
+      drawStrokeEl(ctx, el, false)
+
+      expect(ctx.fill).toHaveBeenCalled()
+      expect(ctx.stroke).not.toHaveBeenCalled()
+    })
+
     it('should draw highlighter strokes', () => {
       const el: StrokeElement = {
         type: 'stroke',
