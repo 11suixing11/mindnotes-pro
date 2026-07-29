@@ -9,7 +9,9 @@ import type {
   TextElement,
   ShapeKind,
   ToolType,
+  UndoAction,
 } from '../../store/types'
+import { snapshot } from '../../store/helpers'
 import {
   distToSegSq,
   elementBounds,
@@ -43,7 +45,7 @@ import {
 // P12 箭头绑定: 导入绑定工具函数
 import { tryBindToShape } from '../../store/bindingUtils'
 // 物理擦除引擎集成
-import { useEraserStore, type EraserPoint } from '../../eraser'
+import { getActiveEraserRadius, useEraserStore, type EraserPoint } from '../../eraser'
 
 // 模块级常量，避免每次渲染重建
 const CURSOR_MAP: Record<string, string> = {
@@ -128,6 +130,9 @@ export function usePointerEngine(opts: {
   const shapeStartRef = useRef<{ x: number; y: number } | null>(null)
   const currentShapeRef = useRef<ShapeElement | null>(null)
   const erasedRef = useRef<Set<string>>(new Set())
+  const eraseBeforeSnapshotRef = useRef<CanvasElement[] | null>(null)
+  const eraseUndoBaseStackRef = useRef<UndoAction[] | null>(null)
+  const erasePhysicsStartedRef = useRef(false)
 
   // 擦除轨迹跟踪（用于光标拖尾渲染）- 移到开头，在 handleMove 使用前声明
   // P0 性能优化: 使用固定大小环形缓冲区，避免数组 splice/shift 产生的 GC 压力
@@ -162,6 +167,61 @@ export function usePointerEngine(opts: {
 
   // 物理擦除状态
   const lastErasePointRef = useRef<{ x: number; y: number; time: number } | null>(null)
+
+  const finishEraseHistory = useCallback(() => {
+    const beforeSnap = eraseBeforeSnapshotRef.current
+    const baseUndoStack = eraseUndoBaseStackRef.current
+    eraseBeforeSnapshotRef.current = null
+    eraseUndoBaseStackRef.current = null
+    lastErasePointRef.current = null
+
+    if (erasePhysicsStartedRef.current) {
+      useEraserStore.getState().endErase()
+      erasePhysicsStartedRef.current = false
+    }
+
+    if (!beforeSnap || !baseUndoStack) return
+
+    const st = useAppStore.getState()
+    const elementsChanged =
+      st.elements.length !== beforeSnap.length ||
+      st.elements.some((el, index) => el.id !== beforeSnap[index]?.id)
+
+    if (!elementsChanged && st.undoStack === baseUndoStack) return
+
+    useAppStore.setState({ undoStack: baseUndoStack, redoStack: [] })
+    useAppStore.getState().batchErase(beforeSnap, [])
+  }, [])
+
+  const beginEraseSession = useCallback(
+    (x: number, y: number, pressure?: number, e?: MouseEvent | TouchEvent) => {
+      const st = useAppStore.getState()
+      eraseBeforeSnapshotRef.current = snapshot(st.elements)
+      eraseUndoBaseStackRef.current = st.undoStack
+      lastErasePointRef.current = null
+
+      const eraserStore = useEraserStore.getState()
+      eraserStore.engine.setBaseSize(getActiveEraserRadius())
+
+      if (!eraserStore.shouldUsePhysics()) return
+
+      const now = performance.now()
+      const startPoint: EraserPoint = {
+        x,
+        y,
+        pressure: pressure ?? DEFAULT_INPUT_PRESSURE,
+        velocity: 0,
+        direction: 0,
+        timestamp: now,
+        tiltX: e && 'tiltX' in e ? (e as PointerEvent).tiltX : undefined,
+        tiltY: e && 'tiltY' in e ? (e as PointerEvent).tiltY : undefined,
+      }
+      const editableElements = st.elements.filter((el) => isElementLayerEditable(el, st.layers))
+      eraserStore.startErase(startPoint, editableElements)
+      erasePhysicsStartedRef.current = true
+    },
+    []
+  )
   // 拖动阈值 - 防止选择时意外移动元素
   // 只有鼠标移动超过 DRAG_THRESHOLD 像素才开始真正拖动
   // 这是竞品 excalidraw 和 tldraw 都实现的核心 UX 改进
@@ -511,7 +571,7 @@ export function usePointerEngine(opts: {
    */
   const eraseAtSimple = useCallback(
     (x: number, y: number, topOnly: boolean = false) => {
-      const r = useAppStore.getState().size * 2 + 10,
+      const r = getActiveEraserRadius(),
         r2 = r * r
       const state = useAppStore.getState()
 
@@ -535,7 +595,7 @@ export function usePointerEngine(opts: {
       const layerOrder = getLayerOrderMap(state.layers)
 
       // 按 Z-order 降序排列（最上层在前）
-      const sortedIds = (candidateIds ?? state.elements.map((e) => e.id)).sort((a, b) => {
+      const sortedIds = [...(candidateIds ?? state.elements.map((e) => e.id))].sort((a, b) => {
         const aIndex = idToIndex.get(a)
         const bIndex = idToIndex.get(b)
         const aEl =
@@ -559,17 +619,42 @@ export function usePointerEngine(opts: {
         if (!isElementLayerEditable(el, state.layers)) continue
 
         if (el.type === 'stroke') {
-          const segments: number[][][] = []
-          let cur: number[][] = []
+          const segments: { points: number[][]; pressures?: number[] }[] = []
+          let curPoints: number[][] = []
+          let curPressures: number[] = []
           let hit = false
-          for (const p of el.points) {
-            if ((p[0] - x) ** 2 + (p[1] - y) ** 2 < r2) {
-              hit = true
-              if (cur.length >= 2) segments.push(cur)
-              cur = []
-            } else cur.push(p)
+
+          const pushSegment = () => {
+            if (curPoints.length >= 2) {
+              segments.push({
+                points: curPoints,
+                pressures: el.pressures ? curPressures : undefined,
+              })
+            }
+            curPoints = []
+            curPressures = []
           }
-          if (cur.length >= 2) segments.push(cur)
+
+          const appendPoint = (point: number[], index: number) => {
+            curPoints.push(point)
+            if (el.pressures) curPressures.push(el.pressures[index] ?? DEFAULT_INPUT_PRESSURE)
+          }
+
+          for (let i = 0; i < el.points.length; i++) {
+            const p = el.points[i]
+            const pointHit = (p[0] - x) ** 2 + (p[1] - y) ** 2 <= r2
+            const prev = i > 0 ? el.points[i - 1] : null
+            const segmentHit = prev ? distToSegSq(x, y, prev[0], prev[1], p[0], p[1]) <= r2 : false
+
+            if (pointHit || segmentHit) {
+              hit = true
+              pushSegment()
+              if (!pointHit) appendPoint(p, i)
+            } else {
+              appendPoint(p, i)
+            }
+          }
+          pushSegment()
           if (!hit) continue
           erasedRef.current.add(el.id)
           removeElement(el.id)
@@ -577,7 +662,8 @@ export function usePointerEngine(opts: {
             addElement({
               ...el,
               id: `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              points: seg,
+              points: seg.points,
+              pressures: seg.pressures,
             })
           // 标记已擦除最顶层元素
           topElementErased = true
@@ -645,7 +731,7 @@ export function usePointerEngine(opts: {
       }
 
       // 设置橡皮擦大小
-      eraserStore.engine.setBaseSize(useAppStore.getState().size)
+      eraserStore.engine.setBaseSize(getActiveEraserRadius())
 
       // 执行物理擦除
       const editableElements = state.elements.filter((el) =>
@@ -985,10 +1071,9 @@ export function usePointerEngine(opts: {
           contact.pressure === undefined ? [] : [contact.pressure ?? DEFAULT_INPUT_PRESSURE]
       } else if (curTool === 'eraser') {
         currentPressuresRef.current = []
-        // P1-4 性能优化: 删除无用的全量快照克隆
-        // batchErase 不再需要 preEraseSnapshot，避免每次擦除开始时克隆所有元素
         // 检测 Ctrl/Cmd 键，只擦除最顶层元素
         const topOnly = e.metaKey || e.ctrlKey
+        beginEraseSession(pos.x, pos.y, contact.pressure, e)
         eraseAt(pos.x, pos.y, contact.pressure, e, topOnly)
       } else {
         currentPressuresRef.current = []
@@ -1016,6 +1101,7 @@ export function usePointerEngine(opts: {
       hitTest,
       hitHandle,
       eraseAt,
+      beginEraseSession,
       snapPointIfGridEnabled,
     ]
   )
@@ -1664,7 +1750,7 @@ export function usePointerEngine(opts: {
           currentPressuresRef.current = []
           penVelocityRef.current = 0
         } else if (curTool === 'eraser') {
-          // P1-4 性能优化: 删除无用的全量快照克隆
+          finishEraseHistory()
           erasedRef.current.clear()
           currentPtsRef.current = []
           currentPressuresRef.current = []
@@ -1832,7 +1918,7 @@ export function usePointerEngine(opts: {
       clearEndedTouch()
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [addElement, endPan, setSelectedIds, scheduleRedraw, cachedBounds]
+    [addElement, endPan, setSelectedIds, scheduleRedraw, cachedBounds, finishEraseHistory]
   )
 
   const cancelActiveInput = useCallback(
@@ -1843,6 +1929,7 @@ export function usePointerEngine(opts: {
       currentPressuresRef.current = []
       currentShapeRef.current = null
       shapeStartRef.current = null
+      finishEraseHistory()
       erasedRef.current.clear()
       activeTouchIdRef.current = null
       activePenPointerIdRef.current = null
@@ -1851,7 +1938,7 @@ export function usePointerEngine(opts: {
       if (useViewStore.getState().isPanning) endPan()
       scheduleRedraw()
     },
-    [endPan, scheduleRedraw]
+    [endPan, scheduleRedraw, finishEraseHistory]
   )
 
   // Pointer events

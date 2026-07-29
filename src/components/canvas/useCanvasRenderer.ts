@@ -16,7 +16,7 @@ import {
   drawGrid,
   invalidateDrawingCaches,
 } from '../../canvas/canvasDrawing'
-import { eraserParticleSystem } from '../../eraser'
+import { eraserParticleSystem, getActiveEraserRadius } from '../../eraser'
 import { CANVAS_INVALIDATED_EVENT } from './renderEvents'
 export interface DrawState {
   drawing: boolean
@@ -413,7 +413,7 @@ export function useCanvasRenderer(
     // 增强的橡皮擦光标
     // P1 性能优化: 使用缓存的颜色字符串，避免每帧创建 ~15 个新字符串
     if (ds.tool === 'eraser' && ds.mousePos) {
-      const r = ds.size * 2 + 10
+      const r = getActiveEraserRadius()
       const colors = dark ? eraserColorCacheRef.current.dark : eraserColorCacheRef.current.light
       const x = ds.mousePos.x
       const y = ds.mousePos.y
