@@ -64,33 +64,6 @@ describe('ColorPicker', () => {
     expect(screen.getByLabelText('粗 16像素')).toBeTruthy()
   })
 
-  it('renders background settings button', () => {
-    render(<ColorPicker />)
-    expect(screen.getByLabelText('背景设置')).toBeTruthy()
-  })
-
-  it('changes the document background style', () => {
-    render(<ColorPicker />)
-    fireEvent.click(screen.getByLabelText('背景设置'))
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /点阵/ }))
-    expect(useAppStore.getState().backgroundStyle).toBe('dots')
-  })
-
-  it('renders image import button', () => {
-    render(<ColorPicker />)
-    expect(screen.getByLabelText('插入图片')).toBeTruthy()
-  })
-
-  it('renders clear button', () => {
-    render(<ColorPicker />)
-    expect(screen.getByLabelText('清屏')).toBeTruthy()
-  })
-
-  it('renders fullscreen button', () => {
-    render(<ColorPicker />)
-    expect(screen.getByLabelText('全屏')).toBeTruthy()
-  })
-
   it('highlights active color', () => {
     render(<ColorPicker />)
     const brownBtn = screen.getByLabelText('棕色')
@@ -124,10 +97,8 @@ describe('ColorPicker', () => {
 
   it('renders hidden file inputs', () => {
     render(<ColorPicker />)
-    expect(screen.getByLabelText('选择图片文件')).toBeTruthy()
     expect(screen.getByLabelText('选择颜色')).toBeTruthy()
     expect(screen.getByLabelText('选择填充颜色')).toBeTruthy()
-    expect(screen.getByLabelText('选择背景颜色')).toBeTruthy()
   })
 
   it('shows color history when available', () => {

@@ -10,6 +10,7 @@ import { ExportMenu } from '../export-menu'
 import ToolButtons from './ToolButtons'
 import BrushSelector from './BrushSelector'
 import ColorPicker from './ColorPicker'
+import CanvasActionButtons from './CanvasActionButtons'
 import TemplateMenu from '../templates/TemplateMenu'
 import { icons } from './icons'
 
@@ -139,8 +140,11 @@ export default function Toolbar() {
       {/* Top toolbar: brush + color + zoom + theme + grid + export */}
       <div className="topbar panel" role="toolbar" aria-label="Canvas tools">
         <BrushSelector brush={brush} setBrush={setBrush} tool={tool} />
-        <ColorPicker />
         <TemplateMenu />
+        <div className="tb-sep" aria-hidden="true" />
+        <ColorPicker />
+        <div className="tb-sep" aria-hidden="true" />
+        <CanvasActionButtons />
         <div className="tb-sep" aria-hidden="true" />
         <button onClick={zoomIn} className="abtn" data-tip="Zoom in" aria-label="Zoom in">
           {icons.zoomIn}

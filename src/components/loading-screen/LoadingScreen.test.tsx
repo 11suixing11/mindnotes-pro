@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import LoadingScreen from './LoadingScreen'
 
 describe('LoadingScreen', () => {
-  it('renders the MindNotes branding', () => {
+  it('renders the MindNotes Pro branding', () => {
     render(<LoadingScreen />)
     expect(screen.getByText('MindNotes Pro')).toBeTruthy()
   })
