@@ -351,7 +351,11 @@ export function useCanvasRenderer(
       selectedVisibleElements.length === 1
         ? cachedBounds(selectedVisibleElements[0])
         : mergeSelectionBounds(selectedVisibleElements, selSet, cachedBounds)
-    if (selectionBounds) drawSelBox(ctx, selectionBounds, dark, vb.zoom)
+    if (selectionBounds) {
+      drawSelBox(ctx, selectionBounds, dark, vb.zoom, {
+        showResizeHandles: selectedVisibleElements.length <= 1,
+      })
+    }
 
     ctx.restore()
     elementsDirtyRef.current = false

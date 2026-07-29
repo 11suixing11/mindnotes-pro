@@ -848,12 +848,15 @@ export function drawSelBox(
   ctx: CanvasRenderingContext2D,
   b: { x: number; y: number; w: number; h: number },
   isDarkMode: boolean,
-  zoom: number
+  zoom: number,
+  options: { showResizeHandles?: boolean; showRotateHandle?: boolean } = {}
 ) {
   const addHandleCircle = (cx: number, cy: number, r: number) => {
     ctx.moveTo(cx + r, cy)
     ctx.arc(cx, cy, r, 0, Math.PI * 2)
   }
+  const showResizeHandles = options.showResizeHandles ?? true
+  const showRotateHandle = options.showRotateHandle ?? true
   const primary = isDarkMode ? '#C8A0B0' : '#B07D6E'
   const primaryLight = isDarkMode ? 'rgba(200,160,176,0.12)' : 'rgba(176,125,110,0.1)'
   ctx.save()
@@ -904,26 +907,32 @@ export function drawSelBox(
   ctx.shadowColor = isDarkMode ? 'rgba(200,160,176,0.3)' : 'rgba(176,125,110,0.3)'
   ctx.shadowBlur = 4 / zoom
 
-  // 先绘制边缘手柄（在角落手柄下方）
-  // 边缘手柄：上、下、左、右四边中点
-  ctx.beginPath()
-  addHandleCircle(b.x + b.w / 2, edgeTopY, edgeR) // 上边缘中点
-  addHandleCircle(b.x + b.w / 2, edgeBottomY, edgeR) // 下边缘中点
-  addHandleCircle(edgeLeftX, b.y + b.h / 2, edgeR) // 左边缘中点
-  addHandleCircle(edgeRightX, b.y + b.h / 2, edgeR) // 右边缘中点
-  ctx.fill()
+  if (showResizeHandles) {
+    // 先绘制边缘手柄（在角落手柄下方）
+    // 边缘手柄：上、下、左、右四边中点
+    ctx.beginPath()
+    addHandleCircle(b.x + b.w / 2, edgeTopY, edgeR) // 上边缘中点
+    addHandleCircle(b.x + b.w / 2, edgeBottomY, edgeR) // 下边缘中点
+    addHandleCircle(edgeLeftX, b.y + b.h / 2, edgeR) // 左边缘中点
+    addHandleCircle(edgeRightX, b.y + b.h / 2, edgeR) // 右边缘中点
+    ctx.fill()
 
-  // P0 性能优化: 合并 4 个角落手柄为单次 beginPath/fill 调用
-  // 角落手柄（后绘制，显示在边缘手柄上方）
-  ctx.beginPath()
-  addHandleCircle(b.x, b.y, cornerR)
-  addHandleCircle(b.x + b.w, b.y, cornerR)
-  addHandleCircle(b.x, b.y + b.h, cornerR)
-  addHandleCircle(b.x + b.w, b.y + b.h, cornerR)
-  ctx.fill()
+    // P0 性能优化: 合并 4 个角落手柄为单次 beginPath/fill 调用
+    // 角落手柄（后绘制，显示在边缘手柄上方）
+    ctx.beginPath()
+    addHandleCircle(b.x, b.y, cornerR)
+    addHandleCircle(b.x + b.w, b.y, cornerR)
+    addHandleCircle(b.x, b.y + b.h, cornerR)
+    addHandleCircle(b.x + b.w, b.y + b.h, cornerR)
+    ctx.fill()
+  }
 
   // 旋转手柄
   // 专业设计工具标准：选择框顶部中央显示旋转手柄，拖拽即可旋转
+  if (!showRotateHandle) {
+    ctx.restore()
+    return
+  }
   const rotateHandleR = 5 / zoom
   const rotateHandleY = b.y - 20 / zoom
   const rotateHandleX = b.x + b.w / 2

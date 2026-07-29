@@ -551,6 +551,18 @@ describe('canvasDrawing', () => {
       expect(ctx.moveTo).toHaveBeenCalledWith(3.5, 25)
       expect(ctx.moveTo).toHaveBeenCalledWith(103.5, 25)
     })
+
+    it('can hide resize handles while keeping the rotation handle', () => {
+      drawSelBox(ctx, { x: 0, y: 0, w: 100, h: 50 }, false, 1, {
+        showResizeHandles: false,
+      })
+
+      expect(ctx.moveTo).not.toHaveBeenCalledWith(53.5, 0)
+      expect(ctx.moveTo).not.toHaveBeenCalledWith(53.5, 50)
+      expect(ctx.moveTo).not.toHaveBeenCalledWith(3.5, 25)
+      expect(ctx.moveTo).not.toHaveBeenCalledWith(103.5, 25)
+      expect(ctx.moveTo).toHaveBeenCalledWith(55, -20)
+    })
   })
 
   describe('drawMonetGrid', () => {

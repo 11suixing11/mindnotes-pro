@@ -481,22 +481,54 @@ export function usePointerEngine(opts: {
       const state = useAppStore.getState()
       const selIds = state.selectedIds
       if (selIds.length === 0) return null
-      const hr = 12 / (useViewStore.getState().viewBox.zoom || 1)
-      const edgeHr = 10 / (useViewStore.getState().viewBox.zoom || 1)
+      const zoom = useViewStore.getState().viewBox.zoom || 1
+      const hr = 12 / zoom
+      const edgeHr = 10 / zoom
       // 旋转手柄命中检测
       // 专业设计工具标准：选择框顶部中央的旋转手柄
-      const rotateHr = 15 / (useViewStore.getState().viewBox.zoom || 1)
+      const rotateHr = 15 / zoom
+
+      const selectedElements: CanvasElement[] = []
       for (const selId of selIds) {
         const el = state.idToElement.get(selId)
+        if (!el || !isElementLayerEditable(el, state.layers)) continue
+        selectedElements.push(el)
+      }
+      if (selectedElements.length === 0) return null
+
+      let mergedBounds: { x: number; y: number; w: number; h: number } | null = null
+      for (const el of selectedElements) {
+        const b = cachedBounds(el)
+        if (!mergedBounds) {
+          mergedBounds = { ...b }
+        } else {
+          const minX = Math.min(mergedBounds.x, b.x)
+          const minY = Math.min(mergedBounds.y, b.y)
+          const maxX = Math.max(mergedBounds.x + mergedBounds.w, b.x + b.w)
+          const maxY = Math.max(mergedBounds.y + mergedBounds.h, b.y + b.h)
+          mergedBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+        }
+      }
+
+      const hitRotateHandle = (id: string, b: { x: number; y: number; w: number; h: number }) => {
+        const rotateHandleX = b.x + b.w / 2
+        const rotateHandleY = b.y - 20 / zoom
+        if (Math.abs(px - rotateHandleX) < rotateHr && Math.abs(py - rotateHandleY) < rotateHr) {
+          return { handle: 99, id, bounds: b, isRotate: true }
+        }
+        return null
+      }
+
+      if (selectedElements.length > 1) {
+        return mergedBounds ? hitRotateHandle(selectedElements[0].id, mergedBounds) : null
+      }
+
+      for (const el of selectedElements) {
         if (!el) continue
-        if (!isElementLayerEditable(el, state.layers)) continue
         const b = cachedBounds(el)
         // 先检测旋转手柄（优先级高于缩放手柄）
-        const rotateHandleX = b.x + b.w / 2
-        const rotateHandleY = b.y - 20 / (useViewStore.getState().viewBox.zoom || 1)
-        if (Math.abs(px - rotateHandleX) < rotateHr && Math.abs(py - rotateHandleY) < rotateHr) {
-          return { handle: 99, id: selId, bounds: b, isRotate: true }
-        }
+        const rotateHit = hitRotateHandle(el.id, b)
+        if (rotateHit) return rotateHit
 
         // 边缘手柄命中检测
         // 手柄编号约定:
@@ -508,7 +540,6 @@ export function usePointerEngine(opts: {
 
         // 小形状防重叠 - 动态计算边缘手柄实际位置
         // 与 drawSelBox 中的逻辑保持一致
-        const zoom = useViewStore.getState().viewBox.zoom || 1
         const cornerR = 4 / zoom
         const edgeR = 3.5 / zoom
         const minSafeWidth = (cornerR + edgeR + 4 / zoom) * 2
@@ -549,13 +580,13 @@ export function usePointerEngine(opts: {
         // 先检测角落手柄（用户优先想要抓住角落）
         for (const [cx, cy, handle] of corners) {
           if (Math.abs(px - cx) < hr && Math.abs(py - cy) < hr)
-            return { handle, id: selId, bounds: b }
+            return { handle, id: el.id, bounds: b }
         }
 
         // 再检测边缘手柄
         for (const [ex, ey, handle] of edges) {
           if (Math.abs(px - ex) < edgeHr && Math.abs(py - ey) < edgeHr)
-            return { handle, id: selId, bounds: b, isEdge: true }
+            return { handle, id: el.id, bounds: b, isEdge: true }
         }
       }
       return null

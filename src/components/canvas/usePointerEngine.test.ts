@@ -428,6 +428,81 @@ describe('usePointerEngine', () => {
     })
   })
 
+  describe('select interactions', () => {
+    it('moves a multi-selection instead of rotating when dragging through an individual element rotate handle', () => {
+      useAppStore.setState({ tool: 'select' })
+      seedCanvasElements([
+        {
+          type: 'shape',
+          id: 'process',
+          kind: 'rectangle',
+          x: 100,
+          y: 100,
+          w: 200,
+          h: 80,
+          color: '#000',
+          size: 2,
+        },
+        {
+          type: 'shape',
+          id: 'decision',
+          kind: 'rectangle',
+          x: 150,
+          y: 180,
+          w: 100,
+          h: 100,
+          color: '#000',
+          size: 2,
+        },
+      ])
+      useAppStore.getState().setSelectedIds(['process', 'decision'])
+
+      const { canvas } = renderPointerEngineHarness()
+
+      act(() => {
+        canvas.dispatchEvent(
+          new MouseEvent('mousedown', {
+            clientX: 200,
+            clientY: 160,
+            button: 0,
+            buttons: 1,
+            bubbles: true,
+          })
+        )
+      })
+      act(() => {
+        canvas.dispatchEvent(
+          new MouseEvent('mousemove', {
+            clientX: 230,
+            clientY: 180,
+            buttons: 1,
+            bubbles: true,
+          })
+        )
+      })
+      act(() => {
+        canvas.dispatchEvent(
+          new MouseEvent('mouseup', {
+            clientX: 230,
+            clientY: 180,
+            button: 0,
+            buttons: 0,
+            bubbles: true,
+          })
+        )
+      })
+
+      const process = useAppStore.getState().idToElement.get('process') as ShapeElement
+      const decision = useAppStore.getState().idToElement.get('decision') as ShapeElement
+      expect(process.x).toBe(130)
+      expect(process.y).toBe(120)
+      expect(decision.x).toBe(180)
+      expect(decision.y).toBe(200)
+      expect(process.rotation ?? 0).toBe(0)
+      expect(decision.rotation ?? 0).toBe(0)
+    })
+  })
+
   describe('eraser interactions', () => {
     it('erases a sparse stroke when the eraser crosses a segment between sampled points', () => {
       configureEraser('simple', 30)
