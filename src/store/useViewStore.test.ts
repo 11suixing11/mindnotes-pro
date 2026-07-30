@@ -16,6 +16,7 @@ describe('useViewStore', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    document.body.innerHTML = ''
   })
 
   it('should initialize with correct default state', () => {
