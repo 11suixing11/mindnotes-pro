@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useCanvasRenderer } from './useCanvasRenderer'
+import { mergeSelectionBounds, useCanvasRenderer } from './useCanvasRenderer'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useThemeStore } from '../../store/useThemeStore'
 import type { DrawState } from './useCanvasRenderer'
+import { CANVAS_INVALIDATED_EVENT } from './renderEvents'
 
 // Mock ResizeObserver
 class MockResizeObserver {
@@ -168,6 +169,80 @@ describe('useCanvasRenderer', () => {
     })
   })
 
+  describe('mergeSelectionBounds', () => {
+    it('returns a single aggregate bounds for multiple selected elements', () => {
+      const elements = [
+        {
+          type: 'shape' as const,
+          id: 'a',
+          kind: 'rectangle' as const,
+          x: 10,
+          y: 20,
+          w: 100,
+          h: 50,
+          color: '#000',
+          size: 2,
+        },
+        {
+          type: 'shape' as const,
+          id: 'b',
+          kind: 'rectangle' as const,
+          x: 200,
+          y: 80,
+          w: 40,
+          h: 30,
+          color: '#000',
+          size: 2,
+        },
+      ]
+
+      const bounds = mergeSelectionBounds(elements, new Set(['a', 'b']), (element) => ({
+        x: element.x,
+        y: element.y,
+        w: element.w,
+        h: element.h,
+      }))
+
+      expect(bounds).toEqual({ x: 10, y: 20, w: 230, h: 90 })
+    })
+
+    it('ignores unselected elements', () => {
+      const elements = [
+        {
+          type: 'shape' as const,
+          id: 'a',
+          kind: 'rectangle' as const,
+          x: 10,
+          y: 20,
+          w: 100,
+          h: 50,
+          color: '#000',
+          size: 2,
+        },
+        {
+          type: 'shape' as const,
+          id: 'b',
+          kind: 'rectangle' as const,
+          x: 200,
+          y: 80,
+          w: 40,
+          h: 30,
+          color: '#000',
+          size: 2,
+        },
+      ]
+
+      const bounds = mergeSelectionBounds(elements, new Set(['b']), (element) => ({
+        x: element.x,
+        y: element.y,
+        w: element.w,
+        h: element.h,
+      }))
+
+      expect(bounds).toEqual({ x: 200, y: 80, w: 40, h: 30 })
+    })
+  })
+
   describe('canvasSize', () => {
     it('should initialize with window dimensions', () => {
       const { result } = renderHook(() =>
@@ -245,6 +320,19 @@ describe('useCanvasRenderer', () => {
 
       expect(result.current.elementsDirtyRef.current).toBe(true)
     })
+
+    it('should mark elements dirty when selected ids change', () => {
+      const { result } = renderHook(() =>
+        useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
+      )
+      result.current.elementsDirtyRef.current = false
+
+      act(() => {
+        useAppStore.setState({ selectedIds: ['s1'] })
+      })
+
+      expect(result.current.elementsDirtyRef.current).toBe(true)
+    })
   })
 
   describe('redraw', () => {
@@ -290,6 +378,19 @@ describe('useCanvasRenderer', () => {
       act(() => {
         window.dispatchEvent(new Event('image-loaded'))
       })
+      expect(result.current.elementsDirtyRef.current).toBe(true)
+    })
+
+    it('should mark elements dirty and redraw on canvas invalidation event', () => {
+      const { result } = renderHook(() =>
+        useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
+      )
+      result.current.elementsDirtyRef.current = false
+
+      act(() => {
+        window.dispatchEvent(new Event(CANVAS_INVALIDATED_EVENT))
+      })
+
       expect(result.current.elementsDirtyRef.current).toBe(true)
     })
   })

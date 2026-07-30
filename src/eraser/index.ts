@@ -88,6 +88,7 @@ export type { RebuildStats } from './SpatialIndex'
 
 // 渲染工具
 export { drawEraserTrail, drawSimpleEraserCursor } from './eraserRendering'
+export { getActiveEraserRadius } from './eraserSizing'
 
 // 粒子系统
 export { EraserParticleSystem, getParticleSystem } from './EraserParticleSystem'

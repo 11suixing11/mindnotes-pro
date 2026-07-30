@@ -128,6 +128,13 @@ export type UndoAction =
   | { type: 'add'; ids: string[]; els?: CanvasElement[] }
   | { type: 'remove'; items: { el: CanvasElement; index: number }[] }
   | { type: 'clear'; snapshot: CanvasElement[] }
+  | {
+      type: 'snapshot'
+      before: CanvasElement[]
+      after: CanvasElement[]
+      label: string
+      affectedIds: string[]
+    }
   | { type: 'move'; deltas: { id: string; dx: number; dy: number }[] }
   | { type: 'erase'; before: CanvasElement[]; after: CanvasElement[] }
   | {

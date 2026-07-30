@@ -848,14 +848,22 @@ body::after {
 
 .brand {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  left: 14px;
+  bottom: 14px;
   display: flex;
   align-items: center;
   gap: 10px;
+  max-width: min(260px, calc(100vw - 28px));
+  padding: 7px 10px;
   z-index: 20;
   animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
   user-select: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
 }
 
 .brand-icon {
@@ -879,20 +887,13 @@ body::after {
   font-size: 14px;
   font-weight: 700;
   color: var(--text);
-  letter-spacing: -0.4px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   background: linear-gradient(135deg, var(--text), var(--text-2));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-}
-
-.brand-ver {
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--primary);
-  padding: 2px 7px;
-  border-radius: 6px;
-  background: var(--primary-light);
-  letter-spacing: 0.3px;
 }
 
 .status {
@@ -1766,6 +1767,10 @@ body::after {
     z-index: 30;
   }
 
+  .topbar {
+    left: 64px;
+  }
+
   .status {
     display: none;
   }
@@ -1884,6 +1889,169 @@ body::after {
 .confirm-modal-actions .btn-danger:hover {
   opacity: 0.9;
   transform: translateY(-1px);
+}
+
+.first-run-guide {
+  position: fixed;
+  right: 16px;
+  bottom: 72px;
+  z-index: 120;
+  width: min(380px, calc(100vw - 32px));
+  pointer-events: none;
+  animation: fadeIn 0.2s ease;
+}
+
+.first-run-guide-card {
+  pointer-events: auto;
+  padding: 20px 22px;
+  background: var(--card-solid);
+  box-shadow: var(--shadow-lg);
+  animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.first-run-guide-icon {
+  margin-bottom: 10px;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.first-run-guide-title {
+  margin-bottom: 6px;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.first-run-guide-desc {
+  margin-bottom: 16px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.first-run-guide-dots {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.first-run-guide-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  transition: all 0.2s ease;
+}
+
+.first-run-guide-dot.active {
+  width: 20px;
+  background: var(--primary);
+}
+
+.first-run-guide-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.first-run-guide-link,
+.first-run-guide-button {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.first-run-guide-link {
+  color: var(--primary);
+}
+
+.first-run-guide-button.primary {
+  padding-inline: 18px;
+  border-color: transparent;
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 8px var(--glow);
+}
+
+.first-run-guide-link:hover,
+.first-run-guide-button:hover {
+  transform: translateY(-1px);
+}
+
+.sw-update-banner {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 240;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card-solid);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+  font-size: 13px;
+}
+
+.sw-update-banner.show {
+  display: flex;
+}
+
+.sw-update-banner button {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.sw-update-primary {
+  border: none;
+  background: var(--primary);
+  color: #fff;
+}
+
+.sw-update-secondary {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+}
+
+@media (max-width: 480px) {
+  .first-run-guide {
+    right: 8px;
+    bottom: 80px;
+    left: 64px;
+    width: auto;
+  }
+
+  .first-run-guide-card {
+    padding: 16px;
+  }
+
+  .first-run-guide-desc {
+    margin-bottom: 12px;
+    font-size: 12px;
+  }
+
+  .sw-update-banner {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    max-width: none;
+  }
 }
 
 .template-picker {

@@ -67,10 +67,9 @@ export default memo(function LoadingScreen() {
         >
           M
         </div>
-        <div className="text-[22px] font-bold text-[var(--text)] mb-[4px] tracking-wide">
-          MindNotes
+        <div className="text-[22px] font-bold text-[var(--text)] mb-[24px] tracking-wide">
+          MindNotes Pro
         </div>
-        <div className="text-[12px] text-[var(--text-3)] mb-[24px] tracking-wider">Pro</div>
 
         {/* Loading dots */}
         <div className="flex gap-[6px]">

@@ -9,7 +9,9 @@ import type {
   TextElement,
   ShapeKind,
   ToolType,
+  UndoAction,
 } from '../../store/types'
+import { snapshot } from '../../store/helpers'
 import {
   distToSegSq,
   elementBounds,
@@ -43,7 +45,7 @@ import {
 // P12 箭头绑定: 导入绑定工具函数
 import { tryBindToShape } from '../../store/bindingUtils'
 // 物理擦除引擎集成
-import { useEraserStore, type EraserPoint } from '../../eraser'
+import { getActiveEraserRadius, useEraserStore, type EraserPoint } from '../../eraser'
 
 // 模块级常量，避免每次渲染重建
 const CURSOR_MAP: Record<string, string> = {
@@ -59,6 +61,62 @@ const CURSOR_MAP: Record<string, string> = {
 }
 // P5 样式吸管光标 - 使用 CSS 自定义光标
 const EYEDROPPER_CURSOR = 'crosshair'
+
+function haveStrokePointsChanged(before: number[][], after: number[][]): boolean {
+  if (before.length !== after.length) return true
+  for (let i = 0; i < before.length; i++) {
+    if (before[i]?.[0] !== after[i]?.[0] || before[i]?.[1] !== after[i]?.[1]) return true
+  }
+  return false
+}
+
+function hasDragGeometryChanged(before: CanvasElement, after: CanvasElement): boolean {
+  if (before.type !== after.type) return true
+  if (before.type === 'stroke') {
+    return haveStrokePointsChanged(before.points, (after as typeof before).points)
+  }
+  if (before.type === 'shape') {
+    const next = after as typeof before
+    return (
+      before.x !== next.x ||
+      before.y !== next.y ||
+      before.w !== next.w ||
+      before.h !== next.h ||
+      (before.rotation ?? 0) !== (next.rotation ?? 0)
+    )
+  }
+  const next = after as typeof before
+  return (
+    before.x !== next.x ||
+    before.y !== next.y ||
+    before.width !== next.width ||
+    before.height !== next.height ||
+    (before.rotation ?? 0) !== (next.rotation ?? 0)
+  )
+}
+
+function getChangedElementIds(before: CanvasElement[], after: CanvasElement[]): string[] {
+  const beforeById = new Map(before.map((el) => [el.id, el]))
+  const afterById = new Map(after.map((el) => [el.id, el]))
+  const changedIds = new Set<string>()
+
+  for (const beforeEl of before) {
+    const afterEl = afterById.get(beforeEl.id)
+    if (!afterEl) {
+      changedIds.add(beforeEl.id)
+      continue
+    }
+    if (hasDragGeometryChanged(beforeEl, afterEl)) {
+      changedIds.add(beforeEl.id)
+    }
+  }
+
+  for (const afterEl of after) {
+    if (!beforeById.has(afterEl.id)) changedIds.add(afterEl.id)
+  }
+
+  return [...changedIds]
+}
 
 export function usePointerEngine(opts: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>
@@ -128,6 +186,9 @@ export function usePointerEngine(opts: {
   const shapeStartRef = useRef<{ x: number; y: number } | null>(null)
   const currentShapeRef = useRef<ShapeElement | null>(null)
   const erasedRef = useRef<Set<string>>(new Set())
+  const eraseBeforeSnapshotRef = useRef<CanvasElement[] | null>(null)
+  const eraseUndoBaseStackRef = useRef<UndoAction[] | null>(null)
+  const erasePhysicsStartedRef = useRef(false)
 
   // 擦除轨迹跟踪（用于光标拖尾渲染）- 移到开头，在 handleMove 使用前声明
   // P0 性能优化: 使用固定大小环形缓冲区，避免数组 splice/shift 产生的 GC 压力
@@ -162,6 +223,61 @@ export function usePointerEngine(opts: {
 
   // 物理擦除状态
   const lastErasePointRef = useRef<{ x: number; y: number; time: number } | null>(null)
+
+  const finishEraseHistory = useCallback(() => {
+    const beforeSnap = eraseBeforeSnapshotRef.current
+    const baseUndoStack = eraseUndoBaseStackRef.current
+    eraseBeforeSnapshotRef.current = null
+    eraseUndoBaseStackRef.current = null
+    lastErasePointRef.current = null
+
+    if (erasePhysicsStartedRef.current) {
+      useEraserStore.getState().endErase()
+      erasePhysicsStartedRef.current = false
+    }
+
+    if (!beforeSnap || !baseUndoStack) return
+
+    const st = useAppStore.getState()
+    const elementsChanged =
+      st.elements.length !== beforeSnap.length ||
+      st.elements.some((el, index) => el.id !== beforeSnap[index]?.id)
+
+    if (!elementsChanged && st.undoStack === baseUndoStack) return
+
+    useAppStore.setState({ undoStack: baseUndoStack, redoStack: [] })
+    useAppStore.getState().batchErase(beforeSnap, [])
+  }, [])
+
+  const beginEraseSession = useCallback(
+    (x: number, y: number, pressure?: number, e?: MouseEvent | TouchEvent) => {
+      const st = useAppStore.getState()
+      eraseBeforeSnapshotRef.current = snapshot(st.elements)
+      eraseUndoBaseStackRef.current = st.undoStack
+      lastErasePointRef.current = null
+
+      const eraserStore = useEraserStore.getState()
+      eraserStore.engine.setBaseSize(getActiveEraserRadius())
+
+      if (!eraserStore.shouldUsePhysics()) return
+
+      const now = performance.now()
+      const startPoint: EraserPoint = {
+        x,
+        y,
+        pressure: pressure ?? DEFAULT_INPUT_PRESSURE,
+        velocity: 0,
+        direction: 0,
+        timestamp: now,
+        tiltX: e && 'tiltX' in e ? (e as PointerEvent).tiltX : undefined,
+        tiltY: e && 'tiltY' in e ? (e as PointerEvent).tiltY : undefined,
+      }
+      const editableElements = st.elements.filter((el) => isElementLayerEditable(el, st.layers))
+      eraserStore.startErase(startPoint, editableElements)
+      erasePhysicsStartedRef.current = true
+    },
+    []
+  )
   // 拖动阈值 - 防止选择时意外移动元素
   // 只有鼠标移动超过 DRAG_THRESHOLD 像素才开始真正拖动
   // 这是竞品 excalidraw 和 tldraw 都实现的核心 UX 改进
@@ -171,6 +287,7 @@ export function usePointerEngine(opts: {
     y: number
     id: string
     startPositions?: Map<string, { x: number; y: number }>
+    startElementsSnapshot?: CanvasElement[]
     // 拖动阈值状态跟踪
     dragStarted: boolean
     startScreenX: number
@@ -421,22 +538,54 @@ export function usePointerEngine(opts: {
       const state = useAppStore.getState()
       const selIds = state.selectedIds
       if (selIds.length === 0) return null
-      const hr = 12 / (useViewStore.getState().viewBox.zoom || 1)
-      const edgeHr = 10 / (useViewStore.getState().viewBox.zoom || 1)
+      const zoom = useViewStore.getState().viewBox.zoom || 1
+      const hr = 12 / zoom
+      const edgeHr = 10 / zoom
       // 旋转手柄命中检测
       // 专业设计工具标准：选择框顶部中央的旋转手柄
-      const rotateHr = 15 / (useViewStore.getState().viewBox.zoom || 1)
+      const rotateHr = 15 / zoom
+
+      const selectedElements: CanvasElement[] = []
       for (const selId of selIds) {
         const el = state.idToElement.get(selId)
+        if (!el || !isElementLayerEditable(el, state.layers)) continue
+        selectedElements.push(el)
+      }
+      if (selectedElements.length === 0) return null
+
+      let mergedBounds: { x: number; y: number; w: number; h: number } | null = null
+      for (const el of selectedElements) {
+        const b = cachedBounds(el)
+        if (!mergedBounds) {
+          mergedBounds = { ...b }
+        } else {
+          const minX = Math.min(mergedBounds.x, b.x)
+          const minY = Math.min(mergedBounds.y, b.y)
+          const maxX = Math.max(mergedBounds.x + mergedBounds.w, b.x + b.w)
+          const maxY = Math.max(mergedBounds.y + mergedBounds.h, b.y + b.h)
+          mergedBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+        }
+      }
+
+      const hitRotateHandle = (id: string, b: { x: number; y: number; w: number; h: number }) => {
+        const rotateHandleX = b.x + b.w / 2
+        const rotateHandleY = b.y - 20 / zoom
+        if (Math.abs(px - rotateHandleX) < rotateHr && Math.abs(py - rotateHandleY) < rotateHr) {
+          return { handle: 99, id, bounds: b, isRotate: true }
+        }
+        return null
+      }
+
+      if (selectedElements.length > 1) {
+        return mergedBounds ? hitRotateHandle(selectedElements[0].id, mergedBounds) : null
+      }
+
+      for (const el of selectedElements) {
         if (!el) continue
-        if (!isElementLayerEditable(el, state.layers)) continue
         const b = cachedBounds(el)
         // 先检测旋转手柄（优先级高于缩放手柄）
-        const rotateHandleX = b.x + b.w / 2
-        const rotateHandleY = b.y - 20 / (useViewStore.getState().viewBox.zoom || 1)
-        if (Math.abs(px - rotateHandleX) < rotateHr && Math.abs(py - rotateHandleY) < rotateHr) {
-          return { handle: 99, id: selId, bounds: b, isRotate: true }
-        }
+        const rotateHit = hitRotateHandle(el.id, b)
+        if (rotateHit) return rotateHit
 
         // 边缘手柄命中检测
         // 手柄编号约定:
@@ -448,7 +597,6 @@ export function usePointerEngine(opts: {
 
         // 小形状防重叠 - 动态计算边缘手柄实际位置
         // 与 drawSelBox 中的逻辑保持一致
-        const zoom = useViewStore.getState().viewBox.zoom || 1
         const cornerR = 4 / zoom
         const edgeR = 3.5 / zoom
         const minSafeWidth = (cornerR + edgeR + 4 / zoom) * 2
@@ -489,13 +637,13 @@ export function usePointerEngine(opts: {
         // 先检测角落手柄（用户优先想要抓住角落）
         for (const [cx, cy, handle] of corners) {
           if (Math.abs(px - cx) < hr && Math.abs(py - cy) < hr)
-            return { handle, id: selId, bounds: b }
+            return { handle, id: el.id, bounds: b }
         }
 
         // 再检测边缘手柄
         for (const [ex, ey, handle] of edges) {
           if (Math.abs(px - ex) < edgeHr && Math.abs(py - ey) < edgeHr)
-            return { handle, id: selId, bounds: b, isEdge: true }
+            return { handle, id: el.id, bounds: b, isEdge: true }
         }
       }
       return null
@@ -511,7 +659,7 @@ export function usePointerEngine(opts: {
    */
   const eraseAtSimple = useCallback(
     (x: number, y: number, topOnly: boolean = false) => {
-      const r = useAppStore.getState().size * 2 + 10,
+      const r = getActiveEraserRadius(),
         r2 = r * r
       const state = useAppStore.getState()
 
@@ -535,7 +683,7 @@ export function usePointerEngine(opts: {
       const layerOrder = getLayerOrderMap(state.layers)
 
       // 按 Z-order 降序排列（最上层在前）
-      const sortedIds = (candidateIds ?? state.elements.map((e) => e.id)).sort((a, b) => {
+      const sortedIds = [...(candidateIds ?? state.elements.map((e) => e.id))].sort((a, b) => {
         const aIndex = idToIndex.get(a)
         const bIndex = idToIndex.get(b)
         const aEl =
@@ -559,17 +707,42 @@ export function usePointerEngine(opts: {
         if (!isElementLayerEditable(el, state.layers)) continue
 
         if (el.type === 'stroke') {
-          const segments: number[][][] = []
-          let cur: number[][] = []
+          const segments: { points: number[][]; pressures?: number[] }[] = []
+          let curPoints: number[][] = []
+          let curPressures: number[] = []
           let hit = false
-          for (const p of el.points) {
-            if ((p[0] - x) ** 2 + (p[1] - y) ** 2 < r2) {
-              hit = true
-              if (cur.length >= 2) segments.push(cur)
-              cur = []
-            } else cur.push(p)
+
+          const pushSegment = () => {
+            if (curPoints.length >= 2) {
+              segments.push({
+                points: curPoints,
+                pressures: el.pressures ? curPressures : undefined,
+              })
+            }
+            curPoints = []
+            curPressures = []
           }
-          if (cur.length >= 2) segments.push(cur)
+
+          const appendPoint = (point: number[], index: number) => {
+            curPoints.push(point)
+            if (el.pressures) curPressures.push(el.pressures[index] ?? DEFAULT_INPUT_PRESSURE)
+          }
+
+          for (let i = 0; i < el.points.length; i++) {
+            const p = el.points[i]
+            const pointHit = (p[0] - x) ** 2 + (p[1] - y) ** 2 <= r2
+            const prev = i > 0 ? el.points[i - 1] : null
+            const segmentHit = prev ? distToSegSq(x, y, prev[0], prev[1], p[0], p[1]) <= r2 : false
+
+            if (pointHit || segmentHit) {
+              hit = true
+              pushSegment()
+              if (!pointHit) appendPoint(p, i)
+            } else {
+              appendPoint(p, i)
+            }
+          }
+          pushSegment()
           if (!hit) continue
           erasedRef.current.add(el.id)
           removeElement(el.id)
@@ -577,7 +750,8 @@ export function usePointerEngine(opts: {
             addElement({
               ...el,
               id: `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              points: seg,
+              points: seg.points,
+              pressures: seg.pressures,
             })
           // 标记已擦除最顶层元素
           topElementErased = true
@@ -645,7 +819,7 @@ export function usePointerEngine(opts: {
       }
 
       // 设置橡皮擦大小
-      eraserStore.engine.setBaseSize(useAppStore.getState().size)
+      eraserStore.engine.setBaseSize(getActiveEraserRadius())
 
       // 执行物理擦除
       const editableElements = state.elements.filter((el) =>
@@ -931,6 +1105,7 @@ export function usePointerEngine(opts: {
             y: pos.y,
             id: hit,
             startPositions,
+            startElementsSnapshot: snapshot(st.elements),
             dragStarted: false,
             startScreenX: screenX,
             startScreenY: screenY,
@@ -985,10 +1160,9 @@ export function usePointerEngine(opts: {
           contact.pressure === undefined ? [] : [contact.pressure ?? DEFAULT_INPUT_PRESSURE]
       } else if (curTool === 'eraser') {
         currentPressuresRef.current = []
-        // P1-4 性能优化: 删除无用的全量快照克隆
-        // batchErase 不再需要 preEraseSnapshot，避免每次擦除开始时克隆所有元素
         // 检测 Ctrl/Cmd 键，只擦除最顶层元素
         const topOnly = e.metaKey || e.ctrlKey
+        beginEraseSession(pos.x, pos.y, contact.pressure, e)
         eraseAt(pos.x, pos.y, contact.pressure, e, topOnly)
       } else {
         currentPressuresRef.current = []
@@ -1016,6 +1190,7 @@ export function usePointerEngine(opts: {
       hitTest,
       hitHandle,
       eraseAt,
+      beginEraseSession,
       snapPointIfGridEnabled,
     ]
   )
@@ -1352,6 +1527,7 @@ export function usePointerEngine(opts: {
                 y: pos.y,
                 id: hits[0],
                 startPositions,
+                startElementsSnapshot: snapshot(st.elements),
                 dragStarted: true, // 直接跳过阈值检测，立即开始拖拽
                 startScreenX: screenX,
                 startScreenY: screenY,
@@ -1531,7 +1707,7 @@ export function usePointerEngine(opts: {
         dx += snapDx
         dy += snapDy
         snapLinesRef.current = { x: linesX, y: linesY }
-        if (ids.length > 1) moveElementsById(ids, dx, dy)
+        if (ids.length > 1) moveElementsById(ids, dx, dy, { recordHistory: false })
         else moveElementById(dragRef.current.id, dx, dy)
         dragRef.current = {
           ...dragRef.current,
@@ -1664,7 +1840,7 @@ export function usePointerEngine(opts: {
           currentPressuresRef.current = []
           penVelocityRef.current = 0
         } else if (curTool === 'eraser') {
-          // P1-4 性能优化: 删除无用的全量快照克隆
+          finishEraseHistory()
           erasedRef.current.clear()
           currentPtsRef.current = []
           currentPressuresRef.current = []
@@ -1749,28 +1925,20 @@ export function usePointerEngine(opts: {
         }
         if (dragRef.current?.startPositions) {
           const st = useAppStore.getState()
-          const sp = dragRef.current.startPositions
-          const deltas: { id: string; dx: number; dy: number }[] = []
-          for (const el of st.elements) {
-            const startPos = sp.get(el.id)
-            if (!startPos) continue
-            if (!isElementLayerEditable(el, st.layers)) continue
-            let cx: number, cy: number
-            if (el.type === 'stroke') {
-              cx = el.points[0]?.[0] ?? 0
-              cy = el.points[0]?.[1] ?? 0
-            } else if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
-              cx = el.x
-              cy = el.y
-            } else {
-              cx = 0
-              cy = 0
-            }
-            const dx = cx - startPos.x,
-              dy = cy - startPos.y
-            if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) deltas.push({ id: el.id, dx, dy })
+          const before = dragRef.current.startElementsSnapshot
+          const affectedIds = before ? getChangedElementIds(before, st.elements) : []
+          if (before && affectedIds.length > 0) {
+            const draggedCount =
+              [...dragRef.current.startPositions.keys()].filter((id) => affectedIds.includes(id))
+                .length || affectedIds.length
+            useAppStore.getState().pushUndo({
+              type: 'snapshot',
+              before: snapshot(before),
+              after: snapshot(st.elements),
+              label: draggedCount === 1 ? 'Move element' : `Move ${draggedCount} elements`,
+              affectedIds,
+            })
           }
-          if (deltas.length > 0) useAppStore.getState().pushUndo({ type: 'move', deltas })
         }
         const resizeCur = resizeRef.current
         if (resizeCur?.origElement) {
@@ -1832,7 +2000,7 @@ export function usePointerEngine(opts: {
       clearEndedTouch()
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [addElement, endPan, setSelectedIds, scheduleRedraw, cachedBounds]
+    [addElement, endPan, setSelectedIds, scheduleRedraw, cachedBounds, finishEraseHistory]
   )
 
   const cancelActiveInput = useCallback(
@@ -1843,6 +2011,7 @@ export function usePointerEngine(opts: {
       currentPressuresRef.current = []
       currentShapeRef.current = null
       shapeStartRef.current = null
+      finishEraseHistory()
       erasedRef.current.clear()
       activeTouchIdRef.current = null
       activePenPointerIdRef.current = null
@@ -1851,7 +2020,7 @@ export function usePointerEngine(opts: {
       if (useViewStore.getState().isPanning) endPan()
       scheduleRedraw()
     },
-    [endPan, scheduleRedraw]
+    [endPan, scheduleRedraw, finishEraseHistory]
   )
 
   // Pointer events

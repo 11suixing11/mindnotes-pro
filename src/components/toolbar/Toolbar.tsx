@@ -10,6 +10,8 @@ import { ExportMenu } from '../export-menu'
 import ToolButtons from './ToolButtons'
 import BrushSelector from './BrushSelector'
 import ColorPicker from './ColorPicker'
+import CanvasActionButtons from './CanvasActionButtons'
+import TemplateMenu from '../templates/TemplateMenu'
 import { icons } from './icons'
 
 export default function Toolbar() {
@@ -96,8 +98,7 @@ export default function Toolbar() {
     <>
       <div className="brand" aria-hidden="true">
         <div className="brand-icon">M</div>
-        <span className="brand-text">MindNotes</span>
-        <span className="brand-ver">v2.1</span>
+        <span className="brand-text">MindNotes Pro</span>
       </div>
 
       {/* Left toolbar: tools + undo/redo/clear only */}
@@ -125,11 +126,11 @@ export default function Toolbar() {
           </button>
           <button
             onClick={async () => {
-              if (await confirm('Clear all?')) clearAll()
+              if (await confirm('确定清空当前画布吗？')) clearAll()
             }}
             className="abtn"
-            data-tip="Clear"
-            aria-label="Clear all"
+            data-tip="清空画布"
+            aria-label="清空画布"
           >
             {icons.trash}
           </button>
@@ -139,7 +140,11 @@ export default function Toolbar() {
       {/* Top toolbar: brush + color + zoom + theme + grid + export */}
       <div className="topbar panel" role="toolbar" aria-label="Canvas tools">
         <BrushSelector brush={brush} setBrush={setBrush} tool={tool} />
+        <TemplateMenu />
+        <div className="tb-sep" aria-hidden="true" />
         <ColorPicker />
+        <div className="tb-sep" aria-hidden="true" />
+        <CanvasActionButtons />
         <div className="tb-sep" aria-hidden="true" />
         <button onClick={zoomIn} className="abtn" data-tip="Zoom in" aria-label="Zoom in">
           {icons.zoomIn}

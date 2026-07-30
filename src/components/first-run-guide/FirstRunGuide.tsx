@@ -1,10 +1,10 @@
-import { useState, useEffect, memo } from 'react'
+import { useState, useEffect, memo, useCallback } from 'react'
 import { FEEDBACK_DISCUSSION_URL } from '../../productLinks'
 
 const STEPS = [
   {
-    title: '欢迎使用 MindNotes',
-    desc: '一个轻量的本地白板，打开即画，数据存在你的浏览器里。',
+    title: '欢迎使用 MindNotes Pro',
+    desc: '一个本地优先的白板，打开即画，数据存在你的浏览器里。',
     icon: '🎨',
   },
   {
@@ -27,18 +27,21 @@ const STEPS = [
 export default memo(function FirstRunGuide() {
   const [step, setStep] = useState(0)
   const [visible, setVisible] = useState(() => !localStorage.getItem('mn-guide-seen'))
+  const closeGuide = useCallback(() => {
+    setVisible(false)
+    localStorage.setItem('mn-guide-seen', '1')
+  }, [])
 
   useEffect(() => {
     if (!visible) return
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setVisible(false)
-        localStorage.setItem('mn-guide-seen', '1')
+        closeGuide()
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [visible])
+  }, [closeGuide, visible])
 
   if (!visible) return null
 
@@ -46,46 +49,29 @@ export default memo(function FirstRunGuide() {
   const isLast = step === STEPS.length - 1
 
   return (
-    <div
-      className="fixed inset-0 z-[500] bg-[rgba(0,0,0,0.45)] backdrop-blur-[3px] flex items-center justify-center"
-      style={{ animation: 'fadeIn 0.2s ease' }}
-      onClick={() => {
-        setVisible(false)
-        localStorage.setItem('mn-guide-seen', '1')
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-[var(--card-solid)] rounded-[16px] py-[28px] px-[32px] max-w-[380px] w-[90vw] shadow-[0_8px_40px_rgba(0,0,0,0.2)] border border-[var(--border)] text-center"
-        style={{ animation: 'popIn 0.2s cubic-bezier(0.16,1,0.3,1)' }}
-      >
-        <div className="text-[40px] mb-[12px]">{s.icon}</div>
-        <div className="text-[17px] font-bold text-[var(--text)] mb-[8px]">{s.title}</div>
-        <div className="text-[13px] text-[var(--text-2)] leading-[1.7] mb-[20px]">{s.desc}</div>
-        <div className="flex gap-[4px] justify-center mb-[16px]">
+    <div className="first-run-guide" role="region" aria-label="首次使用引导">
+      <div className="first-run-guide-card panel" aria-live="polite">
+        <div className="first-run-guide-icon">{s.icon}</div>
+        <div className="first-run-guide-title">{s.title}</div>
+        <div className="first-run-guide-desc">{s.desc}</div>
+        <div className="first-run-guide-dots" aria-hidden="true">
           {STEPS.map((_, i) => (
-            <div
-              key={i}
-              className={`${i === step ? 'w-[20px]' : 'w-[6px]'} h-[6px] rounded-[3px] ${i === step ? 'bg-[var(--primary)]' : 'bg-[var(--border)]'} transition-all duration-200 ease-in-out`}
-            />
+            <div key={i} className={`first-run-guide-dot ${i === step ? 'active' : ''}`} />
           ))}
         </div>
-        <div className="flex gap-[8px] justify-center">
+        <div className="first-run-guide-actions">
           <a
             href={FEEDBACK_DISCUSSION_URL}
             target="_blank"
             rel="noreferrer"
-            className="py-[7px] px-[14px] rounded-[8px] border border-[var(--border)] bg-transparent text-[var(--primary)] text-[12px] cursor-pointer font-semibold no-underline"
+            className="first-run-guide-link"
             aria-label="反馈"
           >
             反馈
           </a>
           <button
-            onClick={() => {
-              setVisible(false)
-              localStorage.setItem('mn-guide-seen', '1')
-            }}
-            className="py-[7px] px-[18px] rounded-[8px] border border-[var(--border)] bg-transparent text-[var(--text-3)] text-[12px] cursor-pointer font-semibold"
+            onClick={closeGuide}
+            className="first-run-guide-button"
             aria-label="跳过引导"
           >
             跳过
@@ -93,11 +79,10 @@ export default memo(function FirstRunGuide() {
           <button
             onClick={() => {
               if (isLast) {
-                setVisible(false)
-                localStorage.setItem('mn-guide-seen', '1')
+                closeGuide()
               } else setStep(step + 1)
             }}
-            className="py-[7px] px-[22px] rounded-[8px] border-none bg-[var(--primary)] text-white text-[12px] cursor-pointer font-semibold shadow-[0_2px_8px_var(--glow)]"
+            className="first-run-guide-button primary"
             aria-label={isLast ? '开始创作' : '下一步'}
           >
             {isLast ? '开始创作' : '下一步'}

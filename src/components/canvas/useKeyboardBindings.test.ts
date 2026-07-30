@@ -4,6 +4,7 @@ import { useKeyboardBindings } from './useKeyboardBindings'
 import { useAppStore } from '../../store/appStore'
 import { useShortcutStore } from '../../store/useShortcutStore'
 import { useViewStore } from '../../store/useViewStore'
+import { getHistoryActionLabel } from '../../store/slices/history'
 
 function press(key: string, opts: Partial<KeyboardEventInit> = {}) {
   window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, ...opts }))
@@ -108,6 +109,37 @@ describe('useKeyboardBindings', () => {
   })
 
   describe('arrange shortcuts', () => {
+    it('Arrow keys nudge the selection with move history', () => {
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'shape-1',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 40,
+        h: 30,
+        color: '#000',
+        size: 2,
+      })
+      useAppStore.setState({ selectedIds: ['shape-1'], undoStack: [], redoStack: [] })
+      renderHook(() => useKeyboardBindings())
+
+      press('ArrowRight')
+
+      const moved = useAppStore.getState().elements[0]
+      expect(moved.type).toBe('shape')
+      if (moved.type !== 'shape') return
+      expect(moved.x).toBe(1)
+      expect(useAppStore.getState().undoStack).toHaveLength(1)
+      expect(getHistoryActionLabel(useAppStore.getState().undoStack[0])).toBe('Move element')
+
+      useAppStore.getState().undo()
+      const restored = useAppStore.getState().elements[0]
+      expect(restored.type).toBe('shape')
+      if (restored.type !== 'shape') return
+      expect(restored.x).toBe(0)
+    })
+
     it('Ctrl+D should duplicate selected elements', () => {
       useAppStore.getState().addElement({
         type: 'shape',

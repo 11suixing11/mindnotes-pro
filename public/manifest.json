@@ -1,6 +1,6 @@
 {
   "name": "MindNotes Pro",
-  "short_name": "MindNotes",
+  "short_name": "MindNotes Pro",
   "description": "A beautiful, distraction-free whiteboard that lives in your browser. Open-source, local-first, zero cloud.",
   "start_url": ".",
   "scope": ".",

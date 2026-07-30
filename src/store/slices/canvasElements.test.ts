@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from '../appStore'
 import type { ShapeElement, StrokeElement, TextElement, ImageElement } from '../types'
 import { createDefaultLayer } from '../layers'
+import { getHistoryActionLabel } from './history'
 
 const makeStroke = (id: string, overrides?: Partial<StrokeElement>): StrokeElement => ({
   type: 'stroke',
@@ -240,6 +241,79 @@ describe('canvasElements slice', () => {
       expect(els[0].y).toBe(20)
       expect(els[1].x).toBe(60)
       expect(els[1].y).toBe(70)
+    })
+
+    it('records one delta move history action by default', () => {
+      useAppStore.getState().addElements([
+        makeShape('sh1', { x: 0, y: 0 }),
+        makeShape('sh2', { x: 50, y: 50 }),
+      ])
+      useAppStore.setState({ undoStack: [], redoStack: [] })
+
+      useAppStore.getState().moveElementsById(['sh1', 'sh2'], 10, 20)
+
+      const undoStack = useAppStore.getState().undoStack
+      expect(undoStack).toHaveLength(1)
+      expect(undoStack[0].type).toBe('move')
+      expect(getHistoryActionLabel(undoStack[0])).toBe('Move 2 elements')
+
+      useAppStore.getState().undo()
+      const afterUndo = useAppStore.getState().elements as ShapeElement[]
+      expect(afterUndo[0].x).toBe(0)
+      expect(afterUndo[1].x).toBe(50)
+
+      useAppStore.getState().redo()
+      const afterRedo = useAppStore.getState().elements as ShapeElement[]
+      expect(afterRedo[0].x).toBe(10)
+      expect(afterRedo[1].x).toBe(60)
+    })
+
+    it('records snapshot history when a move updates bound arrow geometry', () => {
+      useAppStore.getState().addElements([
+        makeShape('box', { x: 100, y: 100, w: 50, h: 50 }),
+        makeShape('arrow', {
+          kind: 'arrow',
+          x: 150,
+          y: 125,
+          w: 50,
+          h: 0,
+          startBinding: { targetId: 'box', anchorX: 1, anchorY: 0.5 },
+        }),
+      ])
+      useAppStore.setState({ undoStack: [], redoStack: [] })
+
+      useAppStore.getState().moveElementsById(['box'], 30, 20)
+
+      const undoStack = useAppStore.getState().undoStack
+      expect(undoStack).toHaveLength(1)
+      expect(undoStack[0].type).toBe('snapshot')
+      expect((useAppStore.getState().idToElement.get('arrow') as ShapeElement).w).toBe(20)
+
+      useAppStore.getState().undo()
+
+      const restoredBox = useAppStore.getState().idToElement.get('box') as ShapeElement
+      const restoredArrow = useAppStore.getState().idToElement.get('arrow') as ShapeElement
+      expect(restoredBox.x).toBe(100)
+      expect(restoredBox.y).toBe(100)
+      expect(restoredArrow.x).toBe(150)
+      expect(restoredArrow.y).toBe(125)
+      expect(restoredArrow.w).toBe(50)
+      expect(restoredArrow.h).toBe(0)
+    })
+
+    it('can move without recording history for in-progress drag frames', () => {
+      useAppStore.getState().addElements([
+        makeShape('sh1', { x: 0, y: 0 }),
+        makeShape('sh2', { x: 50, y: 50 }),
+      ])
+      useAppStore.setState({ undoStack: [], redoStack: [] })
+
+      useAppStore.getState().moveElementsById(['sh1', 'sh2'], 10, 20, { recordHistory: false })
+
+      expect(useAppStore.getState().undoStack).toHaveLength(0)
+      const els = useAppStore.getState().elements as ShapeElement[]
+      expect(els[0].x).toBe(10)
+      expect(els[1].x).toBe(60)
     })
   })
 

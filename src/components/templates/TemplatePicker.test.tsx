@@ -30,15 +30,15 @@ describe('TemplatePicker', () => {
     renderPicker()
 
     expect(screen.getByRole('dialog', { name: '模板库' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: '插入 Flowchart 模板' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: '插入 Mind Map 模板' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '插入 流程图 模板' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '插入 思维导图 模板' })).toBeTruthy()
     expect(document.querySelectorAll('.template-preview').length).toBeGreaterThan(0)
   })
 
   it('inserts a selected template', () => {
     const props = renderPicker()
 
-    fireEvent.click(screen.getByRole('button', { name: '插入 Flowchart 模板' }))
+    fireEvent.click(screen.getByRole('button', { name: '插入 流程图 模板' }))
 
     expect(props.onInsert).toHaveBeenCalledTimes(1)
     expect(props.onInsert).toHaveBeenCalledWith(

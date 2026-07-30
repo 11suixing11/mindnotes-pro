@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from '../appStore'
 import { useToastStore } from '../toastStore'
+import { useViewStore } from '../useViewStore'
 import { getHistoryFeedbackMessage } from './history'
 import type { StrokeElement, ShapeElement } from '../types'
 
@@ -40,6 +41,7 @@ describe('history slice', () => {
       undoStack: [],
       redoStack: [],
     })
+    useViewStore.setState({ viewBox: { x: 0, y: 0, zoom: 1 } })
     useToastStore.setState({ toasts: [] })
   })
 
@@ -154,6 +156,28 @@ describe('history slice', () => {
       // redo 后自动选中受影响的元素（Figma/tldraw 标准行为）
       // 重做了 add 操作，元素被恢复，所以选中该元素
       expect(useAppStore.getState().selectedIds).toEqual(['s1'])
+    })
+
+    it('keeps the current zoom when the affected element is already visible', () => {
+      useAppStore.getState().addElement(makeShape('sh1', { x: 120, y: 120, w: 80, h: 60 }))
+      useAppStore.getState().undo()
+      useViewStore.setState({ viewBox: { x: 0, y: 0, zoom: 1 } })
+
+      useAppStore.getState().redo()
+
+      expect(useAppStore.getState().selectedIds).toEqual(['sh1'])
+      expect(useViewStore.getState().viewBox).toEqual({ x: 0, y: 0, zoom: 1 })
+    })
+
+    it('zooms to the affected element when it is outside the current view', () => {
+      useAppStore.getState().addElement(makeShape('sh1', { x: 2000, y: 2000, w: 80, h: 60 }))
+      useAppStore.getState().undo()
+      useViewStore.setState({ viewBox: { x: 0, y: 0, zoom: 1 } })
+
+      useAppStore.getState().redo()
+
+      expect(useAppStore.getState().selectedIds).toEqual(['sh1'])
+      expect(useViewStore.getState().viewBox).not.toEqual({ x: 0, y: 0, zoom: 1 })
     })
 
     it('shows a toast with action name and remaining redo steps', () => {

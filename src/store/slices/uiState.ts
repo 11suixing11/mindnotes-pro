@@ -8,6 +8,11 @@ export interface UIActions {
   setSidebarOpen: (open: boolean) => void
 }
 
+export function shouldOpenSidebarByDefault(): boolean {
+  if (typeof window === 'undefined') return true
+  return window.innerWidth >= 768
+}
+
 export function createUISlice(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   set: any,
@@ -16,7 +21,7 @@ export function createUISlice(
 ): UIState & UIActions {
   return {
     saveStatus: 'idle',
-    sidebarOpen: true,
+    sidebarOpen: shouldOpenSidebarByDefault(),
     setSaveStatus: (s) => set({ saveStatus: s }),
     setSidebarOpen: (open) => set({ sidebarOpen: open }),
   }

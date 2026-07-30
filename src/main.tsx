@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import AppWrapper from './AppWrapper.tsx'
+import { setupServiceWorkerUpdates } from './serviceWorkerRegistration'
 import './index.css'
 
 const root = document.getElementById('root')
@@ -10,3 +11,5 @@ ReactDOM.createRoot(root).render(
     <AppWrapper />
   </React.StrictMode>
 )
+
+setupServiceWorkerUpdates()
