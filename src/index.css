@@ -2032,7 +2032,7 @@ body::after {
 @media (max-width: 480px) {
   .first-run-guide {
     right: 8px;
-    bottom: 8px;
+    bottom: 80px;
     left: 64px;
     width: auto;
   }

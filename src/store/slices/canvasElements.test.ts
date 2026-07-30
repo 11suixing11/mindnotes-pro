@@ -243,7 +243,7 @@ describe('canvasElements slice', () => {
       expect(els[1].y).toBe(70)
     })
 
-    it('records one semantic move history action by default', () => {
+    it('records one delta move history action by default', () => {
       useAppStore.getState().addElements([
         makeShape('sh1', { x: 0, y: 0 }),
         makeShape('sh2', { x: 50, y: 50 }),
@@ -254,7 +254,7 @@ describe('canvasElements slice', () => {
 
       const undoStack = useAppStore.getState().undoStack
       expect(undoStack).toHaveLength(1)
-      expect(undoStack[0].type).toBe('snapshot')
+      expect(undoStack[0].type).toBe('move')
       expect(getHistoryActionLabel(undoStack[0])).toBe('Move 2 elements')
 
       useAppStore.getState().undo()
@@ -266,6 +266,39 @@ describe('canvasElements slice', () => {
       const afterRedo = useAppStore.getState().elements as ShapeElement[]
       expect(afterRedo[0].x).toBe(10)
       expect(afterRedo[1].x).toBe(60)
+    })
+
+    it('records snapshot history when a move updates bound arrow geometry', () => {
+      useAppStore.getState().addElements([
+        makeShape('box', { x: 100, y: 100, w: 50, h: 50 }),
+        makeShape('arrow', {
+          kind: 'arrow',
+          x: 150,
+          y: 125,
+          w: 50,
+          h: 0,
+          startBinding: { targetId: 'box', anchorX: 1, anchorY: 0.5 },
+        }),
+      ])
+      useAppStore.setState({ undoStack: [], redoStack: [] })
+
+      useAppStore.getState().moveElementsById(['box'], 30, 20)
+
+      const undoStack = useAppStore.getState().undoStack
+      expect(undoStack).toHaveLength(1)
+      expect(undoStack[0].type).toBe('snapshot')
+      expect((useAppStore.getState().idToElement.get('arrow') as ShapeElement).w).toBe(20)
+
+      useAppStore.getState().undo()
+
+      const restoredBox = useAppStore.getState().idToElement.get('box') as ShapeElement
+      const restoredArrow = useAppStore.getState().idToElement.get('arrow') as ShapeElement
+      expect(restoredBox.x).toBe(100)
+      expect(restoredBox.y).toBe(100)
+      expect(restoredArrow.x).toBe(150)
+      expect(restoredArrow.y).toBe(125)
+      expect(restoredArrow.w).toBe(50)
+      expect(restoredArrow.h).toBe(0)
     })
 
     it('can move without recording history for in-progress drag frames', () => {

@@ -136,7 +136,7 @@ function getFitViewBox(bounds: { x: number; y: number; w: number; h: number }, p
   const areaHeight = Math.max(1, area.bottom - area.top)
   const scaleX = Math.max(0.01, (areaWidth - padding * 2) / (bounds.w || 1))
   const scaleY = Math.max(0.01, (areaHeight - padding * 2) / (bounds.h || 1))
-  const zoom = Math.min(scaleX, scaleY, FIT_MAX_ZOOM)
+  const zoom = Math.max(0.2, Math.min(scaleX, scaleY, FIT_MAX_ZOOM))
   const centerScreenX = area.left + areaWidth / 2
   const centerScreenY = area.top + areaHeight / 2
   const centerWorldX = bounds.x + bounds.w / 2

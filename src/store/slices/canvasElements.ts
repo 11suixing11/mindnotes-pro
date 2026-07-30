@@ -150,6 +150,16 @@ export function createCanvasElementsSlice(
     return assignElementLayer(el, layerId, st.layers)
   }
 
+  function hasBoundArrowForAny(ids: Set<string>, elements: CanvasElement[]): boolean {
+    for (const el of elements) {
+      if (el.type !== 'shape') continue
+      if (el.kind !== 'line' && el.kind !== 'arrow') continue
+      if (el.startBinding && ids.has(el.startBinding.targetId)) return true
+      if (el.endBinding && ids.has(el.endBinding.targetId)) return true
+    }
+    return false
+  }
+
   function setElementCollection(next: CanvasElement[], st = get()) {
     idToElement.clear()
     st.idToElement.clear()
@@ -564,7 +574,8 @@ export function createCanvasElementsSlice(
 
       const idSet = new Set(unlockedIds)
       const recordHistory = options.recordHistory !== false
-      const beforeSnapshot = recordHistory ? snapshot(st.elements) : null
+      const needsSnapshotHistory = recordHistory && hasBoundArrowForAny(idSet, st.elements)
+      const beforeSnapshot = needsSnapshotHistory ? snapshot(st.elements) : null
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
         // P0 性能优化: 快速检查是否有元素需要移动 - 使用 idToElement O(1) 检查
@@ -607,16 +618,23 @@ export function createCanvasElementsSlice(
         const nextState: { elements: CanvasElement[]; undoStack?: UndoAction[]; redoStack?: [] } = {
           elements: next,
         }
-        if (recordHistory && beforeSnapshot) {
+        if (recordHistory) {
+          const action: UndoAction = beforeSnapshot
+            ? {
+                type: 'snapshot',
+                before: beforeSnapshot,
+                after: snapshot(next),
+                label:
+                  unlockedIds.length === 1 ? 'Move element' : `Move ${unlockedIds.length} elements`,
+                affectedIds: [...affectedIds],
+              }
+            : {
+                type: 'move',
+                deltas: movedIds.map((id) => ({ id, dx, dy })),
+              }
           nextState.undoStack = [
             ...s.undoStack.slice(-MAX_HISTORY),
-            {
-              type: 'snapshot',
-              before: beforeSnapshot,
-              after: snapshot(next),
-              label: unlockedIds.length === 1 ? 'Move element' : `Move ${unlockedIds.length} elements`,
-              affectedIds: [...affectedIds],
-            },
+            action,
           ]
           nextState.redoStack = []
         }

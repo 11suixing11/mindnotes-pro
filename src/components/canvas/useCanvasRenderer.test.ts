@@ -385,6 +385,7 @@ describe('useCanvasRenderer', () => {
       const { result } = renderHook(() =>
         useCanvasRenderer(createMockCanvasRef(), createMockContainerRef(), createDefaultDrawState)
       )
+      result.current.elementsDirtyRef.current = false
 
       act(() => {
         window.dispatchEvent(new Event(CANVAS_INVALIDATED_EVENT))

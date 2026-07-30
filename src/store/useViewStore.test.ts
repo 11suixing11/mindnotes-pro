@@ -147,6 +147,13 @@ describe('useViewStore', () => {
       expect(useViewStore.getState().viewBox.zoom).toBeLessThanOrEqual(3)
     })
 
+    it('clamps zoom to min 0.2 for very large bounds', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true })
+      Object.defineProperty(window, 'innerHeight', { value: 768, writable: true })
+      useViewStore.getState().zoomToFit({ x: 0, y: 0, w: 100000, h: 100000 })
+      expect(useViewStore.getState().viewBox.zoom).toBe(0.2)
+    })
+
     it('fits content below overlapping canvas toolbars', () => {
       Object.defineProperty(window, 'innerWidth', { value: 1200, writable: true })
       Object.defineProperty(window, 'innerHeight', { value: 800, writable: true })

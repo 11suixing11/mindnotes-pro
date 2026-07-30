@@ -1,11 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import CanvasActionButtons from './CanvasActionButtons'
 import { useAppStore } from '../../store/appStore'
-
-vi.mock('../confirm-modal', () => ({
-  useConfirm: () => vi.fn(async () => false),
-}))
 
 describe('CanvasActionButtons', () => {
   beforeEach(() => {
@@ -25,7 +21,6 @@ describe('CanvasActionButtons', () => {
 
     expect(screen.getByLabelText('背景设置')).toBeTruthy()
     expect(screen.getByLabelText('插入图片')).toBeTruthy()
-    expect(screen.getByLabelText('清屏')).toBeTruthy()
     expect(screen.getByLabelText('全屏')).toBeTruthy()
   })
 

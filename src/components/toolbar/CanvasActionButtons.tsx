@@ -5,7 +5,6 @@ import { sanitizeSvgDataUrl } from '../../canvas/svgSanitizer'
 import { useAppStore } from '../../store/appStore'
 import type { CanvasBackgroundStyle } from '../../store/types'
 import { useToastStore } from '../../store/toastStore'
-import { useConfirm } from '../confirm-modal'
 import { getMainCanvas, getVisibleCanvasViewport } from '../canvas/viewport'
 import { icons } from './icons'
 
@@ -58,17 +57,15 @@ const BACKGROUND_OPTIONS: {
 
 const CanvasActionButtons = memo(function CanvasActionButtons() {
   const toast = useToastStore((s) => s.show)
-  const confirm = useConfirm()
   const [showBackground, setShowBackground] = useState(false)
   const [backgroundPos, setBackgroundPos] = useState({ top: 0, left: 0 })
-  const { canvasBg, setCanvasBg, backgroundStyle, setBackgroundStyle, clearAll, addElement } =
+  const { canvasBg, setCanvasBg, backgroundStyle, setBackgroundStyle, addElement } =
     useAppStore(
       useShallow((s) => ({
         canvasBg: s.bgColor,
         setCanvasBg: s.setBgColor,
         backgroundStyle: s.backgroundStyle,
         setBackgroundStyle: s.setBackgroundStyle,
-        clearAll: s.clearAll,
         addElement: s.addElement,
       }))
     )
@@ -208,17 +205,6 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
         aria-label="插入图片"
       >
         {icons.image}
-      </button>
-
-      <button
-        onClick={async () => {
-          if (await confirm('清空画布？')) clearAll()
-        }}
-        className="abtn"
-        data-tip="清屏"
-        aria-label="清屏"
-      >
-        {icons.clear}
       </button>
 
       <button onClick={toggleFullscreen} className="abtn" data-tip="全屏" aria-label="全屏">
