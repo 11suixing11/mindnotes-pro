@@ -76,7 +76,7 @@ describe('TemplateMenu', () => {
     render(<TemplateMenu />)
 
     fireEvent.click(screen.getByRole('button', { name: '模板库' }))
-    fireEvent.click(screen.getByRole('button', { name: '插入 Flowchart 模板' }))
+    fireEvent.click(screen.getByRole('button', { name: '插入 流程图 模板' }))
 
     const state = useAppStore.getState()
     expect(state.elements.length).toBeGreaterThan(0)
@@ -94,7 +94,7 @@ describe('TemplateMenu', () => {
     render(<TemplateMenu />)
 
     fireEvent.click(screen.getByRole('button', { name: '模板库' }))
-    fireEvent.click(screen.getByRole('button', { name: '插入 Flowchart 模板' }))
+    fireEvent.click(screen.getByRole('button', { name: '插入 流程图 模板' }))
 
     const bounds = getTemplateBounds(useAppStore.getState().elements)
     if (!bounds) throw new Error('Expected inserted template bounds')

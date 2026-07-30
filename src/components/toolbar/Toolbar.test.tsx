@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import Toolbar from './Toolbar'
 import { useAppStore } from '../../store/appStore'
 import { useShortcutStore } from '../../store/useShortcutStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useThemeStore } from '../../store/useThemeStore'
+import { queue, type ConfirmOptions } from '../confirm-modal/useConfirm'
 
 describe('Toolbar', () => {
   beforeEach(() => {
     localStorage.clear()
+    queue.length = 0
     useShortcutStore.getState().resetShortcuts()
     useAppStore.setState({
       tool: 'pen',
@@ -44,5 +46,19 @@ describe('Toolbar', () => {
     expect(labels.indexOf('模板库')).toBeGreaterThan(labels.indexOf('Brush: 钢笔'))
     expect(labels.indexOf('模板库')).toBeLessThan(labels.indexOf('纯黑'))
     expect(labels.indexOf('模板库')).toBeLessThan(labels.indexOf('背景设置'))
+  })
+
+  it('uses a clear localized confirmation before clearing the canvas', () => {
+    const details: ConfirmOptions[] = []
+    const onConfirm = (event: Event) => {
+      details.push((event as CustomEvent<ConfirmOptions>).detail)
+    }
+    window.addEventListener('app-confirm', onConfirm)
+
+    render(<Toolbar />)
+    fireEvent.click(screen.getByRole('button', { name: '清空画布' }))
+
+    window.removeEventListener('app-confirm', onConfirm)
+    expect(details[0]?.message).toBe('确定清空当前画布吗？')
   })
 })

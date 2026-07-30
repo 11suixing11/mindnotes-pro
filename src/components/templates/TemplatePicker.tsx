@@ -271,7 +271,7 @@ export function TemplatePicker({
             value={customName}
             onChange={(event) => setCustomName(event.target.value)}
             aria-label="自定义模板名称"
-            placeholder="Custom template"
+            placeholder="自定义模板"
           />
           <button type="submit" className="template-save-btn" disabled={sourceElementCount === 0}>
             保存为模板
@@ -302,8 +302,8 @@ export function TemplatePicker({
             </section>
           ))}
 
-          <section className="template-section" aria-label="Custom">
-            <h3>Custom</h3>
+          <section className="template-section" aria-label={TEMPLATE_CATEGORY_LABELS.custom}>
+            <h3>{TEMPLATE_CATEGORY_LABELS.custom}</h3>
             {customTemplates.length > 0 ? (
               <div className="template-grid">
                 {customTemplates.map((template) => (
@@ -317,7 +317,7 @@ export function TemplatePicker({
                 ))}
               </div>
             ) : (
-              <div className="template-empty">No custom templates</div>
+              <div className="template-empty">暂无自定义模板</div>
             )}
           </section>
         </div>

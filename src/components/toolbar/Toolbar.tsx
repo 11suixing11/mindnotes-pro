@@ -126,11 +126,11 @@ export default function Toolbar() {
           </button>
           <button
             onClick={async () => {
-              if (await confirm('Clear all?')) clearAll()
+              if (await confirm('确定清空当前画布吗？')) clearAll()
             }}
             className="abtn"
-            data-tip="Clear"
-            aria-label="Clear all"
+            data-tip="清空画布"
+            aria-label="清空画布"
           >
             {icons.trash}
           </button>

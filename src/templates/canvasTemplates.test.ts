@@ -51,6 +51,13 @@ describe('canvas templates', () => {
     const templates = getBuiltInTemplates()
 
     expect(templates).toHaveLength(5)
+    expect(templates.map((template) => template.name)).toEqual([
+      '流程图',
+      '思维导图',
+      '界面线框',
+      '网络图',
+      '康奈尔笔记',
+    ])
     expect(templates.map((template) => template.category)).toEqual([
       'flowchart',
       'mind-map',
@@ -125,6 +132,12 @@ describe('canvas templates', () => {
     expect(bounds.y).toBeCloseTo(0, 5)
     expect(template.width).toBeGreaterThan(0)
     expect(template.height).toBeGreaterThan(0)
+  })
+
+  it('uses a localized fallback name for unnamed custom templates', () => {
+    const template = requireTemplate(createTemplateFromElements('   ', [makeShape('unnamed')]))
+
+    expect(template.name).toBe('未命名模板')
   })
 
   it('does not persist locked state into reusable templates', () => {
