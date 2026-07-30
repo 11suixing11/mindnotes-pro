@@ -77,6 +77,8 @@ describe('canvas templates', () => {
     expect(inserted).toHaveLength(template.elements.length)
     expect(new Set(inserted.map((el) => el.id)).size).toBe(inserted.length)
     expect(inserted.some((el) => originalIds.has(el.id))).toBe(false)
+    expect(new Set(inserted.map((el) => el.groupId)).size).toBe(1)
+    expect(inserted[0].groupId).toMatch(/^template-group-/)
     expect(bounds.x + bounds.w / 2).toBeCloseTo(1200, 5)
     expect(bounds.y + bounds.h / 2).toBeCloseTo(-340, 5)
   })

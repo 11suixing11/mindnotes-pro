@@ -6,6 +6,8 @@ import type {
   UndoAction,
 } from './types'
 import * as storage from './storage'
+import { CANVAS_SCHEMA_VERSION } from './schema'
+import { useToastStore } from './toastStore'
 const SAVE_DELAY = 1500
 interface StoreRef {
   setState: (partial: Record<string, unknown>) => void
@@ -91,8 +93,8 @@ export function scheduleSave(): void {
 /**
  * Save the current document immediately.
  */
-export async function saveDocNow(): Promise<void> {
-  if (!_storeRef) return
+export async function saveDocNow(): Promise<boolean> {
+  if (!_storeRef) return false
   const state = _storeRef.getState()
   const {
     currentDocId,
@@ -104,7 +106,7 @@ export async function saveDocNow(): Promise<void> {
     undoStack,
     redoStack,
   } = state
-  if (!currentDocId) return
+  if (!currentDocId) return true
   // 使用 generation 计数器检测变化
   // 彻底解决中间元素修改无法被检测的数据丢失bug
   if (_saveGeneration === _lastSavedGeneration) {
@@ -115,73 +117,73 @@ export async function saveDocNow(): Promise<void> {
         _storeRef.setState({ saveStatus: 'idle' })
       }
     }, 1000)
-    return
+    return true
   }
-  const existing = await storage.get<CanvasDoc>('docs', currentDocId)
-  const now = Date.now()
-  await storage.put('docs', {
-    id: currentDocId,
-    title: existing?.title ?? '未命名画布',
-    elements,
-    layers,
-    activeLayerId,
-    bgColor,
-    backgroundStyle,
-    folderId: existing?.folderId ?? null,
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
-    undoStack,
-    redoStack,
-  })
-  // 更新缓存
-  _lastSavedGeneration = _saveGeneration
-  _lastSaveTime = now
-  // P1 性能优化: 增量更新文档列表，避免每次都重新获取所有文档
-  // 只更新当前修改的文档，而不是重新 fetch 全部
-  // 复用已有的 state 变量，避免重复调用 getState()
-  const currentDocs = state.docs || []
-  const updatedDoc = {
-    id: currentDocId,
-    title: existing?.title ?? '未命名画布',
-    elements,
-    layers,
-    activeLayerId,
-    bgColor,
-    backgroundStyle,
-    folderId: existing?.folderId ?? null,
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
-    undoStack,
-    redoStack,
-  }
-  // P0 性能优化: 使用 Map 进行 O(1) 文档查找
-  // 策略：当前修改的文档一定是最新的，直接移到最前面即可 O(n)
-  let docs: CanvasDoc[]
-  // 延迟初始化索引
-  if (!_docsIndexMap) {
-    rebuildDocsIndex(currentDocs)
-  }
-  const existingIndex = _docsIndexMap?.get(currentDocId) ?? -1
-  if (existingIndex >= 0) {
-    // 文档已存在：移到最前面
-    docs = [
-      updatedDoc,
-      ...currentDocs.slice(0, existingIndex),
-      ...currentDocs.slice(existingIndex + 1),
-    ]
-  } else {
-    // 新文档：插入到最前面
-    docs = [updatedDoc, ...currentDocs]
-  }
-  // 重建索引
-  rebuildDocsIndex(docs)
-  _storeRef.setState({ docs, saveStatus: 'saved' })
-  // Reset save status after 2 seconds
-  setTimeout(() => {
-    if (_storeRef?.getState().saveStatus === 'saved') {
-      _storeRef.setState({ saveStatus: 'idle' })
+  const generationAtStart = _saveGeneration
+
+  try {
+    const existing = await storage.get<CanvasDoc>('docs', currentDocId)
+    const now = Date.now()
+    const updatedDoc: CanvasDoc = {
+      schemaVersion: CANVAS_SCHEMA_VERSION,
+      id: currentDocId,
+      title: existing?.title ?? '未命名画布',
+      elements,
+      layers,
+      activeLayerId,
+      bgColor,
+      backgroundStyle,
+      folderId: existing?.folderId ?? null,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+      undoStack,
+      redoStack,
     }
-  }, 2000)
+    await storage.put('docs', updatedDoc)
+    // 更新缓存
+    _lastSavedGeneration = generationAtStart
+    _lastSaveTime = now
+    // P1 性能优化: 增量更新文档列表，避免每次都重新获取所有文档
+    // 只更新当前修改的文档，而不是重新 fetch 全部
+    // 复用已有的 state 变量，避免重复调用 getState()
+    const currentDocs = state.docs || []
+    // P0 性能优化: 使用 Map 进行 O(1) 文档查找
+    // 策略：当前修改的文档一定是最新的，直接移到最前面即可 O(n)
+    let docs: CanvasDoc[]
+    // 延迟初始化索引
+    if (!_docsIndexMap) {
+      rebuildDocsIndex(currentDocs)
+    }
+    const existingIndex = _docsIndexMap?.get(currentDocId) ?? -1
+    if (existingIndex >= 0) {
+      // 文档已存在：移到最前面
+      docs = [
+        updatedDoc,
+        ...currentDocs.slice(0, existingIndex),
+        ...currentDocs.slice(existingIndex + 1),
+      ]
+    } else {
+      // 新文档：插入到最前面
+      docs = [updatedDoc, ...currentDocs]
+    }
+    // 重建索引
+    rebuildDocsIndex(docs)
+    _storeRef.setState({ docs, saveStatus: 'saved' })
+    // Reset save status after 2 seconds
+    setTimeout(() => {
+      if (_storeRef?.getState().saveStatus === 'saved') {
+        _storeRef.setState({ saveStatus: 'idle' })
+      }
+    }, 2000)
+
+    if (_saveGeneration !== generationAtStart) scheduleSave()
+    return true
+  } catch (error) {
+    console.error('[save] Failed to persist the current document', error)
+    _storeRef.setState({ saveStatus: 'error' })
+    useToastStore.getState().show('保存失败，请检查浏览器存储权限后重试', 'error', 5000)
+    return false
+  }
 }
 /**
  * P1 性能优化: 强制重置缓存（用于导入/导出等场景）

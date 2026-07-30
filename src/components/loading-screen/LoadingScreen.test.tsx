@@ -13,14 +13,14 @@ describe('LoadingScreen', () => {
     expect(screen.getByText('M')).toBeTruthy()
   })
 
-  it('renders the branding text', () => {
+  it('announces the loading state', () => {
     render(<LoadingScreen />)
-    expect(screen.getByText('Local-first whiteboard')).toBeTruthy()
+    expect(screen.getByRole('status', { name: '正在打开 MindNotes Pro' })).toBeTruthy()
   })
 
   it('renders loading dots', () => {
     const { container } = render(<LoadingScreen />)
-    const dots = container.querySelectorAll('.rounded-full')
-    expect(dots.length).toBeGreaterThanOrEqual(3)
+    const dots = container.querySelectorAll('.loading-dots span')
+    expect(dots).toHaveLength(3)
   })
 })

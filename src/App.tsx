@@ -118,11 +118,7 @@ export default function App() {
         aria-label="MindNotes Pro 白板"
       >
         <Sidebar />
-        <div
-          ref={mainContentRef}
-          tabIndex={-1}
-          className="workspace-main"
-        >
+        <div ref={mainContentRef} tabIndex={-1} className="workspace-main">
           <Canvas />
           <Toolbar />
           <ToastContainer />
@@ -160,19 +156,32 @@ export default function App() {
             <span
               style={{
                 fontSize: '10px',
-                color: saveStatus === 'saving' ? 'var(--text-4)' : 'var(--success)',
+                color:
+                  saveStatus === 'error'
+                    ? 'var(--danger)'
+                    : saveStatus === 'saving'
+                      ? 'var(--text-4)'
+                      : 'var(--success)',
                 transition: 'color 0.3s',
               }}
               aria-live="polite"
               aria-label={
-                saveStatus === 'saving' ? 'Saving' : saveStatus === 'saved' ? 'Saved' : ''
+                saveStatus === 'saving'
+                  ? '正在保存'
+                  : saveStatus === 'saved'
+                    ? '已保存'
+                    : saveStatus === 'error'
+                      ? '保存失败'
+                      : ''
               }
             >
               {saveStatus === 'saving'
                 ? '\u00b7\u00b7\u00b7'
                 : saveStatus === 'saved'
                   ? '\u2713'
-                  : ''}
+                  : saveStatus === 'error'
+                    ? '保存失败'
+                    : ''}
             </span>
             <span className="vl" aria-hidden="true" />
             <a

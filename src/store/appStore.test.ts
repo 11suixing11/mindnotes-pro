@@ -1,12 +1,49 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from './appStore'
+import { clearSaveTimer, resetSaveCache } from './saveManager'
+import { useToastStore } from './toastStore'
+import type * as StorageModule from './storage'
+
+vi.mock('./storage', () => {
+  const store: Record<string, Record<string, unknown>> = {}
+  return {
+    getAll: vi.fn(async (storeName: string) => Object.values(store[storeName] ?? {})),
+    get: vi.fn(async (storeName: string, id: string) => store[storeName]?.[id]),
+    put: vi.fn(async (storeName: string, record: { id: string }) => {
+      if (!store[storeName]) store[storeName] = {}
+      store[storeName][record.id] = record
+    }),
+    del: vi.fn(async (storeName: string, id: string) => {
+      delete store[storeName]?.[id]
+    }),
+    __store: store,
+  }
+})
+
+const storageMock = (await import('./storage')) as typeof StorageModule & {
+  __store: Record<string, Record<string, unknown>>
+}
+
+function clearMockStorage() {
+  for (const key of Object.keys(storageMock.__store)) delete storageMock.__store[key]
+  vi.mocked(storageMock.getAll).mockClear()
+  vi.mocked(storageMock.get).mockClear()
+  vi.mocked(storageMock.put).mockClear()
+  vi.mocked(storageMock.del).mockClear()
+}
 
 describe('useAppStore', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     localStorage.clear()
+    clearMockStorage()
+    clearSaveTimer()
+    resetSaveCache()
+    useToastStore.setState({ toasts: [] })
     useAppStore.setState({
       elements: [],
+      docs: [],
+      currentDocId: null,
       tool: 'pen',
       brush: 'pen',
       color: '#2c2416',
@@ -20,6 +57,7 @@ describe('useAppStore', () => {
   })
 
   afterEach(() => {
+    clearSaveTimer()
     vi.useRealTimers()
   })
 
@@ -238,6 +276,29 @@ describe('useAppStore', () => {
       // Wait for saved->idle transition
       await vi.advanceTimersByTimeAsync(2000)
       expect(useAppStore.getState().saveStatus).toBe('idle')
+    })
+
+    it('reports a failed write instead of claiming the document was saved', async () => {
+      await useAppStore.getState().createDoc('Test Doc')
+      useAppStore.setState({ saveStatus: 'idle' })
+      vi.mocked(storageMock.put).mockRejectedValueOnce(new Error('quota exceeded'))
+
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'shape-1',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 40,
+        h: 40,
+        color: '#000',
+        size: 2,
+      })
+      await vi.advanceTimersByTimeAsync(1500)
+
+      expect(useAppStore.getState().saveStatus).toBe('error')
+      const toasts = useToastStore.getState().toasts
+      expect(toasts[toasts.length - 1]?.message).toContain('保存失败')
     })
   })
 })

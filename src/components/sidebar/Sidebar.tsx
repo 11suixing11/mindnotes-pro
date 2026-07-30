@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { FilePlus2, Files, Menu, Search, X } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
+import { useToastStore } from '../../store/toastStore'
 import type { CanvasDoc } from '../../store/types'
 import { useConfirm } from '../confirm-modal'
 import CanvasPreview from './CanvasPreview'
@@ -11,15 +13,15 @@ type DocumentSortMode =
   'updated-desc' | 'updated-asc' | 'created-desc' | 'created-asc' | 'title-asc' | 'title-desc'
 
 const DOCUMENT_SORT_OPTIONS: { value: DocumentSortMode; label: string }[] = [
-  { value: 'updated-desc', label: 'Modified newest' },
-  { value: 'updated-asc', label: 'Modified oldest' },
-  { value: 'created-desc', label: 'Created newest' },
-  { value: 'created-asc', label: 'Created oldest' },
-  { value: 'title-asc', label: 'Name A-Z' },
-  { value: 'title-desc', label: 'Name Z-A' },
+  { value: 'updated-desc', label: '最近修改' },
+  { value: 'updated-asc', label: '最早修改' },
+  { value: 'created-desc', label: '最近创建' },
+  { value: 'created-asc', label: '最早创建' },
+  { value: 'title-asc', label: '名称升序' },
+  { value: 'title-desc', label: '名称降序' },
 ]
 
-const titleCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+const titleCollator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' })
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
@@ -34,7 +36,7 @@ function useIsMobile() {
 }
 
 function formatTime(timestamp: number) {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat('zh-CN', {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -130,6 +132,7 @@ export default function Sidebar() {
   const setSearchQuery = useAppStore((state) => state.setDocumentSearchQuery)
   const addRecentSearch = useAppStore((state) => state.addRecentDocumentSearch)
   const confirm = useConfirm()
+  const toast = useToastStore((state) => state.show)
 
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -178,16 +181,21 @@ export default function Sidebar() {
       }
 
       confirmingRef.current = true
-      const accepted = await confirm(`Rename "${doc.title}" to "${nextTitle}"?`, {
-        confirmLabel: 'Rename',
-        cancelLabel: 'Keep editing',
+      const accepted = await confirm(`将“${doc.title}”重命名为“${nextTitle}”？`, {
+        confirmLabel: '重命名',
+        cancelLabel: '继续编辑',
         danger: false,
       })
       confirmingRef.current = false
 
       if (accepted) {
-        setRenamingId(null)
-        void renameDoc(doc.id, nextTitle)
+        try {
+          await renameDoc(doc.id, nextTitle)
+          setRenamingId(null)
+        } catch {
+          toast('文档重命名失败，请重试', 'error')
+          requestAnimationFrame(() => renameInputRef.current?.focus())
+        }
         return
       }
 
@@ -196,7 +204,7 @@ export default function Sidebar() {
         renameInputRef.current?.select()
       })
     },
-    [confirm, renameDoc, renameValue, renamingId]
+    [confirm, renameDoc, renameValue, renamingId, toast]
   )
 
   const cancelRename = useCallback(() => {
@@ -208,25 +216,38 @@ export default function Sidebar() {
   }, [])
 
   const openDocument = useCallback(
-    (id: string) => {
+    async (id: string) => {
       if (renamingId === id) return
       saveRecentSearch(searchQuery)
-      void openDoc(id)
-      if (isMobile) setSidebarOpen(false)
+      try {
+        await openDoc(id)
+        if (isMobile) setSidebarOpen(false)
+      } catch {
+        toast('文档打开失败，请重试', 'error')
+      }
     },
-    [isMobile, openDoc, renamingId, saveRecentSearch, searchQuery, setSidebarOpen]
+    [isMobile, openDoc, renamingId, saveRecentSearch, searchQuery, setSidebarOpen, toast]
   )
+
+  const createDocument = useCallback(async () => {
+    try {
+      await createDoc()
+      if (isMobile) setSidebarOpen(false)
+    } catch {
+      toast('文档创建失败，请检查浏览器存储权限', 'error')
+    }
+  }, [createDoc, isMobile, setSidebarOpen, toast])
 
   if (!sidebarOpen) {
     return (
       <button
         type="button"
-        aria-label="Open documents"
+        aria-label="打开文档面板"
         aria-expanded="false"
         onClick={() => setSidebarOpen(true)}
         className="sb-toggle-btn"
       >
-        <span aria-hidden="true">☰</span>
+        <Menu size={18} aria-hidden="true" />
       </button>
     )
   }
@@ -236,31 +257,30 @@ export default function Sidebar() {
       {isMobile && (
         <button
           type="button"
-          aria-label="Close documents"
+          aria-label="关闭文档面板"
           className="sidebar-overlay"
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      <nav aria-label="Documents" className={`sb-panel${isMobile ? ' sb-panel-mobile' : ''}`}>
+      <nav aria-label="文档" className={`sb-panel${isMobile ? ' sb-panel-mobile' : ''}`}>
         <div className="sb-header">
           <div className="sb-header-row">
             <div className="sb-brand">
-              <div className="sb-brand-logo" aria-hidden="true">
-                M
-              </div>
-              <span className="sb-brand-name">MindNotes Pro</span>
+              <Files size={18} aria-hidden="true" />
+              <span className="sb-brand-name">文档</span>
             </div>
             <button
               type="button"
-              aria-label="Close documents"
+              aria-label="关闭文档面板"
               className="sb-close-btn"
               onClick={() => setSidebarOpen(false)}
             >
-              ×
+              <X size={17} aria-hidden="true" />
             </button>
           </div>
-          <button type="button" className="sb-btn-new" onClick={() => void createDoc()}>
-            + New document
+          <button type="button" className="sb-btn-new" onClick={() => void createDocument()}>
+            <FilePlus2 size={15} aria-hidden="true" />
+            <span>新建文档</span>
           </button>
           <form
             className="sb-search"
@@ -270,32 +290,33 @@ export default function Sidebar() {
               saveRecentSearch(searchQuery)
             }}
           >
+            <Search className="sb-search-icon" size={14} aria-hidden="true" />
             <input
               type="search"
-              aria-label="Search documents"
+              aria-label="搜索文档"
               className="sb-search-input"
-              placeholder="Search documents…"
+              placeholder="搜索标题或文字内容"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
             />
             {searchQuery && (
               <button
                 type="button"
-                aria-label="Clear document search"
+                aria-label="清除文档搜索"
                 className="sb-search-clear"
                 onClick={() => setSearchQuery('')}
               >
-                ×
+                <X size={13} aria-hidden="true" />
               </button>
             )}
           </form>
           <div className="sb-sort-row">
             <label htmlFor="document-sort" className="sb-sort-label">
-              Sort
+              排序
             </label>
             <select
               id="document-sort"
-              aria-label="Sort documents"
+              aria-label="文档排序"
               className="sb-sort-select"
               value={sortMode}
               onChange={(event) => setSortMode(event.target.value as DocumentSortMode)}
@@ -308,13 +329,13 @@ export default function Sidebar() {
             </select>
           </div>
           {recentSearches.length > 0 && (
-            <div className="sb-recent-searches" aria-label="Recent document searches">
+            <div className="sb-recent-searches" aria-label="最近的文档搜索">
               {recentSearches.map((item) => (
                 <button
                   key={item}
                   type="button"
                   className="sb-recent-chip"
-                  aria-label={`Search again: ${item}`}
+                  aria-label={`再次搜索：${item}`}
                   onClick={() => setSearchQuery(item)}
                 >
                   {item}
@@ -324,10 +345,10 @@ export default function Sidebar() {
           )}
         </div>
 
-        <div role="list" aria-label="Document list" className="sb-tree">
+        <div role="list" aria-label="文档列表" className="sb-tree">
           {visibleDocs.length === 0 && (
             <div className="sb-empty-search" role="status">
-              No documents found
+              未找到文档
             </div>
           )}
           {visibleDocs.map(({ doc, match }) => {
@@ -339,7 +360,7 @@ export default function Sidebar() {
                 role="listitem"
                 aria-current={isActive ? 'page' : undefined}
                 className={`sb-doc-item${isActive ? ' sb-doc-item-active' : ''}`}
-                onClick={() => openDocument(doc.id)}
+                onClick={() => void openDocument(doc.id)}
                 onContextMenu={(event) => {
                   event.preventDefault()
                   setContext({ x: event.clientX, y: event.clientY, docId: doc.id })
@@ -349,7 +370,7 @@ export default function Sidebar() {
                 {renamingId === doc.id ? (
                   <input
                     ref={renameInputRef}
-                    aria-label={`Rename ${doc.title}`}
+                    aria-label={`重命名 ${doc.title}`}
                     className="sb-rename-input"
                     value={renameValue}
                     onChange={(event) => setRenameValue(event.target.value)}
@@ -383,7 +404,7 @@ export default function Sidebar() {
                     </div>
                     <div className={`sb-doc-meta${contentMatch ? ' sb-doc-match' : ''}`}>
                       {contentMatch ? (
-                        <>Text: {highlightMatch(contentMatch, normalizedSearch)}</>
+                        <>正文：{highlightMatch(contentMatch, normalizedSearch)}</>
                       ) : (
                         formatTime(doc.updatedAt)
                       )}
@@ -399,8 +420,8 @@ export default function Sidebar() {
 
         <div className="sb-footer" aria-live="polite">
           {normalizedSearch
-            ? `${visibleDocs.length} of ${docs.length} ${docs.length === 1 ? 'document' : 'documents'}`
-            : `${docs.length} ${docs.length === 1 ? 'document' : 'documents'}`}
+            ? `显示 ${visibleDocs.length} / ${docs.length} 个文档`
+            : `${docs.length} 个文档`}
         </div>
       </nav>
 

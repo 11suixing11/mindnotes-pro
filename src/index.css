@@ -928,18 +928,15 @@ body,
 .brand-icon {
   width: 30px;
   height: 30px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #b8a0d0, #d49898, #90b4d0, #90b888);
-  background-size: 300% 300%;
-  animation: gradientFlow 10s ease infinite;
+  border-radius: 7px;
+  background: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   font-size: 14px;
   font-weight: 800;
-  box-shadow: 0 3px 14px rgba(184, 160, 208, 0.35);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px var(--glow);
 }
 
 .brand-text {
@@ -950,9 +947,7 @@ body,
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: linear-gradient(135deg, var(--text), var(--text-2));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  background: none;
 }
 
 .status {
@@ -1038,36 +1033,20 @@ body,
   overflow: hidden;
 }
 
-.loading-screen::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(60% 50% at 30% 40%, rgba(184, 160, 208, 0.15), transparent),
-    radial-gradient(50% 60% at 70% 60%, rgba(144, 180, 208, 0.12), transparent),
-    radial-gradient(40% 40% at 50% 50%, rgba(208, 184, 136, 0.1), transparent);
-  animation: waterRipple 6s ease-in-out infinite;
-}
-
 .loading-logo {
   width: 56px;
   height: 56px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #b8a0d0, #d49898, #90b4d0, #90b888);
-  background-size: 300% 300%;
-  animation: gradientFlow 5s ease infinite;
+  border-radius: 8px;
+  background: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   font-size: 24px;
   font-weight: 800;
-  box-shadow:
-    0 8px 32px rgba(184, 160, 208, 0.35),
-    0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 18px var(--glow);
   position: relative;
   z-index: 1;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .loading-dots {
@@ -1095,7 +1074,7 @@ body,
   font-size: 14px;
   color: var(--text-3);
   font-weight: 600;
-  letter-spacing: 2px;
+  letter-spacing: 0;
   position: relative;
   z-index: 1;
 }
@@ -1226,8 +1205,8 @@ body,
   position: relative;
   z-index: 20;
   display: flex;
-  flex: 0 0 240px;
-  width: 240px;
+  flex: 0 0 268px;
+  width: 268px;
   height: 100%;
   flex-direction: column;
   border-right: 1px solid var(--border);
@@ -1238,7 +1217,7 @@ body,
   position: fixed;
   inset: 0 auto 0 0;
   z-index: 30;
-  width: 260px;
+  width: min(288px, calc(100vw - 40px));
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
   animation: slideRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1261,22 +1240,7 @@ body,
 
 .sb-brand {
   gap: 8px;
-}
-
-.sb-brand-logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #b8a0d0, #d49898, #90b4d0, #90b888);
-  background-size: 300% 300%;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 800;
-  box-shadow: 0 3px 12px rgba(184, 160, 208, 0.35);
-  animation: gradientFlow 10s ease infinite;
+  color: var(--text-3);
 }
 
 .sb-brand-name {
@@ -1286,6 +1250,11 @@ body,
 }
 
 .sb-close-btn {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
   padding: 0 4px;
   border: none;
   background: none;
@@ -1299,7 +1268,11 @@ body,
 }
 
 .sb-btn-new {
+  display: flex;
   width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 7px 10px;
   border: none;
   border-radius: 8px;
@@ -1320,9 +1293,19 @@ body,
   margin-top: 8px;
 }
 
+.sb-search-icon {
+  position: absolute;
+  top: 50%;
+  left: 9px;
+  z-index: 1;
+  transform: translateY(-50%);
+  color: var(--text-4);
+  pointer-events: none;
+}
+
 .sb-search-input {
   width: 100%;
-  padding: 7px 28px 7px 10px;
+  padding: 7px 28px 7px 29px;
   border: 1px solid var(--border);
   border-radius: 8px;
   outline: none;
@@ -1343,6 +1326,9 @@ body,
   width: 18px;
   height: 18px;
   transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   border-radius: 50%;
   background: transparent;
@@ -1368,8 +1354,7 @@ body,
   color: var(--text-4);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .sb-sort-select {
@@ -1424,10 +1409,13 @@ body,
 
 .layers-panel {
   flex: 0 0 auto;
-  max-height: 42%;
   overflow: hidden;
   border-top: 1px solid var(--border);
   background: var(--card-solid);
+}
+
+.layers-panel-expanded {
+  max-height: 46%;
 }
 
 .layers-header {
@@ -1435,7 +1423,26 @@ body,
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 9px 10px 7px;
+  padding: 7px 8px;
+}
+
+.layers-toggle {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  text-align: left;
+}
+
+.layers-heading {
+  min-width: 0;
+  flex: 1;
 }
 
 .layers-title {
@@ -1445,6 +1452,7 @@ body,
 }
 
 .layers-meta {
+  display: block;
   margin-top: 1px;
   color: var(--text-4);
   font-size: 10px;
@@ -1492,11 +1500,11 @@ body,
 }
 
 .layers-swatch {
-  width: 10px;
+  width: 4px;
   height: 20px;
   flex: 0 0 auto;
   border-radius: 4px;
-  background: linear-gradient(180deg, #7db6b1, #c08d75);
+  background: var(--primary);
 }
 
 .layers-row-text {
@@ -1538,6 +1546,11 @@ body,
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
   margin-top: 6px;
+}
+
+.layers-create-btn {
+  width: 28px;
+  flex: 0 0 28px;
 }
 
 .layers-icon-btn {
@@ -1676,8 +1689,10 @@ body,
 }
 
 .sb-ctx-item {
-  display: block;
+  display: flex;
   width: 100%;
+  align-items: center;
+  gap: 8px;
   padding: 7px 10px;
   border: none;
   border-radius: 6px;
@@ -1751,6 +1766,11 @@ body,
     max-height: 58px;
     overflow-x: auto;
     overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .sidebar::-webkit-scrollbar {
+    display: none;
   }
 
   .sidebar .sb-group {

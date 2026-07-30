@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from '../appStore'
+import { useToastStore } from '../toastStore'
+import { clearSaveTimer, resetSaveCache } from '../saveManager'
 
 // Mock storage module to use in-memory store
 vi.mock('../storage', () => {
@@ -37,6 +39,13 @@ describe('docManagement slice', () => {
     vi.useFakeTimers()
     localStorage.clear()
     clearMockStorage()
+    clearSaveTimer()
+    resetSaveCache()
+    storageMock.getAll.mockClear()
+    storageMock.get.mockClear()
+    storageMock.put.mockClear()
+    storageMock.del.mockClear()
+    useToastStore.setState({ toasts: [] })
     useAppStore.setState({
       docs: [],
       currentDocId: null,
@@ -53,6 +62,7 @@ describe('docManagement slice', () => {
   })
 
   afterEach(() => {
+    clearSaveTimer()
     vi.useRealTimers()
   })
 
@@ -66,6 +76,22 @@ describe('docManagement slice', () => {
       expect(state.docs[0].title).toBe('未命名画布')
       expect(state.docs[0].elements).toEqual([])
       expect(state.elements).toEqual([])
+    })
+
+    it('falls back to an editable in-memory canvas when storage cannot initialize', async () => {
+      storageMock.getAll.mockRejectedValueOnce(new Error('storage blocked'))
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      await useAppStore.getState().init()
+
+      const state = useAppStore.getState()
+      expect(state.loaded).toBe(true)
+      expect(state.saveStatus).toBe('error')
+      expect(state.docs).toHaveLength(1)
+      expect(state.elements).toEqual([])
+      const toasts = useToastStore.getState().toasts
+      expect(toasts[toasts.length - 1]?.message).toContain('仅保存在内存中')
+      consoleSpy.mockRestore()
     })
   })
 
@@ -104,6 +130,52 @@ describe('docManagement slice', () => {
       useAppStore.setState({ selectedIds: ['a', 'b'] })
       await useAppStore.getState().createDoc('New')
       expect(useAppStore.getState().selectedIds).toEqual([])
+    })
+
+    it('saves pending edits before switching to a new document', async () => {
+      const existingId = await useAppStore.getState().createDoc('Existing')
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'shape-pending',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 20,
+        h: 20,
+        color: '#000000',
+        size: 2,
+      })
+
+      const newId = await useAppStore.getState().createDoc('New')
+
+      expect(newId).not.toBe(existingId)
+      expect(storageMock.__store.docs[existingId].elements).toHaveLength(1)
+      expect(useAppStore.getState().currentDocId).toBe(newId)
+    })
+
+    it('does not leave the current document when pending edits cannot be saved', async () => {
+      const existingId = await useAppStore.getState().createDoc('Existing')
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'shape-pending',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 20,
+        h: 20,
+        color: '#000000',
+        size: 2,
+      })
+      storageMock.put.mockRejectedValueOnce(new Error('quota exceeded'))
+      vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      await expect(useAppStore.getState().createDoc('Blocked')).rejects.toThrow(
+        'Current document could not be saved'
+      )
+
+      expect(useAppStore.getState().currentDocId).toBe(existingId)
+      expect(useAppStore.getState().docs).toHaveLength(1)
+      expect(useAppStore.getState().saveStatus).toBe('error')
     })
   })
 
@@ -202,6 +274,54 @@ describe('docManagement slice', () => {
       const countBefore = useAppStore.getState().docs.length
       await useAppStore.getState().duplicateDoc('non-existent')
       expect(useAppStore.getState().docs.length).toBe(countBefore)
+    })
+  })
+
+  describe('importDoc', () => {
+    it('persists an imported canvas as a separate current document', async () => {
+      const existingId = await useAppStore.getState().createDoc('Existing')
+      const layer = {
+        id: 'layer-imported',
+        name: '导入图层',
+        visible: true,
+        locked: false,
+        order: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      }
+
+      const importedId = await useAppStore.getState().importDoc({
+        title: '项目草图',
+        elements: [
+          {
+            type: 'text',
+            id: 'text-imported',
+            layerId: layer.id,
+            x: 20,
+            y: 30,
+            width: 160,
+            height: 32,
+            content: '可编辑内容',
+            fontSize: 18,
+            color: '#111827',
+          },
+        ],
+        layers: [layer],
+        activeLayerId: layer.id,
+        bgColor: '#ffffff',
+        backgroundStyle: 'plain',
+      })
+
+      expect(importedId).not.toBe(existingId)
+      expect(useAppStore.getState().currentDocId).toBe(importedId)
+      expect(useAppStore.getState().docs).toHaveLength(2)
+      expect(useAppStore.getState().docs.find((doc) => doc.id === importedId)?.title).toBe(
+        '项目草图（导入）'
+      )
+      expect(useAppStore.getState().elements[0]).toMatchObject({
+        id: 'text-imported',
+        content: '可编辑内容',
+      })
     })
   })
 

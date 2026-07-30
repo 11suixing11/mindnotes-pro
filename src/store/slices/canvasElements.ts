@@ -199,7 +199,7 @@ export function createCanvasElementsSlice(
         st.layers.length === 0
           ? 0
           : Math.max(...st.layers.map((layer: CanvasLayer) => layer.order)) + 1
-      const layer = createCanvasLayer(name ?? `Layer ${order + 1}`, order)
+      const layer = createCanvasLayer(name ?? `图层 ${order + 1}`, order)
       incrementSaveGeneration()
       set({
         layers: [...st.layers, layer],

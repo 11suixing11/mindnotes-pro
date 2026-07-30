@@ -84,7 +84,6 @@ describe('storage', () => {
     })
 
     it('loadFromStorage returns default for corrupted data', () => {
-      // Store raw unencrypted data which will fail to parse as JSON after decryption
       localStorage.setItem('corrupted-key', 'not-valid-encrypted-data{{{')
       const result = loadFromStorage('corrupted-key', 'default')
       // Should return default because decryption+JSON.parse fails
@@ -117,23 +116,20 @@ describe('storage', () => {
   })
 
   describe('IndexedDB operations', () => {
-    it('getAll returns empty array when DB is unavailable', async () => {
-      // In jsdom, indexedDB is not defined, so it should return []
-      const result = await getAll('docs')
-      expect(result).toEqual([])
+    it('getAll rejects when DB is unavailable', async () => {
+      await expect(getAll('docs')).rejects.toThrow('IndexedDB is unavailable')
     })
 
-    it('get returns undefined when DB is unavailable', async () => {
-      const result = await get('docs', 'id-1')
-      expect(result).toBeUndefined()
+    it('get rejects when DB is unavailable', async () => {
+      await expect(get('docs', 'id-1')).rejects.toThrow('IndexedDB is unavailable')
     })
 
-    it('put does not throw when DB is unavailable', async () => {
-      await expect(put('docs', { id: 'test' })).resolves.toBeUndefined()
+    it('put rejects when DB is unavailable', async () => {
+      await expect(put('docs', { id: 'test' })).rejects.toThrow('IndexedDB is unavailable')
     })
 
-    it('del does not throw when DB is unavailable', async () => {
-      await expect(del('docs', 'test')).resolves.toBeUndefined()
+    it('del rejects when DB is unavailable', async () => {
+      await expect(del('docs', 'test')).rejects.toThrow('IndexedDB is unavailable')
     })
   })
 })

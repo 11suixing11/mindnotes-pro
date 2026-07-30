@@ -64,7 +64,12 @@ describe('uiState slice', () => {
     })
 
     it('handles all valid save status values', () => {
-      const validStatuses: Array<'idle' | 'saving' | 'saved'> = ['idle', 'saving', 'saved']
+      const validStatuses: Array<'idle' | 'saving' | 'saved' | 'error'> = [
+        'idle',
+        'saving',
+        'saved',
+        'error',
+      ]
       for (const status of validStatuses) {
         set.mockClear()
         slice.setSaveStatus(status)

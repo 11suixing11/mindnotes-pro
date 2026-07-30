@@ -4,6 +4,9 @@ import { useViewStore } from '../useViewStore'
 import { migrateOld, removeMigratedData } from '../migration'
 import { saveDocNow, clearSaveTimer } from '../saveManager'
 import { createDefaultLayer, normalizeCanvasDocLayers } from '../layers'
+import { CANVAS_SCHEMA_VERSION } from '../schema'
+import { useToastStore } from '../toastStore'
+import type { CanvasBackupDocument } from '../backup'
 
 const DOCUMENT_SEARCH_HISTORY_KEY = 'mn-sidebar-searches'
 const MAX_RECENT_DOCUMENT_SEARCHES = 5
@@ -23,6 +26,7 @@ export interface DocManagementActions {
   renameDoc: (id: string, title: string) => Promise<void>
   deleteDoc: (id: string) => Promise<void>
   duplicateDoc: (id: string) => Promise<void>
+  importDoc: (document: CanvasBackupDocument) => Promise<string>
   setDocumentSearchQuery: (query: string) => void
   addRecentDocumentSearch: (query: string) => void
   saveNow: () => Promise<void>
@@ -71,6 +75,30 @@ function loadRuntimeElementIndexes(
   state.spatialIndex?.bulkLoad(elements)
 }
 
+function createBlankDocument(now = Date.now()): CanvasDoc {
+  const layers = [createDefaultLayer(now)]
+  return {
+    schemaVersion: CANVAS_SCHEMA_VERSION,
+    id: `doc-${now}`,
+    title: '未命名画布',
+    elements: [],
+    layers,
+    activeLayerId: layers[0].id,
+    bgColor: '#ffffff',
+    backgroundStyle: 'plain',
+    folderId: null,
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
+function createDocumentId(now = Date.now()): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `doc-${crypto.randomUUID()}`
+  }
+  return `doc-${now}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 export function createDocManagementSlice(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   set: any,
@@ -87,85 +115,87 @@ export function createDocManagementSlice(
 
     // Actions
     init: async () => {
-      let docs = await storage.getAll<CanvasDoc>('docs')
-      let folders = await storage.getAll<CanvasFolder>('folders')
+      try {
+        let docs = await storage.getAll<CanvasDoc>('docs')
+        let folders = await storage.getAll<CanvasFolder>('folders')
 
-      if (docs.length === 0) {
-        const migrated = migrateOld()
-        if (migrated) {
-          await storage.put('docs', migrated)
-          docs = [migrated]
-        } else {
-          const now = Date.now()
-          const layers = [createDefaultLayer(now)]
-          const blank: CanvasDoc = {
-            id: `doc-${now}`,
-            title: '未命名画布',
-            elements: [],
-            layers,
-            activeLayerId: layers[0].id,
-            bgColor: '#ffffff',
-            backgroundStyle: 'plain',
-            folderId: null,
-            createdAt: now,
-            updatedAt: now,
+        if (docs.length === 0) {
+          const migrated = migrateOld()
+          if (migrated) {
+            await storage.put('docs', migrated)
+            docs = [migrated]
+          } else {
+            const blank = createBlankDocument()
+            await storage.put('docs', blank)
+            docs = [blank]
           }
-          await storage.put('docs', blank)
-          docs = [blank]
         }
+
+        if (folders.length === 0) {
+          const defaultFolder: CanvasFolder = {
+            id: 'folder-default',
+            name: '我的笔记',
+            parentId: null,
+            order: 0,
+            expanded: true,
+          }
+          await storage.put('folders', defaultFolder)
+          folders = [defaultFolder]
+        }
+
+        docs = docs.map((doc) => normalizeCanvasDocLayers(doc))
+        docs.sort((a, b) => b.updatedAt - a.updatedAt)
+        const current = docs[0]
+
+        set({
+          docs,
+          folders,
+          currentDocId: current?.id ?? null,
+          elements: current?.elements ?? [],
+          layers: current?.layers ?? [createDefaultLayer()],
+          activeLayerId: current?.activeLayerId ?? createDefaultLayer().id,
+          bgColor: current?.bgColor ?? '#ffffff',
+          backgroundStyle: current?.backgroundStyle ?? 'plain',
+          undoStack: current?.undoStack ?? [],
+          redoStack: current?.redoStack ?? [],
+          loaded: true,
+          saveStatus: 'idle',
+        })
+
+        loadRuntimeElementIndexes(get, current?.elements ?? [])
+        removeMigratedData()
+      } catch (error) {
+        console.error('[documents] Failed to initialize persistent storage', error)
+        const blank = createBlankDocument()
+        set({
+          docs: [blank],
+          folders: [],
+          currentDocId: blank.id,
+          elements: [],
+          layers: blank.layers,
+          activeLayerId: blank.activeLayerId,
+          bgColor: blank.bgColor,
+          backgroundStyle: blank.backgroundStyle,
+          undoStack: [],
+          redoStack: [],
+          loaded: true,
+          saveStatus: 'error',
+        })
+        loadRuntimeElementIndexes(get, [])
+        useToastStore.getState().show('浏览器存储不可用，当前内容仅保存在内存中', 'error', 6000)
       }
-
-      if (folders.length === 0) {
-        await storage.put('folders', {
-          id: 'folder-default',
-          name: '我的笔记',
-          parentId: null,
-          order: 0,
-          expanded: true,
-        } as CanvasFolder)
-        folders = await storage.getAll<CanvasFolder>('folders')
-      }
-
-      docs = docs.map((doc) => normalizeCanvasDocLayers(doc))
-      docs.sort((a, b) => b.updatedAt - a.updatedAt)
-      const current = docs[0]
-
-      set({
-        docs,
-        folders,
-        currentDocId: current?.id ?? null,
-        elements: current?.elements ?? [],
-        layers: current?.layers ?? [createDefaultLayer()],
-        activeLayerId: current?.activeLayerId ?? createDefaultLayer().id,
-        bgColor: current?.bgColor ?? '#ffffff',
-        backgroundStyle: current?.backgroundStyle ?? 'plain',
-        undoStack: current?.undoStack ?? [],
-        redoStack: current?.redoStack ?? [],
-        loaded: true,
-      })
-
-      // 初始化空间索引
-      loadRuntimeElementIndexes(get, current?.elements ?? [])
-
-      removeMigratedData()
     },
 
     createDoc: async (title = '未命名画布', folderId = null) => {
-      const id = `doc-${Date.now()}`
-      const now = Date.now()
-      const layers = [createDefaultLayer(now)]
-      const doc: CanvasDoc = {
-        id,
-        title,
-        elements: [],
-        layers,
-        activeLayerId: layers[0].id,
-        bgColor: '#ffffff',
-        backgroundStyle: 'plain',
-        folderId,
-        createdAt: now,
-        updatedAt: now,
+      clearSaveTimer()
+      if (get().currentDocId && !(await saveDocNow())) {
+        throw new Error('Current document could not be saved')
       }
+
+      const now = Date.now()
+      const id = createDocumentId(now)
+      const doc: CanvasDoc = { ...createBlankDocument(now), id, title, folderId }
+      const layers = doc.layers ?? [createDefaultLayer(now)]
       await storage.put('docs', doc)
       const docs = (await storage.getAll<CanvasDoc>('docs'))
         .map((doc) => normalizeCanvasDocLayers(doc))
@@ -190,7 +220,9 @@ export function createDocManagementSlice(
     openDoc: async (id) => {
       clearSaveTimer()
       const state = get()
-      if (state.currentDocId) await saveDocNow()
+      if (state.currentDocId && !(await saveDocNow())) {
+        throw new Error('Current document could not be saved')
+      }
       const doc = await storage.get<CanvasDoc>('docs', id)
       if (doc) {
         const normalizedDoc = normalizeCanvasDocLayers(doc)
@@ -279,12 +311,16 @@ export function createDocManagementSlice(
     },
 
     duplicateDoc: async (id) => {
+      clearSaveTimer()
+      if (get().currentDocId === id && !(await saveDocNow())) {
+        throw new Error('Current document could not be saved')
+      }
       const doc = await storage.get<CanvasDoc>('docs', id)
       if (!doc) return
       const now = Date.now()
       const dup: CanvasDoc = {
         ...normalizeCanvasDocLayers(doc),
-        id: `doc-${now}`,
+        id: createDocumentId(now),
         title: `${doc.title} (副本)`,
         createdAt: now,
         updatedAt: now,
@@ -293,6 +329,52 @@ export function createDocManagementSlice(
       set({
         docs: (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt),
       })
+    },
+
+    importDoc: async (document) => {
+      clearSaveTimer()
+      const state = get()
+      if (state.currentDocId && !(await saveDocNow())) {
+        throw new Error('Current document could not be saved')
+      }
+
+      const now = Date.now()
+      const id = createDocumentId(now)
+      const imported = normalizeCanvasDocLayers({
+        schemaVersion: CANVAS_SCHEMA_VERSION,
+        id,
+        title: `${document.title.trim() || '导入的画布'}（导入）`,
+        elements: document.elements,
+        layers: document.layers,
+        activeLayerId: document.activeLayerId,
+        bgColor: document.bgColor,
+        backgroundStyle: document.backgroundStyle,
+        folderId: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+
+      await storage.put('docs', imported)
+      const docs = (await storage.getAll<CanvasDoc>('docs'))
+        .map((doc) => normalizeCanvasDocLayers(doc))
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+
+      set({
+        docs,
+        currentDocId: imported.id,
+        elements: imported.elements,
+        layers: imported.layers,
+        activeLayerId: imported.activeLayerId,
+        bgColor: imported.bgColor,
+        backgroundStyle: imported.backgroundStyle,
+        undoStack: [],
+        redoStack: [],
+        selectedIds: [],
+        saveStatus: 'saved',
+      })
+      loadRuntimeElementIndexes(get, imported.elements)
+      useViewStore.getState().resetView()
+      return imported.id
     },
 
     setDocumentSearchQuery: (query) => {

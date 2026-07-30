@@ -81,8 +81,12 @@ const TemplateMenu = memo(function TemplateMenu() {
         return
       }
 
-      setCustomTemplates(saveCustomTemplate(template))
-      toast(`已保存 ${template.name}`, 'success')
+      try {
+        setCustomTemplates(saveCustomTemplate(template))
+        toast(`已保存 ${template.name}`, 'success')
+      } catch {
+        toast('模板保存失败，请检查浏览器存储权限', 'error')
+      }
     },
     [getTemplateSourceElements, toast]
   )
@@ -90,8 +94,12 @@ const TemplateMenu = memo(function TemplateMenu() {
   const removeCustomTemplate = useCallback(
     async (templateId: string) => {
       if (!(await confirm('删除这个模板？'))) return
-      setCustomTemplates(deleteCustomTemplate(templateId))
-      toast('已删除模板', 'success')
+      try {
+        setCustomTemplates(deleteCustomTemplate(templateId))
+        toast('已删除模板', 'success')
+      } catch {
+        toast('模板删除失败，请重试', 'error')
+      }
     },
     [confirm, toast]
   )
