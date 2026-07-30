@@ -6,6 +6,7 @@ import { useViewStore } from '../useViewStore'
 import { useToastStore } from '../toastStore'
 
 export const MAX_HISTORY = 50
+const FOCUS_VISIBILITY_PADDING = 24
 
 /**
  * 从撤销操作中提取受影响的元素 ID
@@ -55,10 +56,29 @@ function focusAffectedElements(
   if (existingIds.length > 0) {
     const affectedElements = currentElements.filter((el) => existingIds.includes(el.id))
     const bounds = getContentBounds(affectedElements, 40)
-    if (bounds) {
+    if (bounds && !isBoundsVisibleInCurrentView(bounds)) {
       useViewStore.getState().zoomToFit(bounds)
     }
   }
+}
+
+function isBoundsVisibleInCurrentView(bounds: { x: number; y: number; w: number; h: number }) {
+  const { viewBox } = useViewStore.getState()
+  const zoom = viewBox.zoom || 1
+  const width = typeof window === 'undefined' ? 1024 : window.innerWidth
+  const height = typeof window === 'undefined' ? 768 : window.innerHeight
+  const pad = FOCUS_VISIBILITY_PADDING / zoom
+  const left = viewBox.x + pad
+  const top = viewBox.y + pad
+  const right = viewBox.x + width / zoom - pad
+  const bottom = viewBox.y + height / zoom - pad
+
+  return (
+    bounds.x >= left &&
+    bounds.y >= top &&
+    bounds.x + bounds.w <= right &&
+    bounds.y + bounds.h <= bottom
+  )
 }
 
 function getElementActionLabel(element?: CanvasElement): string {
