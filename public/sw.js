@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v4.0';
+const CACHE_VERSION = 'v4.1';
 const CACHE_NAME = `mindnotes-${CACHE_VERSION}`;
 const STATIC_CACHE = `mindnotes-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `mindnotes-runtime-${CACHE_VERSION}`;
@@ -22,6 +22,10 @@ const STATIC_EXTENSIONS = [
 // Paths that are API/data requests (network-first strategy)
 const API_PATHS = ['/api/', '/graphql', '/auth/'];
 
+function isNavigationRequest(request) {
+  return request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html');
+}
+
 function isStaticAsset(url) {
   const pathname = url.pathname.toLowerCase();
   // Root and index.html
@@ -41,7 +45,6 @@ self.addEventListener('install', (event) => {
     caches
       .open(STATIC_CACHE)
       .then((cache) => cache.addAll(PRECACHE_URLS))
-      .then(() => self.skipWaiting())
   );
 });
 
@@ -78,6 +81,22 @@ self.addEventListener('fetch', (event) => {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
   if (event.request.url.includes('chrome-extension')) return;
   if (event.request.cache === 'only-if-cached' && event.request.mode !== 'same-origin') return;
+
+  // HTML shell should be network-first so users are not trapped on stale entry scripts.
+  if (isNavigationRequest(event.request)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const clone = response.clone();
+            caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
+    );
+    return;
+  }
 
   // Strategy 1: API requests → Network-first (try network, fall back to cache)
   if (isApiRequest(url)) {

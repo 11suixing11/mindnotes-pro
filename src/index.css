@@ -1985,6 +1985,50 @@ body::after {
   transform: translateY(-1px);
 }
 
+.sw-update-banner {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 240;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card-solid);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+  font-size: 13px;
+}
+
+.sw-update-banner.show {
+  display: flex;
+}
+
+.sw-update-banner button {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.sw-update-primary {
+  border: none;
+  background: var(--primary);
+  color: #fff;
+}
+
+.sw-update-secondary {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+}
+
 @media (max-width: 480px) {
   .first-run-guide {
     right: 8px;
@@ -2000,6 +2044,13 @@ body::after {
   .first-run-guide-desc {
     margin-bottom: 12px;
     font-size: 12px;
+  }
+
+  .sw-update-banner {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    max-width: none;
   }
 }
 
