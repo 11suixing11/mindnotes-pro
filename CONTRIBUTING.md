@@ -1,66 +1,96 @@
 # Contributing to MindNotes Pro
 
-Thanks for taking the time to improve MindNotes Pro. This project is maintained as a local-first whiteboard and drawing tool, so contributions should keep the app readable, private by default, and pleasant to use.
+MindNotes Pro is a local-first whiteboard. Contributions should keep user data private by default, behavior predictable, and the code reviewable.
 
-## Good First Contributions
+## Good contributions
 
-- Reproduce and narrow down a reported canvas interaction bug.
-- Add a focused unit test for store, history, export, selection, or keyboard behavior.
-- Improve documentation where the current behavior is unclear.
-- Fix accessibility issues in toolbar, menus, dialogs, and keyboard flows.
-- Reduce confusing implementation comments or rename internal helpers for clarity.
+- Reproduce and fix a specific canvas, persistence, template, or export bug.
+- Add a regression test for a real failure mode.
+- Improve keyboard or assistive-technology access.
+- Simplify a large module behind existing behavior tests.
+- Correct documentation that no longer matches the product.
 
-## Before Opening an Issue
+Feature proposals should identify the user workflow, failure behavior, data impact, and maintenance cost. A disconnected demo is not enough.
 
-Please search existing issues first. A useful issue usually includes:
+## Before opening an issue
 
-- What you expected to happen.
-- What actually happened.
-- Steps to reproduce the behavior.
-- Browser, OS, and whether the issue happens in a private/incognito window.
-- A short screen recording for pointer, selection, zoom, export, or keyboard issues.
+Search existing issues first. Include:
 
-For security reports, do not open a public issue with exploit details. See [SECURITY.md](SECURITY.md).
+- Expected and actual behavior.
+- Minimal reproduction steps.
+- Browser or desktop runtime, operating system, and input device.
+- Whether the problem also occurs in a private browser window.
+- A short recording for pointer, zoom, selection, template, or export problems.
+- A sample JSON backup only after removing private content.
 
-## Pull Request Workflow
+Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
-1. Fork the repository and create a branch from `main`.
-2. Install dependencies with `npm install`.
-3. Run the app with `npm run dev`.
-4. Keep the change focused and reviewable.
-5. Add or update tests when behavior changes.
-6. Run the checks that match your change:
+## Development setup
+
+Requirements: Node.js `>=22.22.2` and npm.
 
 ```bash
-npm run build
-npm run test:run
-npm run lint
+git clone https://github.com/11suixing11/mindnotes-pro.git
+cd mindnotes-pro
+npm ci
+npm run dev
 ```
 
-If a check fails because of an existing issue, mention that clearly in the PR and include the failing output.
+Install Chromium once before running browser tests:
 
-## Project Conventions
+```bash
+npx playwright install chromium
+```
 
-- Prefer existing React, Zustand, and Canvas patterns over new abstractions.
-- Keep user data local unless the feature explicitly documents otherwise.
-- Keep design-tool-inspired interactions generic and attribute inspiration when it matters.
-- Avoid adding network dependencies or analytics without a clear privacy discussion.
-- Keep comments short and useful; explain tricky behavior, not obvious assignments.
+## Pull request workflow
 
-## Commit Messages
+1. Create a branch from `main`.
+2. Keep the change focused on one behavior or ownership boundary.
+3. Add or update regression tests before broad refactoring.
+4. Run the repository gate:
 
-Use short, descriptive messages. Conventional Commits are welcome but not required.
+```bash
+npm run check
+```
 
-Examples:
+5. For user-facing workflows, run:
+
+```bash
+npm run test:e2e
+```
+
+6. Describe the failure before the change, the behavior after it, and the exact verification performed.
+
+If a command fails because of an existing repository warning or environment requirement, include the command and relevant output. Do not replace a failing assertion with a conditional skip.
+
+## Project conventions
+
+- Prefer existing React, Zustand, Canvas, and domain-helper patterns.
+- Keep document parsing and migration in `src/store`; do not parse structured backups with string operations.
+- Keep rendering and geometry rules out of React components when they can be pure functions.
+- Keep Electron privileged APIs out of the web application.
+- Do not add network upload, telemetry, or analytics without an explicit privacy review.
+- Use short comments for non-obvious decisions, not narration.
+- Avoid unrelated formatting and generated-file churn.
+
+## Tests by risk
+
+| Change                     | Minimum evidence                                             |
+| -------------------------- | ------------------------------------------------------------ |
+| Pure helper or store rule  | Focused Vitest test                                          |
+| Persisted schema or import | Migration/backup tests plus recovery behavior                |
+| Canvas interaction         | Unit/integration regression plus relevant Playwright journey |
+| Visible responsive UI      | Desktop and mobile browser check                             |
+| Electron shell             | Electron TypeScript build and launch smoke test              |
+
+## Commits
+
+Use short, descriptive messages. Conventional Commit prefixes are useful but not required.
 
 ```text
-fix(selection): keep handles stable after zoom
-docs(readme): clarify export limitations
-test(history): cover undo selection restoration
+fix(export): render the complete document bounds
+test(eraser): cover one-gesture undo
+docs(readme): document v4 backup behavior
 ```
 
-## Review Expectations
-
-Maintainer review will focus on behavior, test coverage, user-data safety, and whether the change fits the current architecture. Small PRs are much easier to review and merge than broad rewrites.
-
-By contributing, you agree that your contribution will be licensed under the MIT License.
+By contributing, you agree that your contribution is licensed under the MIT License.

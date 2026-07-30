@@ -1,135 +1,52 @@
 <div align="center">
-  <img src=".github/hero.svg" alt="MindNotes Pro" width="100%" />
-
-# MindNotes Pro
-
-**A local-first whiteboard for fast visual thinking.**
-
-Open it, draw, organize, export. No account, no cloud dependency, no tracking.
-
+  <img src="public/icons/icon-192x192.png" width="88" alt="MindNotes Pro icon" />
+  <h1>MindNotes Pro</h1>
+  <p><strong>A local-first whiteboard for drawing, editable templates, and portable exports.</strong></p>
+  <p>No account, cloud workspace, or drawing analytics. Open the canvas and work.</p>
   <p>
-    <a href="https://11suixing11.github.io/mindnotes-pro">
-      <img src="https://img.shields.io/badge/Try_MindNotes_Pro-4A90D9?style=for-the-badge&logo=github&logoColor=white" alt="Try MindNotes Pro" />
-    </a>
-    <a href="#quick-start">
-      <img src="https://img.shields.io/badge/Quick_Start-2ECC71?style=for-the-badge" alt="Quick Start" />
-    </a>
-  </p>
-
-  <p>
-    <a href="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml">
-      <img src="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml/badge.svg" alt="CI" />
-    </a>
-    <a href="LICENSE">
-      <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT" />
-    </a>
-    <img src="https://img.shields.io/badge/version-3.2.0-00C9A7?style=flat-square" alt="Version 3.2.0" />
-    <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white" alt="React 19" />
-    <img src="https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white" alt="TypeScript 6" />
-    <img src="https://img.shields.io/badge/runtime_dependencies-5-green" alt="5 runtime dependencies" />
-  </p>
-
-  <p>
-    <strong>Languages:</strong>
-    English ·
+    <a href="https://11suixing11.github.io/mindnotes-pro"><strong>Open the web app</strong></a>
+    ·
     <a href="README_CN.md">中文</a>
+    ·
+    <a href="README_JA.md">日本語</a>
+  </p>
+  <p>
+    <a href="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml"><img src="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
+    <img src="https://img.shields.io/badge/version-4.0.0-0f766e" alt="Version 4.0.0" />
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2563eb" alt="MIT License" /></a>
+    <img src="https://img.shields.io/badge/storage-local--first-16a34a" alt="Local-first storage" />
   </p>
 </div>
 
----
+<p align="center">
+  <img src=".github/mindnotes-pro-v4.png" width="900" alt="MindNotes Pro v4 with an editable flowchart selected on the canvas" />
+</p>
 
-## What Is This?
+## What v4 delivers
 
-MindNotes Pro is a browser-based whiteboard for personal notes, sketches, diagrams, and quick thinking sessions. It is intentionally local-first: your documents are stored in your browser, the app can work offline as a PWA, and the core drawing experience does not require a server.
+MindNotes Pro starts on a blank, immediately usable canvas. It focuses on a small set of complete workflows instead of disconnected demos.
 
-This project is not trying to replace Miro, Excalidraw, tldraw, or a full collaborative design suite. It aims to be smaller and easier to reason about: a fast canvas, useful editing tools, dependable local persistence, and an implementation that contributors can actually read.
+| Area        | Current behavior                                                                                            |
+| ----------- | ----------------------------------------------------------------------------------------------------------- |
+| Drawing     | Freehand brush presets, pressure-aware strokes, rectangles, circles, lines, arrows, text, and images        |
+| Editing     | Selection, move, resize, rotate, group, lock, copy/paste, undo/redo, and predictable partial-stroke erasing |
+| Workspace   | Multiple documents, title/content search, sorting, layers, backgrounds, grid, snapping, zoom, and minimap   |
+| Templates   | Five built-in editable templates plus reusable custom templates made from canvas content                    |
+| Persistence | Autosaved v4 documents in IndexedDB, with preferences and custom templates stored locally                   |
+| Portability | Full-content PNG, JPEG, PDF, and SVG exports; strict v4 JSON backups; v4, v3, and legacy JSON import        |
+| Runtimes    | Responsive browser app, installable offline PWA, and a sandboxed Electron desktop shell                     |
 
-## Highlights
+## Local-first means local
 
-| Area | What You Get |
-| --- | --- |
-| Drawing | Pressure-friendly freehand strokes, multiple brush presets, shapes, arrows, text, pasted images |
-| Editing | Selection, multi-select, move, resize, rotate, duplicate, lock, group, ungroup, align, distribute |
-| Layers | Create, rename, reorder, hide, lock, delete layers, and move selected elements between layers |
-| Templates | Built-in flowchart, mind map, wireframe, network diagram, and Cornell notes templates; save custom templates from selected elements |
-| Documents | Multiple local documents, folders, previews, search, sort, rename, duplicate, and auto-save |
-| Export | PNG, JPEG, PDF, SVG, Word, and JSON backup/export; JSON import for existing canvas data |
-| Productivity | Customizable keyboard shortcuts, quick color presets, style eyedropper, grid and snap controls |
-| Local-first | Runs in the browser, installs as a PWA, stores data locally, and has an optional Electron desktop shell |
+- Documents are stored in the browser origin's IndexedDB database, `mindnotes-pro-v4`.
+- The app does not provide an account system, hosted sync, or real-time collaboration.
+- Clearing browser site data can remove local documents. Export a JSON backup for important work.
+- JSON import always creates a separate editable document instead of overwriting the current one.
+- A previous `mindnotes-drawing-data` local-storage document is migrated on the first empty v4 startup when possible.
 
-## Core Features
+## Quick start
 
-### Whiteboard Tools
-
-- Freehand drawing with brush presets powered by `perfect-freehand`
-- Shape tools for rectangles, circles, lines, and arrows
-- Rich text elements with inline editing and formatting controls
-- Clipboard image paste
-- Canvas pan, zoom, minimap/Eagle Eye, grid, and snap support
-- Light and dark themes
-
-### Layered Editing
-
-MindNotes Pro includes a compact layer panel for organizing complex canvases.
-
-- New elements are assigned to the active writable layer
-- Hidden layers are skipped by rendering, hit testing, selection, export previews, and exports
-- Locked layers prevent movement, deletion, resize, rotation, grouping, and other destructive edits
-- Deleting a layer moves its elements to a fallback layer instead of silently deleting user content
-- Legacy documents are normalized into a default layer when opened
-
-### Templates
-
-Use built-in templates when you need structure quickly:
-
-- Flowchart
-- Mind map
-- Dashboard wireframe
-- Network diagram
-- Cornell notes
-
-You can also turn selected canvas elements into reusable custom templates. Custom templates are stored locally and capped to keep the app lightweight.
-
-### Export And Backup
-
-Supported export paths:
-
-- `PNG` with transparent background
-- `JPEG` with adjustable quality and file-size estimate
-- `PDF` with page size based on the canvas
-- `SVG` using the canvas element model
-- `Word` document with an embedded canvas snapshot
-- `JSON` backup including elements and layer metadata
-
-JSON import supports current MindNotes Pro data and some legacy stroke/shape payloads.
-
-## Privacy And Data
-
-MindNotes Pro stores canvas documents in browser storage. The app does not require registration and does not upload your drawings to an application server.
-
-That tradeoff matters:
-
-- Clearing site data can remove your documents
-- Switching browsers or devices does not automatically sync content
-- Important work should be exported as JSON, PNG, SVG, or PDF
-- Very large canvases may eventually need a stronger persistence layer than `localStorage`
-
-If you need real-time collaboration, team workspaces, cloud history, or account-based sync, a larger collaborative whiteboard product is currently a better fit.
-
-## Quick Start
-
-### Use The Hosted App
-
-Open the live app:
-
-https://11suixing11.github.io/mindnotes-pro
-
-### Run Locally
-
-Prerequisites:
-
-- Node.js matching the `package.json` `engines.node` field
-- npm
+Requirements: Node.js `>=22.22.2` and npm.
 
 ```bash
 git clone https://github.com/11suixing11/mindnotes-pro.git
@@ -138,162 +55,84 @@ npm ci
 npm run dev
 ```
 
-Vite opens the app automatically. If it does not, visit:
+Vite serves the app at [http://localhost:3000](http://localhost:3000).
 
-```text
-http://localhost:3000
-```
+## Useful commands
 
-### Build For Production
+| Command                 | Purpose                                                    |
+| ----------------------- | ---------------------------------------------------------- |
+| `npm run dev`           | Start the browser development server                       |
+| `npm run build`         | Type-check and build the web app                           |
+| `npm run preview`       | Preview the production web build                           |
+| `npm run test:run`      | Run the Vitest suite once                                  |
+| `npm run test:coverage` | Run unit and integration tests with coverage thresholds    |
+| `npm run test:e2e`      | Build and run critical Chromium user journeys              |
+| `npm run lint`          | Run ESLint over the application source                     |
+| `npm run check`         | Run lint, tests, web build, and Electron type-checking     |
+| `npm run dev:desktop`   | Start Vite and the Electron shell together                 |
+| `npm run build:desktop` | Build the web app and package the current desktop platform |
 
-```bash
-npm run build
-npm run preview
-```
-
-### Run The Desktop Shell
-
-```bash
-npm run dev:desktop
-```
-
-Desktop packaging is available through Electron Builder:
+Install the Playwright browser once before the first local E2E run:
 
 ```bash
-npm run build:desktop
+npx playwright install chromium
 ```
 
-## Scripts
+## Export and recovery
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start Vite dev server on port 3000 |
-| `npm run build` | Run TypeScript check and production build |
-| `npm run preview` | Preview the production build |
-| `npm run test` | Run Vitest in watch mode |
-| `npm run test:run` | Run the full Vitest suite once |
-| `npm run test:coverage` | Run tests with coverage |
-| `npm run lint` | Run ESLint on `src/**/*.{ts,tsx}` |
-| `npm run dev:desktop` | Start Vite and Electron together |
-| `npm run build:desktop` | Build the web app and package Electron |
+Visual exports are rendered from the complete visible document bounds, not from the current pan and zoom. PNG keeps transparency; JPEG and PDF use the document background; SVG keeps vector content where possible.
 
-## Keyboard Shortcuts
+The v4 JSON backup contract is intentionally explicit:
 
-Press `?` or `F1` in the app to view the full shortcut list. Most shortcuts can be customized from the shortcut settings panel.
+```json
+{
+  "format": "mindnotes-pro-backup",
+  "version": 4,
+  "exportedAt": "2026-07-31T00:00:00.000Z",
+  "document": {
+    "title": "Project board",
+    "elements": [],
+    "layers": [],
+    "activeLayerId": "layer-default",
+    "bgColor": "#ffffff",
+    "backgroundStyle": "plain"
+  }
+}
+```
 
-| Shortcut | Action |
-| --- | --- |
-| `0` | Select tool |
-| `1` | Pen tool |
-| `2` | Eraser tool |
-| `3` | Pan tool |
-| `4` / `5` / `6` / `7` / `8` | Rectangle / Circle / Text / Line / Arrow |
-| `Ctrl` + `Z` | Undo |
-| `Ctrl` + `Shift` + `Z` or `Ctrl` + `Y` | Redo |
-| `Ctrl` + `C` / `Ctrl` + `V` | Copy / Paste |
-| `Ctrl` + `Shift` + `V` | Paste as plain text |
-| `Ctrl` + `D` | Duplicate selected elements |
-| `Ctrl` + `G` / `Ctrl` + `Shift` + `G` | Group / Ungroup |
-| `Ctrl` + `L` / `Ctrl` + `Shift` + `L` | Lock / Unlock selected elements |
-| `+` / `-` | Zoom in / out |
-| `Ctrl` + `0` | Reset view |
-| `Ctrl` + `2` | Zoom to selection |
-| `Shift` + `G` | Toggle grid |
-| `Shift` + `S` | Toggle grid snap |
-| `Q` | Style eyedropper |
-| `Esc` | Cancel current mode |
+Malformed or unsupported backups fail with a visible error. Importing does not silently discard the open document.
 
-## Tech Stack
-
-| Layer | Choice |
-| --- | --- |
-| UI | React 19, TypeScript 6 |
-| State | Zustand slices |
-| Drawing | Canvas API, `perfect-freehand` |
-| Spatial queries | Custom R-tree-style spatial index for eraser and viewport queries |
-| Export | Canvas export APIs, SVG serializer, lazy-loaded `jsPDF` |
-| Styling | Tailwind CSS and project CSS variables |
-| PWA | Web manifest and service worker |
-| Desktop | Electron and Electron Builder |
-| Tests | Vitest, Testing Library, jsdom, Playwright configuration |
-| Build | Vite 8 |
-
-The current runtime dependency set is deliberately small:
-
-- `react`
-- `react-dom`
-- `zustand`
-- `perfect-freehand`
-- `jspdf`
-
-## Project Structure
+## Architecture
 
 ```text
 src/
-├── canvas/        Drawing-domain helpers, brush presets, SVG export, geometry rules
-├── components/    React UI, canvas hooks, toolbar, sidebar, layers, templates, export UI
-├── eraser/        Physics eraser engine, particles, audio, preferences, spatial index
-├── keyboard/      Shortcut definitions and conflict handling
-├── store/         Zustand slices, persistence, migrations, app types, layer helpers
-├── templates/     Built-in and custom template model
-├── App.tsx        Main app composition
-└── main.tsx       Web entry
+├── canvas/        Rendering, geometry, brushes, and export helpers
+├── components/    React UI and browser interaction orchestration
+├── eraser/        Simple geometry eraser and spatial index
+├── keyboard/      Shortcut definitions and matching
+├── store/         Zustand slices, IndexedDB persistence, schema, and backups
+└── templates/     Built-in and custom editable templates
 
 electron/
-└── main.ts        Optional desktop shell entry
+└── main.mts       Minimal sandboxed desktop shell
+
+e2e/               Playwright critical user journeys
 ```
 
-For deeper boundary notes, see [ARCHITECTURE.md](ARCHITECTURE.md).
+See [ARCHITECTURE.md](ARCHITECTURE.md) for ownership rules and current refactor priorities.
 
-## Quality
+## Product boundary
 
-The repository has automated checks for pull requests and main branch changes:
+The project deliberately does not include hosted cloud storage, accounts, telemetry over document content, or real-time multiplayer editing. Those features would change the privacy and maintenance model and are not current goals.
 
-- TypeScript check
-- Vitest test suite
-- ESLint
-- Production build
-- GitHub Pages deployment
-- Lighthouse audit
-
-For local changes, run `npm run test:run`, `npm run lint`, and `npm run build` before opening a pull request.
-
-## Roadmap
-
-The next useful work is mostly about reliability and polish, not adding a large cloud product surface.
-
-- Move large-document persistence toward IndexedDB or another storage layer with better capacity
-- Improve mobile, tablet, and pen-device ergonomics
-- Strengthen accessibility for toolbar, dialogs, menus, and keyboard-only workflows
-- Harden JSON/SVG/PDF import and export edge cases
-- Continue reducing lint warnings and splitting large mixed-responsibility modules
-- Improve Electron packaging and release automation
-
-Non-goals for the current project direction:
-
-- Required accounts
-- Server-side document storage
-- Real-time multiplayer collaboration
-- Analytics that inspect drawing content
+The highest-priority engineering work is reliability: smaller pointer/rendering modules, stronger accessibility, large-document performance evidence, and release automation. See [ROADMAP.md](ROADMAP.md).
 
 ## Contributing
 
-Issues and pull requests are welcome. The most helpful contributions are specific and reproducible:
+Focused bug fixes, regression tests, accessibility improvements, and clear documentation changes are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
-- Bug reports with steps, expected behavior, actual behavior, browser/OS, and screenshots when useful
-- Feature requests that explain the workflow, not just the UI control
-- Small pull requests with tests for changed behavior
-- Documentation updates that correct inaccurate behavior, setup, or architecture notes
-
-Useful links:
-
-- [Contribution guide](CONTRIBUTING.md)
-- [Architecture notes](ARCHITECTURE.md)
-- [Roadmap](ROADMAP.md)
-- [Security policy](SECURITY.md)
-- [Code of conduct](CODE_OF_CONDUCT.md)
-- [Product feedback discussion](https://github.com/11suixing11/mindnotes-pro/discussions/97)
+Security reports should follow [SECURITY.md](SECURITY.md). Project changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-MindNotes Pro is released under the [MIT License](LICENSE).
+[MIT](LICENSE)

@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-07-31
+
+### Added
+
+- Versioned v4 document schema with layers, IndexedDB persistence, and validated JSON backups
+- Five built-in editable templates and reusable custom templates
+- Full-document JPEG export and content-bound PNG, PDF, and SVG exports
+- Playwright coverage for critical drawing, erasing, template, import/export, persistence, and responsive workflows
+- Sandboxed Electron desktop entry and Linux AppImage packaging
+
+### Changed
+
+- First launch now opens a blank, immediately usable document
+- Resizing between desktop and mobile preserves the visible canvas center
+- JSON import creates a separate editable document and accepts v4, v3, and supported legacy data
+- The primary workspace and shortcut interfaces now use consistent Chinese labels
+- PWA updates activate through the normal service-worker lifecycle without a reload banner
+
+### Fixed
+
+- Replaced unstable simulated erasing with deterministic geometric partial-stroke erasing
+- Eraser gestures now create one coherent undo operation
+- Templates receive fresh IDs, remain selectable, and can be edited after insertion
+- Export output no longer clips content outside the current viewport
+- Product branding remains visible in the mobile toolbar
+- Electron no longer enables Node.js integration or exposes the removed screen-pen overlay
+
+### Removed
+
+- Physics, particle, audio, wear, and preset behavior from the active eraser workflow
+- Misleading Word export
+- Experimental screen-pen and update-banner interfaces
+
 ## [3.2.0] - 2026-06-12
 
 ### Added
@@ -184,6 +217,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic canvas with undo/redo
 - LocalStorage persistence
 
+[4.0.0]: https://github.com/11suixing11/mindnotes-pro/compare/v3.2.0...v4.0.0
 [3.2.0]: https://github.com/11suixing11/mindnotes-pro/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/11suixing11/mindnotes-pro/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/11suixing11/mindnotes-pro/compare/v2.2.0...v3.0.0
