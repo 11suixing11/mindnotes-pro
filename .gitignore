@@ -6,6 +6,7 @@ npm-debug.log*
 # Dependencies
 node_modules
 dist
+dist-electron
 dist-ssr
 *.local
 

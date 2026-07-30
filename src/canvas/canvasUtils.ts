@@ -3,14 +3,21 @@ import { elementBounds } from '../store/types'
 
 export const IMAGE_CACHE_MAX = 50
 const imageCache = new Map<string, HTMLImageElement>()
-const imageLoading = new Set<string>()
+const imageLoading = new Map<string, Promise<HTMLImageElement>>()
 
 // 图片透明像素数据缓存
 // 用于点击穿透：点击图片透明区域时选中后面的元素
 // 使用离屏 canvas 缓存图片的 alpha 通道数据，避免重复读取像素
 const imageAlphaCache = new Map<string, Uint8ClampedArray>()
-const alphaCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null
-const alphaCtx = alphaCanvas?.getContext('2d', { willReadFrequently: true })
+let alphaCanvas: HTMLCanvasElement | null = null
+let alphaCtx: CanvasRenderingContext2D | null = null
+
+function getAlphaCanvas() {
+  if (typeof document === 'undefined') return null
+  alphaCanvas ??= document.createElement('canvas')
+  alphaCtx ??= alphaCanvas.getContext('2d', { willReadFrequently: true })
+  return alphaCtx ? { canvas: alphaCanvas, context: alphaCtx } : null
+}
 
 /**
  * 检测图片指定位置的像素是否透明
@@ -39,7 +46,8 @@ export function isTransparentImagePixel(
 
   // 获取图片对象
   const img = getImage(imageEl.dataUrl)
-  if (!img || !img.complete || !alphaCtx || !alphaCanvas) {
+  const alphaSurface = getAlphaCanvas()
+  if (!img || !img.complete || !alphaSurface) {
     // 图片未加载完成时，默认不穿透（保守策略）
     return false
   }
@@ -63,13 +71,13 @@ export function isTransparentImagePixel(
 
   if (!alphaData) {
     // 首次访问：渲染图片到离屏 canvas 并提取 alpha 通道
-    alphaCanvas.width = img.naturalWidth
-    alphaCanvas.height = img.naturalHeight
-    alphaCtx.clearRect(0, 0, img.naturalWidth, img.naturalHeight)
-    alphaCtx.drawImage(img, 0, 0)
+    alphaSurface.canvas.width = img.naturalWidth
+    alphaSurface.canvas.height = img.naturalHeight
+    alphaSurface.context.clearRect(0, 0, img.naturalWidth, img.naturalHeight)
+    alphaSurface.context.drawImage(img, 0, 0)
 
     // 获取像素数据
-    const imageData = alphaCtx.getImageData(0, 0, img.naturalWidth, img.naturalHeight)
+    const imageData = alphaSurface.context.getImageData(0, 0, img.naturalWidth, img.naturalHeight)
     alphaData = new Uint8ClampedArray(img.naturalWidth * img.naturalHeight)
 
     // 只提取 alpha 通道（每4个字节的第4个）
@@ -91,38 +99,58 @@ export function isTransparentImagePixel(
   return alphaData[alphaIndex] < 32
 }
 
-export function getImage(src: string): HTMLImageElement | null {
+function cacheImage(src: string, img: HTMLImageElement): HTMLImageElement {
+  if (imageCache.size >= IMAGE_CACHE_MAX) {
+    const firstKey = imageCache.keys().next().value
+    if (firstKey) imageCache.delete(firstKey)
+  }
+  imageCache.set(src, img)
+  return img
+}
+
+export function preloadImage(src: string): Promise<HTMLImageElement> {
   if (imageCache.has(src)) {
     const img = imageCache.get(src)
-    if (!img) return null
+    if (!img) return Promise.reject(new Error('图片缓存无效'))
     imageCache.delete(src)
     imageCache.set(src, img)
-    return img
+    return Promise.resolve(img)
   }
-  if (imageLoading.has(src)) return null
-  const img = new Image()
-  img.src = src
-  if (img.complete) {
-    if (imageCache.size >= IMAGE_CACHE_MAX) {
-      const firstKey = imageCache.keys().next().value
-      if (firstKey) imageCache.delete(firstKey)
+  const pending = imageLoading.get(src)
+  if (pending) return pending
+
+  const promise = new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      imageLoading.delete(src)
+      resolve(cacheImage(src, img))
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('image-loaded'))
     }
-    imageCache.set(src, img)
-    return img
-  }
-  imageLoading.add(src)
-  img.onload = () => {
-    imageLoading.delete(src)
-    if (imageCache.size >= IMAGE_CACHE_MAX) {
-      const firstKey = imageCache.keys().next().value
-      if (firstKey) imageCache.delete(firstKey)
+    img.onerror = () => {
+      imageLoading.delete(src)
+      reject(new Error('图片加载失败'))
     }
-    imageCache.set(src, img)
-    window.dispatchEvent(new Event('image-loaded'))
+    img.src = src
+
+    if (img.complete && img.naturalWidth > 0) {
+      imageLoading.delete(src)
+      resolve(cacheImage(src, img))
+    }
+  })
+
+  imageLoading.set(src, promise)
+  return promise
+}
+
+export function getImage(src: string): HTMLImageElement | null {
+  const cached = imageCache.get(src)
+  if (cached) {
+    imageCache.delete(src)
+    imageCache.set(src, cached)
+    return cached
   }
-  img.onerror = () => {
-    imageLoading.delete(src)
-  }
+
+  void preloadImage(src).catch(() => undefined)
   return null
 }
 

@@ -1,24 +1,32 @@
 {
   "name": "mindnotes-pro",
-  "version": "3.2.0",
+  "version": "4.0.0",
   "type": "module",
-  "description": "A beautiful, local-first whiteboard that feels like painting on real paper.",
-  "main": "electron/main.ts",
+  "description": "A local-first lightweight whiteboard for drawing, editable templates, and portable exports.",
+  "author": "11suixing11",
+  "homepage": "https://github.com/11suixing11/mindnotes-pro",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/11suixing11/mindnotes-pro.git"
+  },
+  "desktopName": "mindnotes-pro.desktop",
+  "main": "dist-electron/main.mjs",
   "engines": {
     "node": ">=22.22.2"
   },
   "scripts": {
     "dev": "vite",
-    "dev:desktop": "concurrently \"vite\" \"wait-on http://localhost:3000 && electron .\"",
+    "dev:desktop": "npm run build:electron && concurrently \"vite\" \"wait-on http://127.0.0.1:3000 && electron .\"",
     "build": "tsc && vite build",
-    "build:desktop": "tsc && vite build && electron-builder",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build:desktop": "npm run build -- --base=./ && npm run build:electron && electron-builder",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
-    "electron:dev": "electron .",
-    "electron:build": "electron-builder"
+    "electron:dev": "npm run build:electron && electron .",
+    "electron:build": "npm run build:desktop"
   },
   "build": {
     "appId": "com.mindnotes.pro",
@@ -28,7 +36,7 @@
     },
     "files": [
       "dist/**/*",
-      "electron/**/*",
+      "dist-electron/**/*",
       "package.json"
     ],
     "win": {
@@ -40,7 +48,13 @@
           ]
         }
       ],
-      "icon": "public/icon.png"
+      "icon": "public/icons/icon-512x512.png"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Utility",
+      "icon": "public/icons/icon-512x512.png",
+      "syncDesktopName": true
     },
     "nsis": {
       "oneClick": false,

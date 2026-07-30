@@ -54,6 +54,21 @@ export function normalizeCanvasMetrics(width: number, height: number, dpr: numbe
   }
 }
 
+export function preserveViewCenterOnResize(
+  viewBox: { x: number; y: number; zoom: number },
+  previousSize: { w: number; h: number },
+  nextSize: { w: number; h: number }
+) {
+  const zoom = Math.max(0.01, viewBox.zoom)
+  const centerX = viewBox.x + previousSize.w / 2 / zoom
+  const centerY = viewBox.y + previousSize.h / 2 / zoom
+  return {
+    x: centerX - nextSize.w / 2 / zoom,
+    y: centerY - nextSize.h / 2 / zoom,
+    zoom: viewBox.zoom,
+  }
+}
+
 export function mergeSelectionBounds<T extends { id: string }>(
   elements: T[],
   selectedIds: Set<string>,
@@ -446,6 +461,13 @@ export function useCanvasRenderer(
           const { size } = normalizeCanvasMetrics(width, height, dprRef.current)
           const { w, h } = size
           if (canvasSizeRef.current.w !== w || canvasSizeRef.current.h !== h) {
+            const previousSize = canvasSizeRef.current
+            if (previousSize.w > 1 && previousSize.h > 1) {
+              const viewState = useViewStore.getState()
+              viewState.setViewBox(
+                preserveViewCenterOnResize(viewState.viewBox, previousSize, { w, h })
+              )
+            }
             canvasSizeRef.current = { w, h }
             forceUpdate((n) => n + 1) // 触发一次重渲染以更新依赖 canvasSize 的 callbacks
           }

@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { mergeSelectionBounds, normalizeCanvasMetrics, useCanvasRenderer } from './useCanvasRenderer'
+import {
+  mergeSelectionBounds,
+  normalizeCanvasMetrics,
+  preserveViewCenterOnResize,
+  useCanvasRenderer,
+} from './useCanvasRenderer'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useThemeStore } from '../../store/useThemeStore'
@@ -89,6 +94,16 @@ describe('useCanvasRenderer', () => {
         size: { w: 1, h: 1 },
         dpr: 1,
       })
+    })
+
+    it('keeps the same world-space center when the canvas resizes', () => {
+      expect(
+        preserveViewCenterOnResize(
+          { x: 100, y: 50, zoom: 2 },
+          { w: 1200, h: 800 },
+          { w: 400, h: 600 }
+        )
+      ).toEqual({ x: 300, y: 100, zoom: 2 })
     })
   })
 
