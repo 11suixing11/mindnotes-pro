@@ -500,6 +500,8 @@ describe('usePointerEngine', () => {
       expect(decision.y).toBe(200)
       expect(process.rotation ?? 0).toBe(0)
       expect(decision.rotation ?? 0).toBe(0)
+      expect(useAppStore.getState().undoStack).toHaveLength(1)
+      expect(useAppStore.getState().undoStack[0].type).toBe('move')
     })
   })
 

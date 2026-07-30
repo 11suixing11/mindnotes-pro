@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from '../appStore'
 import type { ShapeElement, StrokeElement, TextElement, ImageElement } from '../types'
 import { createDefaultLayer } from '../layers'
+import { getHistoryActionLabel } from './history'
 
 const makeStroke = (id: string, overrides?: Partial<StrokeElement>): StrokeElement => ({
   type: 'stroke',
@@ -240,6 +241,46 @@ describe('canvasElements slice', () => {
       expect(els[0].y).toBe(20)
       expect(els[1].x).toBe(60)
       expect(els[1].y).toBe(70)
+    })
+
+    it('records one semantic move history action by default', () => {
+      useAppStore.getState().addElements([
+        makeShape('sh1', { x: 0, y: 0 }),
+        makeShape('sh2', { x: 50, y: 50 }),
+      ])
+      useAppStore.setState({ undoStack: [], redoStack: [] })
+
+      useAppStore.getState().moveElementsById(['sh1', 'sh2'], 10, 20)
+
+      const undoStack = useAppStore.getState().undoStack
+      expect(undoStack).toHaveLength(1)
+      expect(undoStack[0].type).toBe('snapshot')
+      expect(getHistoryActionLabel(undoStack[0])).toBe('Move 2 elements')
+
+      useAppStore.getState().undo()
+      const afterUndo = useAppStore.getState().elements as ShapeElement[]
+      expect(afterUndo[0].x).toBe(0)
+      expect(afterUndo[1].x).toBe(50)
+
+      useAppStore.getState().redo()
+      const afterRedo = useAppStore.getState().elements as ShapeElement[]
+      expect(afterRedo[0].x).toBe(10)
+      expect(afterRedo[1].x).toBe(60)
+    })
+
+    it('can move without recording history for in-progress drag frames', () => {
+      useAppStore.getState().addElements([
+        makeShape('sh1', { x: 0, y: 0 }),
+        makeShape('sh2', { x: 50, y: 50 }),
+      ])
+      useAppStore.setState({ undoStack: [], redoStack: [] })
+
+      useAppStore.getState().moveElementsById(['sh1', 'sh2'], 10, 20, { recordHistory: false })
+
+      expect(useAppStore.getState().undoStack).toHaveLength(0)
+      const els = useAppStore.getState().elements as ShapeElement[]
+      expect(els[0].x).toBe(10)
+      expect(els[1].x).toBe(60)
     })
   })
 

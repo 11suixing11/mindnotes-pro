@@ -48,6 +48,10 @@ export interface CanvasElementsState {
   _indexDirty: boolean
 }
 
+export interface MoveElementsOptions {
+  recordHistory?: boolean
+}
+
 export interface CanvasElementsActions {
   addElement: (el: CanvasElement) => void
   addElements: (els: CanvasElement[]) => void
@@ -64,7 +68,7 @@ export interface CanvasElementsActions {
   removeElement: (id: string) => void
   removeElements: (ids: string[]) => void
   moveElementById: (id: string, dx: number, dy: number) => void
-  moveElementsById: (ids: string[], dx: number, dy: number) => void
+  moveElementsById: (ids: string[], dx: number, dy: number, options?: MoveElementsOptions) => void
   resizeElementById: (id: string, ax: number, ay: number, sx: number, sy: number) => void
   // 元素旋转
   rotateElementById: (id: string, angle: number, cx?: number, cy?: number) => void
@@ -547,7 +551,7 @@ export function createCanvasElementsSlice(
       scheduleSave()
     },
 
-    moveElementsById: (ids, dx, dy) => {
+    moveElementsById: (ids, dx, dy, options = {}) => {
       // P0 性能优化: 跳过无意义的移动
       if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return
       if (ids.length === 0) return
@@ -559,16 +563,8 @@ export function createCanvasElementsSlice(
       if (unlockedIds.length === 0) return
 
       const idSet = new Set(unlockedIds)
-      // 为批量移动添加撤销支持
-      // 问题: 之前键盘微调后无法撤销，用户体验断裂
-      // 解决方案: 移动前保存原始元素快照，创建 clear 类型的撤销动作
-      const originalSnapshot = st.elements.map((e: CanvasElement) =>
-        idSet.has(e.id) ? shallowClone(e) : e
-      )
-      const undoAction: UndoAction = {
-        type: 'clear',
-        snapshot: originalSnapshot,
-      }
+      const recordHistory = options.recordHistory !== false
+      const beforeSnapshot = recordHistory ? snapshot(st.elements) : null
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       set((s: any) => {
         // P0 性能优化: 快速检查是否有元素需要移动 - 使用 idToElement O(1) 检查
@@ -576,6 +572,7 @@ export function createCanvasElementsSlice(
         const next = [...s.elements]
         let changed = false
         const movedIds: string[] = []
+        const affectedIds = new Set<string>()
         for (let i = 0; i < next.length; i++) {
           const el = next[i]
           if (idSet.has(el.id)) {
@@ -586,6 +583,7 @@ export function createCanvasElementsSlice(
             s.idToElement.set(el.id, newEl)
             spatialIndex.update(newEl)
             movedIds.push(el.id)
+            affectedIds.add(el.id)
             changed = true
           }
         }
@@ -601,15 +599,29 @@ export function createCanvasElementsSlice(
               idToElement.set(update.id, update.newEl)
               s.idToElement.set(update.id, update.newEl)
               spatialIndex.update(update.newEl)
+              affectedIds.add(update.id)
             }
           }
         }
 
-        return {
+        const nextState: { elements: CanvasElement[]; undoStack?: UndoAction[]; redoStack?: [] } = {
           elements: next,
-          undoStack: [...s.undoStack.slice(-MAX_HISTORY), undoAction],
-          redoStack: [],
         }
+        if (recordHistory && beforeSnapshot) {
+          nextState.undoStack = [
+            ...s.undoStack.slice(-MAX_HISTORY),
+            {
+              type: 'snapshot',
+              before: beforeSnapshot,
+              after: snapshot(next),
+              label: unlockedIds.length === 1 ? 'Move element' : `Move ${unlockedIds.length} elements`,
+              affectedIds: [...affectedIds],
+            },
+          ]
+          nextState.redoStack = []
+        }
+
+        return nextState
       })
       scheduleSave()
     },

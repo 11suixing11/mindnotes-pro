@@ -22,6 +22,8 @@ function getAffectedElementIds(action: UndoAction): string[] {
       return action.items.map((i) => i.el.id)
     case 'move':
       return action.deltas.map((d) => d.id)
+    case 'snapshot':
+      return action.affectedIds
     case 'erase': {
       // 擦除操作比较前后状态的差异
       const beforeIds = new Set(action.before.map((e) => e.id))
@@ -104,6 +106,8 @@ export function getHistoryActionLabel(action: UndoAction): string {
       return action.items.length === 1 ? 'Delete element' : `Delete ${action.items.length} elements`
     case 'clear':
       return 'Clear canvas'
+    case 'snapshot':
+      return action.label
     case 'move':
       return action.deltas.length === 1 ? 'Move element' : `Move ${action.deltas.length} elements`
     case 'erase':
@@ -209,6 +213,15 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           ...action,
           before: snapshot(action.before),
           after: snapshot(action.after),
+        }
+      } else if (action.type === 'snapshot') {
+        next = snapshot(action.before)
+        redoAction = {
+          type: 'snapshot',
+          before: snapshot(action.before),
+          after: snapshot(action.after),
+          label: action.label,
+          affectedIds: [...action.affectedIds],
         }
       } else if (action.type === 'group') {
         // 撤销分组 - 恢复元素分组前的 groupId 状态
@@ -382,6 +395,15 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
           ...action,
           before: snapshot(action.before),
           after: snapshot(action.after),
+        }
+      } else if (action.type === 'snapshot') {
+        next = snapshot(action.after)
+        undoAction = {
+          type: 'snapshot',
+          before: snapshot(action.before),
+          after: snapshot(action.after),
+          label: action.label,
+          affectedIds: [...action.affectedIds],
         }
       } else if (action.type === 'group') {
         // 重做分组 - 重新应用 groupId

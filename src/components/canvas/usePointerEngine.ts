@@ -1648,7 +1648,7 @@ export function usePointerEngine(opts: {
         dx += snapDx
         dy += snapDy
         snapLinesRef.current = { x: linesX, y: linesY }
-        if (ids.length > 1) moveElementsById(ids, dx, dy)
+        if (ids.length > 1) moveElementsById(ids, dx, dy, { recordHistory: false })
         else moveElementById(dragRef.current.id, dx, dy)
         dragRef.current = {
           ...dragRef.current,
