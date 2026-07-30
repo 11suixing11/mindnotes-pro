@@ -173,7 +173,7 @@ describe('useViewStore', () => {
       })
       document.body.appendChild(canvas)
       const toolbar = document.createElement('div')
-      toolbar.setAttribute('aria-label', 'Canvas tools')
+      toolbar.className = 'topbar'
       vi.spyOn(toolbar, 'getBoundingClientRect').mockReturnValue({
         x: 252,
         y: 12,

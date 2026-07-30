@@ -150,8 +150,7 @@ export default function Canvas() {
     <>
       <div
         ref={containerRef}
-        className="absolute inset-0 overflow-hidden canvas-grid-bg"
-        style={{ zIndex: 10 }}
+        className="canvas-surface canvas-grid-bg"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onContextMenu={handleContextMenu}
@@ -159,11 +158,11 @@ export default function Canvas() {
         <canvas
           id="main-canvas"
           ref={canvasRef}
-          width={canvasSize.w * dpr}
-          height={canvasSize.h * dpr}
+          width={Math.round(canvasSize.w * dpr)}
+          height={Math.round(canvasSize.h * dpr)}
           role="img"
           aria-label="Drawing canvas - Use toolbar to select tools and draw"
-          className="w-full h-full touch-none"
+          className="main-canvas"
           style={{
             touchAction: 'none',
             cursor: getCursor(),

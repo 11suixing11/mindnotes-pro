@@ -98,24 +98,10 @@ export function createDocManagementSlice(
         } else {
           const now = Date.now()
           const layers = [createDefaultLayer(now)]
-          const welcome: CanvasDoc = {
+          const blank: CanvasDoc = {
             id: `doc-${now}`,
-            title: '欢迎使用 MindNotes Pro',
-            elements: [
-              {
-                type: 'text',
-                id: `txt-${now}`,
-                layerId: layers[0].id,
-                x: 80,
-                y: 60,
-                width: 500,
-                height: 120,
-                content:
-                  '# 欢迎使用 MindNotes Pro\n\n本地优先的白板，支持自由绘图、形状、文字、图层和可编辑模板。\n\n点击左上角按钮管理文档，或从顶部工具栏插入模板开始。',
-                fontSize: 16,
-                color: '#2c2416',
-              },
-            ],
+            title: '未命名画布',
+            elements: [],
             layers,
             activeLayerId: layers[0].id,
             bgColor: '#ffffff',
@@ -124,8 +110,8 @@ export function createDocManagementSlice(
             createdAt: now,
             updatedAt: now,
           }
-          await storage.put('docs', welcome)
-          docs = [welcome]
+          await storage.put('docs', blank)
+          docs = [blank]
         }
       }
 

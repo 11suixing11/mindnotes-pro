@@ -56,6 +56,19 @@ describe('docManagement slice', () => {
     vi.useRealTimers()
   })
 
+  describe('init', () => {
+    it('creates an empty untitled canvas for a first-time user', async () => {
+      await useAppStore.getState().init()
+
+      const state = useAppStore.getState()
+      expect(state.loaded).toBe(true)
+      expect(state.docs).toHaveLength(1)
+      expect(state.docs[0].title).toBe('未命名画布')
+      expect(state.docs[0].elements).toEqual([])
+      expect(state.elements).toEqual([])
+    })
+  })
+
   describe('createDoc', () => {
     it('creates a new doc and sets it as current', async () => {
       const id = await useAppStore.getState().createDoc('My Doc')

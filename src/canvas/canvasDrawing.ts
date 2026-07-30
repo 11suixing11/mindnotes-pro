@@ -386,13 +386,6 @@ let cachedGridParams: {
   step: number
 } | null = null
 
-// Canvas Background Gradient 缓存 - 避免每帧创建新的 CanvasGradient 对象
-interface CachedGradient {
-  key: string
-  gradients: CanvasGradient[]
-  canvasSize: { w: number; h: number }
-}
-let cachedBgGradients: CachedGradient | null = null
 // P0 性能优化: 通用形状 Path2D 缓存 - 用于矩形、圆形等常见形状
 // 避免每次绘制都重建路径，静态元素性能提升 2-5x
 const shapePathCache = new LRUCache<string, Path2D>(150, 45000)
@@ -1034,119 +1027,6 @@ export function drawMonetGrid(
   ctx.fill(cachedMonetGridPath)
   ctx.restore()
 }
-// 使用缓存的 CanvasGradient 对象，避免每帧重新创建
-function getOrCreateBgGradients(
-  ctx: CanvasRenderingContext2D,
-  canvasSize: { w: number; h: number },
-  isDarkMode: boolean
-): CanvasGradient[] {
-  const cacheKey = `${isDarkMode}:${canvasSize.w}:${canvasSize.h}`
-  if (
-    cachedBgGradients &&
-    cachedBgGradients.key === cacheKey &&
-    cachedBgGradients.canvasSize.w === canvasSize.w &&
-    cachedBgGradients.canvasSize.h === canvasSize.h
-  ) {
-    return cachedBgGradients.gradients
-  }
-
-  const gradients: CanvasGradient[] = []
-  if (isDarkMode) {
-    const g1 = ctx.createRadialGradient(
-      canvasSize.w * 0.12,
-      canvasSize.h * 0.18,
-      0,
-      canvasSize.w * 0.12,
-      canvasSize.h * 0.18,
-      canvasSize.w * 0.55
-    )
-    g1.addColorStop(0, 'rgba(122,104,144,0.10)')
-    g1.addColorStop(0.6, 'rgba(122,104,144,0.03)')
-    g1.addColorStop(1, 'transparent')
-    gradients.push(g1)
-
-    const g2 = ctx.createRadialGradient(
-      canvasSize.w * 0.82,
-      canvasSize.h * 0.72,
-      0,
-      canvasSize.w * 0.82,
-      canvasSize.h * 0.72,
-      canvasSize.w * 0.45
-    )
-    g2.addColorStop(0, 'rgba(88,112,128,0.08)')
-    g2.addColorStop(0.6, 'rgba(88,112,128,0.02)')
-    g2.addColorStop(1, 'transparent')
-    gradients.push(g2)
-
-    const g3 = ctx.createRadialGradient(
-      canvasSize.w * 0.5,
-      canvasSize.h * 0.45,
-      0,
-      canvasSize.w * 0.5,
-      canvasSize.h * 0.45,
-      canvasSize.w * 0.5
-    )
-    g3.addColorStop(0, 'rgba(152,128,88,0.06)')
-    g3.addColorStop(1, 'transparent')
-    gradients.push(g3)
-  } else {
-    const g1 = ctx.createRadialGradient(
-      canvasSize.w * 0.12,
-      canvasSize.h * 0.18,
-      0,
-      canvasSize.w * 0.12,
-      canvasSize.h * 0.18,
-      canvasSize.w * 0.55
-    )
-    g1.addColorStop(0, 'rgba(184,160,208,0.16)')
-    g1.addColorStop(0.5, 'rgba(184,160,208,0.05)')
-    g1.addColorStop(1, 'transparent')
-    gradients.push(g1)
-
-    const g2 = ctx.createRadialGradient(
-      canvasSize.w * 0.82,
-      canvasSize.h * 0.72,
-      0,
-      canvasSize.w * 0.82,
-      canvasSize.h * 0.72,
-      canvasSize.w * 0.45
-    )
-    g2.addColorStop(0, 'rgba(144,180,208,0.14)')
-    g2.addColorStop(0.5, 'rgba(144,180,208,0.04)')
-    g2.addColorStop(1, 'transparent')
-    gradients.push(g2)
-
-    const g3 = ctx.createRadialGradient(
-      canvasSize.w * 0.55,
-      canvasSize.h * 0.4,
-      0,
-      canvasSize.w * 0.55,
-      canvasSize.h * 0.4,
-      canvasSize.w * 0.4
-    )
-    g3.addColorStop(0, 'rgba(208,184,136,0.10)')
-    g3.addColorStop(0.5, 'rgba(208,184,136,0.03)')
-    g3.addColorStop(1, 'transparent')
-    gradients.push(g3)
-
-    const g4 = ctx.createRadialGradient(
-      canvasSize.w * 0.7,
-      canvasSize.h * 0.2,
-      0,
-      canvasSize.w * 0.7,
-      canvasSize.h * 0.2,
-      canvasSize.w * 0.35
-    )
-    g4.addColorStop(0, 'rgba(212,152,152,0.10)')
-    g4.addColorStop(0.5, 'rgba(212,152,152,0.03)')
-    g4.addColorStop(1, 'transparent')
-    gradients.push(g4)
-  }
-
-  cachedBgGradients = { key: cacheKey, gradients, canvasSize: { ...canvasSize } }
-  return gradients
-}
-
 export function drawCanvasBackground(
   ctx: CanvasRenderingContext2D,
   canvasSize: { w: number; h: number },
@@ -1157,13 +1037,6 @@ export function drawCanvasBackground(
 ) {
   ctx.fillStyle = bgColor
   ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-
-  // 使用缓存的 gradients，避免每帧重新创建
-  const gradients = getOrCreateBgGradients(ctx, canvasSize, isDarkMode)
-  for (const g of gradients) {
-    ctx.fillStyle = g
-    ctx.fillRect(0, 0, canvasSize.w, canvasSize.h)
-  }
 
   if (backgroundStyle === 'plain') return
 
@@ -1319,8 +1192,6 @@ export function drawZoomLevel(
   ctx.restore()
 }
 // 导出缓存失效函数 - 元素变化时主动清除缓存
-// 不清除背景渐变缓存 - 背景渐变只在主题/窗口大小变化时才需要重建
-// 性能提升: 避免每次笔画都重建 4-7 个 CanvasGradient 对象，减少 GC 压力
 export function invalidateDrawingCaches() {
   minimapCache = null
   cachedMonetGridPath = null
@@ -1331,13 +1202,6 @@ export function invalidateDrawingCaches() {
   shapePathCache.clear()
   // 重置书法笔触对象池索引
   resetCalligraphyPool()
-  // 注意: cachedBgGradients 不在这里清除 - 它只依赖主题和窗口大小
-  // 主题切换时会自动触发重绘，窗口大小变化由 ResizeObserver 处理
-}
-
-// 单独的背景渐变缓存失效函数 - 仅在主题切换时调用
-export function invalidateBackgroundGradients() {
-  cachedBgGradients = null
 }
 
 export function drawGrid(

@@ -38,13 +38,13 @@ describe('Toolbar', () => {
   it('keeps templates before the color-heavy controls in the canvas toolbar', () => {
     render(<Toolbar />)
 
-    const toolbar = screen.getByRole('toolbar', { name: 'Canvas tools' })
+    const toolbar = screen.getByRole('toolbar', { name: '画布工具' })
     const labels = Array.from(toolbar.querySelectorAll('button[aria-label]')).map((button) =>
       button.getAttribute('aria-label')
     )
 
     expect(labels.indexOf('模板库')).toBeGreaterThan(labels.indexOf('Brush: 钢笔'))
-    expect(labels.indexOf('模板库')).toBeLessThan(labels.indexOf('纯黑'))
+    expect(labels.indexOf('模板库')).toBeLessThan(labels.indexOf('颜色'))
     expect(labels.indexOf('模板库')).toBeLessThan(labels.indexOf('背景设置'))
   })
 

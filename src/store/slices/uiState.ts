@@ -9,8 +9,7 @@ export interface UIActions {
 }
 
 export function shouldOpenSidebarByDefault(): boolean {
-  if (typeof window === 'undefined') return true
-  return window.innerWidth >= 768
+  return false
 }
 
 export function createUISlice(

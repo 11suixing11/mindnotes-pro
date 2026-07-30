@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { mergeSelectionBounds, useCanvasRenderer } from './useCanvasRenderer'
+import { mergeSelectionBounds, normalizeCanvasMetrics, useCanvasRenderer } from './useCanvasRenderer'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useThemeStore } from '../../store/useThemeStore'
@@ -75,6 +75,22 @@ describe('useCanvasRenderer', () => {
     })
     useViewStore.setState({ viewBox: { x: 0, y: 0, zoom: 1 }, isPanning: false })
     useThemeStore.setState({ isDarkMode: false })
+  })
+
+  describe('normalizeCanvasMetrics', () => {
+    it('normalizes dimensions and caps device pixel ratio', () => {
+      expect(normalizeCanvasMetrics(801.4, 599.6, 3)).toEqual({
+        size: { w: 801, h: 600 },
+        dpr: 2,
+      })
+    })
+
+    it('rejects non-finite and zero-sized metrics', () => {
+      expect(normalizeCanvasMetrics(Number.NaN, 0, Number.POSITIVE_INFINITY)).toEqual({
+        size: { w: 1, h: 1 },
+        dpr: 1,
+      })
+    })
   })
 
   it('should return all expected functions and refs', () => {

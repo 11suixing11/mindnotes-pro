@@ -96,13 +96,8 @@ export default function Toolbar() {
 
   return (
     <>
-      <div className="brand" aria-hidden="true">
-        <div className="brand-icon">M</div>
-        <span className="brand-text">MindNotes Pro</span>
-      </div>
-
       {/* Left toolbar: tools + undo/redo/clear only */}
-      <div className="sidebar panel" role="toolbar" aria-label="Drawing tools">
+      <div className="sidebar panel" role="toolbar" aria-label="绘图工具">
         <ToolButtons tool={tool} setTool={setTool} />
         <div className="sb-sep" role="separator" />
         <div className="sb-group">
@@ -138,7 +133,14 @@ export default function Toolbar() {
       </div>
 
       {/* Top toolbar: brush + color + zoom + theme + grid + export */}
-      <div className="topbar panel" role="toolbar" aria-label="Canvas tools">
+      <div className="topbar panel" role="toolbar" aria-label="画布工具">
+        <div className="toolbar-brand" aria-label="MindNotes Pro">
+          <div className="brand-icon" aria-hidden="true">
+            M
+          </div>
+          <span className="brand-text">MindNotes Pro</span>
+        </div>
+        <div className="tb-sep" aria-hidden="true" />
         <BrushSelector brush={brush} setBrush={setBrush} tool={tool} />
         <TemplateMenu />
         <div className="tb-sep" aria-hidden="true" />

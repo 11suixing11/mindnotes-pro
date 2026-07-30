@@ -89,29 +89,29 @@ button:focus:not(:focus-visible) {
 @tailwind utilities;
 
 :root {
-  --bg: #f6f0e6;
-  --card: rgba(248, 242, 232, 0.82);
-  --card-solid: #f4ede2;
-  --text: #3a2e22;
-  --text-2: #6b5a48;
-  --text-3: #9a8872;
-  --text-4: #c4b49e;
-  --border: rgba(140, 118, 88, 0.18);
-  --primary: #c07856;
-  --primary-hover: #d48a68;
-  --primary-light: rgba(192, 120, 86, 0.12);
-  --primary-bg: rgba(192, 120, 86, 0.07);
-  --danger: #c85a5a;
-  --success: #6a9a58;
-  --glow: rgba(192, 120, 86, 0.3);
-  --canvas: #f6f0e6;
-  --radius: 14px;
-  --radius-sm: 10px;
-  --radius-lg: 18px;
-  --glass: blur(28px) saturate(1.8);
-  --shadow-sm: 0 1px 4px rgba(90, 70, 40, 0.06);
-  --shadow-md: 0 4px 24px rgba(90, 70, 40, 0.08), 0 1px 4px rgba(90, 70, 40, 0.04);
-  --shadow-lg: 0 12px 48px rgba(90, 70, 40, 0.12), 0 2px 8px rgba(90, 70, 40, 0.05);
+  --bg: #f4f6f7;
+  --card: rgba(255, 255, 255, 0.94);
+  --card-solid: #ffffff;
+  --text: #182326;
+  --text-2: #405156;
+  --text-3: #6d7d81;
+  --text-4: #9ba8ab;
+  --border: rgba(41, 63, 68, 0.16);
+  --primary: #147d78;
+  --primary-hover: #0f6a66;
+  --primary-light: rgba(20, 125, 120, 0.14);
+  --primary-bg: rgba(20, 125, 120, 0.08);
+  --danger: #b94141;
+  --success: #2e7d50;
+  --glow: rgba(20, 125, 120, 0.22);
+  --canvas: #f8fafb;
+  --radius: 6px;
+  --radius-sm: 4px;
+  --radius-lg: 8px;
+  --glass: blur(16px) saturate(1.2);
+  --shadow-sm: 0 1px 3px rgba(20, 33, 36, 0.08);
+  --shadow-md: 0 5px 18px rgba(20, 33, 36, 0.11);
+  --shadow-lg: 0 12px 32px rgba(20, 33, 36, 0.16);
 
   --monet-lavender: #b8a0d0;
   --monet-rose: #d49898;
@@ -124,22 +124,22 @@ button:focus:not(:focus-visible) {
 }
 
 .dark {
-  --bg: #1a1820;
-  --card: rgba(28, 26, 34, 0.85);
-  --card-solid: #201e28;
-  --text: #e2dce6;
-  --text-2: #b4a8c0;
-  --text-3: #7a708a;
-  --text-4: #4c4460;
-  --border: rgba(160, 148, 180, 0.12);
-  --primary: #d0a0b0;
-  --primary-hover: #e0b0c0;
-  --primary-light: rgba(208, 160, 176, 0.14);
-  --primary-bg: rgba(208, 160, 176, 0.08);
-  --danger: #d48080;
-  --success: #80b870;
-  --glow: rgba(208, 160, 176, 0.2);
-  --canvas: #1a1820;
+  --bg: #151a1c;
+  --card: rgba(30, 38, 41, 0.96);
+  --card-solid: #1e2629;
+  --text: #eef3f3;
+  --text-2: #bdc9cb;
+  --text-3: #89999d;
+  --text-4: #637277;
+  --border: rgba(206, 222, 224, 0.14);
+  --primary: #5bc1b9;
+  --primary-hover: #78d0c9;
+  --primary-light: rgba(91, 193, 185, 0.16);
+  --primary-bg: rgba(91, 193, 185, 0.09);
+  --danger: #e07878;
+  --success: #75bd91;
+  --glow: rgba(91, 193, 185, 0.2);
+  --canvas: #151a1c;
   --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.25);
   --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.18);
   --shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.22);
@@ -176,53 +176,55 @@ body {
   overflow: hidden;
   background: var(--canvas);
   color: var(--text);
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
 }
 
-body::before {
-  content: '';
-  position: fixed;
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.app-shell {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-main {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  outline: none;
+  isolation: isolate;
+}
+
+.canvas-surface {
+  position: absolute;
   inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='6' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 0;
-  mix-blend-mode: multiply;
+  z-index: 10;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  contain: size layout;
 }
 
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(90% 70% at 15% 25%, rgba(184, 160, 208, 0.15), transparent 60%),
-    radial-gradient(70% 90% at 85% 75%, rgba(144, 180, 208, 0.12), transparent 60%),
-    radial-gradient(80% 60% at 50% 50%, rgba(208, 184, 136, 0.08), transparent 50%),
-    radial-gradient(50% 40% at 70% 20%, rgba(212, 152, 152, 0.08), transparent 50%);
-  pointer-events: none;
-  z-index: 0;
-  animation: ambientShift 20s ease-in-out infinite alternate;
-}
-
-@keyframes ambientShift {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.85;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-.dark body::before {
-  opacity: 0.6;
-}
-.dark body::after {
-  background:
-    radial-gradient(90% 70% at 15% 25%, rgba(122, 104, 144, 0.1), transparent 60%),
-    radial-gradient(70% 90% at 85% 75%, rgba(88, 112, 128, 0.08), transparent 60%),
-    radial-gradient(80% 60% at 50% 50%, rgba(152, 128, 88, 0.06), transparent 50%);
+.main-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
 }
 
 #root {
@@ -478,10 +480,10 @@ body::after {
   padding: 8px 18px;
   z-index: 20;
   animation: slideDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
-  flex-wrap: wrap;
-  max-height: 120px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  flex-wrap: nowrap;
+  max-height: 64px;
+  overflow-y: hidden;
+  overflow-x: auto;
   scrollbar-width: none;
   box-shadow:
     var(--shadow-lg),
@@ -503,6 +505,63 @@ body::after {
   height: 20px;
   background: linear-gradient(180deg, transparent, var(--border), transparent);
   margin: 0 6px;
+}
+
+.toolbar-brand {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding-right: 2px;
+  user-select: none;
+}
+
+.color-picker {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.color-trigger-swatch {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--card-solid);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.color-popover {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  z-index: 80;
+  width: min(320px, calc(100vw - 24px));
+  padding: 12px;
+  transform: translateX(-50%);
+  background: var(--card-solid);
+}
+
+.color-popover-grid,
+.color-popover-section {
+  display: grid;
+  grid-template-columns: repeat(8, 28px);
+  justify-content: center;
+  gap: 7px;
+}
+
+.color-popover-section {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.custom-color-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--text-4);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 16px;
 }
 
 /* Canvas grid background - subtle paper-like texture */
@@ -1678,13 +1737,30 @@ body::after {
 
 @media (max-width: 768px) {
   .sidebar {
+    position: absolute;
     left: 8px;
+    right: 8px;
+    top: auto;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    transform: none;
+    flex-direction: row;
+    align-items: center;
     padding: 6px;
     gap: 2px;
+    max-width: none;
+    max-height: 58px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .sidebar .sb-group {
+    flex-direction: row;
   }
 
   .sidebar .sb-sep {
-    margin: 3px auto;
+    width: 1px;
+    height: 24px;
+    margin: auto 3px;
   }
 
   .tbtn {
@@ -1702,7 +1778,7 @@ body::after {
     right: 8px;
     padding: 6px 10px;
     gap: 6px;
-    max-height: 48px;
+    max-height: 52px;
     overflow-x: auto;
     overflow-y: hidden;
     flex-wrap: nowrap;
@@ -1732,10 +1808,6 @@ body::after {
     height: 34px;
   }
 
-  .brand {
-    display: none;
-  }
-
   .status {
     left: 8px;
     bottom: 8px;
@@ -1757,18 +1829,19 @@ body::after {
 
 @media (max-width: 480px) {
   .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 56px;
-    border-radius: 0 14px 14px 0;
-    max-height: 100vh;
+    left: 6px;
+    right: 6px;
+    top: auto;
+    bottom: max(6px, env(safe-area-inset-bottom));
+    width: auto;
+    border-radius: var(--radius-lg);
+    max-height: 56px;
     z-index: 30;
   }
 
   .topbar {
-    left: 64px;
+    left: 6px;
+    right: 6px;
   }
 
   .status {

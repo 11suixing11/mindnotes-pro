@@ -44,6 +44,18 @@ export interface DrawState {
 
 type ElementBounds = { x: number; y: number; w: number; h: number }
 
+const MAX_CANVAS_DPR = 2
+
+export function normalizeCanvasMetrics(width: number, height: number, dpr: number) {
+  return {
+    size: {
+      w: Math.max(1, Math.round(Number.isFinite(width) ? width : 1)),
+      h: Math.max(1, Math.round(Number.isFinite(height) ? height : 1)),
+    },
+    dpr: Math.min(MAX_CANVAS_DPR, Math.max(1, Number.isFinite(dpr) ? dpr : 1)),
+  }
+}
+
 export function mergeSelectionBounds<T extends { id: string }>(
   elements: T[],
   selectedIds: Set<string>,
@@ -87,10 +99,12 @@ export function useCanvasRenderer(
   const selectedIdsSetRef = useRef<Set<string>>(new Set())
   const lastSelectedIdsRef = useRef<string[]>([])
   // dpr 改为 ref，极少变化
-  const dprRef = useRef(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
+  const dprRef = useRef(
+    normalizeCanvasMetrics(1, 1, typeof window !== 'undefined' ? window.devicePixelRatio : 1).dpr
+  )
   const dpr = dprRef.current
   // canvasSize 改用 ref 避免 React 重渲染，配合手动 redraw
-  const canvasSizeRef = useRef({ w: window.innerWidth, h: window.innerHeight })
+  const canvasSizeRef = useRef({ w: 1, h: 1 })
   const [, forceUpdate] = useState(0)
   const canvasSize = canvasSizeRef.current
 
@@ -701,8 +715,8 @@ export function useCanvasRenderer(
       for (const e of entries) {
         const { width, height } = e.contentRect
         if (width > 0 && height > 0) {
-          const w = Math.round(width),
-            h = Math.round(height)
+          const { size } = normalizeCanvasMetrics(width, height, dprRef.current)
+          const { w, h } = size
           if (canvasSizeRef.current.w !== w || canvasSizeRef.current.h !== h) {
             canvasSizeRef.current = { w, h }
             forceUpdate((n) => n + 1) // 触发一次重渲染以更新依赖 canvasSize 的 callbacks

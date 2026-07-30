@@ -38,13 +38,10 @@ describe('uiState slice', () => {
       expect(slice.saveStatus).toBe('idle')
     })
 
-    it('starts with the document sidebar open on desktop-sized viewports', () => {
-      expect(slice.sidebarOpen).toBe(true)
-    })
+    it('starts with the document sidebar closed on every viewport', () => {
+      expect(slice.sidebarOpen).toBe(false)
 
-    it('starts with the document sidebar closed on mobile-sized viewports', () => {
       createSlice(390)
-
       expect(slice.sidebarOpen).toBe(false)
     })
   })

@@ -98,15 +98,13 @@ function getFitArea() {
     viewportBottom - viewportTop
   )
 
-  const canvasToolbar = document.querySelector('[aria-label="Canvas tools"]') as HTMLElement | null
+  const canvasToolbar = document.querySelector('.topbar') as HTMLElement | null
   const canvasToolbarRect = canvasToolbar?.getBoundingClientRect()
   if (canvasToolbarRect && overlaps(canvasToolbarRect, visibleRect)) {
     top = Math.max(top, canvasToolbarRect.bottom - canvasRect.top + FIT_OVERLAY_GAP)
   }
 
-  const drawingToolbar = document.querySelector(
-    '[aria-label="Drawing tools"]'
-  ) as HTMLElement | null
+  const drawingToolbar = document.querySelector('.sidebar') as HTMLElement | null
   const drawingToolbarRect = drawingToolbar?.getBoundingClientRect()
   if (drawingToolbarRect && overlaps(drawingToolbarRect, visibleRect)) {
     left = Math.max(left, drawingToolbarRect.right - canvasRect.left + FIT_OVERLAY_GAP)
