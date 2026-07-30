@@ -1,9 +1,37 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 // import { visualizer } from 'rollup-plugin-visualizer'
 
-export default defineConfig(({ mode }) => ({
+const CSP_PLACEHOLDER = '__MINDNOTES_CSP__'
+const DEV_PORT = 3000
+
+function buildContentSecurityPolicy(isDevServer: boolean): string {
+  const connectSrc = isDevServer
+    ? `'self' ws://localhost:${DEV_PORT} ws://127.0.0.1:${DEV_PORT}`
+    : `'self'`
+  const workerSrc = isDevServer ? `'self' blob:` : `'self'`
+
+  return [
+    `default-src 'self' 'unsafe-inline'`,
+    `img-src 'self' data: blob:`,
+    `font-src 'self' data:`,
+    `connect-src ${connectSrc}`,
+    `worker-src ${workerSrc}`,
+  ].join('; ') + ';'
+}
+
+function contentSecurityPolicyPlugin(isDevServer: boolean): Plugin {
+  return {
+    name: 'mindnotes-content-security-policy',
+    transformIndexHtml(html) {
+      return html.replace(CSP_PLACEHOLDER, buildContentSecurityPolicy(isDevServer))
+    },
+  }
+}
+
+export default defineConfig(({ command, mode }) => ({
   plugins: [
+    contentSecurityPolicyPlugin(command === 'serve'),
     react({
       babel: {
         plugins: [],
@@ -19,7 +47,7 @@ export default defineConfig(({ mode }) => ({
   ].filter(Boolean),
   base: process.env.VITE_APP_BASE || '/',
   server: {
-    port: 3000,
+    port: DEV_PORT,
     open: true,
   },
   build: {
