@@ -24,7 +24,11 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:run": "playwright test",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "typecheck": "tsc --noEmit && tsc -p e2e/tsconfig.json && tsc -p tsconfig.electron.json",
+    "check": "npm run lint && npm run typecheck && npm run test:run && npm run build",
     "electron:dev": "npm run build:electron && electron .",
     "electron:build": "npm run build:desktop"
   },
@@ -51,7 +55,9 @@
       "icon": "public/icons/icon-512x512.png"
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "category": "Utility",
       "icon": "public/icons/icon-512x512.png",
       "syncDesktopName": true
@@ -74,9 +80,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.1.0",
+    "@types/node": "^22.20.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.65.0",

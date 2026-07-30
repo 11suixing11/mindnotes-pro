@@ -23,9 +23,15 @@ Thumbs.db
 # Build output
 build/
 out/
+release/
 
 # Coverage
 coverage/
+
+# Browser test artifacts
+playwright-report/
+test-results/
+blob-report/
 
 # Temporary
 tmp/
