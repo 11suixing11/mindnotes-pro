@@ -48,6 +48,7 @@ export default defineConfig(({ command, mode }) => ({
   base: process.env.VITE_APP_BASE || '/',
   server: {
     port: DEV_PORT,
+    strictPort: true,
     open: true,
   },
   build: {
