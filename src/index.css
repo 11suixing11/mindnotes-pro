@@ -78,7 +78,7 @@ button:focus:not(:focus-visible) {
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url('../public/fonts/NotoSansSC-ui.woff2') format('woff2-variations');
+  src: url('./assets/fonts/NotoSansSC-ui.woff2') format('woff2-variations');
   unicode-range:
     U+0020-007F, U+2014, U+2018-2019, U+201C-201D, U+2026, U+00B7, U+3000-303F, U+4E00-9FFF,
     U+FF00-FF66;
