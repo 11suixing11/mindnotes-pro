@@ -11,6 +11,7 @@ describe('FirstRunGuide', () => {
   it('shows guide when no guide-seen key exists', () => {
     render(<FirstRunGuide />)
     expect(screen.getByText('欢迎使用 MindNotes Pro')).toBeTruthy()
+    expect(screen.getByRole('region', { name: '首次使用引导' })).toBeTruthy()
   })
 
   it('hides guide when guide-seen key exists', () => {
@@ -76,17 +77,18 @@ describe('FirstRunGuide', () => {
     expect(localStorage.getItem('mn-guide-seen')).toBe('1')
   })
 
-  it('closes on overlay click', () => {
-    const { container } = render(<FirstRunGuide />)
-    const overlay = container.querySelector('[class*="fixed"]')!
-    fireEvent.click(overlay)
-    expect(localStorage.getItem('mn-guide-seen')).toBe('1')
+  it('does not close when the non-modal guide shell is clicked', () => {
+    render(<FirstRunGuide />)
+    fireEvent.click(screen.getByRole('region', { name: '首次使用引导' }))
+
+    expect(localStorage.getItem('mn-guide-seen')).toBeNull()
+    expect(screen.getByText('欢迎使用 MindNotes Pro')).toBeTruthy()
   })
 
   it('shows step indicators', () => {
     const { container } = render(<FirstRunGuide />)
     // Should have 4 step indicators
-    const indicators = container.querySelectorAll('.rounded-\\[3px\\]')
+    const indicators = container.querySelectorAll('.first-run-guide-dot')
     expect(indicators.length).toBe(4)
   })
 })
