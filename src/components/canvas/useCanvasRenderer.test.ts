@@ -59,7 +59,6 @@ function createDefaultDrawState(): DrawState {
     showGrid: false,
     showRulers: false,
     gridSize: 20,
-    eraserTrail: [],
     penVelocity: 0,
   }
 }

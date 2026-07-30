@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { getContentBounds } from '../canvas/canvasUtils'
 import { elementBounds } from './types'
 import { useAppStore } from './appStore'
 
@@ -18,15 +17,6 @@ interface ViewState {
   showGrid: boolean
   snapToGrid: boolean
   gridSize: GridSize
-  // Quick Zoom Navigation (鹰眼模式)
-  // 按 Z 键进入鹰眼模式，快速全局预览后定位到目标区域
-  // 设计参考: tldraw, Figma, Sketch - 专业设计工具标准导航功能
-  eagleEye: {
-    isActive: boolean
-    originalViewBox: { x: number; y: number; zoom: number } | null
-    targetX: number
-    targetY: number
-  }
 }
 
 interface ViewActions {
@@ -46,15 +36,9 @@ interface ViewActions {
   setSnapToGrid: (enabled: boolean) => void
   setGridSize: (gridSize: GridSize) => void
   cycleGridSize: () => void
-  // 鹰眼模式方法
-  startEagleEye: () => void
-  updateEagleEyeTarget: (x: number, y: number) => void
-  commitEagleEye: () => void
-  cancelEagleEye: () => void
 }
 
 const DEFAULT_VIEWBOX = { x: 0, y: 0, zoom: 1 }
-const EAGLE_EYE_ZOOM = 0.15 // 鹰眼模式下的缩放级别，确保能看到整个画布
 const FIT_PADDING = 60
 const FIT_MAX_ZOOM = 3
 const FIT_OVERLAY_GAP = 24
@@ -154,13 +138,6 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
   showGrid: false,
   snapToGrid: false,
   gridSize: DEFAULT_GRID_SIZE,
-  eagleEye: {
-    isActive: false,
-    originalViewBox: null,
-    targetX: 0,
-    targetY: 0,
-  },
-
   setViewBox: (viewBox) => set({ viewBox }),
 
   zoomIn: () =>
@@ -263,99 +240,4 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
       return { gridSize: GRID_SIZE_OPTIONS[nextIndex] }
     }),
 
-  // 启动鹰眼模式
-  // 1. 保存当前视口
-  // 2. 计算所有元素的边界
-  // 3. 缩放到全局视图
-  startEagleEye: () => {
-    const state = get()
-    if (state.eagleEye.isActive) return
-
-    // 保存原始视口
-    const originalViewBox = { ...state.viewBox }
-
-    // 计算所有元素的边界
-    const elements = useAppStore.getState().elements
-    const allBounds = getContentBounds(elements, 100)
-
-    // 计算目标视口 - 居中显示所有内容
-    const vw = window.innerWidth
-    const vh = window.innerHeight
-
-    let targetX: number
-    let targetY: number
-
-    if (allBounds) {
-      // 居中显示所有元素
-      targetX = allBounds.x - (vw / EAGLE_EYE_ZOOM - allBounds.w) / 2
-      targetY = allBounds.y - (vh / EAGLE_EYE_ZOOM - allBounds.h) / 2
-    } else {
-      // 没有元素时居中显示原点
-      targetX = -vw / EAGLE_EYE_ZOOM / 2
-      targetY = -vh / EAGLE_EYE_ZOOM / 2
-    }
-
-    set({
-      viewBox: { x: targetX, y: targetY, zoom: EAGLE_EYE_ZOOM },
-      eagleEye: {
-        isActive: true,
-        originalViewBox,
-        targetX: originalViewBox.x + vw / originalViewBox.zoom / 2,
-        targetY: originalViewBox.y + vh / originalViewBox.zoom / 2,
-      },
-    })
-  },
-
-  // 更新鹰眼模式下的目标位置（鼠标移动时）
-  updateEagleEyeTarget: (x: number, y: number) => {
-    const state = get()
-    if (!state.eagleEye.isActive) return
-    set({
-      eagleEye: {
-        ...state.eagleEye,
-        targetX: x,
-        targetY: y,
-      },
-    })
-  },
-
-  // 确认鹰眼模式选择 - 平滑放大到目标区域
-  commitEagleEye: () => {
-    const state = get()
-    if (!state.eagleEye.isActive) return
-
-    const vw = window.innerWidth
-    const vh = window.innerHeight
-    const originalZoom = state.eagleEye.originalViewBox?.zoom || 1
-
-    // 以目标点为中心放大
-    const x = state.eagleEye.targetX - vw / originalZoom / 2
-    const y = state.eagleEye.targetY - vh / originalZoom / 2
-
-    set({
-      viewBox: { x, y, zoom: originalZoom },
-      eagleEye: {
-        isActive: false,
-        originalViewBox: null,
-        targetX: 0,
-        targetY: 0,
-      },
-    })
-  },
-
-  // 取消鹰眼模式 - 返回原始视口
-  cancelEagleEye: () => {
-    const state = get()
-    if (!state.eagleEye.isActive || !state.eagleEye.originalViewBox) return
-
-    set({
-      viewBox: { ...state.eagleEye.originalViewBox },
-      eagleEye: {
-        isActive: false,
-        originalViewBox: null,
-        targetX: 0,
-        targetY: 0,
-      },
-    })
-  },
 }))

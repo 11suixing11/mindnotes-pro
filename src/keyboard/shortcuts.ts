@@ -30,7 +30,6 @@ export type ShortcutActionId =
   | 'view.zoomToSelection'
   | 'view.toggleGrid'
   | 'view.toggleGridSnap'
-  | 'view.eagleEye'
   | 'style.eyedropper'
   | 'style.cycleGeometry'
   | 'help.shortcuts'
@@ -178,7 +177,6 @@ export const SHORTCUT_DEFINITIONS: ShortcutActionDefinition[] = [
     category: 'view',
     defaultBinding: { key: 'S', shift: true },
   },
-  { id: 'view.eagleEye', label: 'Eagle Eye', category: 'view', defaultBinding: { key: 'Z' } },
   {
     id: 'style.eyedropper',
     label: 'Style eyedropper',
@@ -222,7 +220,6 @@ export const FIXED_SHORTCUT_HELP: { keys: string[]; label: string; category: Sho
     { keys: ['Alt', '1-8'], label: 'Quick color presets', category: 'style' },
     { keys: ['Double-click'], label: 'Edit text', category: 'edit' },
     { keys: ['Esc'], label: 'Cancel current mode', category: 'view' },
-    { keys: ['Ctrl', 'Shift', 'P'], label: 'Screen Pen', category: 'view' },
   ]
 
 export function getShortcutCategoryLabel(category: ShortcutCategory): string {
@@ -367,7 +364,6 @@ function getReservedShortcutConflict(binding: ShortcutBinding): ShortcutConflict
 
   if (normalized.key === 'Escape') return { label: 'Cancel current mode' }
   if (normalized.key.startsWith('Arrow')) return { label: 'Move selected elements' }
-  if (normalized.mod && normalized.shift && normalized.key === 'P') return { label: 'Screen Pen' }
   if (normalized.alt && /^[1-8]$/.test(normalized.key)) return { label: 'Quick color presets' }
   if (normalized.shift && /^[0-9]$/.test(normalized.key)) return { label: 'Quick color palette' }
 

@@ -44,8 +44,7 @@ import {
 } from './touchInput'
 // P12 箭头绑定: 导入绑定工具函数
 import { tryBindToShape } from '../../store/bindingUtils'
-// 物理擦除引擎集成
-import { getActiveEraserRadius, useEraserStore, type EraserPoint } from '../../eraser'
+import { eraseElementsAtPoint, getEraserWorldRadius } from '../../eraser/simpleEraser'
 
 // 模块级常量，避免每次渲染重建
 const CURSOR_MAP: Record<string, string> = {
@@ -185,20 +184,9 @@ export function usePointerEngine(opts: {
   const isPinchingRef = useRef(false)
   const shapeStartRef = useRef<{ x: number; y: number } | null>(null)
   const currentShapeRef = useRef<ShapeElement | null>(null)
-  const erasedRef = useRef<Set<string>>(new Set())
   const eraseBeforeSnapshotRef = useRef<CanvasElement[] | null>(null)
   const eraseUndoBaseStackRef = useRef<UndoAction[] | null>(null)
-  const erasePhysicsStartedRef = useRef(false)
-
-  // 擦除轨迹跟踪（用于光标拖尾渲染）- 移到开头，在 handleMove 使用前声明
-  // P0 性能优化: 使用固定大小环形缓冲区，避免数组 splice/shift 产生的 GC 压力
-  // 原实现: 每次 mousemove 都可能触发 O(n) 数组重排，60fps 下产生大量 GC
-  // 新实现: 环形缓冲区 O(1) 写入，读取时只需遍历有效范围
-  const eraserTrailRef = useRef<{ x: number; y: number; time: number }[]>(
-    Array.from({ length: 64 }, () => ({ x: 0, y: 0, time: 0 }))
-  )
-  const eraserTrailIndexRef = useRef(0)
-  const eraserTrailCountRef = useRef(0)
+  const eraserPartCounterRef = useRef(0)
   const penVelocityRef = useRef(0)
 
   const snapPointIfGridEnabled = useCallback((point: { x: number; y: number }) => {
@@ -221,21 +209,11 @@ export function usePointerEngine(opts: {
     }
   }, [])
 
-  // 物理擦除状态
-  const lastErasePointRef = useRef<{ x: number; y: number; time: number } | null>(null)
-
   const finishEraseHistory = useCallback(() => {
     const beforeSnap = eraseBeforeSnapshotRef.current
     const baseUndoStack = eraseUndoBaseStackRef.current
     eraseBeforeSnapshotRef.current = null
     eraseUndoBaseStackRef.current = null
-    lastErasePointRef.current = null
-
-    if (erasePhysicsStartedRef.current) {
-      useEraserStore.getState().endErase()
-      erasePhysicsStartedRef.current = false
-    }
-
     if (!beforeSnap || !baseUndoStack) return
 
     const st = useAppStore.getState()
@@ -249,35 +227,11 @@ export function usePointerEngine(opts: {
     useAppStore.getState().batchErase(beforeSnap, [])
   }, [])
 
-  const beginEraseSession = useCallback(
-    (x: number, y: number, pressure?: number, e?: MouseEvent | TouchEvent) => {
-      const st = useAppStore.getState()
-      eraseBeforeSnapshotRef.current = snapshot(st.elements)
-      eraseUndoBaseStackRef.current = st.undoStack
-      lastErasePointRef.current = null
-
-      const eraserStore = useEraserStore.getState()
-      eraserStore.engine.setBaseSize(getActiveEraserRadius())
-
-      if (!eraserStore.shouldUsePhysics()) return
-
-      const now = performance.now()
-      const startPoint: EraserPoint = {
-        x,
-        y,
-        pressure: pressure ?? DEFAULT_INPUT_PRESSURE,
-        velocity: 0,
-        direction: 0,
-        timestamp: now,
-        tiltX: e && 'tiltX' in e ? (e as PointerEvent).tiltX : undefined,
-        tiltY: e && 'tiltY' in e ? (e as PointerEvent).tiltY : undefined,
-      }
-      const editableElements = st.elements.filter((el) => isElementLayerEditable(el, st.layers))
-      eraserStore.startErase(startPoint, editableElements)
-      erasePhysicsStartedRef.current = true
-    },
-    []
-  )
+  const beginEraseSession = useCallback(() => {
+    const state = useAppStore.getState()
+    eraseBeforeSnapshotRef.current = snapshot(state.elements)
+    eraseUndoBaseStackRef.current = state.undoStack
+  }, [])
   // 拖动阈值 - 防止选择时意外移动元素
   // 只有鼠标移动超过 DRAG_THRESHOLD 像素才开始真正拖动
   // 这是竞品 excalidraw 和 tldraw 都实现的核心 UX 改进
@@ -651,28 +605,18 @@ export function usePointerEngine(opts: {
     [cachedBounds]
   )
 
-  /**
-   * 传统擦除模式（兼容模式）
-   * topOnly 参数 - 只擦除最顶层元素
-   * 遵循常见设计工具交互：按住 Ctrl/Cmd 擦除时只删除最顶层的重叠形状
-   * 用户价值：解决重叠元素难以精确擦除单个的痛点
-   */
-  const eraseAtSimple = useCallback(
+  const eraseAt = useCallback(
     (x: number, y: number, topOnly: boolean = false) => {
-      const r = getActiveEraserRadius(),
-        r2 = r * r
       const state = useAppStore.getState()
+      const radius = getEraserWorldRadius(state.size, useViewStore.getState().viewBox.zoom)
 
-      // 使用空间索引预筛选，直接遍历候选而非全部元素
       const candidateIds = state.spatialIndex?.search({
-        x: x - r,
-        y: y - r,
-        w: r * 2,
-        h: r * 2,
+        x: x - radius,
+        y: y - radius,
+        w: radius * 2,
+        h: radius * 2,
       })
 
-      // 按 Z-order 排序（后绘制的在上层）
-      // 使用缓存的 idToIndex 进行 O(1) 查找和排序
       const cache = idToIndexCacheRef.current
       if (cache.els !== state.elements) {
         const map = new Map<string, number>()
@@ -681,8 +625,6 @@ export function usePointerEngine(opts: {
       }
       const idToIndex = idToIndexCacheRef.current.map
       const layerOrder = getLayerOrderMap(state.layers)
-
-      // 按 Z-order 降序排列（最上层在前）
       const sortedIds = [...(candidateIds ?? state.elements.map((e) => e.id))].sort((a, b) => {
         const aIndex = idToIndex.get(a)
         const bIndex = idToIndex.get(b)
@@ -696,185 +638,25 @@ export function usePointerEngine(opts: {
         return layerDiff || (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
       })
 
-      let topElementErased = false
+      const candidates = sortedIds
+        .map((id) => state.idToElement.get(id))
+        .filter((element): element is CanvasElement =>
+          Boolean(element && isElementLayerEditable(element, state.layers))
+        )
+      const patch = eraseElementsAtPoint({
+        elements: candidates,
+        point: { x, y },
+        radius,
+        topOnly,
+        getBounds: cachedBounds,
+        createId: (sourceId, partIndex) =>
+          `${sourceId}-part-${++eraserPartCounterRef.current}-${partIndex}`,
+      })
 
-      for (const id of sortedIds) {
-        // topOnly 模式下，擦除最顶层元素后立即停止
-        if (topOnly && topElementErased) break
-        if (erasedRef.current.has(id)) continue
-        const el = state.idToElement.get(id)
-        if (!el) continue
-        if (!isElementLayerEditable(el, state.layers)) continue
-
-        if (el.type === 'stroke') {
-          const segments: { points: number[][]; pressures?: number[] }[] = []
-          let curPoints: number[][] = []
-          let curPressures: number[] = []
-          let hit = false
-
-          const pushSegment = () => {
-            if (curPoints.length >= 2) {
-              segments.push({
-                points: curPoints,
-                pressures: el.pressures ? curPressures : undefined,
-              })
-            }
-            curPoints = []
-            curPressures = []
-          }
-
-          const appendPoint = (point: number[], index: number) => {
-            curPoints.push(point)
-            if (el.pressures) curPressures.push(el.pressures[index] ?? DEFAULT_INPUT_PRESSURE)
-          }
-
-          for (let i = 0; i < el.points.length; i++) {
-            const p = el.points[i]
-            const pointHit = (p[0] - x) ** 2 + (p[1] - y) ** 2 <= r2
-            const prev = i > 0 ? el.points[i - 1] : null
-            const segmentHit = prev ? distToSegSq(x, y, prev[0], prev[1], p[0], p[1]) <= r2 : false
-
-            if (pointHit || segmentHit) {
-              hit = true
-              pushSegment()
-              if (!pointHit) appendPoint(p, i)
-            } else {
-              appendPoint(p, i)
-            }
-          }
-          pushSegment()
-          if (!hit) continue
-          erasedRef.current.add(el.id)
-          removeElement(el.id)
-          for (const seg of segments)
-            addElement({
-              ...el,
-              id: `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              points: seg.points,
-              pressures: seg.pressures,
-            })
-          // 标记已擦除最顶层元素
-          topElementErased = true
-        } else {
-          const b = cachedBounds(el)
-          if (x >= b.x - r && x <= b.x + b.w + r && y >= b.y - r && y <= b.y + b.h + r) {
-            erasedRef.current.add(el.id)
-            removeElement(el.id)
-            // 标记已擦除最顶层元素
-            topElementErased = true
-          }
-        }
-      }
+      for (const id of patch.removeIds) removeElement(id)
+      for (const element of patch.additions) addElement(element)
     },
     [removeElement, addElement, cachedBounds]
-  )
-
-  /**
-   * 物理擦除模式
-   * 支持压力感应、速度计算、笔触精确分割、压感笔倾斜
-   * topOnly 参数 - 只擦除最顶层元素
-   */
-  const eraseAtPhysics = useCallback(
-    (
-      x: number,
-      y: number,
-      pressure: number = 0.5,
-      e?: MouseEvent | TouchEvent,
-      topOnly: boolean = false
-    ) => {
-      const state = useAppStore.getState()
-      const eraserStore = useEraserStore.getState()
-
-      // topOnly 模式下，物理擦除降级到简单模式（只擦除最顶层）
-      // 物理擦除主要用于笔触精确分割，不适合精确擦除单个顶层元素
-      if (topOnly) {
-        eraseAtSimple(x, y, true)
-        return
-      }
-
-      // 计算速度
-      const now = performance.now()
-      let velocity = 0
-      let direction = 0
-
-      if (lastErasePointRef.current) {
-        const dx = x - lastErasePointRef.current.x
-        const dy = y - lastErasePointRef.current.y
-        const dt = now - lastErasePointRef.current.time
-        velocity = dt > 0 ? Math.sqrt(dx * dx + dy * dy) / dt : 0
-        direction = Math.atan2(dy, dx)
-      }
-      lastErasePointRef.current = { x, y, time: now }
-
-      // 构建擦除点
-      const erasePoint: EraserPoint = {
-        x,
-        y,
-        pressure,
-        velocity: Math.min(velocity, 10),
-        direction,
-        timestamp: now,
-        tiltX: e && 'tiltX' in e ? (e as PointerEvent).tiltX : undefined,
-        tiltY: e && 'tiltY' in e ? (e as PointerEvent).tiltY : undefined,
-      }
-
-      // 设置橡皮擦大小
-      eraserStore.engine.setBaseSize(getActiveEraserRadius())
-
-      // 执行物理擦除
-      const editableElements = state.elements.filter((el) =>
-        isElementLayerEditable(el, state.layers)
-      )
-      const result = eraserStore.addErasePoint(erasePoint, editableElements)
-
-      // 发射橡皮屑粒子
-      eraserStore.emitParticles(erasePoint)
-
-      if (result) {
-        // 应用擦除结果
-        for (const modified of result.modifiedStrokes) {
-          if (erasedRef.current.has(modified.id)) continue
-
-          if (modified.action === 'delete') {
-            erasedRef.current.add(modified.id)
-            removeElement(modified.id)
-          } else if (modified.action === 'split' && modified.segments) {
-            erasedRef.current.add(modified.id)
-            removeElement(modified.id)
-            for (const seg of modified.segments) {
-              addElement(seg)
-            }
-          }
-        }
-      } else {
-        // 降级到简单模式
-        eraseAtSimple(x, y)
-      }
-    },
-    [removeElement, addElement, eraseAtSimple]
-  )
-
-  /**
-   * 统一擦除入口
-   * 自动选择物理/简单模式
-   * topOnly 参数 - 只擦除最顶层元素
-   */
-  const eraseAt = useCallback(
-    (
-      x: number,
-      y: number,
-      pressure?: number,
-      e?: MouseEvent | TouchEvent,
-      topOnly: boolean = false
-    ) => {
-      const eraserStore = useEraserStore.getState()
-      if (eraserStore.shouldUsePhysics()) {
-        eraseAtPhysics(x, y, pressure, e, topOnly)
-      } else {
-        eraseAtSimple(x, y, topOnly)
-      }
-    },
-    [eraseAtPhysics, eraseAtSimple]
   )
 
   const handleStart = useCallback(
@@ -1153,7 +935,6 @@ export function usePointerEngine(opts: {
         return
       }
       drawingRef.current = true
-      erasedRef.current = new Set()
       if (curTool === 'pen') {
         currentPtsRef.current = [[pos.x, pos.y]]
         currentPressuresRef.current =
@@ -1162,8 +943,8 @@ export function usePointerEngine(opts: {
         currentPressuresRef.current = []
         // 检测 Ctrl/Cmd 键，只擦除最顶层元素
         const topOnly = e.metaKey || e.ctrlKey
-        beginEraseSession(pos.x, pos.y, contact.pressure, e)
-        eraseAt(pos.x, pos.y, contact.pressure, e, topOnly)
+        beginEraseSession()
+        eraseAt(pos.x, pos.y, topOnly)
       } else {
         currentPressuresRef.current = []
         const start = snapPointIfGridEnabled(pos)
@@ -1212,13 +993,6 @@ export function usePointerEngine(opts: {
       if (!contact) return
       const pos = getPosFromContact(contact)
       mouseRef.current = pos
-
-      // 鹰眼模式下更新目标位置
-      // 鼠标移动时实时更新用户选择的放大目标位置
-      const vs = useViewStore.getState()
-      if (vs.eagleEye.isActive) {
-        vs.updateEagleEyeTarget(pos.x, pos.y)
-      }
 
       // 样式吸管悬停预览
       // 当样式吸管激活时，检测悬停元素并更新样式预览
@@ -1284,15 +1058,7 @@ export function usePointerEngine(opts: {
         }
       }
 
-      // P1-5 性能优化: 仅在橡皮擦工具时更新粒子系统指针位置
-      // 避免每次 mousemove（60fps）都调用，即使不在擦除模式
       const curTool = useAppStore.getState().tool
-      if (curTool === 'eraser') {
-        const { particleSystem, particlesEnabled } = useEraserStore.getState()
-        if (particlesEnabled && particleSystem) {
-          particleSystem.updatePointerPosition(pos.x, pos.y, 1 / 60)
-        }
-      }
       if (curTool === 'select' && resizeRef.current) {
         const { handle, id, startX, startY, origBounds: ob } = resizeRef.current
         const totalDx = pos.x - startX,
@@ -1724,20 +1490,9 @@ export function usePointerEngine(opts: {
         return
       }
       if (curTool === 'eraser') {
-        // P0 性能优化: 环形缓冲区写入擦除轨迹 - O(1) 无 GC
-        // 原实现: 每次 mousemove 可能触发 splice，产生数组重排和 GC
-        // 新实现: 固定大小环形缓冲区，覆盖旧数据，零分配
-        const now = performance.now()
-        const idx = eraserTrailIndexRef.current
-        eraserTrailRef.current[idx].x = pos.x
-        eraserTrailRef.current[idx].y = pos.y
-        eraserTrailRef.current[idx].time = now
-        eraserTrailIndexRef.current = (idx + 1) & 63 // 位运算模 64
-        eraserTrailCountRef.current = Math.min(eraserTrailCountRef.current + 1, 64)
-
         // 检测 Ctrl/Cmd 键，只擦除最顶层元素
         const topOnly = e.metaKey || e.ctrlKey
-        if (drawingRef.current) eraseAt(pos.x, pos.y, contact.pressure, e, topOnly)
+        if (drawingRef.current) eraseAt(pos.x, pos.y, topOnly)
         scheduleRedraw()
         return
       }
@@ -1841,7 +1596,6 @@ export function usePointerEngine(opts: {
           penVelocityRef.current = 0
         } else if (curTool === 'eraser') {
           finishEraseHistory()
-          erasedRef.current.clear()
           currentPtsRef.current = []
           currentPressuresRef.current = []
         } else if (currentShapeRef.current) {
@@ -2012,7 +1766,6 @@ export function usePointerEngine(opts: {
       currentShapeRef.current = null
       shapeStartRef.current = null
       finishEraseHistory()
-      erasedRef.current.clear()
       activeTouchIdRef.current = null
       activePenPointerIdRef.current = null
       isPinchingRef.current = false
@@ -2386,17 +2139,6 @@ export function usePointerEngine(opts: {
 
   // getDrawState for renderer
   const getDrawState = useCallback(() => {
-    // P0 性能优化: 从环形缓冲区中过滤有效轨迹点
-    // 只返回最近 300ms 内的点，渲染器无需处理过期数据
-    const now = performance.now()
-    const trail: { x: number; y: number; time: number }[] = []
-    const count = eraserTrailCountRef.current
-    for (let i = 0; i < count; i++) {
-      const idx = (eraserTrailIndexRef.current - count + i + 64) & 63
-      const pt = eraserTrailRef.current[idx]
-      if (now - pt.time <= 300) trail.push(pt)
-    }
-
     // 旋转角度显示
     // 拖拽旋转手柄时计算并返回当前旋转角度值（度数）
     // 用户价值：精确控制旋转角度，专业设计时必备
@@ -2446,7 +2188,6 @@ export function usePointerEngine(opts: {
       showGrid: viewState.showGrid ?? false,
       showRulers: false,
       gridSize: viewState.gridSize,
-      eraserTrail: trail,
       penVelocity: penVelocityRef.current,
       rotationAngle,
     }

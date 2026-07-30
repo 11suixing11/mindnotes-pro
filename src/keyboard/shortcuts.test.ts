@@ -50,12 +50,8 @@ describe('keyboard shortcuts', () => {
       'Select tool'
     )
     expect(
-      findShortcutConflict(
-        'tool.pen',
-        { key: 'P', mod: true, shift: true },
-        DEFAULT_SHORTCUT_BINDINGS
-      )?.label
-    ).toBe('Screen Pen')
+      findShortcutConflict('tool.pen', { key: 'Escape' }, DEFAULT_SHORTCUT_BINDINGS)?.label
+    ).toBe('Cancel current mode')
   })
 
   it('exports and parses shortcut configurations', () => {

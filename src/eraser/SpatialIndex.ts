@@ -1,6 +1,13 @@
 import type { CanvasElement } from '../store/types'
-import type { BoundsEntry } from './types'
 import { elementBounds } from '../canvas/canvasUtils'
+
+export interface BoundsEntry {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+  id: string
+}
 /**
  * 空间索引重建统计
  */
@@ -416,49 +423,5 @@ export class SpatialIndex {
     b: { minX: number; minY: number; maxX: number; maxY: number }
   ): boolean {
     return a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY
-  }
-}
-/**
- * 性能监控器
- * 监控擦除性能并自动降级
- */
-export class PerformanceMonitor {
-  private fpsHistory: number[] = []
-  private lastFrameTime: number = 0
-  private frameCount: number = 0
-  recordFrame(): void {
-    const now = performance.now()
-    if (this.lastFrameTime > 0) {
-      const delta = now - this.lastFrameTime
-      const fps = 1000 / delta
-      this.fpsHistory.push(fps)
-      if (this.fpsHistory.length > 30) {
-        this.fpsHistory.shift()
-      }
-    }
-    this.lastFrameTime = now
-    this.frameCount++
-  }
-  getAverageFPS(): number {
-    if (this.fpsHistory.length === 0) return 60
-    let sum = 0
-    for (let i = 0; i < this.fpsHistory.length; i++) {
-      sum += this.fpsHistory[i]
-    }
-    return sum / this.fpsHistory.length
-  }
-  getPerformanceLevel(): 'high' | 'medium' | 'low' {
-    const avgFps = this.getAverageFPS()
-    if (avgFps > 50) return 'high'
-    if (avgFps > 30) return 'medium'
-    return 'low'
-  }
-  shouldUsePhysics(): boolean {
-    return this.getPerformanceLevel() !== 'low'
-  }
-  reset(): void {
-    this.fpsHistory = []
-    this.lastFrameTime = 0
-    this.frameCount = 0
   }
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { SpatialIndex, PerformanceMonitor } from '../SpatialIndex'
+import { SpatialIndex } from '../SpatialIndex'
 import type { StrokeElement, ShapeElement, CanvasElement } from '../../store/types'
 
 describe('SpatialIndex', () => {
@@ -572,67 +572,6 @@ describe('SpatialIndex', () => {
       const stats = index.getRebuildStats()
       expect(stats.rebuildCount).toBe(1)
       expect(stats.lastRebuildDuration).toBeLessThan(50) // 重建应在50ms内完成
-    })
-  })
-})
-
-describe('PerformanceMonitor', () => {
-  let monitor: PerformanceMonitor
-
-  beforeEach(() => {
-    monitor = new PerformanceMonitor()
-  })
-
-  describe('FPS计算', () => {
-    it('初始状态返回60FPS', () => {
-      expect(monitor.getAverageFPS()).toBe(60)
-      expect(monitor.getPerformanceLevel()).toBe('high')
-    })
-
-    it('recordFrame - 记录帧时间', () => {
-      monitor.recordFrame()
-
-      expect(monitor.getAverageFPS()).toBeGreaterThan(0)
-    })
-
-    it('getPerformanceLevel - 高帧率返回high', () => {
-      for (let i = 0; i < 10; i++) {
-        monitor.recordFrame()
-      }
-
-      const level = monitor.getPerformanceLevel()
-      expect(['high', 'medium', 'low']).toContain(level)
-    })
-
-    it('shouldUsePhysics - 高帧率允许物理模式', () => {
-      expect(monitor.shouldUsePhysics()).toBe(true)
-    })
-
-    it('FPS历史限制30条', () => {
-      for (let i = 0; i < 50; i++) {
-        monitor.recordFrame()
-      }
-
-      // 内部 fpsHistory 应该限制在30
-      const avg = monitor.getAverageFPS()
-      expect(avg).toBeGreaterThan(0)
-      expect(avg).toBeLessThan(Infinity)
-    })
-  })
-
-  describe('性能等级', () => {
-    it('无历史数据默认为 high', () => {
-      expect(monitor.getPerformanceLevel()).toBe('high')
-    })
-  })
-
-  describe('重置功能', () => {
-    it('reset - 清空历史', () => {
-      monitor.recordFrame()
-      monitor.recordFrame()
-      monitor.reset()
-
-      expect(monitor.getAverageFPS()).toBe(60)
     })
   })
 })

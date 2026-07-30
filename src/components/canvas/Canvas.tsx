@@ -35,7 +35,6 @@ export default function Canvas() {
     showGrid: false,
     showRulers: false,
     gridSize: DEFAULT_GRID_SIZE,
-    eraserTrail: [],
     penVelocity: 0,
   }))
 

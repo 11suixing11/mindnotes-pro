@@ -174,17 +174,6 @@ function handleKeyboardNudge(e: KeyboardEvent): boolean {
   return true
 }
 
-function handleEagleEyeCancel(e: KeyboardEvent): boolean {
-  if (e.key !== 'Escape') return false
-
-  const vs = useViewStore.getState()
-  if (!vs.eagleEye.isActive) return false
-
-  e.preventDefault()
-  vs.cancelEagleEye()
-  return true
-}
-
 function executeShortcutAction(
   action: ShortcutActionId,
   e: KeyboardEvent,
@@ -281,11 +270,6 @@ function executeShortcutAction(
       e.preventDefault()
       vs.toggleSnapToGrid()
       return true
-    case 'view.eagleEye':
-      e.preventDefault()
-      if (vs.eagleEye.isActive) vs.commitEagleEye()
-      else vs.startEagleEye()
-      return true
     case 'style.eyedropper': {
       e.preventDefault()
       const hoveredRef = (
@@ -325,7 +309,6 @@ export function useKeyboardBindings(options: Options = {}) {
 
       if (handleQuickColorShortcut(e)) return
       if (handleKeyboardNudge(e)) return
-      handleEagleEyeCancel(e)
     }
 
     window.addEventListener('keydown', handleKeyDown)
