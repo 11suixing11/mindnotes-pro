@@ -22,12 +22,12 @@ function getAlphaCanvas() {
 /**
  * 检测图片指定位置的像素是否透明
  * 用于实现"点击穿透"：点击图片透明区域时选中后面的元素
- * 
+ *
  * 算法：
  * 1. 将坐标从画布空间转换为图片本地像素空间
  * 2. 使用离屏 canvas 读取目标像素的 alpha 值
  * 3. alpha < 32（约12%不透明度）视为透明，允许穿透
- * 
+ *
  * @param imageEl 图片元素
  * @param canvasX 画布上的点击 X 坐标
  * @param canvasY 画布上的点击 Y 坐标
@@ -39,8 +39,12 @@ export function isTransparentImagePixel(
   canvasY: number
 ): boolean {
   // 边界快速检查
-  if (canvasX < imageEl.x || canvasX > imageEl.x + imageEl.width ||
-      canvasY < imageEl.y || canvasY > imageEl.y + imageEl.height) {
+  if (
+    canvasX < imageEl.x ||
+    canvasX > imageEl.x + imageEl.width ||
+    canvasY < imageEl.y ||
+    canvasY > imageEl.y + imageEl.height
+  ) {
     return true
   }
 

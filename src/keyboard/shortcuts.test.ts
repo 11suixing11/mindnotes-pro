@@ -47,11 +47,11 @@ describe('keyboard shortcuts', () => {
 
   it('detects conflicts with assigned shortcuts and reserved fixed shortcuts', () => {
     expect(findShortcutConflict('tool.pen', { key: '0' }, DEFAULT_SHORTCUT_BINDINGS)?.label).toBe(
-      'Select tool'
+      '选择工具'
     )
     expect(
       findShortcutConflict('tool.pen', { key: 'Escape' }, DEFAULT_SHORTCUT_BINDINGS)?.label
-    ).toBe('Cancel current mode')
+    ).toBe('取消当前模式')
   })
 
   it('exports and parses shortcut configurations', () => {

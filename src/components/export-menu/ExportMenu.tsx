@@ -1,13 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import {
-  Download,
-  FileJson,
-  FileText,
-  FileUp,
-  Image as ImageIcon,
-  Shapes,
-} from 'lucide-react'
+import { Download, FileJson, FileText, FileUp, Image as ImageIcon, Shapes } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import { useThemeStore } from '../../store/useThemeStore'
 import { useToastStore } from '../../store/toastStore'

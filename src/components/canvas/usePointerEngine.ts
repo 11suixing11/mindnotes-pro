@@ -46,6 +46,12 @@ import {
 import { tryBindToShape } from '../../store/bindingUtils'
 import { eraseElementsAtPoint, getEraserWorldRadius } from '../../eraser/simpleEraser'
 
+declare global {
+  interface Window {
+    __mindnotes_hovered_element_id__?: { current: string | null }
+  }
+}
+
 // 模块级常量，避免每次渲染重建
 const CURSOR_MAP: Record<string, string> = {
   select: 'default',
@@ -332,7 +338,10 @@ export function usePointerEngine(opts: {
   const hoveredElementIdRef = useRef<string | null>(null)
   // 导出悬停元素 ID 供键盘快捷键使用
   useEffect(() => {
-    ;(window as any).__mindnotes_hovered_element_id__ = hoveredElementIdRef
+    window.__mindnotes_hovered_element_id__ = hoveredElementIdRef
+    return () => {
+      delete window.__mindnotes_hovered_element_id__
+    }
   }, [])
 
   const getPosFromContact = useCallback(
@@ -754,7 +763,7 @@ export function usePointerEngine(opts: {
                 minY = Math.min(minY, b.y)
                 maxX = Math.max(maxX, b.x + b.w)
                 maxY = Math.max(maxY, b.y + b.h)
-                origRotations.set(id, (selEl as any).rotation || 0)
+                origRotations.set(id, selEl.rotation ?? 0)
               }
 
               // 初始化旋转状态
@@ -1351,12 +1360,10 @@ export function usePointerEngine(opts: {
 
             // 深拷贝元素，生成新 ID
             const newId = `${el.type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-            const newEl = { ...el, id: newId }
-
-            // stroke 类型需要特殊处理 points 数组
-            if (el.type === 'stroke') {
-              ;(newEl as any).points = el.points.map((p: number[]) => [...p])
-            }
+            const newEl: CanvasElement =
+              el.type === 'stroke'
+                ? { ...el, id: newId, points: el.points.map((point) => [...point]) }
+                : { ...el, id: newId }
 
             addElement(newEl)
             newIds.push(newId)
@@ -1364,11 +1371,11 @@ export function usePointerEngine(opts: {
             // 记录新元素的起始位置（用于拖拽计算）
             if (el.type === 'stroke') {
               newStartPositions.set(newId, {
-                x: (el as any).points[0]?.[0] ?? 0,
-                y: (el as any).points[0]?.[1] ?? 0,
+                x: el.points[0]?.[0] ?? 0,
+                y: el.points[0]?.[1] ?? 0,
               })
             } else if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
-              newStartPositions.set(newId, { x: (el as any).x, y: (el as any).y })
+              newStartPositions.set(newId, { x: el.x, y: el.y })
             }
           }
 
@@ -1720,10 +1727,8 @@ export function usePointerEngine(opts: {
             snapshot: useAppStore.getState().elements.map((e) => {
               if (idSet.has(e.id)) {
                 // 创建旋转前的元素副本
-                const origEl = { ...e }
                 const origRotation = origRotations.get(e.id) || 0
-                ;(origEl as any).rotation = origRotation
-                return origEl
+                return { ...e, rotation: origRotation }
               }
               return e
             }),

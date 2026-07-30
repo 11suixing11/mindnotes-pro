@@ -95,6 +95,11 @@ export interface CanvasElementsActions {
   unlockSelected: () => void
 }
 
+interface CanvasMutationState extends CanvasElementsState {
+  undoStack: UndoAction[]
+  redoStack: UndoAction[]
+}
+
 export function createCanvasElementsSlice(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   set: any,
@@ -532,12 +537,12 @@ export function createCanvasElementsSlice(
       if (idx === undefined || idx < 0) return
       // 跳过锁定或不可见/锁定图层中的元素，禁止移动
       if (!isElementLayerEditable(st.elements[idx], st.layers)) return
+      const elementIndex = idx
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      set((s: any) => {
+      set((s: CanvasMutationState) => {
         const next = [...s.elements]
-        const newEl = moveElement(next[idx!], dx, dy)
-        next[idx!] = newEl
+        const newEl = moveElement(next[elementIndex], dx, dy)
+        next[elementIndex] = newEl
 
         // 同步更新 ID 映射（闭包和 store 都更新）
         idToElement.set(id, newEl)
@@ -576,8 +581,7 @@ export function createCanvasElementsSlice(
       const recordHistory = options.recordHistory !== false
       const needsSnapshotHistory = recordHistory && hasBoundArrowForAny(idSet, st.elements)
       const beforeSnapshot = needsSnapshotHistory ? snapshot(st.elements) : null
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      set((s: any) => {
+      set((s: CanvasMutationState) => {
         // P0 性能优化: 快速检查是否有元素需要移动 - 使用 idToElement O(1) 检查
         // 使用 index-based 替换替代全量 map
         const next = [...s.elements]
@@ -632,10 +636,7 @@ export function createCanvasElementsSlice(
                 type: 'move',
                 deltas: movedIds.map((id) => ({ id, dx, dy })),
               }
-          nextState.undoStack = [
-            ...s.undoStack.slice(-MAX_HISTORY),
-            action,
-          ]
+          nextState.undoStack = [...s.undoStack.slice(-MAX_HISTORY), action]
           nextState.redoStack = []
         }
 
@@ -661,12 +662,12 @@ export function createCanvasElementsSlice(
       if (idx === undefined || idx < 0) return
       // 跳过锁定或不可见/锁定图层中的元素，禁止缩放
       if (!isElementLayerEditable(st.elements[idx], st.layers)) return
+      const elementIndex = idx
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      set((s: any) => {
+      set((s: CanvasMutationState) => {
         const next = [...s.elements]
-        const newEl = resizeElement(next[idx!], ax, ay, sx, sy)
-        next[idx!] = newEl
+        const newEl = resizeElement(next[elementIndex], ax, ay, sx, sy)
+        next[elementIndex] = newEl
 
         // 同步更新 ID 映射（闭包和 store 都更新）
         idToElement.set(id, newEl)
@@ -696,12 +697,12 @@ export function createCanvasElementsSlice(
       if (idx === undefined || idx < 0) return
       // 跳过锁定或不可见/锁定图层中的元素，禁止旋转
       if (!isElementLayerEditable(st.elements[idx], st.layers)) return
+      const elementIndex = idx
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      set((s: any) => {
+      set((s: CanvasMutationState) => {
         const next = [...s.elements]
-        const newEl = rotateElement(next[idx!], angle, cx, cy)
-        next[idx!] = newEl
+        const newEl = rotateElement(next[elementIndex], angle, cx, cy)
+        next[elementIndex] = newEl
 
         // 同步更新 ID 映射（闭包和 store 都更新）
         idToElement.set(id, newEl)
@@ -723,7 +724,7 @@ export function createCanvasElementsSlice(
       const unlockedIds = getEditableIds(ids, st)
       if (unlockedIds.length === 0) return
       const idSet = new Set(unlockedIds)
-      set((s: any) => {
+      set((s: CanvasMutationState) => {
         const next = [...s.elements]
         let changed = false
         for (let i = 0; i < next.length; i++) {

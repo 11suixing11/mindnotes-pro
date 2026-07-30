@@ -103,14 +103,14 @@ export default memo(function KeyboardShortcutsHelp({
         style={{ animation: 'popIn 0.2s cubic-bezier(0.16,1,0.3,1)' }}
       >
         <div className="flex items-center justify-between gap-[12px] mb-[16px]">
-          <div className="text-[16px] font-bold text-[var(--text)]">Keyboard Shortcuts</div>
+          <div className="text-[16px] font-bold text-[var(--text)]">键盘快捷键</div>
           <div className="flex items-center gap-[8px]">
             {onCustomize && (
               <button
                 onClick={onCustomize}
                 className="h-[28px] px-[10px] rounded-[8px] border border-[var(--border)] text-[12px] text-[var(--text-3)] hover:text-[var(--primary)] hover:border-[var(--primary)]"
               >
-                Customize
+                自定义
               </button>
             )}
             <button
@@ -119,7 +119,7 @@ export default memo(function KeyboardShortcutsHelp({
                 onClose()
               }}
               className="w-[28px] h-[28px] rounded-[8px] flex items-center justify-center text-[var(--text-3)] hover:bg-[var(--primary-bg)] transition-colors text-[16px]"
-              aria-label="Close"
+              aria-label="关闭"
             >
               &times;
             </button>

@@ -16,22 +16,22 @@ interface ToolButtonDefinition {
 }
 
 const TOOLS: ToolButtonDefinition[] = [
-  { id: 'select', icon: icons.select, tip: 'Select' },
-  { id: 'pen', icon: icons.pen, tip: 'Pen' },
-  { id: 'eraser', icon: icons.eraser, tip: 'Eraser' },
-  { id: 'pan', icon: icons.pan, tip: 'Pan' },
-  { id: 'text', icon: icons.text, tip: 'Text' },
+  { id: 'select', icon: icons.select, tip: '选择' },
+  { id: 'pen', icon: icons.pen, tip: '画笔' },
+  { id: 'eraser', icon: icons.eraser, tip: '橡皮擦' },
+  { id: 'pan', icon: icons.pan, tip: '平移' },
+  { id: 'text', icon: icons.text, tip: '文字' },
 ]
 
 const SHAPES: ToolButtonDefinition[] = [
   {
     id: 'rectangle',
     icon: icons.rect,
-    tip: 'Rectangle',
+    tip: '矩形',
   },
-  { id: 'circle', icon: icons.circle, tip: 'Circle' },
-  { id: 'line', icon: icons.line, tip: 'Line' },
-  { id: 'arrow', icon: icons.arrow, tip: 'Arrow' },
+  { id: 'circle', icon: icons.circle, tip: '圆形' },
+  { id: 'line', icon: icons.line, tip: '直线' },
+  { id: 'arrow', icon: icons.arrow, tip: '箭头' },
 ]
 
 interface ToolButtonsProps {
@@ -52,7 +52,7 @@ const ToolButtons = memo(function ToolButtons({ tool, setTool }: ToolButtonsProp
         <button
           onClick={() => setTool(t.id)}
           className={`tbtn ${tool === t.id ? 'on' : ''}`}
-          aria-label={`${t.tip} tool (${shortcut})`}
+          aria-label={`${t.tip}工具（${shortcut}）`}
           aria-pressed={tool === t.id}
         >
           {t.icon}
@@ -68,11 +68,11 @@ const ToolButtons = memo(function ToolButtons({ tool, setTool }: ToolButtonsProp
 
   return (
     <>
-      <div className="sb-group" role="group" aria-label="Basic tools">
+      <div className="sb-group" role="group" aria-label="基础工具">
         {TOOLS.map(renderToolButton)}
       </div>
       <div className="sb-sep" role="separator" />
-      <div className="sb-group" role="group" aria-label="Shape tools">
+      <div className="sb-group" role="group" aria-label="形状工具">
         {SHAPES.map(renderToolButton)}
       </div>
     </>

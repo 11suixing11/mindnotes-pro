@@ -53,7 +53,10 @@ export function setupServiceWorkerUpdates(options: SetupServiceWorkerOptions = {
   const isProd = options.isProd ?? import.meta.env.PROD
 
   if (!isProd) {
-    if (serviceWorker && canManageServiceWorkers({ protocol: win.location.protocol, serviceWorker })) {
+    if (
+      serviceWorker &&
+      canManageServiceWorkers({ protocol: win.location.protocol, serviceWorker })
+    ) {
       unregisterExistingServiceWorkers(serviceWorker)
     }
     return
@@ -71,7 +74,8 @@ export function setupServiceWorkerUpdates(options: SetupServiceWorkerOptions = {
   if (!serviceWorker) return
 
   const setIntervalFn = options.setInterval ?? win.setInterval.bind(win)
-  const serviceWorkerUrl = options.serviceWorkerUrl ?? new URL('sw.js', win.location.href).toString()
+  const serviceWorkerUrl =
+    options.serviceWorkerUrl ?? new URL('sw.js', win.location.href).toString()
 
   win.addEventListener('load', () => {
     void serviceWorker

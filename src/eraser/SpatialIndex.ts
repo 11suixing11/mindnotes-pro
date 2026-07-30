@@ -396,7 +396,8 @@ export class SpatialIndex {
     // 搜索时直接去重和过滤已删除元素，避免事后 O(k) 处理
     const stack: RTreeNode[] = [node]
     while (stack.length > 0) {
-      const current = stack.pop()!
+      const current = stack.pop()
+      if (!current) continue
       if (!this.overlaps(current, bounds)) continue
       if (current.leaf) {
         // 叶子节点：收集匹配的条目，直接去重和过滤

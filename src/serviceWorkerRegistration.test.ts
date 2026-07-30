@@ -30,12 +30,12 @@ describe('service worker registration', () => {
   it('only registers in production on supported HTTP protocols', () => {
     const serviceWorker = makeServiceWorker().serviceWorker
 
-    expect(
-      shouldRegisterServiceWorker({ isProd: true, protocol: 'https:', serviceWorker })
-    ).toBe(true)
-    expect(
-      shouldRegisterServiceWorker({ isProd: false, protocol: 'https:', serviceWorker })
-    ).toBe(false)
+    expect(shouldRegisterServiceWorker({ isProd: true, protocol: 'https:', serviceWorker })).toBe(
+      true
+    )
+    expect(shouldRegisterServiceWorker({ isProd: false, protocol: 'https:', serviceWorker })).toBe(
+      false
+    )
     expect(shouldRegisterServiceWorker({ isProd: true, protocol: 'file:', serviceWorker })).toBe(
       false
     )

@@ -105,8 +105,8 @@ export default function Toolbar() {
             onClick={undo}
             disabled={undoLen === 0}
             className={`abtn ${historyPulse === 'undo' ? 'history-pulse' : ''}`}
-            data-tip={`Undo ${shortcut('edit.undo')}`}
-            aria-label="Undo"
+            data-tip={`撤销 ${shortcut('edit.undo')}`}
+            aria-label="撤销"
           >
             {icons.undo}
           </button>
@@ -114,8 +114,8 @@ export default function Toolbar() {
             onClick={redo}
             disabled={redoLen === 0}
             className={`abtn ${historyPulse === 'redo' ? 'history-pulse' : ''}`}
-            data-tip={`Redo ${shortcut('edit.redo')}`}
-            aria-label="Redo"
+            data-tip={`重做 ${shortcut('edit.redo')}`}
+            aria-label="重做"
           >
             {icons.redo}
           </button>
@@ -148,7 +148,7 @@ export default function Toolbar() {
         <div className="tb-sep" aria-hidden="true" />
         <CanvasActionButtons />
         <div className="tb-sep" aria-hidden="true" />
-        <button onClick={zoomIn} className="abtn" data-tip="Zoom in" aria-label="Zoom in">
+        <button onClick={zoomIn} className="abtn" data-tip="放大" aria-label="放大">
           {icons.zoomIn}
         </button>
         <button
@@ -156,28 +156,28 @@ export default function Toolbar() {
           className="abtn"
           data-tip={`${Math.round(zoom * 100)}%`}
           style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-3)' }}
-          aria-label={`Reset zoom - currently ${Math.round(zoom * 100)}%`}
+          aria-label={`重置缩放，当前 ${Math.round(zoom * 100)}%`}
         >
           {Math.round(zoom * 100)}
         </button>
-        <button onClick={zoomOut} className="abtn" data-tip="Zoom out" aria-label="Zoom out">
+        <button onClick={zoomOut} className="abtn" data-tip="缩小" aria-label="缩小">
           {icons.zoomOut}
         </button>
         <div className="tb-sep" aria-hidden="true" />
         <button
           onClick={toggleTheme}
           className="abtn"
-          data-tip={isDarkMode ? 'Light' : 'Dark'}
-          aria-label={isDarkMode ? 'Switch to light theme' : 'Switch to dark theme'}
+          data-tip={isDarkMode ? '浅色模式' : '深色模式'}
+          aria-label={isDarkMode ? '切换到浅色模式' : '切换到深色模式'}
         >
           {isDarkMode ? icons.sun : icons.moon}
         </button>
         <button
           onClick={toggleGrid}
           className="abtn"
-          data-tip={showGrid ? 'Hide grid' : `Show grid (${shortcut('view.toggleGrid')})`}
+          data-tip={showGrid ? '隐藏网格' : `显示网格（${shortcut('view.toggleGrid')}）`}
           style={showGrid ? { color: 'var(--primary)', opacity: 1 } : undefined}
-          aria-label={showGrid ? 'Hide grid' : 'Show grid'}
+          aria-label={showGrid ? '隐藏网格' : '显示网格'}
           aria-pressed={showGrid}
         >
           {icons.grid}
@@ -187,11 +187,11 @@ export default function Toolbar() {
           className="abtn"
           data-tip={
             snapToGrid
-              ? `Disable grid snap (${shortcut('view.toggleGridSnap')})`
-              : `Snap to grid (${shortcut('view.toggleGridSnap')})`
+              ? `关闭网格吸附（${shortcut('view.toggleGridSnap')}）`
+              : `开启网格吸附（${shortcut('view.toggleGridSnap')}）`
           }
           style={snapToGrid ? { color: 'var(--primary)', opacity: 1 } : undefined}
-          aria-label={snapToGrid ? 'Disable grid snap' : 'Enable grid snap'}
+          aria-label={snapToGrid ? '关闭网格吸附' : '开启网格吸附'}
           aria-pressed={snapToGrid}
         >
           {icons.snap}
@@ -199,8 +199,8 @@ export default function Toolbar() {
         <button
           onClick={cycleGridSize}
           className="abtn grid-size-btn"
-          data-tip={`Grid size ${gridSize}px`}
-          aria-label={`Grid size ${gridSize}px`}
+          data-tip={`网格大小 ${gridSize}px`}
+          aria-label={`网格大小 ${gridSize}px`}
         >
           {gridSize}
         </button>

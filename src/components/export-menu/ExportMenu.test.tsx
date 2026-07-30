@@ -3,71 +3,67 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as DocumentExportModule from '../../canvas/documentExport'
 import ExportMenu from './ExportMenu'
 
-const {
-  appState,
-  canvasToBlobMock,
-  importDocMock,
-  renderDocumentMock,
-  showToastMock,
-} = vi.hoisted(() => {
-  const layer = {
-    id: 'layer-default',
-    name: '图层 1',
-    visible: true,
-    locked: false,
-    order: 0,
-    createdAt: 1,
-    updatedAt: 1,
-  }
-  const element = {
-    type: 'shape' as const,
-    id: 'shape-1',
-    layerId: layer.id,
-    kind: 'rectangle' as const,
-    x: 10,
-    y: 20,
-    w: 100,
-    h: 80,
-    color: '#111827',
-    size: 2,
-  }
-  const importDoc = vi.fn(async (_document: unknown) => 'imported-doc')
+const { appState, canvasToBlobMock, importDocMock, renderDocumentMock, showToastMock } = vi.hoisted(
+  () => {
+    const layer = {
+      id: 'layer-default',
+      name: '图层 1',
+      visible: true,
+      locked: false,
+      order: 0,
+      createdAt: 1,
+      updatedAt: 1,
+    }
+    const element = {
+      type: 'shape' as const,
+      id: 'shape-1',
+      layerId: layer.id,
+      kind: 'rectangle' as const,
+      x: 10,
+      y: 20,
+      w: 100,
+      h: 80,
+      color: '#111827',
+      size: 2,
+    }
+    const importDoc = vi.fn(async (_document: unknown) => 'imported-doc')
 
-  return {
-    appState: {
-      currentDocId: 'doc-1',
-      docs: [
-        {
-          schemaVersion: 4 as const,
-          id: 'doc-1',
-          title: '测试画布',
-          elements: [element],
-          layers: [layer],
-          activeLayerId: layer.id,
-          bgColor: '#ffffff',
-          backgroundStyle: 'plain' as const,
-          folderId: null,
-          createdAt: 1,
-          updatedAt: 2,
-        },
-      ],
-      elements: [element],
-      layers: [layer],
-      activeLayerId: layer.id,
-      bgColor: '#ffffff',
-      backgroundStyle: 'plain' as const,
-      importDoc,
-    },
-    canvasToBlobMock: vi.fn(async () => new Blob(['jpeg'], { type: 'image/jpeg' })),
-    importDocMock: importDoc,
-    renderDocumentMock: vi.fn(async () => ({
-      canvas: document.createElement('canvas'),
-      bounds: { x: 0, y: 0, w: 100, h: 100 },
-      scale: 1,
-    })),
-    showToastMock: vi.fn(),
+    return {
+      appState: {
+        currentDocId: 'doc-1',
+        docs: [
+          {
+            schemaVersion: 4 as const,
+            id: 'doc-1',
+            title: '测试画布',
+            elements: [element],
+            layers: [layer],
+            activeLayerId: layer.id,
+            bgColor: '#ffffff',
+            backgroundStyle: 'plain' as const,
+            folderId: null,
+            createdAt: 1,
+            updatedAt: 2,
+          },
+        ],
+        elements: [element],
+        layers: [layer],
+        activeLayerId: layer.id,
+        bgColor: '#ffffff',
+        backgroundStyle: 'plain' as const,
+        importDoc,
+      },
+      canvasToBlobMock: vi.fn(async () => new Blob(['jpeg'], { type: 'image/jpeg' })),
+      importDocMock: importDoc,
+      renderDocumentMock: vi.fn(async () => ({
+        canvas: document.createElement('canvas'),
+        bounds: { x: 0, y: 0, w: 100, h: 100 },
+        scale: 1,
+      })),
+      showToastMock: vi.fn(),
+    }
   }
-})
+)
 
 vi.mock('../../store/appStore', () => ({
   useAppStore: { getState: () => appState },

@@ -109,7 +109,7 @@ export default function App() {
           document.getElementById('main-canvas')?.focus()
         }}
       >
-        Skip to canvas
+        跳到画布
       </a>
       <div
         className="app-shell"
@@ -148,7 +148,7 @@ export default function App() {
               }}
               role="button"
               tabIndex={0}
-              aria-label={`Zoom ${Math.round(zoom * 100)} percent - Click to fit content`}
+              aria-label={`缩放 ${Math.round(zoom * 100)}%，点击适应内容`}
             >
               {Math.round(zoom * 100)}%
             </span>
@@ -189,8 +189,8 @@ export default function App() {
               target="_blank"
               rel="noreferrer"
               className="status-feedback"
-              title="Share feedback"
-              aria-label="Share feedback"
+              title="提交反馈"
+              aria-label="提交反馈"
             >
               反馈
             </a>
@@ -210,8 +210,8 @@ export default function App() {
               }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--primary)')}
               onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-4)')}
-              title="Keyboard shortcuts (?)"
-              aria-label="Keyboard shortcuts"
+              title="键盘快捷键（?）"
+              aria-label="键盘快捷键"
             >
               ?
             </button>
@@ -238,7 +238,7 @@ export default function App() {
                 setDeferredPrompt(null)
               }}
               className="install-btn"
-              aria-label="Install MindNotes Pro"
+              aria-label="安装 MindNotes Pro"
             >
               <svg
                 width="16"

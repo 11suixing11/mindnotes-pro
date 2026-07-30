@@ -43,7 +43,7 @@ describe('Toolbar', () => {
       button.getAttribute('aria-label')
     )
 
-    expect(labels.indexOf('模板库')).toBeGreaterThan(labels.indexOf('Brush: 钢笔'))
+    expect(labels.indexOf('模板库')).toBeGreaterThan(labels.indexOf('画笔：钢笔'))
     expect(labels.indexOf('模板库')).toBeLessThan(labels.indexOf('颜色'))
     expect(labels.indexOf('模板库')).toBeLessThan(labels.indexOf('背景设置'))
   })

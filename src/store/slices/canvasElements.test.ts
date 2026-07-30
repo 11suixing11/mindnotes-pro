@@ -244,10 +244,9 @@ describe('canvasElements slice', () => {
     })
 
     it('records one delta move history action by default', () => {
-      useAppStore.getState().addElements([
-        makeShape('sh1', { x: 0, y: 0 }),
-        makeShape('sh2', { x: 50, y: 50 }),
-      ])
+      useAppStore
+        .getState()
+        .addElements([makeShape('sh1', { x: 0, y: 0 }), makeShape('sh2', { x: 50, y: 50 })])
       useAppStore.setState({ undoStack: [], redoStack: [] })
 
       useAppStore.getState().moveElementsById(['sh1', 'sh2'], 10, 20)
@@ -302,10 +301,9 @@ describe('canvasElements slice', () => {
     })
 
     it('can move without recording history for in-progress drag frames', () => {
-      useAppStore.getState().addElements([
-        makeShape('sh1', { x: 0, y: 0 }),
-        makeShape('sh2', { x: 50, y: 50 }),
-      ])
+      useAppStore
+        .getState()
+        .addElements([makeShape('sh1', { x: 0, y: 0 }), makeShape('sh2', { x: 50, y: 50 })])
       useAppStore.setState({ undoStack: [], redoStack: [] })
 
       useAppStore.getState().moveElementsById(['sh1', 'sh2'], 10, 20, { recordHistory: false })

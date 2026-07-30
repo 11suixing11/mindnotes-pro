@@ -160,7 +160,7 @@ export default function Canvas() {
           width={Math.round(canvasSize.w * dpr)}
           height={Math.round(canvasSize.h * dpr)}
           role="img"
-          aria-label="Drawing canvas - Use toolbar to select tools and draw"
+          aria-label="绘图画布"
           className="main-canvas"
           style={{
             touchAction: 'none',

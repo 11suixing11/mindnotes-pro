@@ -402,7 +402,7 @@ function applyRotationTransform(
   el: CanvasElement,
   bounds: { x: number; y: number; w: number; h: number }
 ): boolean {
-  const rotation = (el as any).rotation
+  const rotation = el.rotation
   if (!rotation || Math.abs(rotation) < 0.001) return false
 
   const centerX = bounds.x + bounds.w / 2
@@ -432,8 +432,8 @@ export function drawElement(
   const bounds = {
     x: el.type === 'shape' ? Math.min(el.x, el.x + el.w) : el.x,
     y: el.type === 'shape' ? Math.min(el.y, el.y + el.h) : el.y,
-    w: el.type === 'shape' ? Math.abs(el.w) : (el as any).width,
-    h: el.type === 'shape' ? Math.abs(el.h) : (el as any).height,
+    w: el.type === 'shape' ? Math.abs(el.w) : el.width,
+    h: el.type === 'shape' ? Math.abs(el.h) : el.height,
   }
 
   const hasRotation = applyRotationTransform(ctx, el, bounds)

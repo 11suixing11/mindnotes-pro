@@ -239,5 +239,4 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
       const nextIndex = index === -1 ? 0 : (index + 1) % GRID_SIZE_OPTIONS.length
       return { gridSize: GRID_SIZE_OPTIONS[nextIndex] }
     }),
-
 }))
