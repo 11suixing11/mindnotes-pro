@@ -62,6 +62,62 @@ const CURSOR_MAP: Record<string, string> = {
 // P5 样式吸管光标 - 使用 CSS 自定义光标
 const EYEDROPPER_CURSOR = 'crosshair'
 
+function haveStrokePointsChanged(before: number[][], after: number[][]): boolean {
+  if (before.length !== after.length) return true
+  for (let i = 0; i < before.length; i++) {
+    if (before[i]?.[0] !== after[i]?.[0] || before[i]?.[1] !== after[i]?.[1]) return true
+  }
+  return false
+}
+
+function hasDragGeometryChanged(before: CanvasElement, after: CanvasElement): boolean {
+  if (before.type !== after.type) return true
+  if (before.type === 'stroke') {
+    return haveStrokePointsChanged(before.points, (after as typeof before).points)
+  }
+  if (before.type === 'shape') {
+    const next = after as typeof before
+    return (
+      before.x !== next.x ||
+      before.y !== next.y ||
+      before.w !== next.w ||
+      before.h !== next.h ||
+      (before.rotation ?? 0) !== (next.rotation ?? 0)
+    )
+  }
+  const next = after as typeof before
+  return (
+    before.x !== next.x ||
+    before.y !== next.y ||
+    before.width !== next.width ||
+    before.height !== next.height ||
+    (before.rotation ?? 0) !== (next.rotation ?? 0)
+  )
+}
+
+function getChangedElementIds(before: CanvasElement[], after: CanvasElement[]): string[] {
+  const beforeById = new Map(before.map((el) => [el.id, el]))
+  const afterById = new Map(after.map((el) => [el.id, el]))
+  const changedIds = new Set<string>()
+
+  for (const beforeEl of before) {
+    const afterEl = afterById.get(beforeEl.id)
+    if (!afterEl) {
+      changedIds.add(beforeEl.id)
+      continue
+    }
+    if (hasDragGeometryChanged(beforeEl, afterEl)) {
+      changedIds.add(beforeEl.id)
+    }
+  }
+
+  for (const afterEl of after) {
+    if (!beforeById.has(afterEl.id)) changedIds.add(afterEl.id)
+  }
+
+  return [...changedIds]
+}
+
 export function usePointerEngine(opts: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>
   cachedBounds: (el: CanvasElement) => { x: number; y: number; w: number; h: number }
@@ -231,6 +287,7 @@ export function usePointerEngine(opts: {
     y: number
     id: string
     startPositions?: Map<string, { x: number; y: number }>
+    startElementsSnapshot?: CanvasElement[]
     // 拖动阈值状态跟踪
     dragStarted: boolean
     startScreenX: number
@@ -1048,6 +1105,7 @@ export function usePointerEngine(opts: {
             y: pos.y,
             id: hit,
             startPositions,
+            startElementsSnapshot: snapshot(st.elements),
             dragStarted: false,
             startScreenX: screenX,
             startScreenY: screenY,
@@ -1469,6 +1527,7 @@ export function usePointerEngine(opts: {
                 y: pos.y,
                 id: hits[0],
                 startPositions,
+                startElementsSnapshot: snapshot(st.elements),
                 dragStarted: true, // 直接跳过阈值检测，立即开始拖拽
                 startScreenX: screenX,
                 startScreenY: screenY,
@@ -1866,28 +1925,20 @@ export function usePointerEngine(opts: {
         }
         if (dragRef.current?.startPositions) {
           const st = useAppStore.getState()
-          const sp = dragRef.current.startPositions
-          const deltas: { id: string; dx: number; dy: number }[] = []
-          for (const el of st.elements) {
-            const startPos = sp.get(el.id)
-            if (!startPos) continue
-            if (!isElementLayerEditable(el, st.layers)) continue
-            let cx: number, cy: number
-            if (el.type === 'stroke') {
-              cx = el.points[0]?.[0] ?? 0
-              cy = el.points[0]?.[1] ?? 0
-            } else if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
-              cx = el.x
-              cy = el.y
-            } else {
-              cx = 0
-              cy = 0
-            }
-            const dx = cx - startPos.x,
-              dy = cy - startPos.y
-            if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) deltas.push({ id: el.id, dx, dy })
+          const before = dragRef.current.startElementsSnapshot
+          const affectedIds = before ? getChangedElementIds(before, st.elements) : []
+          if (before && affectedIds.length > 0) {
+            const draggedCount =
+              [...dragRef.current.startPositions.keys()].filter((id) => affectedIds.includes(id))
+                .length || affectedIds.length
+            useAppStore.getState().pushUndo({
+              type: 'snapshot',
+              before: snapshot(before),
+              after: snapshot(st.elements),
+              label: draggedCount === 1 ? 'Move element' : `Move ${draggedCount} elements`,
+              affectedIds,
+            })
           }
-          if (deltas.length > 0) useAppStore.getState().pushUndo({ type: 'move', deltas })
         }
         const resizeCur = resizeRef.current
         if (resizeCur?.origElement) {
