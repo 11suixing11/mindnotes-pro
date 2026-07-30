@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { useViewStore } from './useViewStore'
 
 describe('useViewStore', () => {
   beforeEach(() => {
+    document.body.innerHTML = ''
     useViewStore.setState({
       viewBox: { x: 0, y: 0, zoom: 1 },
       isPanning: false,
@@ -11,6 +12,11 @@ describe('useViewStore', () => {
       snapToGrid: false,
       gridSize: 20,
     })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    document.body.innerHTML = ''
   })
 
   it('should initialize with correct default state', () => {
@@ -140,6 +146,53 @@ describe('useViewStore', () => {
       Object.defineProperty(window, 'innerHeight', { value: 768, writable: true })
       useViewStore.getState().zoomToFit({ x: 0, y: 0, w: 10, h: 10 })
       expect(useViewStore.getState().viewBox.zoom).toBeLessThanOrEqual(3)
+    })
+
+    it('clamps zoom to min 0.2 for very large bounds', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true })
+      Object.defineProperty(window, 'innerHeight', { value: 768, writable: true })
+      useViewStore.getState().zoomToFit({ x: 0, y: 0, w: 100000, h: 100000 })
+      expect(useViewStore.getState().viewBox.zoom).toBe(0.2)
+    })
+
+    it('fits content below overlapping canvas toolbars', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 1200, writable: true })
+      Object.defineProperty(window, 'innerHeight', { value: 800, writable: true })
+      const canvas = document.createElement('canvas')
+      canvas.id = 'main-canvas'
+      vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+        x: 240,
+        y: 0,
+        left: 240,
+        top: 0,
+        right: 1200,
+        bottom: 1600,
+        width: 960,
+        height: 1600,
+        toJSON: () => ({}),
+      })
+      document.body.appendChild(canvas)
+      const toolbar = document.createElement('div')
+      toolbar.setAttribute('aria-label', 'Canvas tools')
+      vi.spyOn(toolbar, 'getBoundingClientRect').mockReturnValue({
+        x: 252,
+        y: 12,
+        left: 252,
+        top: 12,
+        right: 1188,
+        bottom: 132,
+        width: 936,
+        height: 120,
+        toJSON: () => ({}),
+      })
+      document.body.appendChild(toolbar)
+
+      const bounds = { x: 0, y: 0, w: 300, h: 400 }
+      useViewStore.getState().zoomToFit(bounds)
+      const { viewBox } = useViewStore.getState()
+      const contentScreenTop = (bounds.y - viewBox.y) * viewBox.zoom
+
+      expect(contentScreenTop).toBeGreaterThanOrEqual(156)
     })
 
     it('handles zero-width bounds without error', () => {

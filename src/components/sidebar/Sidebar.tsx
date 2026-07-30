@@ -248,7 +248,7 @@ export default function Sidebar() {
               <div className="sb-brand-logo" aria-hidden="true">
                 M
               </div>
-              <span className="sb-brand-name">MindNotes</span>
+              <span className="sb-brand-name">MindNotes Pro</span>
             </div>
             <button
               type="button"

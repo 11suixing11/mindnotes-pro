@@ -3,6 +3,8 @@ import { act, renderHook } from '@testing-library/react'
 import { usePointerEngine } from './usePointerEngine'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
+import { createDefaultLayer, DEFAULT_LAYER_ID } from '../../store/layers'
+import { DEFAULT_ERASER_CONFIG, useEraserStore } from '../../eraser'
 import type { CanvasElement, ShapeElement } from '../../store/types'
 
 function mockBounds(el: CanvasElement): { x: number; y: number; w: number; h: number } {
@@ -130,17 +132,50 @@ function dispatchPointer(canvas: HTMLCanvasElement, event: PointerEvent) {
   })
 }
 
+function configureEraser(mode: 'simple' | 'physics', baseRadius: number) {
+  const config = { ...DEFAULT_ERASER_CONFIG, baseRadius, audioEnabled: false }
+  const eraserStore = useEraserStore.getState()
+  eraserStore.engine.updateConfig(config)
+  eraserStore.engine.setBaseSize(baseRadius)
+  eraserStore.spatialIndex.clear()
+  eraserStore.reset()
+  useEraserStore.setState({
+    eraserMode: mode,
+    eraserConfig: config,
+    particlesEnabled: false,
+    isErasing: false,
+    currentTrail: [],
+  })
+}
+
+function seedCanvasElements(elements: CanvasElement[]) {
+  for (const element of elements) {
+    useAppStore.getState().addElement(element)
+  }
+  useAppStore.setState({ undoStack: [], redoStack: [] })
+}
+
 describe('usePointerEngine', () => {
   beforeEach(() => {
     localStorage.clear()
+    const defaultLayer = createDefaultLayer(1)
+    const currentState = useAppStore.getState()
+    currentState.idToElement.clear()
+    currentState.idToIndex.clear()
+    currentState.spatialIndex.clear()
     useAppStore.setState({
       elements: [],
+      layers: [defaultLayer],
+      activeLayerId: DEFAULT_LAYER_ID,
       tool: 'pen',
       brush: 'pen',
       color: '#2c2416',
       size: 4,
       selectedIds: [],
+      undoStack: [],
+      redoStack: [],
     })
+    configureEraser('physics', DEFAULT_ERASER_CONFIG.baseRadius)
     useViewStore.setState({
       viewBox: { x: 0, y: 0, zoom: 1 },
       isPanning: false,
@@ -390,6 +425,354 @@ describe('usePointerEngine', () => {
 
       expect(state.showGrid).toBe(true)
       expect(state.gridSize).toBe(40)
+    })
+  })
+
+  describe('select interactions', () => {
+    it('moves a multi-selection instead of rotating when dragging through an individual element rotate handle', () => {
+      useAppStore.setState({ tool: 'select' })
+      seedCanvasElements([
+        {
+          type: 'shape',
+          id: 'process',
+          kind: 'rectangle',
+          x: 100,
+          y: 100,
+          w: 200,
+          h: 80,
+          color: '#000',
+          size: 2,
+        },
+        {
+          type: 'shape',
+          id: 'decision',
+          kind: 'rectangle',
+          x: 150,
+          y: 180,
+          w: 100,
+          h: 100,
+          color: '#000',
+          size: 2,
+        },
+      ])
+      useAppStore.getState().setSelectedIds(['process', 'decision'])
+
+      const { canvas } = renderPointerEngineHarness()
+
+      act(() => {
+        canvas.dispatchEvent(
+          new MouseEvent('mousedown', {
+            clientX: 200,
+            clientY: 160,
+            button: 0,
+            buttons: 1,
+            bubbles: true,
+          })
+        )
+      })
+      act(() => {
+        canvas.dispatchEvent(
+          new MouseEvent('mousemove', {
+            clientX: 230,
+            clientY: 180,
+            buttons: 1,
+            bubbles: true,
+          })
+        )
+      })
+      act(() => {
+        canvas.dispatchEvent(
+          new MouseEvent('mouseup', {
+            clientX: 230,
+            clientY: 180,
+            button: 0,
+            buttons: 0,
+            bubbles: true,
+          })
+        )
+      })
+
+      const process = useAppStore.getState().idToElement.get('process') as ShapeElement
+      const decision = useAppStore.getState().idToElement.get('decision') as ShapeElement
+      expect(process.x).toBe(130)
+      expect(process.y).toBe(120)
+      expect(decision.x).toBe(180)
+      expect(decision.y).toBe(200)
+      expect(process.rotation ?? 0).toBe(0)
+      expect(decision.rotation ?? 0).toBe(0)
+      expect(useAppStore.getState().undoStack).toHaveLength(1)
+      expect(useAppStore.getState().undoStack[0].type).toBe('snapshot')
+
+      act(() => {
+        useAppStore.getState().undo()
+      })
+
+      const restoredProcess = useAppStore.getState().idToElement.get('process') as ShapeElement
+      const restoredDecision = useAppStore.getState().idToElement.get('decision') as ShapeElement
+      expect(restoredProcess.x).toBe(100)
+      expect(restoredProcess.y).toBe(100)
+      expect(restoredDecision.x).toBe(150)
+      expect(restoredDecision.y).toBe(180)
+    })
+
+    it('restores bound arrows with the dragged shape in one undo step', () => {
+      useAppStore.setState({ tool: 'select' })
+      seedCanvasElements([
+        {
+          type: 'shape',
+          id: 'box',
+          kind: 'rectangle',
+          x: 100,
+          y: 100,
+          w: 50,
+          h: 50,
+          color: '#000',
+          size: 2,
+        },
+        {
+          type: 'shape',
+          id: 'arrow',
+          kind: 'arrow',
+          x: 150,
+          y: 125,
+          w: 50,
+          h: 0,
+          color: '#000',
+          size: 2,
+          startBinding: { targetId: 'box', anchorX: 1, anchorY: 0.5 },
+        },
+      ])
+
+      const { canvas } = renderPointerEngineHarness()
+
+      act(() => {
+        canvas.dispatchEvent(
+          new MouseEvent('mousedown', {
+            clientX: 125,
+            clientY: 125,
+            button: 0,
+            buttons: 1,
+            bubbles: true,
+          })
+        )
+      })
+      act(() => {
+        canvas.dispatchEvent(
+          new MouseEvent('mousemove', {
+            clientX: 155,
+            clientY: 145,
+            buttons: 1,
+            bubbles: true,
+          })
+        )
+      })
+      act(() => {
+        canvas.dispatchEvent(
+          new MouseEvent('mouseup', {
+            clientX: 155,
+            clientY: 145,
+            button: 0,
+            buttons: 0,
+            bubbles: true,
+          })
+        )
+      })
+
+      const movedBox = useAppStore.getState().idToElement.get('box') as ShapeElement
+      const movedArrow = useAppStore.getState().idToElement.get('arrow') as ShapeElement
+      expect(movedBox.x).toBe(130)
+      expect(movedBox.y).toBe(120)
+      expect(movedArrow.x).toBe(180)
+      expect(movedArrow.y).toBe(145)
+      expect(movedArrow.w).toBe(20)
+      expect(movedArrow.h).toBe(-20)
+      expect(useAppStore.getState().undoStack).toHaveLength(1)
+      expect(useAppStore.getState().undoStack[0]).toMatchObject({
+        type: 'snapshot',
+        affectedIds: expect.arrayContaining(['box', 'arrow']),
+      })
+
+      act(() => {
+        useAppStore.getState().undo()
+      })
+
+      const restoredBox = useAppStore.getState().idToElement.get('box') as ShapeElement
+      const restoredArrow = useAppStore.getState().idToElement.get('arrow') as ShapeElement
+      expect(restoredBox.x).toBe(100)
+      expect(restoredBox.y).toBe(100)
+      expect(restoredArrow.x).toBe(150)
+      expect(restoredArrow.y).toBe(125)
+      expect(restoredArrow.w).toBe(50)
+      expect(restoredArrow.h).toBe(0)
+    })
+  })
+
+  describe('eraser interactions', () => {
+    it('erases a sparse stroke when the eraser crosses a segment between sampled points', () => {
+      configureEraser('simple', 30)
+      useAppStore.setState({ tool: 'eraser', size: 1 })
+      seedCanvasElements([
+        {
+          type: 'stroke',
+          id: 'stroke-sparse',
+          points: [
+            [0, 0],
+            [200, 0],
+          ],
+          color: '#000',
+          size: 2,
+          brush: 'pen',
+        },
+      ])
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 21,
+          pointerType: 'pen',
+          clientX: 100,
+          clientY: 25,
+          pressure: 0.5,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 21,
+          pointerType: 'pen',
+          clientX: 100,
+          clientY: 25,
+          pressure: 0.5,
+          buttons: 0,
+        })
+      )
+
+      const state = useAppStore.getState()
+      expect(state.elements.some((element) => element.id === 'stroke-sparse')).toBe(false)
+      expect(state.undoStack).toHaveLength(1)
+      expect(state.undoStack[0].type).toBe('erase')
+    })
+
+    it('commits one drag erase as one undo action and restores the original stroke', () => {
+      configureEraser('simple', 30)
+      useAppStore.setState({ tool: 'eraser', size: 1 })
+      seedCanvasElements([
+        {
+          type: 'stroke',
+          id: 'stroke-drag',
+          points: [
+            [0, 0],
+            [100, 0],
+            [200, 0],
+            [300, 0],
+          ],
+          color: '#000',
+          size: 2,
+          brush: 'pen',
+        },
+      ])
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 22,
+          pointerType: 'pen',
+          clientX: 100,
+          clientY: 0,
+          pressure: 0.5,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 22,
+          pointerType: 'pen',
+          clientX: 200,
+          clientY: 0,
+          pressure: 0.5,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 22,
+          pointerType: 'pen',
+          clientX: 200,
+          clientY: 0,
+          pressure: 0.5,
+          buttons: 0,
+        })
+      )
+
+      expect(useAppStore.getState().undoStack).toHaveLength(1)
+      expect(useAppStore.getState().undoStack[0].type).toBe('erase')
+
+      act(() => {
+        useAppStore.getState().undo()
+      })
+
+      expect(useAppStore.getState().elements).toEqual([
+        expect.objectContaining({
+          id: 'stroke-drag',
+          points: [
+            [0, 0],
+            [100, 0],
+            [200, 0],
+            [300, 0],
+          ],
+        }),
+      ])
+    })
+
+    it('loads current canvas elements into the physics eraser index when erasing starts', () => {
+      configureEraser('physics', 30)
+      useAppStore.setState({ tool: 'eraser', size: 1 })
+      seedCanvasElements([
+        {
+          type: 'stroke',
+          id: 'stroke-physics',
+          points: [
+            [0, 0],
+            [200, 0],
+          ],
+          color: '#000',
+          size: 2,
+          brush: 'pen',
+        },
+      ])
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 23,
+          pointerType: 'pen',
+          clientX: 100,
+          clientY: 0,
+          pressure: 0.5,
+        })
+      )
+      const candidateIds = useEraserStore.getState().spatialIndex.search({
+        x: -10,
+        y: -10,
+        w: 220,
+        h: 20,
+      })
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 23,
+          pointerType: 'pen',
+          clientX: 100,
+          clientY: 0,
+          pressure: 0.5,
+          buttons: 0,
+        })
+      )
+
+      expect(candidateIds).toContain('stroke-physics')
     })
   })
 

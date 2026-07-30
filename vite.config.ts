@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => ({
         brotliSize: true,
       }),
   ].filter(Boolean),
-  base: process.env.VITE_APP_BASE || (process.env.GITHUB_ACTIONS ? '/mindnotes-pro/' : '/'),
+  base: process.env.VITE_APP_BASE || '/',
   server: {
     port: 3000,
     open: true,

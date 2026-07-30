@@ -18,12 +18,12 @@ export interface CanvasTemplate {
 }
 
 export const TEMPLATE_CATEGORY_LABELS: Record<TemplateCategory, string> = {
-  flowchart: 'Flowchart',
-  'mind-map': 'Mind map',
-  wireframe: 'Wireframe',
-  diagram: 'Diagram',
-  notes: 'Notes',
-  custom: 'Custom',
+  flowchart: '流程图',
+  'mind-map': '思维导图',
+  wireframe: '线框图',
+  diagram: '图表',
+  notes: '笔记',
+  custom: '自定义',
 }
 
 export const CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes.customTemplates.v1'
@@ -93,55 +93,55 @@ function text(
 const BUILT_IN_TEMPLATES: CanvasTemplate[] = [
   {
     id: 'template-flowchart-basic',
-    name: 'Flowchart',
-    description: 'Start, process, decision, end',
+    name: '流程图',
+    description: '开始、处理、判断和结束节点',
     category: 'flowchart',
     width: 320,
     height: 500,
     elements: [
       shape('flow-start', 'circle', 210, 10, 140, 58, '#2B8A3E', '#E9F7EF'),
-      text('flow-start-text', 'Start', 230, 25, 100, 28, 18, '#14532D'),
+      text('flow-start-text', '开始', 230, 25, 100, 28, 18, '#14532D'),
       shape('flow-arrow-1', 'arrow', 280, 68, 0, 58, '#475569'),
       shape('flow-process', 'rectangle', 180, 126, 200, 74, '#2563EB', '#EFF6FF'),
-      text('flow-process-text', 'Process', 215, 150, 130, 28, 18, '#1D4ED8'),
+      text('flow-process-text', '处理', 215, 150, 130, 28, 18, '#1D4ED8'),
       shape('flow-arrow-2', 'arrow', 280, 200, 0, 58, '#475569'),
       shape('flow-decision', 'rectangle', 216, 252, 128, 128, '#C2410C', '#FFF7ED', Math.PI / 4),
-      text('flow-decision-text', 'Decision', 220, 304, 120, 28, 17, '#9A3412'),
+      text('flow-decision-text', '判断', 220, 304, 120, 28, 17, '#9A3412'),
       shape('flow-arrow-3', 'arrow', 280, 380, 0, 54, '#475569'),
       shape('flow-end', 'circle', 210, 434, 140, 58, '#7C3AED', '#F5F3FF'),
-      text('flow-end-text', 'End', 230, 449, 100, 28, 18, '#5B21B6'),
+      text('flow-end-text', '结束', 230, 449, 100, 28, 18, '#5B21B6'),
       shape('flow-no-arrow', 'arrow', 344, 316, 120, 0, '#475569'),
-      text('flow-no-text', 'No', 390, 285, 50, 24, 14, '#64748B'),
+      text('flow-no-text', '否', 390, 285, 50, 24, 14, '#64748B'),
     ],
   },
   {
     id: 'template-mind-map-basic',
-    name: 'Mind Map',
-    description: 'Central topic with balanced branches',
+    name: '思维导图',
+    description: '中心主题和均衡分支',
     category: 'mind-map',
     width: 640,
     height: 380,
     elements: [
       shape('mind-center', 'circle', 250, 140, 140, 90, '#2563EB', '#DBEAFE'),
-      text('mind-center-text', 'Topic', 270, 170, 100, 28, 20, '#1E40AF'),
+      text('mind-center-text', '主题', 270, 170, 100, 28, 20, '#1E40AF'),
       shape('mind-line-1', 'line', 250, 180, -130, -88, '#64748B'),
       shape('mind-line-2', 'line', 250, 190, -135, 96, '#64748B'),
       shape('mind-line-3', 'line', 390, 180, 140, -84, '#64748B'),
       shape('mind-line-4', 'line', 390, 190, 140, 96, '#64748B'),
       shape('mind-node-1', 'rectangle', 20, 64, 132, 56, '#16A34A', '#ECFDF5'),
-      text('mind-node-1-text', 'Branch', 38, 79, 96, 24, 16, '#166534'),
+      text('mind-node-1-text', '分支', 38, 79, 96, 24, 16, '#166534'),
       shape('mind-node-2', 'rectangle', 14, 258, 140, 56, '#C2410C', '#FFF7ED'),
-      text('mind-node-2-text', 'Branch', 36, 273, 96, 24, 16, '#9A3412'),
+      text('mind-node-2-text', '分支', 36, 273, 96, 24, 16, '#9A3412'),
       shape('mind-node-3', 'rectangle', 500, 68, 132, 56, '#7C3AED', '#F5F3FF'),
-      text('mind-node-3-text', 'Branch', 518, 83, 96, 24, 16, '#5B21B6'),
+      text('mind-node-3-text', '分支', 518, 83, 96, 24, 16, '#5B21B6'),
       shape('mind-node-4', 'rectangle', 494, 258, 140, 56, '#0F766E', '#F0FDFA'),
-      text('mind-node-4-text', 'Branch', 516, 273, 96, 24, 16, '#115E59'),
+      text('mind-node-4-text', '分支', 516, 273, 96, 24, 16, '#115E59'),
     ],
   },
   {
     id: 'template-wireframe-dashboard',
-    name: 'Wireframe',
-    description: 'Header, sidebar, cards, form controls',
+    name: '界面线框',
+    description: '顶部栏、侧栏、卡片和表单控件',
     category: 'wireframe',
     width: 640,
     height: 420,
@@ -159,34 +159,34 @@ const BUILT_IN_TEMPLATES: CanvasTemplate[] = [
       shape('wire-card-2', 'rectangle', 412, 104, 160, 98, '#16A34A', '#ECFDF5'),
       shape('wire-input', 'rectangle', 222, 238, 350, 42, '#94A3B8', '#FFFFFF'),
       shape('wire-button', 'rectangle', 422, 306, 150, 42, '#2563EB', '#DBEAFE'),
-      text('wire-button-text', 'Button', 450, 316, 94, 22, 15, '#1D4ED8'),
+      text('wire-button-text', '按钮', 450, 316, 94, 22, 15, '#1D4ED8'),
     ],
   },
   {
     id: 'template-diagram-network',
-    name: 'Network Diagram',
-    description: 'Client, gateway, service, database',
+    name: '网络图',
+    description: '客户端、网关、服务和数据库',
     category: 'diagram',
     width: 620,
     height: 360,
     elements: [
       shape('net-client', 'circle', 30, 130, 92, 92, '#2563EB', '#DBEAFE'),
-      text('net-client-text', 'Client', 46, 161, 60, 24, 16, '#1D4ED8'),
+      text('net-client-text', '客户端', 46, 161, 60, 24, 16, '#1D4ED8'),
       shape('net-arrow-1', 'arrow', 122, 176, 116, 0, '#475569'),
       shape('net-gateway', 'rectangle', 238, 128, 124, 96, '#0F766E', '#CCFBF1'),
-      text('net-gateway-text', 'Gateway', 256, 163, 88, 24, 16, '#115E59'),
+      text('net-gateway-text', '网关', 256, 163, 88, 24, 16, '#115E59'),
       shape('net-arrow-2', 'arrow', 362, 176, 120, -84, '#475569'),
       shape('net-arrow-3', 'arrow', 362, 176, 120, 84, '#475569'),
       shape('net-service', 'circle', 482, 46, 104, 86, '#7C3AED', '#F5F3FF'),
-      text('net-service-text', 'Service', 504, 76, 60, 24, 16, '#5B21B6'),
+      text('net-service-text', '服务', 504, 76, 60, 24, 16, '#5B21B6'),
       shape('net-db', 'rectangle', 482, 226, 104, 86, '#C2410C', '#FFF7ED'),
-      text('net-db-text', 'Database', 496, 256, 76, 24, 15, '#9A3412'),
+      text('net-db-text', '数据库', 496, 256, 76, 24, 15, '#9A3412'),
     ],
   },
   {
     id: 'template-notes-cornell',
-    name: 'Cornell Notes',
-    description: 'Cue, notes, summary layout',
+    name: '康奈尔笔记',
+    description: '提示、笔记和总结区布局',
     category: 'notes',
     width: 640,
     height: 480,
@@ -194,10 +194,10 @@ const BUILT_IN_TEMPLATES: CanvasTemplate[] = [
       shape('cornell-page', 'rectangle', 30, 20, 580, 420, '#334155', '#FFFBEB'),
       shape('cornell-cue-line', 'line', 210, 82, 0, 270, '#94A3B8'),
       shape('cornell-summary-line', 'line', 30, 352, 580, 0, '#94A3B8'),
-      text('cornell-title', 'Topic', 62, 42, 210, 28, 22, '#92400E'),
-      text('cornell-cues', 'Cues', 70, 102, 90, 24, 16, '#475569'),
-      text('cornell-notes', 'Notes', 252, 102, 110, 24, 16, '#475569'),
-      text('cornell-summary', 'Summary', 70, 374, 120, 24, 16, '#475569'),
+      text('cornell-title', '主题', 62, 42, 210, 28, 22, '#92400E'),
+      text('cornell-cues', '提示', 70, 102, 90, 24, 16, '#475569'),
+      text('cornell-notes', '笔记', 252, 102, 110, 24, 16, '#475569'),
+      text('cornell-summary', '总结', 70, 374, 120, 24, 16, '#475569'),
       shape('cornell-note-line-1', 'line', 252, 154, 300, 0, '#CBD5E1'),
       shape('cornell-note-line-2', 'line', 252, 202, 300, 0, '#CBD5E1'),
       shape('cornell-note-line-3', 'line', 252, 250, 300, 0, '#CBD5E1'),
@@ -237,6 +237,11 @@ function cloneElement(
   }
 
   return { ...base, id, groupId } as CanvasElement
+}
+
+function unlockTemplateElement(el: CanvasElement): CanvasElement {
+  if (!el.locked) return el
+  return { ...el, locked: false }
 }
 
 export function cloneTemplate(template: CanvasTemplate): CanvasTemplate {
@@ -282,7 +287,9 @@ export function instantiateTemplate(
   const dx = centerX - (bounds.x + bounds.w / 2)
   const dy = centerY - (bounds.y + bounds.h / 2)
 
-  return template.elements.map((el) => moveElement(cloneElement(el, idMap, groupMap), dx, dy))
+  return template.elements.map((el) =>
+    unlockTemplateElement(moveElement(cloneElement(el, idMap, groupMap), dx, dy))
+  )
 }
 
 export function createTemplateFromElements(
@@ -293,8 +300,10 @@ export function createTemplateFromElements(
   if (!bounds) return null
 
   const now = Date.now()
-  const normalized = elements.map((el) => moveElement(cloneElement(el), -bounds.x, -bounds.y))
-  const trimmedName = name.trim() || 'Custom template'
+  const normalized = elements.map((el) =>
+    unlockTemplateElement(moveElement(cloneElement(el), -bounds.x, -bounds.y))
+  )
+  const trimmedName = name.trim() || '未命名模板'
 
   return {
     id: createRuntimeId('custom-template'),

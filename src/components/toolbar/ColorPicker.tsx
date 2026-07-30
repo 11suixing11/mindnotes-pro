@@ -1,23 +1,6 @@
-import { useRef, useCallback, memo, useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useRef, memo } from 'react'
 import { useAppStore } from '../../store/appStore'
-import { useViewStore } from '../../store/useViewStore'
-import { useToastStore } from '../../store/toastStore'
-import { useConfirm } from '../confirm-modal'
 import { useShallow } from 'zustand/react/shallow'
-import { icons } from './icons'
-import { sanitizeSvgDataUrl } from '../../canvas/svgSanitizer'
-import type { CanvasBackgroundStyle } from '../../store/types'
-import TemplatePicker from '../templates/TemplatePicker'
-import {
-  createTemplateFromElements,
-  deleteCustomTemplate,
-  getBuiltInTemplates,
-  instantiateTemplate,
-  loadCustomTemplates,
-  saveCustomTemplate,
-  type CanvasTemplate,
-} from '../../templates/canvasTemplates'
 
 // 扩展调色板 - 基于 tldraw #1665 用户需求
 // 灰度色系 (5)
@@ -77,261 +60,23 @@ const COLOR_NAMES: Record<string, string> = {
   '#3A2A5C': '深紫',
 }
 const SIZE_LABELS: Record<number, string> = { 2: '极细', 4: '细', 8: '中等', 16: '粗' }
-const BACKGROUND_OPTIONS: {
-  value: CanvasBackgroundStyle
-  label: string
-  description: string
-  preview: React.CSSProperties
-}[] = [
-  { value: 'plain', label: '默认', description: '保留当前画布质感', preview: {} },
-  {
-    value: 'grid',
-    label: '方格',
-    description: '适合图表与布局',
-    preview: {
-      backgroundImage:
-        'linear-gradient(rgba(86,104,128,.25) 1px, transparent 1px), linear-gradient(90deg, rgba(86,104,128,.25) 1px, transparent 1px)',
-      backgroundSize: '8px 8px',
-    },
-  },
-  {
-    value: 'dots',
-    label: '点阵',
-    description: '轻量的对齐参考',
-    preview: {
-      backgroundImage: 'radial-gradient(circle, rgba(76,92,112,.45) 1px, transparent 1.2px)',
-      backgroundSize: '8px 8px',
-    },
-  },
-  {
-    value: 'ruled',
-    label: '横线',
-    description: '适合连续书写',
-    preview: {
-      backgroundImage: 'linear-gradient(rgba(86,104,128,.25) 1px, transparent 1px)',
-      backgroundSize: '100% 8px',
-    },
-  },
-  {
-    value: 'notebook',
-    label: '笔记本',
-    description: '横线与页边距',
-    preview: {
-      backgroundImage:
-        'linear-gradient(90deg, transparent 8px, rgba(205,92,92,.45) 8px, rgba(205,92,92,.45) 9px, transparent 9px), linear-gradient(rgba(86,104,128,.25) 1px, transparent 1px)',
-      backgroundSize: '100% 100%, 100% 8px',
-    },
-  },
-]
-
-function getCanvas() {
-  return document.getElementById('main-canvas') as HTMLCanvasElement | null
-}
-
-function getVisibleCanvasViewport(canvas: HTMLCanvasElement | null) {
-  const vb = useViewStore.getState().viewBox
-  if (!canvas) {
-    const width = window.innerWidth || 1024
-    const height = window.innerHeight || 768
-    return {
-      width,
-      height,
-      centerX: vb.x + width / 2 / vb.zoom,
-      centerY: vb.y + height / 2 / vb.zoom,
-    }
-  }
-
-  const rect = canvas.getBoundingClientRect()
-  const left = Math.max(rect.left, 0)
-  const top = Math.max(rect.top, 0)
-  const right = Math.min(rect.right, window.innerWidth || rect.right)
-  const bottom = Math.min(rect.bottom, window.innerHeight || rect.bottom)
-  const visibleWidth = Math.max(0, right - left)
-  const visibleHeight = Math.max(0, bottom - top)
-  const screenX = visibleWidth > 0 ? left + visibleWidth / 2 : (window.innerWidth || rect.width) / 2
-  const screenY =
-    visibleHeight > 0 ? top + visibleHeight / 2 : (window.innerHeight || rect.height) / 2
-
-  return {
-    width: visibleWidth || rect.width || window.innerWidth || 1024,
-    height: visibleHeight || rect.height || window.innerHeight || 768,
-    centerX: vb.x + (screenX - rect.left) / vb.zoom,
-    centerY: vb.y + (screenY - rect.top) / vb.zoom,
-  }
-}
-
 const ColorPicker = memo(function ColorPicker() {
-  const toast = useToastStore((s) => s.show)
-  const [showBackground, setShowBackground] = useState(false)
-  const [backgroundPos, setBackgroundPos] = useState({ top: 0, left: 0 })
-  const [showTemplates, setShowTemplates] = useState(false)
-  const [customTemplates, setCustomTemplates] = useState(() => loadCustomTemplates())
-  const builtInTemplates = useMemo(() => getBuiltInTemplates(), [])
-  const {
-    tool,
-    color,
-    setColor,
-    fillColor,
-    setFillColor,
-    size,
-    setSize,
-    canvasBg,
-    setCanvasBg,
-    backgroundStyle,
-    setBackgroundStyle,
-    clearAll,
-    addElement,
-    addElements,
-    setSelectedIds,
-    elements,
-    selectedIds,
-    colorHistory,
-  } = useAppStore(
-    useShallow((s) => ({
-      tool: s.tool,
-      color: s.color,
-      setColor: s.setColor,
-      fillColor: s.fillColor,
-      setFillColor: s.setFillColor,
-      size: s.size,
-      setSize: s.setSize,
-      canvasBg: s.bgColor,
-      setCanvasBg: s.setBgColor,
-      backgroundStyle: s.backgroundStyle,
-      setBackgroundStyle: s.setBackgroundStyle,
-      clearAll: s.clearAll,
-      addElement: s.addElement,
-      addElements: s.addElements,
-      setSelectedIds: s.setSelectedIds,
-      elements: s.elements,
-      selectedIds: s.selectedIds,
-      colorHistory: s.colorHistory,
-    }))
-  )
-  const confirm = useConfirm()
+  const { tool, color, setColor, fillColor, setFillColor, size, setSize, colorHistory } =
+    useAppStore(
+      useShallow((s) => ({
+        tool: s.tool,
+        color: s.color,
+        setColor: s.setColor,
+        fillColor: s.fillColor,
+        setFillColor: s.setFillColor,
+        size: s.size,
+        setSize: s.setSize,
+        colorHistory: s.colorHistory,
+      }))
+    )
 
-  const imgRef = useRef<HTMLInputElement>(null)
   const colorRef = useRef<HTMLInputElement>(null)
   const fillColorRef = useRef<HTMLInputElement>(null)
-  const bgRef = useRef<HTMLInputElement>(null)
-  const backgroundBtnRef = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    if (showTemplates) setCustomTemplates(loadCustomTemplates())
-  }, [showTemplates])
-
-  const toggleBackgroundMenu = useCallback(() => {
-    if (!showBackground && backgroundBtnRef.current) {
-      const rect = backgroundBtnRef.current.getBoundingClientRect()
-      setBackgroundPos({ top: rect.bottom + 8, left: Math.max(8, rect.left - 8) })
-    }
-    setShowBackground((visible) => !visible)
-  }, [showBackground])
-
-  const importImage = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const f = e.target.files?.[0]
-      if (!f) return
-      const r = new FileReader()
-      r.onload = () => {
-        const dataUrl = r.result as string
-        // SVG 安全过滤 - 防止 XSS 攻击
-        // 参考: 通用编辑器安全处理做法
-        const safeDataUrl = sanitizeSvgDataUrl(dataUrl)
-        const img = new Image()
-        img.onload = () => {
-          const c = getCanvas()
-          if (!c) return
-          const viewport = getVisibleCanvasViewport(c)
-          const maxW = viewport.width * 0.6,
-            maxH = viewport.height * 0.6
-          const scale = Math.min(maxW / img.width, maxH / img.height, 1)
-          const w = img.width * scale,
-            h = img.height * scale
-          const x = viewport.centerX - w / 2
-          const y = viewport.centerY - h / 2
-          addElement({
-            type: 'image',
-            id: `img-${Date.now()}`,
-            x,
-            y,
-            width: w,
-            height: h,
-            dataUrl: safeDataUrl,
-          })
-        }
-        img.onerror = () => {
-          toast('图片加载失败', 'error')
-        }
-        img.src = safeDataUrl
-      }
-      r.readAsDataURL(f)
-      e.target.value = ''
-    },
-    [addElement, toast]
-  )
-
-  const getTemplateSourceElements = useCallback(() => {
-    const state = useAppStore.getState()
-    if (state.selectedIds.length > 0) {
-      const selected = new Set(state.selectedIds)
-      const selectedElements = state.elements.filter((el) => selected.has(el.id))
-      if (selectedElements.length > 0) return selectedElements
-    }
-    return state.elements
-  }, [])
-
-  const insertTemplate = useCallback(
-    (template: CanvasTemplate) => {
-      const c = getCanvas()
-      const viewport = getVisibleCanvasViewport(c)
-      const inserted = instantiateTemplate(template, viewport.centerX, viewport.centerY)
-
-      if (inserted.length === 0) {
-        toast('模板为空', 'warning')
-        return
-      }
-
-      addElements(inserted)
-      setSelectedIds([])
-      setShowTemplates(false)
-      toast(`已插入 ${template.name}`, 'success')
-    },
-    [addElements, setSelectedIds, toast]
-  )
-
-  const saveTemplate = useCallback(
-    (name: string) => {
-      const template = createTemplateFromElements(name, getTemplateSourceElements())
-      if (!template) {
-        toast('没有可保存的元素', 'warning')
-        return
-      }
-
-      setCustomTemplates(saveCustomTemplate(template))
-      toast(`已保存 ${template.name}`, 'success')
-    },
-    [getTemplateSourceElements, toast]
-  )
-
-  const removeCustomTemplate = useCallback(
-    async (templateId: string) => {
-      if (!(await confirm('删除这个模板？'))) return
-      setCustomTemplates(deleteCustomTemplate(templateId))
-      toast('已删除模板', 'success')
-    },
-    [confirm, toast]
-  )
-
-  const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) document.documentElement.requestFullscreen()
-    else document.exitFullscreen()
-  }, [])
-
-  const sourceElementCount =
-    selectedIds.length > 0
-      ? elements.filter((el) => selectedIds.includes(el.id)).length
-      : elements.length
 
   return (
     <>
@@ -386,80 +131,9 @@ const ColorPicker = memo(function ColorPicker() {
         ))}
       </div>
 
-      <div className="tb-sep" role="separator" />
-
-      <button
-        ref={backgroundBtnRef}
-        onClick={toggleBackgroundMenu}
-        className="abtn"
-        data-tip="背景设置"
-        aria-label="背景设置"
-        aria-haspopup="menu"
-        aria-expanded={showBackground}
-      >
-        <span
-          className="inline-block w-[14px] h-[14px] rounded-[4px] border-[1.5px] border-[var(--border)]"
-          style={{
-            backgroundColor: canvasBg,
-            ...BACKGROUND_OPTIONS.find((option) => option.value === backgroundStyle)?.preview,
-          }}
-        />
-      </button>
-
-      {showBackground &&
-        createPortal(
-          <>
-            <div
-              className="panel em-menu"
-              role="menu"
-              aria-label="背景样式"
-              style={{ top: backgroundPos.top, left: backgroundPos.left }}
-            >
-              {BACKGROUND_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className="ditem"
-                  role="menuitemradio"
-                  aria-checked={backgroundStyle === option.value}
-                  onClick={() => {
-                    setBackgroundStyle(option.value)
-                    setShowBackground(false)
-                  }}
-                >
-                  <span
-                    className="di rounded-[3px] border border-[var(--border)]"
-                    style={{ width: 28, height: 22, backgroundColor: canvasBg, ...option.preview }}
-                  />
-                  <span className="em-labels">
-                    <span className="dl">{option.label}</span>
-                    <span className="dd">{option.description}</span>
-                  </span>
-                </button>
-              ))}
-              <div className="dsep" />
-              <button
-                type="button"
-                className="ditem"
-                onClick={() => {
-                  bgRef.current?.click()
-                  setShowBackground(false)
-                }}
-              >
-                <span
-                  className="di rounded-full border border-[var(--border)]"
-                  style={{ width: 18, height: 18, backgroundColor: canvasBg }}
-                />
-                <span className="dl">自定义背景色</span>
-              </button>
-            </div>
-            <div className="em-overlay" onClick={() => setShowBackground(false)} />
-          </>,
-          document.body
-        )}
-
       {(tool === 'rectangle' || tool === 'circle') && (
         <>
+          <div className="tb-sep" role="separator" />
           <button
             onClick={() => {
               const next = fillColor === 'transparent' ? color : 'transparent'
@@ -489,51 +163,6 @@ const ColorPicker = memo(function ColorPicker() {
         </>
       )}
 
-      <div className="tb-sep" role="separator" />
-
-      <button
-        onClick={() => setShowTemplates(true)}
-        className="abtn"
-        data-tip="模板库"
-        aria-label="模板库"
-      >
-        {icons.file}
-      </button>
-
-      <button
-        onClick={() => imgRef.current?.click()}
-        className="abtn"
-        data-tip="插入图片"
-        aria-label="插入图片"
-      >
-        {icons.image}
-      </button>
-
-      <button
-        onClick={async () => {
-          if (await confirm('清空画布？')) clearAll()
-        }}
-        className="abtn"
-        data-tip="清屏"
-        aria-label="清屏"
-      >
-        {icons.clear}
-      </button>
-
-      <button onClick={toggleFullscreen} className="abtn" data-tip="全屏" aria-label="全屏">
-        {icons.fullscreen}
-      </button>
-
-      <div className="tb-sep" role="separator" />
-
-      <input
-        ref={imgRef}
-        type="file"
-        accept="image/*"
-        onChange={importImage}
-        aria-label="选择图片文件"
-        className="absolute w-0 h-0 opacity-0 pointer-events-none"
-      />
       <input
         ref={colorRef}
         type="color"
@@ -549,25 +178,6 @@ const ColorPicker = memo(function ColorPicker() {
         onChange={(e) => setFillColor(e.target.value)}
         aria-label="选择填充颜色"
         className="absolute w-0 h-0 opacity-0 pointer-events-none"
-      />
-      <input
-        ref={bgRef}
-        type="color"
-        value={canvasBg}
-        onChange={(e) => setCanvasBg(e.target.value)}
-        aria-label="选择背景颜色"
-        className="absolute w-0 h-0 opacity-0 pointer-events-none"
-      />
-
-      <TemplatePicker
-        isOpen={showTemplates}
-        builtInTemplates={builtInTemplates}
-        customTemplates={customTemplates}
-        sourceElementCount={sourceElementCount}
-        onClose={() => setShowTemplates(false)}
-        onInsert={insertTemplate}
-        onSaveCustom={saveTemplate}
-        onDeleteCustom={removeCustomTemplate}
       />
     </>
   )
