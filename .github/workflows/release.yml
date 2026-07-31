@@ -36,6 +36,18 @@ jobs:
       - name: Build web and Linux desktop packages
         run: npm run build:desktop -- --publish never
 
+      - name: Normalize Linux package name
+        run: |
+          set -euo pipefail
+          APPIMAGE_PATH=$(find release -maxdepth 1 -type f -name '*.AppImage' -print -quit)
+
+          if [ -z "$APPIMAGE_PATH" ]; then
+            echo "No AppImage was produced" >&2
+            exit 1
+          fi
+
+          mv "$APPIMAGE_PATH" "release/mindnotes-pro-${{ github.ref_name }}.AppImage"
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
         with:
