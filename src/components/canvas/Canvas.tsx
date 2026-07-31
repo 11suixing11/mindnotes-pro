@@ -50,21 +50,22 @@ export default function Canvas() {
   // c) useSelectionEngine
   const { findSnaps, snapLinesRef } = useSelectionEngine(cachedBounds)
   // e) usePointerEngine
-  const { getCursor, copySelectedToSystemClipboard, getDrawState } = usePointerEngine({
-    canvasRef,
-    cachedBounds,
-    scheduleRedraw,
-    startEditText,
-    textRef,
-    findSnaps,
-    snapLinesRef,
-  })
+  const { getCursor, copySelectedToSystemClipboard, getDrawState, hoveredElementIdRef } =
+    usePointerEngine({
+      canvasRef,
+      cachedBounds,
+      scheduleRedraw,
+      startEditText,
+      textRef,
+      findSnaps,
+      snapLinesRef,
+    })
 
   // Provide getDrawState to renderer via ref
   getDrawStateRef.current = getDrawState
 
   // b) useKeyboardBindings
-  useKeyboardBindings({ copySelectedToSystemClipboard })
+  useKeyboardBindings({ copySelectedToSystemClipboard, hoveredElementIdRef })
 
   // 右键上下文菜单处理
   const handleContextMenu = useCallback((e: React.MouseEvent) => {

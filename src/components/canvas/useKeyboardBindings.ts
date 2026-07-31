@@ -12,6 +12,7 @@ import { useViewStore } from '../../store/useViewStore'
 
 interface Options {
   copySelectedToSystemClipboard?: () => void
+  hoveredElementIdRef?: MutableRefObject<string | null>
 }
 
 const TOOL_BY_ACTION: Partial<Record<ShortcutActionId, ToolType>> = {
@@ -272,12 +273,7 @@ function executeShortcutAction(
       return true
     case 'style.eyedropper': {
       e.preventDefault()
-      const hoveredRef = (
-        window as Window & {
-          __mindnotes_hovered_element_id__?: { current?: string | null }
-        }
-      ).__mindnotes_hovered_element_id__
-      const hoveredElementId = hoveredRef?.current
+      const hoveredElementId = optionsRef.current.hoveredElementIdRef?.current
       if (hoveredElementId && st.idToElement.get(hoveredElementId)) {
         st.applyStyleFromElement(hoveredElementId)
       } else {

@@ -333,7 +333,7 @@ export function createDocManagementSlice(
 
     duplicateDoc: async (id) => {
       clearSaveTimer()
-      if (get().currentDocId === id && !(await saveDocNow())) {
+      if (get().currentDocId && !(await saveDocNow())) {
         throw new Error('Current document could not be saved')
       }
       const doc = await storage.get<CanvasDoc>('docs', id)

@@ -27,7 +27,7 @@ export const TEMPLATE_CATEGORY_LABELS: Record<TemplateCategory, string> = {
 }
 
 export const CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes-pro-v4.custom-templates'
-const LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes.customTemplates.v1'
+export const LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes.customTemplates.v1'
 
 let idCounter = 0
 

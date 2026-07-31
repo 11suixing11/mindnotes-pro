@@ -252,7 +252,7 @@ body,
     transform: translateX(0);
   }
 }
-@keyframes slideToolbarIn {
+@keyframes slide-toolbar-in {
   from {
     opacity: 0;
     transform: translateY(-50%) translateX(-12px);
@@ -367,7 +367,7 @@ body,
   gap: 3px;
   padding: 8px;
   z-index: 20;
-  animation: slideToolbarIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: slide-toolbar-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   box-shadow:
     var(--shadow-lg),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -1779,6 +1779,7 @@ body,
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
+    animation: fadeIn 0.25s ease both;
   }
 
   .sidebar::-webkit-scrollbar {

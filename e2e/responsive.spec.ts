@@ -28,6 +28,7 @@ test('桌面内容缩到手机宽度后仍在视口内且品牌完整', async ({
 
   await expect(page.locator('#main-canvas')).toHaveCSS('width', '390px')
   await expect.poll(() => visibleCanvasContent(page)).toBeGreaterThan(250)
+  await expect(page.locator('.sidebar')).toHaveCSS('transform', 'none')
 
   const brand = page.locator('.toolbar-brand')
   await expect(brand).toContainText('MindNotes Pro')

@@ -3,6 +3,7 @@ import type { CanvasElement, ShapeElement } from '../store/types'
 import type { CanvasTemplate } from './canvasTemplates'
 import {
   CUSTOM_TEMPLATE_STORAGE_KEY,
+  LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY,
   createTemplateFromElements,
   deleteCustomTemplate,
   getBuiltInTemplates,
@@ -11,6 +12,7 @@ import {
   loadCustomTemplates,
   saveCustomTemplate,
 } from './canvasTemplates'
+import { encodeLegacyStorageValue } from '../test/legacyStorage'
 
 function makeShape(id: string, x = 50, y = 60): CanvasElement {
   return {
@@ -40,22 +42,6 @@ function requireBounds(bounds: ReturnType<typeof getTemplateBounds>) {
 function requireShapeElement(element: CanvasElement | undefined): ShapeElement {
   if (!element || element.type !== 'shape') throw new Error('Expected shape element')
   return element
-}
-
-function encodeLegacyTemplateValue(value: unknown): string {
-  const key = 'mindnotes-pro-encryption-key-2024'
-  const serialized = JSON.stringify(value)
-  let encrypted = ''
-  for (let index = 0; index < serialized.length; index++) {
-    encrypted += String.fromCharCode(
-      serialized.charCodeAt(index) ^ key.charCodeAt(index % key.length)
-    )
-  }
-  return btoa(
-    encodeURIComponent(encrypted).replace(/%([0-9A-F]{2})/g, (_match, hex: string) =>
-      String.fromCharCode(Number.parseInt(hex, 16))
-    )
-  )
 }
 
 describe('canvas templates', () => {
@@ -180,10 +166,10 @@ describe('canvas templates', () => {
 
   it('recovers encrypted custom templates saved by the previous version', () => {
     const template = requireTemplate(createTemplateFromElements('旧模板', [makeShape('legacy')]))
-    localStorage.setItem('mindnotes.customTemplates.v1', encodeLegacyTemplateValue([template]))
+    localStorage.setItem(LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY, encodeLegacyStorageValue([template]))
 
     expect(loadCustomTemplates()).toEqual([expect.objectContaining({ name: '旧模板' })])
     expect(localStorage.getItem(CUSTOM_TEMPLATE_STORAGE_KEY)).not.toBeNull()
-    expect(localStorage.getItem('mindnotes.customTemplates.v1')).toBeNull()
+    expect(localStorage.getItem(LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY)).toBeNull()
   })
 })

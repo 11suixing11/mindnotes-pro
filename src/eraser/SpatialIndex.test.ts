@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { SpatialIndex } from '../SpatialIndex'
-import type { StrokeElement, ShapeElement, CanvasElement } from '../../store/types'
+import { SpatialIndex } from './SpatialIndex'
+import type { StrokeElement, ShapeElement, CanvasElement } from '../store/types'
 
 describe('SpatialIndex', () => {
   let index: SpatialIndex

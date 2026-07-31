@@ -54,11 +54,15 @@ export function openDB(): Promise<IDBDatabase> {
       settled = true
       database = openedDatabase
       databasePromise = null
-      openedDatabase.onversionchange = () => {
-        openedDatabase.close()
+      const clearCachedDatabase = () => {
         if (database === openedDatabase) database = null
         databasePromise = null
       }
+      openedDatabase.onversionchange = () => {
+        openedDatabase.close()
+        clearCachedDatabase()
+      }
+      openedDatabase.onclose = clearCachedDatabase
       resolve(openedDatabase)
     }
   })

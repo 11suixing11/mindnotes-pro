@@ -2,22 +2,32 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from '../appStore'
 import { useToastStore } from '../toastStore'
 import { clearSaveTimer, resetSaveCache } from '../saveManager'
+import type { AppStore } from '../sliceTypes'
+import type * as StorageModule from '../storage'
+
+type StoredRecord = { id: string } & Record<string, unknown>
 
 // Mock storage module to use in-memory store
 vi.mock('../storage', () => {
-  const store: Record<string, Record<string, any>> = {}
+  const store: Record<string, Record<string, StoredRecord>> = {}
   return {
     getAll: vi.fn(async (storeName: string) => Object.values(store[storeName] ?? {})),
     get: vi.fn(async (storeName: string, id: string) => store[storeName]?.[id]),
-    update: vi.fn(async (storeName: string, id: string, updater: (record: any) => any) => {
-      const next = updater(store[storeName]?.[id])
-      if (next !== undefined) {
-        if (!store[storeName]) store[storeName] = {}
-        store[storeName][id] = next
+    update: vi.fn(
+      async (
+        storeName: string,
+        id: string,
+        updater: (record: StoredRecord | undefined) => StoredRecord | undefined
+      ) => {
+        const next = updater(store[storeName]?.[id])
+        if (next !== undefined) {
+          if (!store[storeName]) store[storeName] = {}
+          store[storeName][id] = next
+        }
+        return next
       }
-      return next
-    }),
-    put: vi.fn(async (storeName: string, record: any) => {
+    ),
+    put: vi.fn(async (storeName: string, record: StoredRecord) => {
       if (!store[storeName]) store[storeName] = {}
       store[storeName][record.id] = record
     }),
@@ -35,7 +45,9 @@ vi.mock('../migration', () => ({
   removeMigratedData: vi.fn(),
 }))
 
-const storageMock = (await import('../storage')) as any
+const storageMock = (await import('../storage')) as typeof StorageModule & {
+  __store: Record<string, Record<string, StoredRecord>>
+}
 
 function clearMockStorage() {
   for (const key of Object.keys(storageMock.__store)) {
@@ -50,12 +62,12 @@ describe('docManagement slice', () => {
     clearMockStorage()
     clearSaveTimer()
     resetSaveCache()
-    storageMock.getAll.mockClear()
-    storageMock.get.mockClear()
-    storageMock.put.mockClear()
-    storageMock.update.mockClear()
-    storageMock.del.mockClear()
-    storageMock.readLegacyDatabase.mockClear()
+    vi.mocked(storageMock.getAll).mockClear()
+    vi.mocked(storageMock.get).mockClear()
+    vi.mocked(storageMock.put).mockClear()
+    vi.mocked(storageMock.update).mockClear()
+    vi.mocked(storageMock.del).mockClear()
+    vi.mocked(storageMock.readLegacyDatabase).mockClear()
     useToastStore.setState({ toasts: [] })
     useAppStore.setState({
       docs: [],
@@ -69,7 +81,7 @@ describe('docManagement slice', () => {
       undoStack: [],
       redoStack: [],
       selectedIds: [],
-    } as any)
+    } satisfies Partial<AppStore>)
   })
 
   afterEach(() => {
@@ -90,7 +102,7 @@ describe('docManagement slice', () => {
     })
 
     it('imports documents and folders from the previous IndexedDB database once', async () => {
-      storageMock.readLegacyDatabase.mockResolvedValueOnce({
+      vi.mocked(storageMock.readLegacyDatabase).mockResolvedValueOnce({
         docs: [
           {
             schemaVersion: 3,
@@ -144,12 +156,12 @@ describe('docManagement slice', () => {
 
       await useAppStore.getState().init()
 
-      expect(storageMock.readLegacyDatabase).not.toHaveBeenCalled()
+      expect(vi.mocked(storageMock.readLegacyDatabase)).not.toHaveBeenCalled()
       expect(useAppStore.getState().docs.map((doc) => doc.id)).toEqual(['current'])
     })
 
     it('falls back to an editable in-memory canvas when storage cannot initialize', async () => {
-      storageMock.getAll.mockRejectedValueOnce(new Error('storage blocked'))
+      vi.mocked(storageMock.getAll).mockRejectedValueOnce(new Error('storage blocked'))
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
       await useAppStore.getState().init()
@@ -236,7 +248,7 @@ describe('docManagement slice', () => {
         color: '#000000',
         size: 2,
       })
-      storageMock.update.mockRejectedValueOnce(new Error('quota exceeded'))
+      vi.mocked(storageMock.update).mockRejectedValueOnce(new Error('quota exceeded'))
       vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
       await expect(useAppStore.getState().createDoc('Blocked')).rejects.toThrow(
@@ -299,21 +311,25 @@ describe('docManagement slice', () => {
 
     it('updates state before storage persistence completes', async () => {
       const id = await useAppStore.getState().createDoc('Original')
-      let resolveUpdate: (() => void) | undefined
-      storageMock.update.mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveUpdate = () => resolve(storageMock.__store.docs[id])
-          })
-      )
+      const defaultUpdate = vi.mocked(storageMock.update).getMockImplementation()
+      if (!defaultUpdate) throw new Error('Expected an update mock implementation')
+      let releaseUpdate: (() => void) | undefined
+      const updateGate = new Promise<void>((resolve) => {
+        releaseUpdate = resolve
+      })
+      vi.mocked(storageMock.update).mockImplementationOnce(async (...args) => {
+        await updateGate
+        return defaultUpdate(...args)
+      })
 
       const renamePromise = useAppStore.getState().renameDoc(id, 'Immediate')
 
       expect(useAppStore.getState().docs.find((doc) => doc.id === id)?.title).toBe('Immediate')
 
-      await vi.waitFor(() => expect(resolveUpdate).toBeTypeOf('function'))
-      resolveUpdate?.()
+      await vi.waitFor(() => expect(storageMock.update).toHaveBeenCalledTimes(1))
+      releaseUpdate?.()
       await renamePromise
+      expect(storageMock.__store.docs[id].title).toBe('Immediate')
     })
 
     it('trims titles and ignores blank names', async () => {
@@ -344,6 +360,30 @@ describe('docManagement slice', () => {
       const countBefore = useAppStore.getState().docs.length
       await useAppStore.getState().duplicateDoc('non-existent')
       expect(useAppStore.getState().docs.length).toBe(countBefore)
+    })
+
+    it('saves pending edits in the current doc before duplicating another doc', async () => {
+      const currentId = await useAppStore.getState().createDoc('Current')
+      const targetId = await useAppStore.getState().createDoc('Target')
+      await useAppStore.getState().openDoc(currentId)
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'pending-before-duplicate',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 20,
+        h: 20,
+        color: '#000000',
+        size: 2,
+      })
+
+      await useAppStore.getState().duplicateDoc(targetId)
+
+      expect(storageMock.__store.docs[currentId].elements).toEqual([
+        expect.objectContaining({ id: 'pending-before-duplicate' }),
+      ])
+      expect(useAppStore.getState().docs).toHaveLength(3)
     })
   })
 

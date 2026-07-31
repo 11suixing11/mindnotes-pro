@@ -212,6 +212,26 @@ describe('usePointerEngine', () => {
     expect(result.current.getDrawState).toBeTypeOf('function')
   })
 
+  it('returns hovered element state without registering a window global', () => {
+    const { result } = renderHook(() =>
+      usePointerEngine({
+        canvasRef: createMockCanvasRef(),
+        cachedBounds: mockBounds,
+        scheduleRedraw: vi.fn(),
+        startEditText: vi.fn(),
+        textRef: createMockTextRef(),
+        findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
+        snapLinesRef: { current: { x: [], y: [] } },
+      })
+    )
+
+    expect(result.current.hoveredElementIdRef.current).toBeNull()
+    expect(
+      '__mindnotes_hovered_element_id__' in
+        (window as Window & { __mindnotes_hovered_element_id__?: unknown })
+    ).toBe(false)
+  })
+
   describe('getCursor', () => {
     it('should return crosshair for pen tool', () => {
       useAppStore.setState({ tool: 'pen' })

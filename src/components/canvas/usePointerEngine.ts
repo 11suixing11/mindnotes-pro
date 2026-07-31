@@ -46,12 +46,6 @@ import {
 import { tryBindToShape } from '../../store/bindingUtils'
 import { eraseElementsAtPoint, getEraserWorldRadius } from '../../eraser/simpleEraser'
 
-declare global {
-  interface Window {
-    __mindnotes_hovered_element_id__?: { current: string | null }
-  }
-}
-
 // 模块级常量，避免每次渲染重建
 const CURSOR_MAP: Record<string, string> = {
   select: 'default',
@@ -336,13 +330,6 @@ export function usePointerEngine(opts: {
   // 悬停元素跟踪
   // 用于 Q 键快速复制样式：悬停在元素上按 Q 键直接复制样式，无需进入吸管模式
   const hoveredElementIdRef = useRef<string | null>(null)
-  // 导出悬停元素 ID 供键盘快捷键使用
-  useEffect(() => {
-    window.__mindnotes_hovered_element_id__ = hoveredElementIdRef
-    return () => {
-      delete window.__mindnotes_hovered_element_id__
-    }
-  }, [])
 
   const getPosFromContact = useCallback(
     (contact: { clientX: number; clientY: number }) => {
@@ -2194,5 +2181,5 @@ export function usePointerEngine(opts: {
     }
   }, [snapLinesRef])
 
-  return { getCursor, copySelectedToSystemClipboard, getDrawState }
+  return { getCursor, copySelectedToSystemClipboard, getDrawState, hoveredElementIdRef }
 }

@@ -10,23 +10,7 @@ import {
   migrateLegacyStorageKey,
   saveToStorage,
 } from './storage'
-
-const LEGACY_KEY = 'mindnotes-pro-encryption-key-2024'
-
-function encodeLegacyValue(value: unknown): string {
-  const serialized = JSON.stringify(value)
-  let encrypted = ''
-  for (let index = 0; index < serialized.length; index++) {
-    encrypted += String.fromCharCode(
-      serialized.charCodeAt(index) ^ LEGACY_KEY.charCodeAt(index % LEGACY_KEY.length)
-    )
-  }
-  return btoa(
-    encodeURIComponent(encrypted).replace(/%([0-9A-F]{2})/g, (_match, hex: string) =>
-      String.fromCharCode(Number.parseInt(hex, 16))
-    )
-  )
-}
+import { encodeLegacyStorageValue } from '../test/legacyStorage'
 
 describe('storage', () => {
   describe('exports', () => {
@@ -147,13 +131,13 @@ describe('storage', () => {
 
     it('migrates an encrypted legacy value without overwriting current data', () => {
       const legacyValue = [{ id: 'template-1', name: '旧模板' }]
-      localStorage.setItem('legacy-key', encodeLegacyValue(legacyValue))
+      localStorage.setItem('legacy-key', encodeLegacyStorageValue(legacyValue))
 
       expect(migrateLegacyStorageKey('legacy-key', 'current-key')).toBe(true)
       expect(loadFromStorage('current-key', [])).toEqual(legacyValue)
       expect(localStorage.getItem('legacy-key')).toBeNull()
 
-      localStorage.setItem('legacy-key', encodeLegacyValue([{ id: 'template-2' }]))
+      localStorage.setItem('legacy-key', encodeLegacyStorageValue([{ id: 'template-2' }]))
       expect(migrateLegacyStorageKey('legacy-key', 'current-key')).toBe(false)
       expect(loadFromStorage('current-key', [])).toEqual(legacyValue)
     })
