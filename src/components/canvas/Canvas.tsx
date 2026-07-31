@@ -35,7 +35,6 @@ export default function Canvas() {
     showGrid: false,
     showRulers: false,
     gridSize: DEFAULT_GRID_SIZE,
-    eraserTrail: [],
     penVelocity: 0,
   }))
 
@@ -51,21 +50,22 @@ export default function Canvas() {
   // c) useSelectionEngine
   const { findSnaps, snapLinesRef } = useSelectionEngine(cachedBounds)
   // e) usePointerEngine
-  const { getCursor, copySelectedToSystemClipboard, getDrawState } = usePointerEngine({
-    canvasRef,
-    cachedBounds,
-    scheduleRedraw,
-    startEditText,
-    textRef,
-    findSnaps,
-    snapLinesRef,
-  })
+  const { getCursor, copySelectedToSystemClipboard, getDrawState, hoveredElementIdRef } =
+    usePointerEngine({
+      canvasRef,
+      cachedBounds,
+      scheduleRedraw,
+      startEditText,
+      textRef,
+      findSnaps,
+      snapLinesRef,
+    })
 
   // Provide getDrawState to renderer via ref
   getDrawStateRef.current = getDrawState
 
   // b) useKeyboardBindings
-  useKeyboardBindings({ copySelectedToSystemClipboard })
+  useKeyboardBindings({ copySelectedToSystemClipboard, hoveredElementIdRef })
 
   // 右键上下文菜单处理
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -150,8 +150,7 @@ export default function Canvas() {
     <>
       <div
         ref={containerRef}
-        className="absolute inset-0 overflow-hidden canvas-grid-bg"
-        style={{ zIndex: 10 }}
+        className="canvas-surface canvas-grid-bg"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onContextMenu={handleContextMenu}
@@ -159,11 +158,11 @@ export default function Canvas() {
         <canvas
           id="main-canvas"
           ref={canvasRef}
-          width={canvasSize.w * dpr}
-          height={canvasSize.h * dpr}
+          width={Math.round(canvasSize.w * dpr)}
+          height={Math.round(canvasSize.h * dpr)}
           role="img"
-          aria-label="Drawing canvas - Use toolbar to select tools and draw"
-          className="w-full h-full touch-none"
+          aria-label="绘图画布"
+          className="main-canvas"
           style={{
             touchAction: 'none',
             cursor: getCursor(),

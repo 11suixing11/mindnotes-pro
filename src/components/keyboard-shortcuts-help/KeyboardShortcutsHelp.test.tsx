@@ -19,21 +19,21 @@ describe('KeyboardShortcutsHelp', () => {
 
   it('renders shortcuts when open', () => {
     render(<KeyboardShortcutsHelp open={true} onClose={onClose} />)
-    expect(screen.getByText('Keyboard Shortcuts')).toBeTruthy()
-    expect(screen.getByText('Undo')).toBeTruthy()
-    expect(screen.getByText('Redo')).toBeTruthy()
-    expect(screen.getByText('Pen tool')).toBeTruthy()
+    expect(screen.getAllByText('键盘快捷键')).toHaveLength(2)
+    expect(screen.getByText('撤销')).toBeTruthy()
+    expect(screen.getByText('重做')).toBeTruthy()
+    expect(screen.getByText('画笔工具')).toBeTruthy()
   })
 
   it('renders all shortcut labels', () => {
     render(<KeyboardShortcutsHelp open={true} onClose={onClose} />)
-    expect(screen.getByText('Copy')).toBeTruthy()
-    expect(screen.getByText('Select all')).toBeTruthy()
-    expect(screen.getByText('Delete selected')).toBeTruthy()
-    expect(screen.getByText('Toggle grid')).toBeTruthy()
-    expect(screen.getByText('Toggle grid snap')).toBeTruthy()
-    expect(screen.getByText('Zoom in')).toBeTruthy()
-    expect(screen.getByText('Zoom out')).toBeTruthy()
+    expect(screen.getByText('复制')).toBeTruthy()
+    expect(screen.getByText('全选')).toBeTruthy()
+    expect(screen.getByText('删除所选')).toBeTruthy()
+    expect(screen.getByText('切换网格')).toBeTruthy()
+    expect(screen.getByText('切换网格吸附')).toBeTruthy()
+    expect(screen.getByText('放大')).toBeTruthy()
+    expect(screen.getByText('缩小')).toBeTruthy()
   })
 
   it('renders customized shortcut keys', () => {
@@ -41,7 +41,7 @@ describe('KeyboardShortcutsHelp', () => {
 
     render(<KeyboardShortcutsHelp open={true} onClose={onClose} />)
 
-    expect(screen.getByText('Pen tool')).toBeTruthy()
+    expect(screen.getByText('画笔工具')).toBeTruthy()
     expect(screen.getAllByText('P').length).toBeGreaterThan(0)
   })
 
@@ -49,14 +49,14 @@ describe('KeyboardShortcutsHelp', () => {
     const onCustomize = vi.fn()
     render(<KeyboardShortcutsHelp open={true} onClose={onClose} onCustomize={onCustomize} />)
 
-    fireEvent.click(screen.getByText('Customize'))
+    fireEvent.click(screen.getByText('自定义'))
 
     expect(onCustomize).toHaveBeenCalled()
   })
 
   it('calls onClose when close button is clicked', () => {
     render(<KeyboardShortcutsHelp open={true} onClose={onClose} />)
-    fireEvent.click(screen.getByLabelText('Close'))
+    fireEvent.click(screen.getByLabelText('关闭'))
     expect(onClose).toHaveBeenCalled()
   })
 

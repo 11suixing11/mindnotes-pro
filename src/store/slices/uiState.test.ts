@@ -38,13 +38,10 @@ describe('uiState slice', () => {
       expect(slice.saveStatus).toBe('idle')
     })
 
-    it('starts with the document sidebar open on desktop-sized viewports', () => {
-      expect(slice.sidebarOpen).toBe(true)
-    })
+    it('starts with the document sidebar closed on every viewport', () => {
+      expect(slice.sidebarOpen).toBe(false)
 
-    it('starts with the document sidebar closed on mobile-sized viewports', () => {
       createSlice(390)
-
       expect(slice.sidebarOpen).toBe(false)
     })
   })
@@ -67,7 +64,12 @@ describe('uiState slice', () => {
     })
 
     it('handles all valid save status values', () => {
-      const validStatuses: Array<'idle' | 'saving' | 'saved'> = ['idle', 'saving', 'saved']
+      const validStatuses: Array<'idle' | 'saving' | 'saved' | 'error'> = [
+        'idle',
+        'saving',
+        'saved',
+        'error',
+      ]
       for (const status of validStatuses) {
         set.mockClear()
         slice.setSaveStatus(status)

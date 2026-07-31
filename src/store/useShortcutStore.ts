@@ -63,7 +63,7 @@ function loadShortcutBindings(): ShortcutBindingMap {
 function shortcutConflictMessage(conflictLabel: string, binding: ShortcutBinding | null): string {
   if (!binding) return ''
   const label = formatShortcutBinding(binding)
-  return `${label} is already used by ${conflictLabel}.`
+  return `${label} 已被“${conflictLabel}”使用。`
 }
 
 export const useShortcutStore = create<ShortcutStore>((set, get) => ({
@@ -106,7 +106,7 @@ export const useShortcutStore = create<ShortcutStore>((set, get) => ({
 
   importShortcuts: (json) => {
     const parsed = parseShortcutExport(json)
-    if (!parsed) return { ok: false, error: 'Shortcut import must be valid MindNotes Pro JSON.' }
+    if (!parsed) return { ok: false, error: '快捷键配置必须是有效的 MindNotes Pro JSON。' }
 
     const bindings = mergeShortcutBindings(parsed.bindings)
     const conflict = validateShortcutBindings(bindings)

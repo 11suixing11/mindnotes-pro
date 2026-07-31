@@ -3,6 +3,7 @@ import type { CanvasElement, ShapeElement } from '../store/types'
 import type { CanvasTemplate } from './canvasTemplates'
 import {
   CUSTOM_TEMPLATE_STORAGE_KEY,
+  LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY,
   createTemplateFromElements,
   deleteCustomTemplate,
   getBuiltInTemplates,
@@ -11,6 +12,7 @@ import {
   loadCustomTemplates,
   saveCustomTemplate,
 } from './canvasTemplates'
+import { encodeLegacyStorageValue } from '../test/legacyStorage'
 
 function makeShape(id: string, x = 50, y = 60): CanvasElement {
   return {
@@ -77,6 +79,8 @@ describe('canvas templates', () => {
     expect(inserted).toHaveLength(template.elements.length)
     expect(new Set(inserted.map((el) => el.id)).size).toBe(inserted.length)
     expect(inserted.some((el) => originalIds.has(el.id))).toBe(false)
+    expect(new Set(inserted.map((el) => el.groupId)).size).toBe(1)
+    expect(inserted[0].groupId).toMatch(/^template-group-/)
     expect(bounds.x + bounds.w / 2).toBeCloseTo(1200, 5)
     expect(bounds.y + bounds.h / 2).toBeCloseTo(-340, 5)
   })
@@ -158,5 +162,14 @@ describe('canvas templates', () => {
 
     localStorage.setItem(CUSTOM_TEMPLATE_STORAGE_KEY, 'not-json')
     expect(loadCustomTemplates()).toEqual([])
+  })
+
+  it('recovers encrypted custom templates saved by the previous version', () => {
+    const template = requireTemplate(createTemplateFromElements('旧模板', [makeShape('legacy')]))
+    localStorage.setItem(LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY, encodeLegacyStorageValue([template]))
+
+    expect(loadCustomTemplates()).toEqual([expect.objectContaining({ name: '旧模板' })])
+    expect(localStorage.getItem(CUSTOM_TEMPLATE_STORAGE_KEY)).not.toBeNull()
+    expect(localStorage.getItem(LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY)).toBeNull()
   })
 })

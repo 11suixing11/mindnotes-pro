@@ -1,4 +1,4 @@
-import { useRef, memo } from 'react'
+import { useCallback, useEffect, useRef, useState, memo } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -77,43 +77,84 @@ const ColorPicker = memo(function ColorPicker() {
 
   const colorRef = useRef<HTMLInputElement>(null)
   const fillColorRef = useRef<HTMLInputElement>(null)
+  const pickerRef = useRef<HTMLDivElement>(null)
+  const paletteTriggerRef = useRef<HTMLButtonElement>(null)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+
+  const closePalette = useCallback((restoreFocus = false) => {
+    setPaletteOpen(false)
+    if (restoreFocus) queueMicrotask(() => paletteTriggerRef.current?.focus())
+  }, [])
+
+  useEffect(() => {
+    if (!paletteOpen) return
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node)) setPaletteOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      closePalette(true)
+    }
+    pickerRef.current?.querySelector<HTMLButtonElement>('.color-popover button')?.focus()
+    window.addEventListener('pointerdown', closeOnOutsideClick)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('pointerdown', closeOnOutsideClick)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [closePalette, paletteOpen])
 
   return (
     <>
-      {colorHistory.length > 0 && (
-        <>
-          <div className="tb-group" aria-label="最近使用的颜色">
-            {colorHistory.map((hex) => (
-              <button
-                key={`history-${hex}`}
-                onClick={() => setColor(hex)}
-                className={`cdot ${color === hex ? 'on' : ''}`}
-                style={{ backgroundColor: hex }}
-                aria-label={`最近颜色 ${hex}`}
-              />
-            ))}
-          </div>
-          <div className="tb-sep" role="separator" />
-        </>
-      )}
-
-      <div className="tb-group">
-        {COLORS.map((hex) => (
-          <button
-            key={hex}
-            onClick={() => setColor(hex)}
-            className={`cdot ${color === hex ? 'on' : ''}`}
-            style={{ backgroundColor: hex }}
-            aria-label={COLOR_NAMES[hex] ?? hex}
-          />
-        ))}
+      <div className="color-picker" ref={pickerRef}>
         <button
-          onClick={() => colorRef.current?.click()}
-          className="cdot border-2 border-dashed border-[var(--border)] flex items-center justify-center text-[12px] text-[var(--text-4)]"
-          aria-label="自定义颜色"
+          ref={paletteTriggerRef}
+          type="button"
+          className="abtn color-trigger"
+          aria-label="颜色"
+          aria-expanded={paletteOpen}
+          aria-haspopup="dialog"
+          onClick={() => setPaletteOpen((open) => !open)}
         >
-          +
+          <span className="color-trigger-swatch" style={{ backgroundColor: color }} />
         </button>
+
+        {paletteOpen && (
+          <div className="color-popover panel" role="dialog" aria-label="颜色面板">
+            {colorHistory.length > 0 && (
+              <div className="color-popover-section" aria-label="最近使用的颜色">
+                {colorHistory.map((hex) => (
+                  <button
+                    key={`history-${hex}`}
+                    onClick={() => setColor(hex)}
+                    className={`cdot ${color === hex ? 'on' : ''}`}
+                    style={{ backgroundColor: hex }}
+                    aria-label={`最近颜色 ${hex}`}
+                  />
+                ))}
+              </div>
+            )}
+            <div className="color-popover-grid">
+              {COLORS.map((hex) => (
+                <button
+                  key={hex}
+                  onClick={() => setColor(hex)}
+                  className={`cdot ${color === hex ? 'on' : ''}`}
+                  style={{ backgroundColor: hex }}
+                  aria-label={COLOR_NAMES[hex] ?? hex}
+                />
+              ))}
+              <button
+                onClick={() => colorRef.current?.click()}
+                className="cdot custom-color-button"
+                aria-label="自定义颜色"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="tb-sep" role="separator" />

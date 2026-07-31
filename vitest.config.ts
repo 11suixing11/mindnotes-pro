@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    setupFiles: ['./src/test/setup.ts'],
     exclude: ['e2e/**', 'node_modules/**'],
     coverage: {
       provider: 'v8',
@@ -11,10 +12,10 @@ export default defineConfig({
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.test.{ts,tsx}', 'src/**/*.d.ts', 'src/vite-env.d.ts', 'src/main.tsx'],
       thresholds: {
-        lines: 44,
-        functions: 45,
-        branches: 32,
-        statements: 43,
+        lines: 60,
+        functions: 60,
+        branches: 48,
+        statements: 58,
       },
     },
   },

@@ -12,6 +12,7 @@ import { useViewStore } from '../../store/useViewStore'
 
 interface Options {
   copySelectedToSystemClipboard?: () => void
+  hoveredElementIdRef?: MutableRefObject<string | null>
 }
 
 const TOOL_BY_ACTION: Partial<Record<ShortcutActionId, ToolType>> = {
@@ -174,14 +175,14 @@ function handleKeyboardNudge(e: KeyboardEvent): boolean {
   return true
 }
 
-function handleEagleEyeCancel(e: KeyboardEvent): boolean {
+function handleEscapeShortcut(e: KeyboardEvent): boolean {
   if (e.key !== 'Escape') return false
 
-  const vs = useViewStore.getState()
-  if (!vs.eagleEye.isActive) return false
+  const st = useAppStore.getState()
+  if (!st.styleEyedropperActive) return false
 
   e.preventDefault()
-  vs.cancelEagleEye()
+  st.toggleStyleEyedropper()
   return true
 }
 
@@ -281,19 +282,9 @@ function executeShortcutAction(
       e.preventDefault()
       vs.toggleSnapToGrid()
       return true
-    case 'view.eagleEye':
-      e.preventDefault()
-      if (vs.eagleEye.isActive) vs.commitEagleEye()
-      else vs.startEagleEye()
-      return true
     case 'style.eyedropper': {
       e.preventDefault()
-      const hoveredRef = (
-        window as Window & {
-          __mindnotes_hovered_element_id__?: { current?: string | null }
-        }
-      ).__mindnotes_hovered_element_id__
-      const hoveredElementId = hoveredRef?.current
+      const hoveredElementId = optionsRef.current.hoveredElementIdRef?.current
       if (hoveredElementId && st.idToElement.get(hoveredElementId)) {
         st.applyStyleFromElement(hoveredElementId)
       } else {
@@ -320,12 +311,13 @@ export function useKeyboardBindings(options: Options = {}) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isEditableShortcutTarget(e.target)) return
 
+      if (handleEscapeShortcut(e)) return
+
       const action = findShortcutAction(e, useShortcutStore.getState().bindings)
       if (action && executeShortcutAction(action, e, optionsRef)) return
 
       if (handleQuickColorShortcut(e)) return
       if (handleKeyboardNudge(e)) return
-      handleEagleEyeCancel(e)
     }
 
     window.addEventListener('keydown', handleKeyDown)

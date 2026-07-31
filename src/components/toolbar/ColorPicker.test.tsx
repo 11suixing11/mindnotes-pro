@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ColorPicker from './ColorPicker'
 import { useAppStore } from '../../store/appStore'
 import { COLOR_HISTORY_KEY } from '../../store/slices/toolSettings'
@@ -29,6 +29,7 @@ describe('ColorPicker', () => {
 
   it('renders color buttons', () => {
     render(<ColorPicker />)
+    fireEvent.click(screen.getByLabelText('颜色'))
     // 灰度色系
     expect(screen.getByLabelText('纯黑')).toBeTruthy()
     expect(screen.getByLabelText('深灰')).toBeTruthy()
@@ -53,7 +54,20 @@ describe('ColorPicker', () => {
 
   it('renders custom color button', () => {
     render(<ColorPicker />)
+    fireEvent.click(screen.getByLabelText('颜色'))
     expect(screen.getByLabelText('自定义颜色')).toBeTruthy()
+  })
+
+  it('closes the palette with Escape and restores focus to its trigger', async () => {
+    render(<ColorPicker />)
+    const trigger = screen.getByLabelText('颜色')
+    fireEvent.click(trigger)
+
+    expect(screen.getByRole('dialog', { name: '颜色面板' })).toBeTruthy()
+    fireEvent.keyDown(window, { key: 'Escape' })
+
+    expect(screen.queryByRole('dialog', { name: '颜色面板' })).toBeNull()
+    await waitFor(() => expect(document.activeElement).toBe(trigger))
   })
 
   it('renders size buttons', () => {
@@ -66,6 +80,7 @@ describe('ColorPicker', () => {
 
   it('highlights active color', () => {
     render(<ColorPicker />)
+    fireEvent.click(screen.getByLabelText('颜色'))
     const brownBtn = screen.getByLabelText('棕色')
     expect(brownBtn.className).toContain('on')
   })
@@ -104,6 +119,7 @@ describe('ColorPicker', () => {
   it('shows color history when available', () => {
     useAppStore.setState({ colorHistory: ['#ff0000', '#00ff00'] })
     render(<ColorPicker />)
+    fireEvent.click(screen.getByLabelText('颜色'))
     expect(screen.getByLabelText('最近使用的颜色')).toBeTruthy()
     expect(screen.getByLabelText('最近颜色 #ff0000')).toBeTruthy()
     expect(screen.getByLabelText('最近颜色 #00ff00')).toBeTruthy()
@@ -116,6 +132,7 @@ describe('ColorPicker', () => {
 
   it('adds selected palette colors to recent colors and persists them', () => {
     render(<ColorPicker />)
+    fireEvent.click(screen.getByLabelText('颜色'))
 
     fireEvent.click(screen.getByLabelText('红色'))
 

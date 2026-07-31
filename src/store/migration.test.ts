@@ -53,7 +53,7 @@ describe('migration', () => {
       const result = migrateOld()
       expect(result).not.toBeNull()
       expect(result!.elements).toHaveLength(1)
-      expect(result!.elements[0]).toEqual({
+      expect(result!.elements[0]).toMatchObject({
         type: 'stroke',
         id: 's1',
         points: [
@@ -65,6 +65,7 @@ describe('migration', () => {
         brush: 'pen',
         opacity: undefined,
       })
+      expect(result!.elements[0].layerId).toBe(result!.activeLayerId)
     })
 
     it('migrates an image element', () => {

@@ -107,9 +107,7 @@ describe('history slice', () => {
       useAppStore.getState().undo()
 
       const toasts = useToastStore.getState().toasts
-      expect(toasts[toasts.length - 1]?.message).toBe(
-        'Undo: Draw rectangle · 1 undo step left'
-      )
+      expect(toasts[toasts.length - 1]?.message).toBe('Undo: Draw rectangle · 1 undo step left')
     })
   })
 
@@ -189,9 +187,7 @@ describe('history slice', () => {
       useAppStore.getState().redo()
 
       const toasts = useToastStore.getState().toasts
-      expect(toasts[toasts.length - 1]?.message).toBe(
-        'Redo: Draw rectangle · 0 redo steps left'
-      )
+      expect(toasts[toasts.length - 1]?.message).toBe('Redo: Draw rectangle · 0 redo steps left')
     })
   })
 

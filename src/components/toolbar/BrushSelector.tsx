@@ -80,7 +80,7 @@ const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: Bru
         onClick={handleToggle}
         className="pill-btn ghost"
         style={{ whiteSpace: 'nowrap' }}
-        aria-label={`Brush: ${currentBrush.label}`}
+        aria-label={`画笔：${currentBrush.label}`}
         aria-haspopup="true"
         aria-expanded={showBrush}
       >

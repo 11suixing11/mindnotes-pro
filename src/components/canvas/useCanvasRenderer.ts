@@ -16,7 +16,7 @@ import {
   drawGrid,
   invalidateDrawingCaches,
 } from '../../canvas/canvasDrawing'
-import { eraserParticleSystem, getActiveEraserRadius } from '../../eraser'
+import { getEraserWorldRadius } from '../../eraser/simpleEraser'
 import { CANVAS_INVALIDATED_EVENT } from './renderEvents'
 export interface DrawState {
   drawing: boolean
@@ -36,13 +36,38 @@ export interface DrawState {
   showGrid: boolean
   showRulers: boolean
   gridSize: number
-  /** 最近的擦除轨迹点（用于拖尾渲染） */
-  eraserTrail: { x: number; y: number; time: number }[]
   /** 笔触绘制时的速度（用于笔触光标反馈） */
   penVelocity: number
 }
 
 type ElementBounds = { x: number; y: number; w: number; h: number }
+
+const MAX_CANVAS_DPR = 2
+
+export function normalizeCanvasMetrics(width: number, height: number, dpr: number) {
+  return {
+    size: {
+      w: Math.max(1, Math.round(Number.isFinite(width) ? width : 1)),
+      h: Math.max(1, Math.round(Number.isFinite(height) ? height : 1)),
+    },
+    dpr: Math.min(MAX_CANVAS_DPR, Math.max(1, Number.isFinite(dpr) ? dpr : 1)),
+  }
+}
+
+export function preserveViewCenterOnResize(
+  viewBox: { x: number; y: number; zoom: number },
+  previousSize: { w: number; h: number },
+  nextSize: { w: number; h: number }
+) {
+  const zoom = Math.max(0.01, viewBox.zoom)
+  const centerX = viewBox.x + previousSize.w / 2 / zoom
+  const centerY = viewBox.y + previousSize.h / 2 / zoom
+  return {
+    x: centerX - nextSize.w / 2 / zoom,
+    y: centerY - nextSize.h / 2 / zoom,
+    zoom: viewBox.zoom,
+  }
+}
 
 export function mergeSelectionBounds<T extends { id: string }>(
   elements: T[],
@@ -87,50 +112,14 @@ export function useCanvasRenderer(
   const selectedIdsSetRef = useRef<Set<string>>(new Set())
   const lastSelectedIdsRef = useRef<string[]>([])
   // dpr 改为 ref，极少变化
-  const dprRef = useRef(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
+  const dprRef = useRef(
+    normalizeCanvasMetrics(1, 1, typeof window !== 'undefined' ? window.devicePixelRatio : 1).dpr
+  )
   const dpr = dprRef.current
   // canvasSize 改用 ref 避免 React 重渲染，配合手动 redraw
-  const canvasSizeRef = useRef({ w: window.innerWidth, h: window.innerHeight })
+  const canvasSizeRef = useRef({ w: 1, h: 1 })
   const [, forceUpdate] = useState(0)
   const canvasSize = canvasSizeRef.current
-
-  // P1 性能优化: 橡皮擦光标颜色缓存 - 避免每帧创建相同的颜色字符串
-  // 性能提升: 减少 GC 压力，每帧减少 ~15 次字符串分配
-  const eraserColorCacheRef = useRef<{
-    dark: {
-      stroke: string
-      fill: string
-      center: string
-      glow0: string
-      glow6: string
-      glow1: string
-    }
-    light: {
-      stroke: string
-      fill: string
-      center: string
-      glow0: string
-      glow6: string
-      glow1: string
-    }
-  }>({
-    dark: {
-      stroke: 'rgba(200,160,176, 0.35)',
-      fill: 'rgba(200,160,176, 0.55)',
-      center: 'rgba(200,160,176, 0.7)',
-      glow0: 'rgba(200,160,176, 0.06)',
-      glow6: 'rgba(200,160,176, 0.03)',
-      glow1: 'rgba(200,160,176, 0)',
-    },
-    light: {
-      stroke: 'rgba(176,125,110, 0.35)',
-      fill: 'rgba(176,125,110, 0.55)',
-      center: 'rgba(176,125,110, 0.7)',
-      glow0: 'rgba(176,125,110, 0.06)',
-      glow6: 'rgba(176,125,110, 0.03)',
-      glow1: 'rgba(176,125,110, 0)',
-    },
-  })
 
   // P1 性能优化: 笔触光标颜色缓存
   const penColorCacheRef = useRef<{
@@ -147,66 +136,6 @@ export function useCanvasRenderer(
       fill: 'rgba(176,125,110, 0.06)',
       center: 'rgba(176,125,110, 0.6)',
     },
-  })
-
-  // P1 性能优化: 橡皮擦拖尾颜色缓存 - 预计算10级alpha值
-  // 性能提升: 拖尾渲染时零字符串分配，减少 GC 压力
-  const eraserTrailColorCacheRef = useRef<{
-    dark: string[]
-    light: string[]
-  }>({
-    dark: [
-      'rgba(200,160,176, 0.018)',
-      'rgba(200,160,176, 0.036)',
-      'rgba(200,160,176, 0.054)',
-      'rgba(200,160,176, 0.072)',
-      'rgba(200,160,176, 0.090)',
-      'rgba(200,160,176, 0.108)',
-      'rgba(200,160,176, 0.126)',
-      'rgba(200,160,176, 0.144)',
-      'rgba(200,160,176, 0.162)',
-      'rgba(200,160,176, 0.180)',
-    ],
-    light: [
-      'rgba(176,125,110, 0.018)',
-      'rgba(176,125,110, 0.036)',
-      'rgba(176,125,110, 0.054)',
-      'rgba(176,125,110, 0.072)',
-      'rgba(176,125,110, 0.090)',
-      'rgba(176,125,110, 0.108)',
-      'rgba(176,125,110, 0.126)',
-      'rgba(176,125,110, 0.144)',
-      'rgba(176,125,110, 0.162)',
-      'rgba(176,125,110, 0.180)',
-    ],
-  })
-  // P1 性能优化: 橡皮擦脉冲效果颜色缓存 - 预计算16级alpha值
-  // 性能提升: 脉冲动画每帧减少1次字符串分配，减少 GC 压力
-  const eraserPulseColorCacheRef = useRef<{
-    dark: string[]
-    light: string[]
-  }>({
-    dark: Array.from(
-      { length: 16 },
-      (_, i) => `rgba(200,160,176, ${(0.15 + (i / 15) * 0.15).toFixed(3)})`
-    ),
-    light: Array.from(
-      { length: 16 },
-      (_, i) => `rgba(176,125,110, ${(0.15 + (i / 15) * 0.15).toFixed(3)})`
-    ),
-  })
-  // P0 性能优化: 橡皮擦光晕渐变缓存 - 避免每帧创建新的 RadialGradient
-  // 性能提升: 橡皮擦光标渲染减少 1 次渐变对象创建，减少 GC 压力
-  const eraserGlowGradientCacheRef = useRef<{
-    dark: CanvasGradient | null
-    light: CanvasGradient | null
-    lastR: number
-    lastCtx: CanvasRenderingContext2D | null
-  }>({
-    dark: null,
-    light: null,
-    lastR: -1,
-    lastCtx: null,
   })
 
   function cachedBounds(el: CanvasElement) {
@@ -389,8 +318,6 @@ export function useCanvasRenderer(
     ctx.scale(vb.zoom, vb.zoom)
     ctx.translate(-vb.x, -vb.y)
 
-    // 渲染橡皮屑粒子
-    eraserParticleSystem.render(ctx)
     if (ds.drawing && ds.tool === 'pen' && ds.currentPts.length > 1)
       drawStrokeRaw(ctx, ds.currentPts, ds.color, ds.size, ds.brush, dark, ds.currentPressures)
     if (ds.currentShape) drawElement(ctx, ds.currentShape, dark)
@@ -414,111 +341,18 @@ export function useCanvasRenderer(
       ctx.fill()
     }
 
-    // 增强的橡皮擦光标
-    // P1 性能优化: 使用缓存的颜色字符串，避免每帧创建 ~15 个新字符串
+    // 橡皮擦范围始终按屏幕像素计算，缩放不会改变手感。
     if (ds.tool === 'eraser' && ds.mousePos) {
-      const r = getActiveEraserRadius()
-      const colors = dark ? eraserColorCacheRef.current.dark : eraserColorCacheRef.current.light
+      const r = getEraserWorldRadius(ds.size, vb.zoom)
       const x = ds.mousePos.x
       const y = ds.mousePos.y
-
-      // 擦除拖尾效果
-      if (ds.eraserTrail.length >= 2) {
-        const now = performance.now()
-        ctx.lineCap = 'round'
-        ctx.lineJoin = 'round'
-        // 预计算所有可能的 alpha 颜色字符串，避免循环内字符串拼接
-        // 性能提升: 拖尾渲染减少 ~80% 字符串分配
-        const trailColors = dark
-          ? eraserTrailColorCacheRef.current.dark
-          : eraserTrailColorCacheRef.current.light
-        for (let i = 1; i < ds.eraserTrail.length; i++) {
-          const p0 = ds.eraserTrail[i - 1]
-          const p1 = ds.eraserTrail[i]
-          const age = (now - p1.time) / 400 // 400ms fade
-          if (age > 1) continue
-          const colorIndex = Math.min(Math.floor((1 - age) * 10), 9)
-          ctx.beginPath()
-          ctx.moveTo(p0.x, p0.y)
-          ctx.lineTo(p1.x, p1.y)
-          ctx.strokeStyle = trailColors[colorIndex]
-          ctx.lineWidth = r * 0.6 * (1 - age * 0.3)
-          ctx.stroke()
-        }
-      }
-
-      // 外圈：虚线指示擦除范围
-      ctx.strokeStyle = colors.stroke
-      ctx.lineWidth = 1.2 / vb.zoom
-      ctx.setLineDash([4 / vb.zoom, 4 / vb.zoom])
-      ctx.beginPath()
-      ctx.arc(x, y, r, 0, Math.PI * 2)
-      ctx.stroke()
-      ctx.setLineDash([])
-
-      // 内圈：实线指示精确范围
-      ctx.strokeStyle = colors.fill
+      ctx.fillStyle = dark ? 'rgba(91, 193, 185, 0.12)' : 'rgba(20, 125, 120, 0.1)'
+      ctx.strokeStyle = dark ? 'rgba(120, 208, 201, 0.9)' : 'rgba(15, 106, 102, 0.85)'
       ctx.lineWidth = 1.5 / vb.zoom
       ctx.beginPath()
-      ctx.arc(x, y, r * 0.55, 0, Math.PI * 2)
-      ctx.stroke()
-
-      // 中心十字准星
-      const crossSize = 4 / vb.zoom
-      ctx.strokeStyle = colors.center
-      ctx.lineWidth = 1.2 / vb.zoom
-      ctx.beginPath()
-      ctx.moveTo(x - crossSize, y)
-      ctx.lineTo(x + crossSize, y)
-      ctx.moveTo(x, y - crossSize)
-      ctx.lineTo(x, y + crossSize)
-      ctx.stroke()
-
-      // 中心点
-      ctx.beginPath()
-      ctx.arc(x, y, 1.8 / vb.zoom, 0, Math.PI * 2)
-      ctx.fillStyle = colors.center
-      ctx.fill()
-
-      // P0 性能优化: 使用缓存的光晕渐变，避免每帧创建新的 RadialGradient
-      // 性能提升: 橡皮擦光标渲染减少 1 次渐变对象创建，减少 GC 压力
-      const glowCache = eraserGlowGradientCacheRef.current
-      let glowGrad: CanvasGradient
-      const cachedGradient = dark ? glowCache.dark : glowCache.light
-      if (glowCache.lastR === r && glowCache.lastCtx === ctx && cachedGradient) {
-        glowGrad = cachedGradient
-      } else {
-        glowGrad = ctx.createRadialGradient(x, y, 0, x, y, r)
-        glowGrad.addColorStop(0, colors.glow0)
-        glowGrad.addColorStop(0.6, colors.glow6)
-        glowGrad.addColorStop(1, colors.glow1)
-        if (dark) {
-          glowCache.dark = glowGrad
-        } else {
-          glowCache.light = glowGrad
-        }
-        glowCache.lastR = r
-        glowCache.lastCtx = ctx
-      }
-      ctx.fillStyle = glowGrad
-      ctx.beginPath()
       ctx.arc(x, y, r, 0, Math.PI * 2)
       ctx.fill()
-
-      // 绘制中：外圈脉冲动画效果
-      if (ds.drawing) {
-        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 120)
-        // 使用预计算的脉冲颜色缓存，避免每帧字符串分配
-        const pulseColors = dark
-          ? eraserPulseColorCacheRef.current.dark
-          : eraserPulseColorCacheRef.current.light
-        const colorIndex = Math.min(Math.floor(pulse * 15), 15)
-        ctx.strokeStyle = pulseColors[colorIndex]
-        ctx.lineWidth = 2 / vb.zoom
-        ctx.beginPath()
-        ctx.arc(x, y, r * (1.05 + pulse * 0.08), 0, Math.PI * 2)
-        ctx.stroke()
-      }
+      ctx.stroke()
     }
     ctx.restore()
     if (ds.marquee) {
@@ -599,83 +433,6 @@ export function useCanvasRenderer(
       ctx.restore()
     }
 
-    // 鹰眼模式视口指示
-    // 在鹰眼模式下绘制：
-    // 1. 半透明遮罩覆盖整个画布
-    // 2. 目标区域的高亮矩形框（用户将要放大到的位置）
-    // 3. 原始视口位置指示
-    const eagleEye = useViewStore.getState().eagleEye
-    if (eagleEye.isActive && eagleEye.originalViewBox) {
-      ctx.save()
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-
-      const vw = canvasSize.w
-      const vh = canvasSize.h
-      const originalZoom = eagleEye.originalViewBox.zoom
-
-      // 1. 计算目标视口矩形（用户选择的放大区域）
-      const targetViewW = vw / originalZoom
-      const targetViewH = vh / originalZoom
-      const targetViewX = eagleEye.targetX - targetViewW / 2
-      const targetViewY = eagleEye.targetY - targetViewH / 2
-
-      // 转换为屏幕坐标（鹰眼模式下）
-      const screenTargetX = (targetViewX - vb.x) * vb.zoom
-      const screenTargetY = (targetViewY - vb.y) * vb.zoom
-      const screenTargetW = targetViewW * vb.zoom
-      const screenTargetH = targetViewH * vb.zoom
-
-      // 2. 半透明遮罩（变暗整个画布，突出目标区域）
-      ctx.fillStyle = dark ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.25)'
-      ctx.fillRect(0, 0, vw, vh)
-
-      // 3. 目标区域高亮（清除遮罩，显示正常亮度）
-      ctx.clearRect(screenTargetX, screenTargetY, screenTargetW, screenTargetH)
-
-      // 4. 目标区域边框（高亮指示）
-      ctx.strokeStyle = dark ? '#C8A0B0' : '#B07D6E'
-      ctx.lineWidth = 2.5
-      ctx.strokeRect(screenTargetX, screenTargetY, screenTargetW, screenTargetH)
-
-      // 5. 目标区域内部十字准星
-      ctx.strokeStyle = dark ? 'rgba(200, 160, 176, 0.6)' : 'rgba(176, 125, 110, 0.6)'
-      ctx.lineWidth = 1
-      const crossSize = Math.min(screenTargetW, screenTargetH) * 0.15
-      const centerX = screenTargetX + screenTargetW / 2
-      const centerY = screenTargetY + screenTargetH / 2
-      ctx.beginPath()
-      ctx.moveTo(centerX - crossSize, centerY)
-      ctx.lineTo(centerX + crossSize, centerY)
-      ctx.moveTo(centerX, centerY - crossSize)
-      ctx.lineTo(centerX, centerY + crossSize)
-      ctx.stroke()
-
-      // 6. 原始视口位置指示（小矩形）
-      const origViewX = eagleEye.originalViewBox.x
-      const origViewY = eagleEye.originalViewBox.y
-      const origViewW = vw / originalZoom
-      const origViewH = vh / originalZoom
-
-      const screenOrigX = (origViewX - vb.x) * vb.zoom
-      const screenOrigY = (origViewY - vb.y) * vb.zoom
-      const screenOrigW = origViewW * vb.zoom
-      const screenOrigH = origViewH * vb.zoom
-
-      ctx.strokeStyle = dark ? 'rgba(200, 160, 176, 0.4)' : 'rgba(176, 125, 110, 0.4)'
-      ctx.lineWidth = 1.5
-      ctx.setLineDash([4, 4])
-      ctx.strokeRect(screenOrigX, screenOrigY, screenOrigW, screenOrigH)
-      ctx.setLineDash([])
-
-      // 7. 鹰眼模式提示文本
-      ctx.font = '500 13px "Noto Sans SC", sans-serif'
-      ctx.fillStyle = dark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.8)'
-      ctx.textAlign = 'center'
-      ctx.fillText('🔍 鹰眼模式 - 移动鼠标选择位置，按 Z 确认，ESC 取消', vw / 2, vh - 30)
-
-      ctx.restore()
-    }
-
     drawMinimap(
       ctx,
       getRenderableElements(st.elements, st.layers),
@@ -701,9 +458,16 @@ export function useCanvasRenderer(
       for (const e of entries) {
         const { width, height } = e.contentRect
         if (width > 0 && height > 0) {
-          const w = Math.round(width),
-            h = Math.round(height)
+          const { size } = normalizeCanvasMetrics(width, height, dprRef.current)
+          const { w, h } = size
           if (canvasSizeRef.current.w !== w || canvasSizeRef.current.h !== h) {
+            const previousSize = canvasSizeRef.current
+            if (previousSize.w > 1 && previousSize.h > 1) {
+              const viewState = useViewStore.getState()
+              viewState.setViewBox(
+                preserveViewCenterOnResize(viewState.viewBox, previousSize, { w, h })
+              )
+            }
             canvasSizeRef.current = { w, h }
             forceUpdate((n) => n + 1) // 触发一次重渲染以更新依赖 canvasSize 的 callbacks
           }
@@ -835,49 +599,5 @@ export function useCanvasRenderer(
     })
     return unsub
   }, [scheduleRedraw])
-  // P0-1 修复 + 粒子系统更新循环 - 无活动粒子时挂起循环，有粒子时恢复
-  useEffect(() => {
-    let lastTime = performance.now()
-    let particleRafId: number | null = null
-    let running = false
-
-    function updateParticles() {
-      const now = performance.now()
-      const deltaTime = Math.min((now - lastTime) / 1000, 0.1) // 限制最大delta防止跳帧
-      lastTime = now
-
-      if (eraserParticleSystem.getParticleCount() > 0) {
-        eraserParticleSystem.update(deltaTime)
-        particleRafId = requestAnimationFrame(updateParticles)
-      } else {
-        // 无活动粒子，挂起循环等待下次唤醒
-        running = false
-        particleRafId = null
-      }
-    }
-
-    // 监听粒子发射事件，唤醒循环
-    function onParticlesEmitted() {
-      if (!running) {
-        running = true
-        lastTime = performance.now()
-        particleRafId = requestAnimationFrame(updateParticles)
-      }
-    }
-
-    // 每次重绘时检查是否有粒子需要更新
-    const unsub = useAppStore.subscribe(() => {
-      if (eraserParticleSystem.getParticleCount() > 0 && !running) {
-        onParticlesEmitted()
-      }
-    })
-
-    return () => {
-      if (particleRafId !== null) {
-        cancelAnimationFrame(particleRafId)
-      }
-      unsub()
-    }
-  }, [])
   return { redraw, scheduleRedraw, elementsDirtyRef, boundsCacheRef, cachedBounds, canvasSize, dpr }
 }

@@ -148,6 +148,7 @@ export type UndoAction =
   | { type: 'lock'; elementIds: string[]; beforeLock: { id: string; wasLocked: boolean }[] }
   | { type: 'unlock'; elementIds: string[]; beforeUnlock: { id: string; wasLocked: boolean }[] }
 export interface CanvasDoc {
+  schemaVersion: 4
   id: string
   title: string
   elements: CanvasElement[]

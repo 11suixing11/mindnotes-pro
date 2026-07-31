@@ -1,12 +1,12 @@
 ## Summary
 
-Describe what changed and why.
+Describe the user or maintainer problem, the chosen change, and why this scope is appropriate.
 
-## Related Issues
+## Related issue
 
 Closes #
 
-## Type of Change
+## Change type
 
 - [ ] Bug fix
 - [ ] Feature
@@ -16,21 +16,32 @@ Closes #
 - [ ] Build, CI, or tooling
 - [ ] Performance
 
+## Behavior and risk
+
+Before:
+
+After:
+
+Main failure or regression risks:
+
 ## Verification
 
-- [ ] `npm run build`
-- [ ] `npm run test:run`
-- [ ] `npm run lint`
-- [ ] Manual browser check, if UI behavior changed
+- [ ] `npm run check`
+- [ ] `npm run test:e2e` for a user-facing workflow
+- [ ] Desktop and mobile browser check for responsive UI
+- [ ] Electron launch check for desktop-shell changes
+- [ ] Import/export recovery check for persisted-data changes
 
-If any check fails because of an existing issue, include the failure summary here.
+List the exact commands, targeted tests, and manual flows that were run. If something was not run, explain why.
 
-## Product Boundary
+## Product boundary
 
-- [ ] This change keeps user data local unless the behavior is explicitly documented.
-- [ ] Design-tool-inspired behavior is generic or properly attributed.
-- [ ] UI changes include screenshots or a short recording when helpful.
+- [ ] User data remains local unless a new network behavior is explicitly documented and reviewed.
+- [ ] Persisted-data changes include compatibility and failure handling.
+- [ ] New templates or tools remain editable after insertion or creation.
+- [ ] No test relies on conditional skipping to hide a failed workflow.
+- [ ] UI changes include a current screenshot or recording when it helps review.
 
-## Notes for Reviewers
+## Reviewer notes
 
-Add anything reviewers should pay special attention to.
+Call out the files, tradeoffs, or assumptions that need the closest review.

@@ -345,6 +345,53 @@ describe('useKeyboardBindings', () => {
     })
   })
 
+  describe('style eyedropper shortcut', () => {
+    it('uses the provided hovered element ref before toggling eyedropper mode', () => {
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'hovered-shape',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 40,
+        h: 30,
+        color: '#2563eb',
+        size: 6,
+        fillColor: '#dbeafe',
+      })
+      const applySpy = vi.spyOn(useAppStore.getState(), 'applyStyleFromElement')
+      renderHook(() => useKeyboardBindings({ hoveredElementIdRef: { current: 'hovered-shape' } }))
+
+      press('q')
+
+      expect(applySpy).toHaveBeenCalledWith('hovered-shape')
+      expect(useAppStore.getState().color).toBe('#2563eb')
+      expect(useAppStore.getState().styleEyedropperActive).toBe(false)
+      applySpy.mockRestore()
+    })
+
+    it('toggles eyedropper mode when no hovered element ref is provided', () => {
+      renderHook(() => useKeyboardBindings())
+
+      press('q')
+
+      expect(useAppStore.getState().styleEyedropperActive).toBe(true)
+    })
+
+    it('cancels active eyedropper mode with Escape', () => {
+      useAppStore.setState({
+        styleEyedropperActive: true,
+        styleEyedropperPreview: { color: '#111827', size: 4, brush: 'pen' },
+      })
+      renderHook(() => useKeyboardBindings())
+
+      press('Escape')
+
+      expect(useAppStore.getState().styleEyedropperActive).toBe(false)
+      expect(useAppStore.getState().styleEyedropperPreview).toBeNull()
+    })
+  })
+
   describe('textarea/input focus', () => {
     it('should not trigger shortcuts when textarea is focused', () => {
       const undoSpy = vi.spyOn(useAppStore.getState(), 'undo')

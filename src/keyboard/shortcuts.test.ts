@@ -5,6 +5,7 @@ import {
   findShortcutAction,
   findShortcutConflict,
   formatShortcutBinding,
+  getShortcutKeyParts,
   mergeShortcutBindings,
   parseShortcutExport,
   shortcutBindingFromEvent,
@@ -27,6 +28,12 @@ describe('keyboard shortcuts', () => {
     expect(shortcutBindingFromEvent(keyEvent('+', { shiftKey: true }))).toEqual({ key: '+' })
   })
 
+  it('keeps the plus key intact when rendering shortcut key caps', () => {
+    expect(getShortcutKeyParts({ key: '+' })).toEqual(['+'])
+    expect(getShortcutKeyParts({ key: '+', mod: true })).toEqual(['Ctrl', '+'])
+    expect(formatShortcutBinding({ key: '+', mod: true })).toBe('Ctrl++')
+  })
+
   it('keeps shift as a modifier for shortcut letters', () => {
     expect(shortcutBindingFromEvent(keyEvent('G', { shiftKey: true }))).toEqual({
       key: 'G',
@@ -47,15 +54,11 @@ describe('keyboard shortcuts', () => {
 
   it('detects conflicts with assigned shortcuts and reserved fixed shortcuts', () => {
     expect(findShortcutConflict('tool.pen', { key: '0' }, DEFAULT_SHORTCUT_BINDINGS)?.label).toBe(
-      'Select tool'
+      '选择工具'
     )
     expect(
-      findShortcutConflict(
-        'tool.pen',
-        { key: 'P', mod: true, shift: true },
-        DEFAULT_SHORTCUT_BINDINGS
-      )?.label
-    ).toBe('Screen Pen')
+      findShortcutConflict('tool.pen', { key: 'Escape' }, DEFAULT_SHORTCUT_BINDINGS)?.label
+    ).toBe('取消当前模式')
   })
 
   it('exports and parses shortcut configurations', () => {

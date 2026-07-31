@@ -1,5 +1,16 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { openDB, getAll, get, put, del, loadFromStorage, saveToStorage } from './storage'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import {
+  openDB,
+  getAll,
+  get,
+  put,
+  update,
+  del,
+  loadFromStorage,
+  migrateLegacyStorageKey,
+  saveToStorage,
+} from './storage'
+import { encodeLegacyStorageValue } from '../test/legacyStorage'
 
 describe('storage', () => {
   describe('exports', () => {
@@ -17,6 +28,10 @@ describe('storage', () => {
 
     it('should export put function', () => {
       expect(put).toBeTypeOf('function')
+    })
+
+    it('should export update function', () => {
+      expect(update).toBeTypeOf('function')
     })
 
     it('should export del function', () => {
@@ -84,7 +99,6 @@ describe('storage', () => {
     })
 
     it('loadFromStorage returns default for corrupted data', () => {
-      // Store raw unencrypted data which will fail to parse as JSON after decryption
       localStorage.setItem('corrupted-key', 'not-valid-encrypted-data{{{')
       const result = loadFromStorage('corrupted-key', 'default')
       // Should return default because decryption+JSON.parse fails
@@ -114,26 +128,53 @@ describe('storage', () => {
       saveToStorage('null-key', null)
       expect(loadFromStorage('null-key', 'default')).toBeNull()
     })
+
+    it('migrates an encrypted legacy value without overwriting current data', () => {
+      const legacyValue = [{ id: 'template-1', name: '旧模板' }]
+      localStorage.setItem('legacy-key', encodeLegacyStorageValue(legacyValue))
+
+      expect(migrateLegacyStorageKey('legacy-key', 'current-key')).toBe(true)
+      expect(loadFromStorage('current-key', [])).toEqual(legacyValue)
+      expect(localStorage.getItem('legacy-key')).toBeNull()
+
+      localStorage.setItem('legacy-key', encodeLegacyStorageValue([{ id: 'template-2' }]))
+      expect(migrateLegacyStorageKey('legacy-key', 'current-key')).toBe(false)
+      expect(loadFromStorage('current-key', [])).toEqual(legacyValue)
+    })
+
+    it('keeps corrupt legacy data available for manual recovery', () => {
+      localStorage.setItem('legacy-key', 'not-valid-legacy-data')
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      expect(migrateLegacyStorageKey('legacy-key', 'current-key')).toBe(false)
+      expect(localStorage.getItem('legacy-key')).toBe('not-valid-legacy-data')
+      expect(localStorage.getItem('current-key')).toBeNull()
+
+      consoleSpy.mockRestore()
+    })
   })
 
   describe('IndexedDB operations', () => {
-    it('getAll returns empty array when DB is unavailable', async () => {
-      // In jsdom, indexedDB is not defined, so it should return []
-      const result = await getAll('docs')
-      expect(result).toEqual([])
+    it('getAll rejects when DB is unavailable', async () => {
+      await expect(getAll('docs')).rejects.toThrow('IndexedDB is unavailable')
     })
 
-    it('get returns undefined when DB is unavailable', async () => {
-      const result = await get('docs', 'id-1')
-      expect(result).toBeUndefined()
+    it('get rejects when DB is unavailable', async () => {
+      await expect(get('docs', 'id-1')).rejects.toThrow('IndexedDB is unavailable')
     })
 
-    it('put does not throw when DB is unavailable', async () => {
-      await expect(put('docs', { id: 'test' })).resolves.toBeUndefined()
+    it('put rejects when DB is unavailable', async () => {
+      await expect(put('docs', { id: 'test' })).rejects.toThrow('IndexedDB is unavailable')
     })
 
-    it('del does not throw when DB is unavailable', async () => {
-      await expect(del('docs', 'test')).resolves.toBeUndefined()
+    it('update rejects when DB is unavailable', async () => {
+      await expect(update('docs', 'test', (record) => record)).rejects.toThrow(
+        'IndexedDB is unavailable'
+      )
+    })
+
+    it('del rejects when DB is unavailable', async () => {
+      await expect(del('docs', 'test')).rejects.toThrow('IndexedDB is unavailable')
     })
   })
 })

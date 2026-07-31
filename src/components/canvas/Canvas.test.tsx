@@ -79,11 +79,11 @@ describe('Canvas', () => {
     expect(container.querySelector('canvas')).not.toBeNull()
   })
 
-  it('should render container div with overflow hidden', () => {
+  it('should render a size-contained canvas surface', () => {
     const { container } = render(<Canvas />)
     const div = container.querySelector('div')
     expect(div).not.toBeNull()
-    if (div) expect(div.classList.contains('overflow-hidden')).toBe(true)
+    if (div) expect(div.classList.contains('canvas-surface')).toBe(true)
   })
 
   it('should set canvas touch-action to none', () => {
@@ -91,7 +91,8 @@ describe('Canvas', () => {
     const canvas = container.querySelector('canvas')
     expect(canvas).not.toBeNull()
     if (!canvas) return
-    expect(canvas.classList.contains('touch-none')).toBe(true)
+    expect(canvas.classList.contains('main-canvas')).toBe(true)
+    expect(canvas.style.touchAction).toBe('none')
   })
 
   it('should not render text editor initially', () => {

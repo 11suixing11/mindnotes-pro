@@ -96,10 +96,7 @@ export function getBindingPosition(shape: ShapeElement, binding: Binding): [numb
 /**
  * 获取形状的所有绑定箭头
  */
-export function getArrowsBoundToShape(
-  shapeId: string,
-  elements: CanvasElement[]
-): ShapeElement[] {
+export function getArrowsBoundToShape(shapeId: string, elements: CanvasElement[]): ShapeElement[] {
   return elements.filter((el) => {
     if (el.type !== 'shape') return false
     if (el.kind !== 'line' && el.kind !== 'arrow') return false

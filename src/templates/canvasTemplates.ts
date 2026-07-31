@@ -1,6 +1,6 @@
 import { shallowClone } from '../store/helpers'
 import { elementBounds, moveElement, type Binding, type CanvasElement } from '../store/types'
-import { loadFromStorage, saveToStorage } from '../store/storage'
+import { loadFromStorage, migrateLegacyStorageKey, saveToStorage } from '../store/storage'
 
 export type TemplateCategory =
   'flowchart' | 'mind-map' | 'wireframe' | 'diagram' | 'notes' | 'custom'
@@ -26,7 +26,8 @@ export const TEMPLATE_CATEGORY_LABELS: Record<TemplateCategory, string> = {
   custom: '自定义',
 }
 
-export const CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes.customTemplates.v1'
+export const CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes-pro-v4.custom-templates'
+export const LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes.customTemplates.v1'
 
 let idCounter = 0
 
@@ -282,14 +283,14 @@ export function instantiateTemplate(
   if (!bounds) return []
 
   const idMap = new Map(template.elements.map((el) => [el.id, createRuntimeId(el.type)]))
-  const groupIds = new Set(template.elements.map((el) => el.groupId).filter(Boolean) as string[])
-  const groupMap = new Map([...groupIds].map((groupId) => [groupId, createRuntimeId('group')]))
+  const instanceGroupId = createRuntimeId('template-group')
   const dx = centerX - (bounds.x + bounds.w / 2)
   const dy = centerY - (bounds.y + bounds.h / 2)
 
-  return template.elements.map((el) =>
-    unlockTemplateElement(moveElement(cloneElement(el, idMap, groupMap), dx, dy))
-  )
+  return template.elements.map((el) => ({
+    ...unlockTemplateElement(moveElement(cloneElement(el, idMap), dx, dy)),
+    groupId: instanceGroupId,
+  }))
 }
 
 export function createTemplateFromElements(
@@ -308,7 +309,7 @@ export function createTemplateFromElements(
   return {
     id: createRuntimeId('custom-template'),
     name: trimmedName,
-    description: `${elements.length} element${elements.length === 1 ? '' : 's'}`,
+    description: `共 ${elements.length} 个元素`,
     category: 'custom',
     width: Math.round(bounds.w),
     height: Math.round(bounds.h),
@@ -333,6 +334,7 @@ function isCanvasTemplate(value: unknown): value is CanvasTemplate {
 }
 
 export function loadCustomTemplates(): CanvasTemplate[] {
+  migrateLegacyStorageKey(LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY, CUSTOM_TEMPLATE_STORAGE_KEY)
   const stored = loadFromStorage<unknown>(CUSTOM_TEMPLATE_STORAGE_KEY, [])
   if (!Array.isArray(stored)) return []
   return stored.filter(isCanvasTemplate).map(cloneTemplate)
@@ -349,12 +351,16 @@ export function saveCustomTemplate(template: CanvasTemplate): CanvasTemplate[] {
     0,
     24
   )
-  saveToStorage(CUSTOM_TEMPLATE_STORAGE_KEY, next)
+  if (!saveToStorage(CUSTOM_TEMPLATE_STORAGE_KEY, next)) {
+    throw new Error('Failed to save custom template')
+  }
   return next
 }
 
 export function deleteCustomTemplate(templateId: string): CanvasTemplate[] {
   const next = loadCustomTemplates().filter((template) => template.id !== templateId)
-  saveToStorage(CUSTOM_TEMPLATE_STORAGE_KEY, next)
+  if (!saveToStorage(CUSTOM_TEMPLATE_STORAGE_KEY, next)) {
+    throw new Error('Failed to delete custom template')
+  }
   return next
 }

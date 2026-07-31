@@ -197,11 +197,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
         <>
           <MenuSeparator />
           {hasGroupableSelection && !hasGroupedElements && (
-            <MenuItem
-              onClick={() => handleAction(groupSelected)}
-              label="分组"
-              shortcut="Ctrl+G"
-            />
+            <MenuItem onClick={() => handleAction(groupSelected)} label="分组" shortcut="Ctrl+G" />
           )}
           {hasGroupedElements && (
             <MenuItem
@@ -301,7 +297,14 @@ function MenuItem({ onClick, label, shortcut, danger, hasSubmenu }: MenuItemProp
           </span>
         )}
         {hasSubmenu && (
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M9 18l6-6-6-6" />
           </svg>
         )}

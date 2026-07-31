@@ -1,19 +1,40 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from '../appStore'
+import { useToastStore } from '../toastStore'
+import { clearSaveTimer, resetSaveCache } from '../saveManager'
+import type { AppStore } from '../sliceTypes'
+import type * as StorageModule from '../storage'
+
+type StoredRecord = { id: string } & Record<string, unknown>
 
 // Mock storage module to use in-memory store
 vi.mock('../storage', () => {
-  const store: Record<string, Record<string, any>> = {}
+  const store: Record<string, Record<string, StoredRecord>> = {}
   return {
     getAll: vi.fn(async (storeName: string) => Object.values(store[storeName] ?? {})),
     get: vi.fn(async (storeName: string, id: string) => store[storeName]?.[id]),
-    put: vi.fn(async (storeName: string, record: any) => {
+    update: vi.fn(
+      async (
+        storeName: string,
+        id: string,
+        updater: (record: StoredRecord | undefined) => StoredRecord | undefined
+      ) => {
+        const next = updater(store[storeName]?.[id])
+        if (next !== undefined) {
+          if (!store[storeName]) store[storeName] = {}
+          store[storeName][id] = next
+        }
+        return next
+      }
+    ),
+    put: vi.fn(async (storeName: string, record: StoredRecord) => {
       if (!store[storeName]) store[storeName] = {}
       store[storeName][record.id] = record
     }),
     del: vi.fn(async (storeName: string, id: string) => {
       delete store[storeName]?.[id]
     }),
+    readLegacyDatabase: vi.fn(async () => null),
     __store: store,
   }
 })
@@ -24,7 +45,9 @@ vi.mock('../migration', () => ({
   removeMigratedData: vi.fn(),
 }))
 
-const storageMock = (await import('../storage')) as any
+const storageMock = (await import('../storage')) as typeof StorageModule & {
+  __store: Record<string, Record<string, StoredRecord>>
+}
 
 function clearMockStorage() {
   for (const key of Object.keys(storageMock.__store)) {
@@ -37,6 +60,15 @@ describe('docManagement slice', () => {
     vi.useFakeTimers()
     localStorage.clear()
     clearMockStorage()
+    clearSaveTimer()
+    resetSaveCache()
+    vi.mocked(storageMock.getAll).mockClear()
+    vi.mocked(storageMock.get).mockClear()
+    vi.mocked(storageMock.put).mockClear()
+    vi.mocked(storageMock.update).mockClear()
+    vi.mocked(storageMock.del).mockClear()
+    vi.mocked(storageMock.readLegacyDatabase).mockClear()
+    useToastStore.setState({ toasts: [] })
     useAppStore.setState({
       docs: [],
       currentDocId: null,
@@ -49,11 +81,100 @@ describe('docManagement slice', () => {
       undoStack: [],
       redoStack: [],
       selectedIds: [],
-    } as any)
+    } satisfies Partial<AppStore>)
   })
 
   afterEach(() => {
+    clearSaveTimer()
     vi.useRealTimers()
+  })
+
+  describe('init', () => {
+    it('creates an empty untitled canvas for a first-time user', async () => {
+      await useAppStore.getState().init()
+
+      const state = useAppStore.getState()
+      expect(state.loaded).toBe(true)
+      expect(state.docs).toHaveLength(1)
+      expect(state.docs[0].title).toBe('未命名画布')
+      expect(state.docs[0].elements).toEqual([])
+      expect(state.elements).toEqual([])
+    })
+
+    it('imports documents and folders from the previous IndexedDB database once', async () => {
+      vi.mocked(storageMock.readLegacyDatabase).mockResolvedValueOnce({
+        docs: [
+          {
+            schemaVersion: 3,
+            id: 'legacy-doc',
+            title: '旧版项目',
+            elements: [],
+            bgColor: '#fffaf0',
+            folderId: 'legacy-folder',
+            createdAt: 1,
+            updatedAt: 2,
+          },
+        ],
+        folders: [
+          {
+            id: 'legacy-folder',
+            name: '旧文件夹',
+            parentId: null,
+            order: 0,
+            expanded: true,
+          },
+        ],
+      })
+
+      await useAppStore.getState().init()
+
+      const state = useAppStore.getState()
+      expect(state.docs).toHaveLength(1)
+      expect(state.docs[0]).toMatchObject({
+        id: 'legacy-doc',
+        title: '旧版项目',
+        schemaVersion: 4,
+      })
+      expect(state.docs[0].layers?.[0].name).toBe('图层 1')
+      expect(state.folders).toEqual([expect.objectContaining({ id: 'legacy-folder' })])
+      expect(localStorage.getItem('mindnotes-pro-v4.legacy-database-migrated')).toBe('1')
+    })
+
+    it('does not inspect or overwrite legacy data when v4 documents already exist', async () => {
+      storageMock.__store.docs = {
+        current: {
+          schemaVersion: 4,
+          id: 'current',
+          title: '当前项目',
+          elements: [],
+          bgColor: '#ffffff',
+          folderId: null,
+          createdAt: 10,
+          updatedAt: 20,
+        },
+      }
+
+      await useAppStore.getState().init()
+
+      expect(vi.mocked(storageMock.readLegacyDatabase)).not.toHaveBeenCalled()
+      expect(useAppStore.getState().docs.map((doc) => doc.id)).toEqual(['current'])
+    })
+
+    it('falls back to an editable in-memory canvas when storage cannot initialize', async () => {
+      vi.mocked(storageMock.getAll).mockRejectedValueOnce(new Error('storage blocked'))
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      await useAppStore.getState().init()
+
+      const state = useAppStore.getState()
+      expect(state.loaded).toBe(true)
+      expect(state.saveStatus).toBe('error')
+      expect(state.docs).toHaveLength(1)
+      expect(state.elements).toEqual([])
+      const toasts = useToastStore.getState().toasts
+      expect(toasts[toasts.length - 1]?.message).toContain('仅保存在内存中')
+      consoleSpy.mockRestore()
+    })
   })
 
   describe('createDoc', () => {
@@ -91,6 +212,52 @@ describe('docManagement slice', () => {
       useAppStore.setState({ selectedIds: ['a', 'b'] })
       await useAppStore.getState().createDoc('New')
       expect(useAppStore.getState().selectedIds).toEqual([])
+    })
+
+    it('saves pending edits before switching to a new document', async () => {
+      const existingId = await useAppStore.getState().createDoc('Existing')
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'shape-pending',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 20,
+        h: 20,
+        color: '#000000',
+        size: 2,
+      })
+
+      const newId = await useAppStore.getState().createDoc('New')
+
+      expect(newId).not.toBe(existingId)
+      expect(storageMock.__store.docs[existingId].elements).toHaveLength(1)
+      expect(useAppStore.getState().currentDocId).toBe(newId)
+    })
+
+    it('does not leave the current document when pending edits cannot be saved', async () => {
+      const existingId = await useAppStore.getState().createDoc('Existing')
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'shape-pending',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 20,
+        h: 20,
+        color: '#000000',
+        size: 2,
+      })
+      vi.mocked(storageMock.update).mockRejectedValueOnce(new Error('quota exceeded'))
+      vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      await expect(useAppStore.getState().createDoc('Blocked')).rejects.toThrow(
+        'Current document could not be saved'
+      )
+
+      expect(useAppStore.getState().currentDocId).toBe(existingId)
+      expect(useAppStore.getState().docs).toHaveLength(1)
+      expect(useAppStore.getState().saveStatus).toBe('error')
     })
   })
 
@@ -144,21 +311,25 @@ describe('docManagement slice', () => {
 
     it('updates state before storage persistence completes', async () => {
       const id = await useAppStore.getState().createDoc('Original')
-      let resolvePut: (() => void) | undefined
-      storageMock.put.mockImplementationOnce(
-        () =>
-          new Promise<void>((resolve) => {
-            resolvePut = resolve
-          })
-      )
+      const defaultUpdate = vi.mocked(storageMock.update).getMockImplementation()
+      if (!defaultUpdate) throw new Error('Expected an update mock implementation')
+      let releaseUpdate: (() => void) | undefined
+      const updateGate = new Promise<void>((resolve) => {
+        releaseUpdate = resolve
+      })
+      vi.mocked(storageMock.update).mockImplementationOnce(async (...args) => {
+        await updateGate
+        return defaultUpdate(...args)
+      })
 
       const renamePromise = useAppStore.getState().renameDoc(id, 'Immediate')
 
       expect(useAppStore.getState().docs.find((doc) => doc.id === id)?.title).toBe('Immediate')
 
-      await vi.waitFor(() => expect(resolvePut).toBeTypeOf('function'))
-      resolvePut?.()
+      await vi.waitFor(() => expect(storageMock.update).toHaveBeenCalledTimes(1))
+      releaseUpdate?.()
       await renamePromise
+      expect(storageMock.__store.docs[id].title).toBe('Immediate')
     })
 
     it('trims titles and ignores blank names', async () => {
@@ -189,6 +360,78 @@ describe('docManagement slice', () => {
       const countBefore = useAppStore.getState().docs.length
       await useAppStore.getState().duplicateDoc('non-existent')
       expect(useAppStore.getState().docs.length).toBe(countBefore)
+    })
+
+    it('saves pending edits in the current doc before duplicating another doc', async () => {
+      const currentId = await useAppStore.getState().createDoc('Current')
+      const targetId = await useAppStore.getState().createDoc('Target')
+      await useAppStore.getState().openDoc(currentId)
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'pending-before-duplicate',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 20,
+        h: 20,
+        color: '#000000',
+        size: 2,
+      })
+
+      await useAppStore.getState().duplicateDoc(targetId)
+
+      expect(storageMock.__store.docs[currentId].elements).toEqual([
+        expect.objectContaining({ id: 'pending-before-duplicate' }),
+      ])
+      expect(useAppStore.getState().docs).toHaveLength(3)
+    })
+  })
+
+  describe('importDoc', () => {
+    it('persists an imported canvas as a separate current document', async () => {
+      const existingId = await useAppStore.getState().createDoc('Existing')
+      const layer = {
+        id: 'layer-imported',
+        name: '导入图层',
+        visible: true,
+        locked: false,
+        order: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      }
+
+      const importedId = await useAppStore.getState().importDoc({
+        title: '项目草图',
+        elements: [
+          {
+            type: 'text',
+            id: 'text-imported',
+            layerId: layer.id,
+            x: 20,
+            y: 30,
+            width: 160,
+            height: 32,
+            content: '可编辑内容',
+            fontSize: 18,
+            color: '#111827',
+          },
+        ],
+        layers: [layer],
+        activeLayerId: layer.id,
+        bgColor: '#ffffff',
+        backgroundStyle: 'plain',
+      })
+
+      expect(importedId).not.toBe(existingId)
+      expect(useAppStore.getState().currentDocId).toBe(importedId)
+      expect(useAppStore.getState().docs).toHaveLength(2)
+      expect(useAppStore.getState().docs.find((doc) => doc.id === importedId)?.title).toBe(
+        '项目草图（导入）'
+      )
+      expect(useAppStore.getState().elements[0]).toMatchObject({
+        id: 'text-imported',
+        content: '可编辑内容',
+      })
     })
   })
 
