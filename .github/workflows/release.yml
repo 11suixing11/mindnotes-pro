@@ -76,6 +76,27 @@ jobs:
       - name: Package dist archive
         run: tar -czf mindnotes-pro-${{ github.ref_name }}.tar.gz -C dist .
 
+      - name: Generate checksums
+        run: |
+          set -euo pipefail
+          ARCHIVE="mindnotes-pro-${{ github.ref_name }}.tar.gz"
+          APPIMAGE_PATH=$(find release -maxdepth 1 -type f -name '*.AppImage' -print -quit)
+
+          if [ -z "$APPIMAGE_PATH" ]; then
+            echo "No AppImage was produced" >&2
+            exit 1
+          fi
+
+          ARCHIVE_HASH=$(sha256sum "$ARCHIVE" | awk '{print $1}')
+          APPIMAGE_NAME=$(basename "$APPIMAGE_PATH")
+          APPIMAGE_HASH=$(sha256sum "$APPIMAGE_PATH" | awk '{print $1}')
+          printf '%s  %s\n' "$ARCHIVE_HASH" "$ARCHIVE" > SHA256SUMS
+          printf '%s  %s\n' "$APPIMAGE_HASH" "$APPIMAGE_NAME" >> SHA256SUMS
+
+          VERIFY_DIR=$(mktemp -d)
+          cp "$ARCHIVE" "$APPIMAGE_PATH" SHA256SUMS "$VERIFY_DIR"/
+          (cd "$VERIFY_DIR" && sha256sum -c SHA256SUMS)
+
       - name: Extract release notes from CHANGELOG
         id: changelog
         run: |
@@ -124,10 +145,15 @@ jobs:
 
             The `mindnotes-pro-${{ github.ref_name }}.tar.gz` archive contains the production web build for static hosting. You can also use the **[Live App](https://11suixing11.github.io/mindnotes-pro)**.
 
+            **Before upgrading**
+
+            Export a JSON backup before clearing browser site data or changing devices. Browser documents remain local to the current origin. The previous `mindnotes-drawing-data` document is migrated only during the first v4 startup when the v4 document store is empty and migration succeeds, before a new v4 document is created. If automatic migration cannot occur, export the old data as JSON when possible and use the supported import path; imports create a separate editable document.
+
             **[Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)** · **[Report Issues](https://github.com/${{ github.repository }}/issues)**
           files: |
             mindnotes-pro-${{ github.ref_name }}.tar.gz
             release/*.AppImage
+            SHA256SUMS
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
