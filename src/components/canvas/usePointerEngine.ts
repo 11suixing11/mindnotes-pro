@@ -1777,7 +1777,16 @@ export function usePointerEngine(opts: {
       currentShapeRef.current = null
       shapeStartRef.current = null
       finishEraseHistory()
-      if (restoreSnapshot) restoreElementsSnapshot(restoreSnapshot, restoreSelectedIds)
+      if (restoreSnapshot) {
+        const hasElementChanges =
+          getChangedElementIds(restoreSnapshot, useAppStore.getState().elements).length > 0
+        if (hasElementChanges) {
+          restoreElementsSnapshot(restoreSnapshot, restoreSelectedIds)
+        } else if (restoreSelectedIds) {
+          const elementIds = new Set(useAppStore.getState().elements.map((element) => element.id))
+          setSelectedIds(restoreSelectedIds.filter((id) => elementIds.has(id)))
+        }
+      }
 
       dragRef.current = null
       resizeRef.current = null
@@ -1802,7 +1811,14 @@ export function usePointerEngine(opts: {
       }
       scheduleRedraw()
     },
-    [endPan, restoreElementsSnapshot, scheduleRedraw, finishEraseHistory, snapLinesRef]
+    [
+      endPan,
+      restoreElementsSnapshot,
+      scheduleRedraw,
+      finishEraseHistory,
+      snapLinesRef,
+      setSelectedIds,
+    ]
   )
 
   // Pointer events

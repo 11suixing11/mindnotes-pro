@@ -671,6 +671,54 @@ describe('usePointerEngine', () => {
       expect(restored.y).toBe(100)
       expect(useAppStore.getState().undoStack).toHaveLength(0)
     })
+
+    it('preserves redo history when cancelling before a drag starts', () => {
+      useAppStore.setState({
+        tool: 'select',
+        redoStack: [{ type: 'clear', snapshot: [] }],
+      })
+      seedCanvasElements([
+        {
+          type: 'shape',
+          id: 'no-op-cancel',
+          kind: 'rectangle',
+          x: 100,
+          y: 100,
+          w: 80,
+          h: 50,
+          color: '#000',
+          size: 2,
+        },
+      ])
+      useAppStore.setState({ redoStack: [{ type: 'clear', snapshot: [] }] })
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 35,
+          pointerType: 'mouse',
+          clientX: 140,
+          clientY: 125,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointercancel', {
+          pointerId: 35,
+          pointerType: 'mouse',
+          clientX: 140,
+          clientY: 125,
+          buttons: 0,
+        })
+      )
+
+      expect(useAppStore.getState().redoStack).toHaveLength(1)
+      expect(useAppStore.getState().idToElement.get('no-op-cancel')).toMatchObject({
+        x: 100,
+        y: 100,
+      })
+    })
   })
 
   describe('eraser interactions', () => {

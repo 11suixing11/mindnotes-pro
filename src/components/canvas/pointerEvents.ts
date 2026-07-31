@@ -26,14 +26,20 @@ export function bindCanvasInputEvents(
   }
 
   const onPointerMove = (event: PointerEvent) => {
-    if (event.pointerType === 'touch' || activePointerId !== event.pointerId) return
+    if (event.pointerType === 'touch') return
+    if (activePointerId !== null && activePointerId !== event.pointerId) return
     handlers.onMove(event)
   }
 
   const releasePointer = (event: PointerEvent) => {
     if (activePointerId !== event.pointerId) return false
-    canvas.releasePointerCapture?.(event.pointerId)
-    activePointerId = null
+    try {
+      canvas.releasePointerCapture?.(event.pointerId)
+    } catch {
+      // Pointer capture may already be implicitly released by the browser.
+    } finally {
+      activePointerId = null
+    }
     return true
   }
 
@@ -63,8 +69,13 @@ export function bindCanvasInputEvents(
 
   return () => {
     if (activePointerId !== null) {
-      canvas.releasePointerCapture?.(activePointerId)
-      activePointerId = null
+      try {
+        canvas.releasePointerCapture?.(activePointerId)
+      } catch {
+        // Pointer capture may already be implicitly released by the browser.
+      } finally {
+        activePointerId = null
+      }
     }
     canvas.removeEventListener('pointerdown', onPointerStart)
     canvas.removeEventListener('pointermove', onPointerMove)

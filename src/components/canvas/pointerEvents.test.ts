@@ -30,7 +30,7 @@ describe('bindCanvasInputEvents', () => {
     canvas.dispatchEvent(createPointerEvent('pointermove', 8))
 
     expect(onStart).toHaveBeenCalledTimes(1)
-    expect(onMove).toHaveBeenCalledTimes(1)
+    expect(onMove).toHaveBeenCalledTimes(2)
     expect(onEnd).toHaveBeenCalledTimes(1)
     expect(onCancel).not.toHaveBeenCalled()
     expect(setPointerCapture).toHaveBeenCalledWith(7)
@@ -39,6 +39,58 @@ describe('bindCanvasInputEvents', () => {
     unbind()
     canvas.dispatchEvent(createPointerEvent('pointerdown', 9))
     expect(onStart).toHaveBeenCalledTimes(1)
+  })
+
+  it('forwards hover movement and recovers when pointer capture release throws', () => {
+    const canvas = document.createElement('canvas')
+    const releasePointerCapture = vi.fn(() => {
+      throw new DOMException('capture already released', 'NotFoundError')
+    })
+    canvas.setPointerCapture = vi.fn()
+    canvas.releasePointerCapture = releasePointerCapture
+    const handlers = {
+      onStart: vi.fn(),
+      onMove: vi.fn(),
+      onEnd: vi.fn(),
+      onCancel: vi.fn(),
+    }
+    const unbind = bindCanvasInputEvents(canvas, handlers)
+
+    canvas.dispatchEvent(createPointerEvent('pointermove', 1))
+    canvas.dispatchEvent(createPointerEvent('pointerdown', 1))
+    canvas.dispatchEvent(createPointerEvent('pointerup', 1))
+    canvas.dispatchEvent(createPointerEvent('pointerdown', 2))
+
+    expect(handlers.onMove).toHaveBeenCalledTimes(1)
+    expect(handlers.onStart).toHaveBeenCalledTimes(2)
+    expect(releasePointerCapture).toHaveBeenCalledWith(1)
+
+    unbind()
+  })
+
+  it('cancels a captured pointer and releases it', () => {
+    const canvas = document.createElement('canvas')
+    const setPointerCapture = vi.fn()
+    const releasePointerCapture = vi.fn()
+    canvas.setPointerCapture = setPointerCapture
+    canvas.releasePointerCapture = releasePointerCapture
+    const handlers = {
+      onStart: vi.fn(),
+      onMove: vi.fn(),
+      onEnd: vi.fn(),
+      onCancel: vi.fn(),
+    }
+    const unbind = bindCanvasInputEvents(canvas, handlers)
+
+    canvas.dispatchEvent(createPointerEvent('pointerdown', 5, 'pen'))
+    canvas.dispatchEvent(createPointerEvent('pointercancel', 5, 'pen'))
+    canvas.dispatchEvent(createPointerEvent('pointerdown', 6, 'pen'))
+
+    expect(handlers.onCancel).toHaveBeenCalledTimes(1)
+    expect(releasePointerCapture).toHaveBeenCalledWith(5)
+    expect(setPointerCapture).toHaveBeenLastCalledWith(6)
+
+    unbind()
   })
 
   it('leaves touch gestures on the touch event path', () => {
