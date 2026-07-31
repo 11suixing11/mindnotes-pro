@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from './appStore'
-import { clearSaveTimer, resetSaveCache } from './saveManager'
+import { clearSaveTimer, resetSaveCache, saveDocNow } from './saveManager'
 import { useToastStore } from './toastStore'
 import type * as StorageModule from './storage'
 
@@ -9,6 +9,20 @@ vi.mock('./storage', () => {
   return {
     getAll: vi.fn(async (storeName: string) => Object.values(store[storeName] ?? {})),
     get: vi.fn(async (storeName: string, id: string) => store[storeName]?.[id]),
+    update: vi.fn(
+      async (
+        storeName: string,
+        id: string,
+        updater: (record: unknown) => { id: string } | undefined
+      ) => {
+        const next = updater(store[storeName]?.[id])
+        if (next !== undefined) {
+          if (!store[storeName]) store[storeName] = {}
+          store[storeName][id] = next
+        }
+        return next
+      }
+    ),
     put: vi.fn(async (storeName: string, record: { id: string }) => {
       if (!store[storeName]) store[storeName] = {}
       store[storeName][record.id] = record
@@ -16,6 +30,7 @@ vi.mock('./storage', () => {
     del: vi.fn(async (storeName: string, id: string) => {
       delete store[storeName]?.[id]
     }),
+    readLegacyDatabase: vi.fn(async () => null),
     __store: store,
   }
 })
@@ -29,6 +44,7 @@ function clearMockStorage() {
   vi.mocked(storageMock.getAll).mockClear()
   vi.mocked(storageMock.get).mockClear()
   vi.mocked(storageMock.put).mockClear()
+  vi.mocked(storageMock.update).mockClear()
   vi.mocked(storageMock.del).mockClear()
 }
 
@@ -281,7 +297,7 @@ describe('useAppStore', () => {
     it('reports a failed write instead of claiming the document was saved', async () => {
       await useAppStore.getState().createDoc('Test Doc')
       useAppStore.setState({ saveStatus: 'idle' })
-      vi.mocked(storageMock.put).mockRejectedValueOnce(new Error('quota exceeded'))
+      vi.mocked(storageMock.update).mockRejectedValueOnce(new Error('quota exceeded'))
 
       useAppStore.getState().addElement({
         type: 'shape',
@@ -299,6 +315,46 @@ describe('useAppStore', () => {
       expect(useAppStore.getState().saveStatus).toBe('error')
       const toasts = useToastStore.getState().toasts
       expect(toasts[toasts.length - 1]?.message).toContain('保存失败')
+    })
+
+    it('preserves a rename that completes while an automatic save is waiting', async () => {
+      const id = await useAppStore.getState().createDoc('Original')
+      let releaseSave: (() => void) | undefined
+      const saveGate = new Promise<void>((resolve) => {
+        releaseSave = resolve
+      })
+      const defaultUpdate = vi.mocked(storageMock.update).getMockImplementation()
+      if (!defaultUpdate) throw new Error('Expected an update mock implementation')
+      vi.mocked(storageMock.update).mockImplementationOnce(async (...args) => {
+        await saveGate
+        return defaultUpdate(...args)
+      })
+
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'shape-during-save',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 20,
+        h: 20,
+        color: '#000000',
+        size: 2,
+      })
+      const savePromise = saveDocNow()
+      await vi.waitFor(() => expect(storageMock.update).toHaveBeenCalledTimes(1))
+
+      await useAppStore.getState().renameDoc(id, 'Renamed while saving')
+      releaseSave?.()
+      await savePromise
+
+      expect(useAppStore.getState().docs.find((doc) => doc.id === id)?.title).toBe(
+        'Renamed while saving'
+      )
+      expect(storageMock.__store.docs[id]).toMatchObject({
+        title: 'Renamed while saving',
+        elements: [expect.objectContaining({ id: 'shape-during-save' })],
+      })
     })
   })
 })

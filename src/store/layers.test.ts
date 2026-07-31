@@ -3,6 +3,7 @@ import type { CanvasDoc, ShapeElement } from './types'
 import { CANVAS_SCHEMA_VERSION } from './schema'
 import {
   createDefaultLayer,
+  createCanvasLayer,
   getRenderableElements,
   normalizeCanvasDocLayers,
   orderElementsByLayers,
@@ -85,7 +86,7 @@ describe('layer helpers', () => {
       title: 'Layer names',
       elements: [],
       layers: [
-        { ...createDefaultLayer(1), name: 'Layer 1' },
+        { ...createDefaultLayer(1), name: 'Layer 2' },
         { ...createDefaultLayer(2), id: 'layer-custom', name: 'Sketches', order: 1 },
       ],
       activeLayerId: 'layer-default',
@@ -95,6 +96,10 @@ describe('layer helpers', () => {
       updatedAt: 1,
     })
 
-    expect(normalized.layers?.map((layer) => layer.name)).toEqual(['图层 1', 'Sketches'])
+    expect(normalized.layers?.map((layer) => layer.name)).toEqual(['图层 2', 'Sketches'])
+  })
+
+  it('uses a localized fallback when a new layer name is blank', () => {
+    expect(createCanvasLayer('   ', 2, 123).name).toBe('图层 3')
   })
 })

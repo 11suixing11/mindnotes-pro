@@ -24,7 +24,7 @@ export function createDefaultLayer(now = Date.now()): CanvasLayer {
 export function createCanvasLayer(name: string, order: number, now = Date.now()): CanvasLayer {
   return {
     id: `layer-${now}-${Math.random().toString(36).slice(2, 8)}`,
-    name: name.trim() || `Layer ${order + 1}`,
+    name: name.trim() || `图层 ${order + 1}`,
     visible: true,
     locked: false,
     order,
@@ -95,9 +95,10 @@ export function normalizeLayers(
     seen.add(layer.id)
     const rawName = typeof layer.name === 'string' ? layer.name.trim() : ''
     const defaultName = `图层 ${index + 1}`
+    const historicalDefaultName = rawName.match(/^Layer (\d+)$/)
     normalized.push({
       id: layer.id,
-      name: rawName && rawName !== `Layer ${index + 1}` ? rawName : defaultName,
+      name: historicalDefaultName ? `图层 ${historicalDefaultName[1]}` : rawName || defaultName,
       visible: layer.visible !== false,
       locked: layer.locked === true,
       order: Number.isFinite(layer.order) ? layer.order : index,

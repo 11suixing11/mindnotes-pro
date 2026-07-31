@@ -142,6 +142,57 @@ describe('canvas backup format', () => {
     ).toThrow('笔迹坐标格式无效')
   })
 
+  it('rejects incomplete pressure data and truncates harmless trailing samples', () => {
+    const stroke = {
+      type: 'stroke',
+      id: 'pressure-stroke',
+      points: [
+        [0, 0],
+        [10, 10],
+      ],
+      color: '#000000',
+      size: 2,
+      brush: 'pen',
+    }
+
+    expect(() =>
+      parseCanvasImport({ version: 3, elements: [{ ...stroke, pressures: [0.4] }] })
+    ).toThrow('笔压数据数量不能少于笔迹坐标数量')
+
+    const imported = parseCanvasImport({
+      version: 3,
+      elements: [{ ...stroke, pressures: [0.2, 0.8, 1] }],
+    })
+    expect(imported.elements[0]).toMatchObject({ pressures: [0.2, 0.8] })
+  })
+
+  it('sanitizes imported SVG image data before it reaches the canvas', () => {
+    const dataUrl = `data:image/svg+xml,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(1)</script><circle cx="5" cy="5" r="5"/></svg>'
+    )}`
+    const imported = parseCanvasImport({
+      version: 3,
+      elements: [
+        {
+          type: 'image',
+          id: 'svg-image',
+          x: 0,
+          y: 0,
+          width: 10,
+          height: 10,
+          dataUrl,
+        },
+      ],
+    })
+    const image = imported.elements[0]
+    if (image.type !== 'image') throw new Error('Expected an image element')
+    const sanitized = decodeURIComponent(image.dataUrl.split(',')[1])
+
+    expect(sanitized).toContain('<circle')
+    expect(sanitized).not.toContain('<script')
+    expect(sanitized).not.toContain('onload')
+  })
+
   it('reports invalid JSON with a user-facing import error', () => {
     expect(() => parseCanvasImportJSON('{not-json')).toThrow('JSON 文件格式无效')
   })

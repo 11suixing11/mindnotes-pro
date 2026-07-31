@@ -10,6 +10,7 @@ import type { CanvasBackupDocument } from '../backup'
 
 const DOCUMENT_SEARCH_HISTORY_KEY = 'mn-sidebar-searches'
 const MAX_RECENT_DOCUMENT_SEARCHES = 5
+const LEGACY_DATABASE_MIGRATION_KEY = 'mindnotes-pro-v4.legacy-database-migrated'
 
 export interface DocManagementState {
   docs: CanvasDoc[]
@@ -79,7 +80,7 @@ function createBlankDocument(now = Date.now()): CanvasDoc {
   const layers = [createDefaultLayer(now)]
   return {
     schemaVersion: CANVAS_SCHEMA_VERSION,
-    id: `doc-${now}`,
+    id: createDocumentId(now),
     title: '未命名画布',
     elements: [],
     layers,
@@ -118,12 +119,31 @@ export function createDocManagementSlice(
       try {
         let docs = await storage.getAll<CanvasDoc>('docs')
         let folders = await storage.getAll<CanvasFolder>('folders')
+        let migratedLocalStorage = false
+
+        if (docs.length === 0 && localStorage.getItem(LEGACY_DATABASE_MIGRATION_KEY) !== '1') {
+          try {
+            const legacy = await storage.readLegacyDatabase<CanvasDoc, CanvasFolder>()
+            const legacyDocs = (legacy?.docs ?? []).map((doc) => normalizeCanvasDocLayers(doc))
+
+            for (const doc of legacyDocs) await storage.put('docs', doc)
+            if (folders.length === 0) {
+              for (const folder of legacy?.folders ?? []) await storage.put('folders', folder)
+              folders = legacy?.folders ?? []
+            }
+            docs = legacyDocs
+            localStorage.setItem(LEGACY_DATABASE_MIGRATION_KEY, '1')
+          } catch (error) {
+            console.warn('[documents] Legacy database migration could not be completed', error)
+          }
+        }
 
         if (docs.length === 0) {
           const migrated = migrateOld()
           if (migrated) {
             await storage.put('docs', migrated)
             docs = [migrated]
+            migratedLocalStorage = true
           } else {
             const blank = createBlankDocument()
             await storage.put('docs', blank)
@@ -163,7 +183,7 @@ export function createDocManagementSlice(
         })
 
         loadRuntimeElementIndexes(get, current?.elements ?? [])
-        removeMigratedData()
+        if (migratedLocalStorage) removeMigratedData()
       } catch (error) {
         console.error('[documents] Failed to initialize persistent storage', error)
         const blank = createBlankDocument()
@@ -251,8 +271,6 @@ export function createDocManagementSlice(
 
       const updatedDoc = { ...doc, title: nextTitle, updatedAt: Date.now() }
       const previousDocs = state.docs
-      const storedDocPromise = storage.get<CanvasDoc>('docs', id)
-
       set({
         docs: previousDocs
           .map((item: CanvasDoc) => (item.id === id ? updatedDoc : item))
@@ -268,16 +286,19 @@ export function createDocManagementSlice(
       }
 
       try {
-        const storedDoc = await storedDocPromise
+        const storedDoc = await storage.update<CanvasDoc>('docs', id, (current) =>
+          current
+            ? {
+                ...current,
+                title: nextTitle,
+                updatedAt: updatedDoc.updatedAt,
+              }
+            : undefined
+        )
         if (!storedDoc) {
           rollback()
           return
         }
-        await storage.put('docs', {
-          ...storedDoc,
-          title: nextTitle,
-          updatedAt: updatedDoc.updatedAt,
-        })
       } catch (error) {
         rollback()
         throw error

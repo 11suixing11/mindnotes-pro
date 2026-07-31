@@ -122,49 +122,59 @@ export async function saveDocNow(): Promise<boolean> {
   const generationAtStart = _saveGeneration
 
   try {
-    const existing = await storage.get<CanvasDoc>('docs', currentDocId)
     const now = Date.now()
-    const updatedDoc: CanvasDoc = {
-      schemaVersion: CANVAS_SCHEMA_VERSION,
-      id: currentDocId,
-      title: existing?.title ?? '未命名画布',
-      elements,
-      layers,
-      activeLayerId,
-      bgColor,
-      backgroundStyle,
-      folderId: existing?.folderId ?? null,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-      undoStack,
-      redoStack,
-    }
-    await storage.put('docs', updatedDoc)
+    const updatedDoc = await storage.update<CanvasDoc>('docs', currentDocId, (existing) => {
+      const currentStateDoc = _storeRef?.getState().docs.find((doc) => doc.id === currentDocId)
+      if (!existing && !currentStateDoc) return undefined
+
+      return {
+        schemaVersion: CANVAS_SCHEMA_VERSION,
+        id: currentDocId,
+        title: currentStateDoc?.title ?? existing?.title ?? '未命名画布',
+        elements,
+        layers,
+        activeLayerId,
+        bgColor,
+        backgroundStyle,
+        folderId: currentStateDoc?.folderId ?? existing?.folderId ?? null,
+        createdAt: currentStateDoc?.createdAt ?? existing?.createdAt ?? now,
+        updatedAt: now,
+        undoStack,
+        redoStack,
+      }
+    })
     // 更新缓存
     _lastSavedGeneration = generationAtStart
     _lastSaveTime = now
     // P1 性能优化: 增量更新文档列表，避免每次都重新获取所有文档
     // 只更新当前修改的文档，而不是重新 fetch 全部
     // 复用已有的 state 变量，避免重复调用 getState()
-    const currentDocs = state.docs || []
+    const currentDocs = _storeRef.getState().docs ?? []
     // P0 性能优化: 使用 Map 进行 O(1) 文档查找
     // 策略：当前修改的文档一定是最新的，直接移到最前面即可 O(n)
     let docs: CanvasDoc[]
-    // 延迟初始化索引
-    if (!_docsIndexMap) {
-      rebuildDocsIndex(currentDocs)
-    }
+    rebuildDocsIndex(currentDocs)
     const existingIndex = _docsIndexMap?.get(currentDocId) ?? -1
-    if (existingIndex >= 0) {
+    if (updatedDoc && existingIndex >= 0) {
+      const currentDoc = currentDocs[existingIndex]
+      const mergedDoc: CanvasDoc = {
+        ...updatedDoc,
+        title: currentDoc.title,
+        folderId: currentDoc.folderId,
+        createdAt: currentDoc.createdAt,
+        updatedAt: Math.max(updatedDoc.updatedAt, currentDoc.updatedAt),
+      }
       // 文档已存在：移到最前面
       docs = [
-        updatedDoc,
+        mergedDoc,
         ...currentDocs.slice(0, existingIndex),
         ...currentDocs.slice(existingIndex + 1),
       ]
-    } else {
+    } else if (updatedDoc) {
       // 新文档：插入到最前面
       docs = [updatedDoc, ...currentDocs]
+    } else {
+      docs = currentDocs
     }
     // 重建索引
     rebuildDocsIndex(docs)

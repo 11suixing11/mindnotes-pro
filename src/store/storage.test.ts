@@ -1,5 +1,32 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { openDB, getAll, get, put, del, loadFromStorage, saveToStorage } from './storage'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import {
+  openDB,
+  getAll,
+  get,
+  put,
+  update,
+  del,
+  loadFromStorage,
+  migrateLegacyStorageKey,
+  saveToStorage,
+} from './storage'
+
+const LEGACY_KEY = 'mindnotes-pro-encryption-key-2024'
+
+function encodeLegacyValue(value: unknown): string {
+  const serialized = JSON.stringify(value)
+  let encrypted = ''
+  for (let index = 0; index < serialized.length; index++) {
+    encrypted += String.fromCharCode(
+      serialized.charCodeAt(index) ^ LEGACY_KEY.charCodeAt(index % LEGACY_KEY.length)
+    )
+  }
+  return btoa(
+    encodeURIComponent(encrypted).replace(/%([0-9A-F]{2})/g, (_match, hex: string) =>
+      String.fromCharCode(Number.parseInt(hex, 16))
+    )
+  )
+}
 
 describe('storage', () => {
   describe('exports', () => {
@@ -17,6 +44,10 @@ describe('storage', () => {
 
     it('should export put function', () => {
       expect(put).toBeTypeOf('function')
+    })
+
+    it('should export update function', () => {
+      expect(update).toBeTypeOf('function')
     })
 
     it('should export del function', () => {
@@ -113,6 +144,30 @@ describe('storage', () => {
       saveToStorage('null-key', null)
       expect(loadFromStorage('null-key', 'default')).toBeNull()
     })
+
+    it('migrates an encrypted legacy value without overwriting current data', () => {
+      const legacyValue = [{ id: 'template-1', name: '旧模板' }]
+      localStorage.setItem('legacy-key', encodeLegacyValue(legacyValue))
+
+      expect(migrateLegacyStorageKey('legacy-key', 'current-key')).toBe(true)
+      expect(loadFromStorage('current-key', [])).toEqual(legacyValue)
+      expect(localStorage.getItem('legacy-key')).toBeNull()
+
+      localStorage.setItem('legacy-key', encodeLegacyValue([{ id: 'template-2' }]))
+      expect(migrateLegacyStorageKey('legacy-key', 'current-key')).toBe(false)
+      expect(loadFromStorage('current-key', [])).toEqual(legacyValue)
+    })
+
+    it('keeps corrupt legacy data available for manual recovery', () => {
+      localStorage.setItem('legacy-key', 'not-valid-legacy-data')
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      expect(migrateLegacyStorageKey('legacy-key', 'current-key')).toBe(false)
+      expect(localStorage.getItem('legacy-key')).toBe('not-valid-legacy-data')
+      expect(localStorage.getItem('current-key')).toBeNull()
+
+      consoleSpy.mockRestore()
+    })
   })
 
   describe('IndexedDB operations', () => {
@@ -126,6 +181,12 @@ describe('storage', () => {
 
     it('put rejects when DB is unavailable', async () => {
       await expect(put('docs', { id: 'test' })).rejects.toThrow('IndexedDB is unavailable')
+    })
+
+    it('update rejects when DB is unavailable', async () => {
+      await expect(update('docs', 'test', (record) => record)).rejects.toThrow(
+        'IndexedDB is unavailable'
+      )
     })
 
     it('del rejects when DB is unavailable', async () => {

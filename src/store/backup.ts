@@ -1,4 +1,5 @@
 import { normalizeElementLayers, normalizeLayers } from './layers'
+import { sanitizeSvgDataUrl } from '../canvas/svgSanitizer'
 import { CANVAS_SCHEMA_VERSION } from './schema'
 import type {
   Binding,
@@ -137,6 +138,10 @@ function parseStroke(record: Record<string, unknown>): StrokeElement {
       })
     : undefined
 
+  if (pressures && pressures.length < points.length) {
+    throw new CanvasImportError('笔压数据数量不能少于笔迹坐标数量')
+  }
+
   return {
     type: 'stroke',
     id: requiredString(record, 'id'),
@@ -145,7 +150,7 @@ function parseStroke(record: Record<string, unknown>): StrokeElement {
     size: requiredNumber(record, 'size'),
     brush: brush as BrushType,
     opacity: optionalNumber(record, 'opacity'),
-    pressures,
+    pressures: pressures?.slice(0, points.length),
     ...elementMetadata(record),
   }
 }
@@ -207,7 +212,7 @@ function parseImage(record: Record<string, unknown>): ImageElement {
     y: requiredNumber(record, 'y'),
     width: requiredNumber(record, 'width'),
     height: requiredNumber(record, 'height'),
-    dataUrl,
+    dataUrl: sanitizeSvgDataUrl(dataUrl),
     opacity: optionalNumber(record, 'opacity'),
     ...elementMetadata(record),
   }

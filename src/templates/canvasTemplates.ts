@@ -1,6 +1,6 @@
 import { shallowClone } from '../store/helpers'
 import { elementBounds, moveElement, type Binding, type CanvasElement } from '../store/types'
-import { loadFromStorage, saveToStorage } from '../store/storage'
+import { loadFromStorage, migrateLegacyStorageKey, saveToStorage } from '../store/storage'
 
 export type TemplateCategory =
   'flowchart' | 'mind-map' | 'wireframe' | 'diagram' | 'notes' | 'custom'
@@ -27,6 +27,7 @@ export const TEMPLATE_CATEGORY_LABELS: Record<TemplateCategory, string> = {
 }
 
 export const CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes-pro-v4.custom-templates'
+const LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes.customTemplates.v1'
 
 let idCounter = 0
 
@@ -333,6 +334,7 @@ function isCanvasTemplate(value: unknown): value is CanvasTemplate {
 }
 
 export function loadCustomTemplates(): CanvasTemplate[] {
+  migrateLegacyStorageKey(LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY, CUSTOM_TEMPLATE_STORAGE_KEY)
   const stored = loadFromStorage<unknown>(CUSTOM_TEMPLATE_STORAGE_KEY, [])
   if (!Array.isArray(stored)) return []
   return stored.filter(isCanvasTemplate).map(cloneTemplate)

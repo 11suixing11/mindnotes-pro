@@ -9,6 +9,14 @@ vi.mock('../storage', () => {
   return {
     getAll: vi.fn(async (storeName: string) => Object.values(store[storeName] ?? {})),
     get: vi.fn(async (storeName: string, id: string) => store[storeName]?.[id]),
+    update: vi.fn(async (storeName: string, id: string, updater: (record: any) => any) => {
+      const next = updater(store[storeName]?.[id])
+      if (next !== undefined) {
+        if (!store[storeName]) store[storeName] = {}
+        store[storeName][id] = next
+      }
+      return next
+    }),
     put: vi.fn(async (storeName: string, record: any) => {
       if (!store[storeName]) store[storeName] = {}
       store[storeName][record.id] = record
@@ -16,6 +24,7 @@ vi.mock('../storage', () => {
     del: vi.fn(async (storeName: string, id: string) => {
       delete store[storeName]?.[id]
     }),
+    readLegacyDatabase: vi.fn(async () => null),
     __store: store,
   }
 })
@@ -44,7 +53,9 @@ describe('docManagement slice', () => {
     storageMock.getAll.mockClear()
     storageMock.get.mockClear()
     storageMock.put.mockClear()
+    storageMock.update.mockClear()
     storageMock.del.mockClear()
+    storageMock.readLegacyDatabase.mockClear()
     useToastStore.setState({ toasts: [] })
     useAppStore.setState({
       docs: [],
@@ -76,6 +87,65 @@ describe('docManagement slice', () => {
       expect(state.docs[0].title).toBe('未命名画布')
       expect(state.docs[0].elements).toEqual([])
       expect(state.elements).toEqual([])
+    })
+
+    it('imports documents and folders from the previous IndexedDB database once', async () => {
+      storageMock.readLegacyDatabase.mockResolvedValueOnce({
+        docs: [
+          {
+            schemaVersion: 3,
+            id: 'legacy-doc',
+            title: '旧版项目',
+            elements: [],
+            bgColor: '#fffaf0',
+            folderId: 'legacy-folder',
+            createdAt: 1,
+            updatedAt: 2,
+          },
+        ],
+        folders: [
+          {
+            id: 'legacy-folder',
+            name: '旧文件夹',
+            parentId: null,
+            order: 0,
+            expanded: true,
+          },
+        ],
+      })
+
+      await useAppStore.getState().init()
+
+      const state = useAppStore.getState()
+      expect(state.docs).toHaveLength(1)
+      expect(state.docs[0]).toMatchObject({
+        id: 'legacy-doc',
+        title: '旧版项目',
+        schemaVersion: 4,
+      })
+      expect(state.docs[0].layers?.[0].name).toBe('图层 1')
+      expect(state.folders).toEqual([expect.objectContaining({ id: 'legacy-folder' })])
+      expect(localStorage.getItem('mindnotes-pro-v4.legacy-database-migrated')).toBe('1')
+    })
+
+    it('does not inspect or overwrite legacy data when v4 documents already exist', async () => {
+      storageMock.__store.docs = {
+        current: {
+          schemaVersion: 4,
+          id: 'current',
+          title: '当前项目',
+          elements: [],
+          bgColor: '#ffffff',
+          folderId: null,
+          createdAt: 10,
+          updatedAt: 20,
+        },
+      }
+
+      await useAppStore.getState().init()
+
+      expect(storageMock.readLegacyDatabase).not.toHaveBeenCalled()
+      expect(useAppStore.getState().docs.map((doc) => doc.id)).toEqual(['current'])
     })
 
     it('falls back to an editable in-memory canvas when storage cannot initialize', async () => {
@@ -166,7 +236,7 @@ describe('docManagement slice', () => {
         color: '#000000',
         size: 2,
       })
-      storageMock.put.mockRejectedValueOnce(new Error('quota exceeded'))
+      storageMock.update.mockRejectedValueOnce(new Error('quota exceeded'))
       vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
       await expect(useAppStore.getState().createDoc('Blocked')).rejects.toThrow(
@@ -229,11 +299,11 @@ describe('docManagement slice', () => {
 
     it('updates state before storage persistence completes', async () => {
       const id = await useAppStore.getState().createDoc('Original')
-      let resolvePut: (() => void) | undefined
-      storageMock.put.mockImplementationOnce(
+      let resolveUpdate: (() => void) | undefined
+      storageMock.update.mockImplementationOnce(
         () =>
-          new Promise<void>((resolve) => {
-            resolvePut = resolve
+          new Promise((resolve) => {
+            resolveUpdate = () => resolve(storageMock.__store.docs[id])
           })
       )
 
@@ -241,8 +311,8 @@ describe('docManagement slice', () => {
 
       expect(useAppStore.getState().docs.find((doc) => doc.id === id)?.title).toBe('Immediate')
 
-      await vi.waitFor(() => expect(resolvePut).toBeTypeOf('function'))
-      resolvePut?.()
+      await vi.waitFor(() => expect(resolveUpdate).toBeTypeOf('function'))
+      resolveUpdate?.()
       await renamePromise
     })
 
