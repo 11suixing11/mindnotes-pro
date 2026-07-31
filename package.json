@@ -26,8 +26,8 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:run": "playwright test",
-    "lint": "eslint \"src/**/*.{ts,tsx}\"",
-    "typecheck": "tsc --noEmit && tsc -p e2e/tsconfig.json && tsc -p tsconfig.electron.json",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\" \"electron/**/*.mts\"",
+    "typecheck": "tsc --noEmit && tsc -p e2e/tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "check": "npm run lint && npm run typecheck && npm run test:run && npm run build",
     "electron:dev": "npm run build:electron && electron .",
     "electron:build": "npm run build:desktop"

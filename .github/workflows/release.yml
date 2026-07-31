@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -57,6 +59,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Download build artifact
         uses: actions/download-artifact@v8
@@ -112,13 +115,14 @@ jobs:
 
             **Install**
 
+            Download the attached Linux AppImage:
+
             ```bash
-            git clone https://github.com/${{ github.repository }}.git
-            cd ${{ github.event.repository.name }}
-            npm install && npm run dev
+            chmod +x ./*.AppImage
+            ./*.AppImage
             ```
 
-            Or try the **[Live App](https://11suixing11.github.io/mindnotes-pro)**.
+            The `mindnotes-pro-${{ github.ref_name }}.tar.gz` archive contains the production web build for static hosting. You can also use the **[Live App](https://11suixing11.github.io/mindnotes-pro)**.
 
             **[Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)** · **[Report Issues](https://github.com/${{ github.repository }}/issues)**
           files: |

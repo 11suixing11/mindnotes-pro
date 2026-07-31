@@ -93,7 +93,10 @@ self.addEventListener('fetch', (event) => {
           event.waitUntil(fresh.catch(() => undefined))
           return cached
         }
-        return fresh
+        return fresh.catch(async () => {
+          const fallback = await caches.match(request)
+          return fallback || new Response('资源暂时不可用', { status: 503 })
+        })
       })
     )
     return

@@ -13,7 +13,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'e2e/**/*.ts', 'electron/**/*.mts'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -63,11 +63,17 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    files: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'e2e/**/*.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       'no-console': 'off',
+    },
+  },
+  {
+    files: ['electron/**/*.mts'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
   prettierConfig
