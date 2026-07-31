@@ -20,7 +20,7 @@ describe('useShortcutStore', () => {
     const result = useShortcutStore.getState().setShortcut('tool.pen', { key: '0' })
 
     expect(result.ok).toBe(false)
-    expect(result.error).toContain('Select tool')
+    expect(result.error).toContain('选择工具')
     expect(useShortcutStore.getState().bindings['tool.pen']).toEqual(
       DEFAULT_SHORTCUT_BINDINGS['tool.pen']
     )

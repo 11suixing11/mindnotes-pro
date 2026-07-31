@@ -14,42 +14,42 @@ describe('ToolButtons', () => {
 
   it('renders all tool buttons', () => {
     render(<ToolButtons tool="pen" setTool={setTool} />)
-    expect(screen.getByLabelText('Select tool (0)')).toBeTruthy()
-    expect(screen.getByLabelText('Pen tool (1)')).toBeTruthy()
-    expect(screen.getByLabelText('Eraser tool (2)')).toBeTruthy()
-    expect(screen.getByLabelText('Pan tool (3)')).toBeTruthy()
-    expect(screen.getByLabelText('Text tool (6)')).toBeTruthy()
+    expect(screen.getByLabelText('选择工具（0）')).toBeTruthy()
+    expect(screen.getByLabelText('画笔工具（1）')).toBeTruthy()
+    expect(screen.getByLabelText('橡皮擦工具（2）')).toBeTruthy()
+    expect(screen.getByLabelText('平移工具（3）')).toBeTruthy()
+    expect(screen.getByLabelText('文字工具（6）')).toBeTruthy()
   })
 
   it('renders all shape buttons', () => {
     render(<ToolButtons tool="pen" setTool={setTool} />)
-    expect(screen.getByLabelText('Rectangle tool (4)')).toBeTruthy()
-    expect(screen.getByLabelText('Circle tool (5)')).toBeTruthy()
-    expect(screen.getByLabelText('Line tool (7)')).toBeTruthy()
-    expect(screen.getByLabelText('Arrow tool (8)')).toBeTruthy()
+    expect(screen.getByLabelText('矩形工具（4）')).toBeTruthy()
+    expect(screen.getByLabelText('圆形工具（5）')).toBeTruthy()
+    expect(screen.getByLabelText('直线工具（7）')).toBeTruthy()
+    expect(screen.getByLabelText('箭头工具（8）')).toBeTruthy()
   })
 
   it('highlights the active tool', () => {
     render(<ToolButtons tool="pen" setTool={setTool} />)
-    const penBtn = screen.getByLabelText('Pen tool (1)')
+    const penBtn = screen.getByLabelText('画笔工具（1）')
     expect(penBtn.className).toContain('on')
   })
 
   it('does not highlight inactive tools', () => {
     render(<ToolButtons tool="pen" setTool={setTool} />)
-    const eraserBtn = screen.getByLabelText('Eraser tool (2)')
+    const eraserBtn = screen.getByLabelText('橡皮擦工具（2）')
     expect(eraserBtn.className).not.toContain('on')
   })
 
   it('calls setTool when a tool button is clicked', () => {
     render(<ToolButtons tool="pen" setTool={setTool} />)
-    fireEvent.click(screen.getByLabelText('Eraser tool (2)'))
+    fireEvent.click(screen.getByLabelText('橡皮擦工具（2）'))
     expect(setTool).toHaveBeenCalledWith('eraser')
   })
 
   it('calls setTool for shape buttons', () => {
     render(<ToolButtons tool="pen" setTool={setTool} />)
-    fireEvent.click(screen.getByLabelText('Rectangle tool (4)'))
+    fireEvent.click(screen.getByLabelText('矩形工具（4）'))
     expect(setTool).toHaveBeenCalledWith('rectangle')
   })
 
@@ -65,7 +65,7 @@ describe('ToolButtons', () => {
 
     render(<ToolButtons tool="pen" setTool={setTool} />)
 
-    expect(screen.getByLabelText('Pen tool (P)')).toBeTruthy()
+    expect(screen.getByLabelText('画笔工具（P）')).toBeTruthy()
     expect(screen.getByText('P')).toBeTruthy()
   })
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import {
   simplifyPts,
   distToSeg,
@@ -8,6 +8,11 @@ import {
   getGridSnapDelta,
 } from './canvasUtils'
 import type { StrokeElement, TextElement } from '../store/types'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
 
 describe('simplifyPts', () => {
   it('should return original points if length <= 2', () => {
@@ -181,5 +186,102 @@ describe('grid snapping helpers', () => {
     const snap = getGridSnapDelta({ x: 20, y: 40, w: 50, h: 30 }, 20)
 
     expect(snap).toEqual({ dx: 0, dy: 0, linesX: [], linesY: [] })
+  })
+})
+
+describe('image loading helpers', () => {
+  it('clears a synchronously completed image from the pending cache', async () => {
+    let createdImages = 0
+    class SyncImage {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      complete = true
+      naturalWidth = 1
+      naturalHeight = 1
+
+      constructor() {
+        createdImages += 1
+      }
+
+      set src(_value: string) {}
+    }
+    vi.stubGlobal('Image', SyncImage)
+    vi.resetModules()
+    const { IMAGE_CACHE_MAX, preloadImage } = await import('./canvasUtils')
+
+    await preloadImage('sync-image')
+    for (let index = 0; index < IMAGE_CACHE_MAX; index++) {
+      await preloadImage(`other-image-${index}`)
+    }
+    await preloadImage('sync-image')
+
+    expect(createdImages).toBe(IMAGE_CACHE_MAX + 2)
+  })
+
+  it('allows a retry after a synchronous image load failure', async () => {
+    let createdImages = 0
+    class FailingImage {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      complete = false
+      naturalWidth = 0
+      naturalHeight = 0
+
+      constructor() {
+        createdImages += 1
+      }
+
+      set src(_value: string) {
+        this.onerror?.()
+      }
+    }
+    vi.stubGlobal('Image', FailingImage)
+    vi.resetModules()
+    const { preloadImage } = await import('./canvasUtils')
+
+    await expect(preloadImage('broken-image')).rejects.toThrow('图片加载失败')
+    await expect(preloadImage('broken-image')).rejects.toThrow('图片加载失败')
+
+    expect(createdImages).toBe(2)
+  })
+
+  it('treats unreadable image pixels as opaque', async () => {
+    class SyncImage {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      complete = true
+      naturalWidth = 1
+      naturalHeight = 1
+      set src(_value: string) {}
+    }
+    const context = {
+      clearRect: vi.fn(),
+      drawImage: vi.fn(() => {
+        throw new DOMException('Canvas is tainted', 'SecurityError')
+      }),
+      getImageData: vi.fn(),
+    }
+    vi.stubGlobal('Image', SyncImage)
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as never)
+    vi.resetModules()
+    const { isTransparentImagePixel, preloadImage } = await import('./canvasUtils')
+    const dataUrl = 'data:image/png;base64,opaque'
+    await preloadImage(dataUrl)
+
+    expect(
+      isTransparentImagePixel(
+        {
+          type: 'image',
+          id: 'image-1',
+          x: 0,
+          y: 0,
+          width: 10,
+          height: 10,
+          dataUrl,
+        },
+        5,
+        5
+      )
+    ).toBe(false)
   })
 })

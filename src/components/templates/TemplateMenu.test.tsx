@@ -6,6 +6,7 @@ import { createDefaultLayer } from '../../store/layers'
 import { useViewStore } from '../../store/useViewStore'
 import { getTemplateBounds } from '../../templates/canvasTemplates'
 import { CANVAS_INVALIDATED_EVENT } from '../canvas/renderEvents'
+import { useToastStore } from '../../store/toastStore'
 
 vi.mock('../confirm-modal', () => ({
   useConfirm: () => vi.fn(async () => false),
@@ -54,6 +55,7 @@ describe('TemplateMenu', () => {
     localStorage.clear()
     document.body.innerHTML = ''
     resetStore()
+    useToastStore.setState({ toasts: [] })
     attachCanvas()
   })
 
@@ -83,6 +85,8 @@ describe('TemplateMenu', () => {
     expect(state.tool).toBe('select')
     expect(state.selectedIds).toEqual(state.elements.map((element) => element.id))
     expect(state.elements.every((element) => !element.locked)).toBe(true)
+    expect(new Set(state.elements.map((element) => element.groupId)).size).toBe(1)
+    expect(state.elements.some((element) => element.type === 'text')).toBe(true)
     expect(state.undoStack[state.undoStack.length - 1]?.type).toBe('add')
     expect(useViewStore.getState().viewBox.zoom).not.toBe(2)
     expect(dispatchSpy.mock.calls.some(([event]) => event.type === CANVAS_INVALIDATED_EVENT)).toBe(
@@ -100,5 +104,33 @@ describe('TemplateMenu', () => {
     if (!bounds) throw new Error('Expected inserted template bounds')
     expect(bounds.x + bounds.w / 2).toBeCloseTo(632 - 240, 5)
     expect(bounds.y + bounds.h / 2).toBeCloseTo(768 / 2, 5)
+  })
+
+  it('shows an error instead of claiming a custom template was saved', () => {
+    useAppStore.getState().addElement({
+      type: 'shape',
+      id: 'shape-1',
+      kind: 'rectangle',
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 60,
+      color: '#000000',
+      size: 2,
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota exceeded')
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    render(<TemplateMenu />)
+
+    fireEvent.click(screen.getByRole('button', { name: '模板库' }))
+    fireEvent.change(screen.getByRole('textbox', { name: '自定义模板名称' }), {
+      target: { value: '项目模板' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '保存为模板' }))
+
+    const toasts = useToastStore.getState().toasts
+    expect(toasts[toasts.length - 1]?.message).toContain('模板保存失败')
   })
 })

@@ -2,36 +2,31 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { Canvas } from './components/canvas'
 import { Toolbar } from './components/toolbar'
 import { Sidebar } from './components/sidebar'
-import { useEraserKeyboardShortcuts } from './eraser/useEraserKeyboardShortcuts'
 import { ToastContainer } from './components/toast'
 import { ConfirmModal } from './components/confirm-modal'
 import { useAppStore } from './store/appStore'
 import { useViewStore } from './store/useViewStore'
 import { useThemeStore } from './store/useThemeStore'
 import { getContentBounds } from './canvas/canvasUtils'
-import { FirstRunGuide } from './components/first-run-guide'
 import {
   KeyboardShortcutsHelp,
   KeyboardShortcutSettings,
 } from './components/keyboard-shortcuts-help'
 import { LoadingScreen } from './components/loading-screen'
-import { EmptyCanvasHint } from './components/empty-canvas-hint'
-import { useScreenPen, ScreenPenControls } from './components/screen-pen'
-import { EraserControls } from './components/eraser'
 import { FEEDBACK_DISCUSSION_URL } from './productLinks'
 import { findShortcutAction, isEditableShortcutTarget } from './keyboard/shortcuts'
 import { useShortcutStore } from './store/useShortcutStore'
 
 const TOOL_LABELS: Record<string, string> = {
-  select: 'Select',
-  pen: 'Pen',
-  eraser: 'Eraser',
-  pan: 'Pan',
-  text: 'Text',
-  rectangle: 'Rectangle',
-  circle: 'Circle',
-  line: 'Line',
-  arrow: 'Arrow',
+  select: '选择',
+  pen: '画笔',
+  eraser: '橡皮擦',
+  pan: '平移',
+  text: '文字',
+  rectangle: '矩形',
+  circle: '圆形',
+  line: '直线',
+  arrow: '箭头',
 }
 
 export default function App() {
@@ -44,16 +39,11 @@ export default function App() {
   const elementCount = useAppStore((s) => s.elements.length)
   const bgColor = useAppStore((s) => s.bgColor)
   const docCount = useAppStore((s) => s.docs.length)
-  const [hintsVisible, setHintsVisible] = useState(() => !localStorage.getItem('mn-hints-seen'))
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false)
   const saveStatus = useAppStore((s) => s.saveStatus)
   const zoom = useViewStore((s) => s.viewBox.zoom)
   const zoomToFit = useViewStore((s) => s.zoomToFit)
-  const screenPen = useScreenPen()
-
-  // 橡皮擦键盘快捷键
-  useEraserKeyboardShortcuts()
   interface BeforeInstallPromptEvent extends Event {
     prompt(): Promise<void>
     userChoice: Promise<{ outcome: string }>
@@ -74,22 +64,12 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!hintsVisible) return
-    const timer = setTimeout(() => {
-      setHintsVisible(false)
-      localStorage.setItem('mn-hints-seen', '1')
-    }, 3000)
-    return () => clearTimeout(timer)
-  }, [hintsVisible])
-
-  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (isEditableShortcutTarget(e.target)) return
 
       const action = findShortcutAction(e, useShortcutStore.getState().bindings)
       if (action === 'help.shortcuts') {
         e.preventDefault()
-        setHintsVisible(false)
         setShortcutsOpen((v) => !v)
       }
     }
@@ -126,46 +106,31 @@ export default function App() {
         onClick={(e) => {
           e.preventDefault()
           mainContentRef.current?.focus()
-          document.getElementById('main-canvas')?.focus()
         }}
       >
-        Skip to canvas
+        跳到画布
       </a>
       <div
-        style={{
-          width: '100vw',
-          height: '100vh',
-          display: 'flex',
-          overflow: 'hidden',
-          background: bgColor,
-        }}
+        className="app-shell"
+        style={{ background: bgColor }}
         role="application"
-        aria-label="MindNotes Pro - Whiteboard Application"
+        aria-label="MindNotes Pro 白板"
       >
         <Sidebar />
-        <div
-          ref={mainContentRef}
-          tabIndex={-1}
-          style={{ flex: 1, position: 'relative', overflow: 'hidden', outline: 'none' }}
-        >
+        <div ref={mainContentRef} tabIndex={-1} className="workspace-main">
           <Canvas />
           <Toolbar />
           <ToastContainer />
           <ConfirmModal />
-          <ScreenPenControls screenPen={screenPen} />
-
-          {/* 橡皮擦控制面板 - 仅在橡皮擦工具时显示 */}
-          {tool === 'eraser' && <EraserControls />}
-
-          <div className="status panel" role="status" aria-label="Application status">
+          <div className="status panel" role="status" aria-label="应用状态">
             <span className="dot" aria-hidden="true" />
             <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
               {TOOL_LABELS[tool] ?? tool}
             </span>
             <span className="vl" aria-hidden="true" />
-            <span>{elementCount} elements</span>
+            <span>{elementCount} 个元素</span>
             <span className="vl" aria-hidden="true" />
-            <span>{docCount} docs</span>
+            <span>{docCount} 个文档</span>
             <span className="vl" aria-hidden="true" />
             <span
               style={{ cursor: 'pointer' }}
@@ -182,7 +147,7 @@ export default function App() {
               }}
               role="button"
               tabIndex={0}
-              aria-label={`Zoom ${Math.round(zoom * 100)} percent - Click to fit content`}
+              aria-label={`缩放 ${Math.round(zoom * 100)}%，点击适应内容`}
             >
               {Math.round(zoom * 100)}%
             </span>
@@ -190,19 +155,32 @@ export default function App() {
             <span
               style={{
                 fontSize: '10px',
-                color: saveStatus === 'saving' ? 'var(--text-4)' : 'var(--success)',
+                color:
+                  saveStatus === 'error'
+                    ? 'var(--danger)'
+                    : saveStatus === 'saving'
+                      ? 'var(--text-4)'
+                      : 'var(--success)',
                 transition: 'color 0.3s',
               }}
               aria-live="polite"
               aria-label={
-                saveStatus === 'saving' ? 'Saving' : saveStatus === 'saved' ? 'Saved' : ''
+                saveStatus === 'saving'
+                  ? '正在保存'
+                  : saveStatus === 'saved'
+                    ? '已保存'
+                    : saveStatus === 'error'
+                      ? '保存失败'
+                      : ''
               }
             >
               {saveStatus === 'saving'
                 ? '\u00b7\u00b7\u00b7'
                 : saveStatus === 'saved'
                   ? '\u2713'
-                  : ''}
+                  : saveStatus === 'error'
+                    ? '保存失败'
+                    : ''}
             </span>
             <span className="vl" aria-hidden="true" />
             <a
@@ -210,10 +188,10 @@ export default function App() {
               target="_blank"
               rel="noreferrer"
               className="status-feedback"
-              title="Share feedback"
-              aria-label="Share feedback"
+              title="提交反馈"
+              aria-label="提交反馈"
             >
-              Feedback
+              反馈
             </a>
             <span className="vl" aria-hidden="true" />
             <button
@@ -231,24 +209,13 @@ export default function App() {
               }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--primary)')}
               onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-4)')}
-              title="Keyboard shortcuts (?)"
-              aria-label="Keyboard shortcuts"
+              title="键盘快捷键（?）"
+              aria-label="键盘快捷键"
             >
               ?
             </button>
           </div>
 
-          {hintsVisible && (
-            <div className="hints panel">
-              <kbd>0-8</kbd> Switch Tools · <kbd>Shift</kbd>+<kbd>1-0</kbd> Quick Colors ·{' '}
-              <kbd>?</kbd> Shortcuts · <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo · <kbd>Ctrl</kbd>+
-              <kbd>Y</kbd> Redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> Copy/Paste · Scroll to
-              zoom
-            </div>
-          )}
-
-          <EmptyCanvasHint />
-          <FirstRunGuide />
           <KeyboardShortcutsHelp
             open={shortcutsOpen}
             onClose={handleShortcutsClose}
@@ -270,7 +237,7 @@ export default function App() {
                 setDeferredPrompt(null)
               }}
               className="install-btn"
-              aria-label="Install MindNotes Pro"
+              aria-label="安装 MindNotes Pro"
             >
               <svg
                 width="16"
@@ -285,7 +252,7 @@ export default function App() {
                 <path d="M12 3v12m0 0l-4-4m4 4l4-4" />
                 <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
               </svg>
-              Install App
+              安装应用
             </button>
           )}
         </div>

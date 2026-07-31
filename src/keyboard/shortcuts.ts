@@ -30,7 +30,6 @@ export type ShortcutActionId =
   | 'view.zoomToSelection'
   | 'view.toggleGrid'
   | 'view.toggleGridSnap'
-  | 'view.eagleEye'
   | 'style.eyedropper'
   | 'style.cycleGeometry'
   | 'help.shortcuts'
@@ -64,136 +63,135 @@ export interface ShortcutExportPayload {
 
 const MODIFIER_KEYS = new Set(['Alt', 'Control', 'Meta', 'Shift'])
 const CATEGORY_LABELS: Record<ShortcutCategory, string> = {
-  tools: 'Tools',
-  edit: 'Edit',
-  view: 'View',
-  arrange: 'Arrange',
-  style: 'Style',
-  help: 'Help',
+  tools: '工具',
+  edit: '编辑',
+  view: '视图',
+  arrange: '排列',
+  style: '样式',
+  help: '帮助',
 }
 
 export const SHORTCUT_DEFINITIONS: ShortcutActionDefinition[] = [
-  { id: 'tool.select', label: 'Select tool', category: 'tools', defaultBinding: { key: '0' } },
-  { id: 'tool.pen', label: 'Pen tool', category: 'tools', defaultBinding: { key: '1' } },
-  { id: 'tool.eraser', label: 'Eraser tool', category: 'tools', defaultBinding: { key: '2' } },
-  { id: 'tool.pan', label: 'Pan tool', category: 'tools', defaultBinding: { key: '3' } },
+  { id: 'tool.select', label: '选择工具', category: 'tools', defaultBinding: { key: '0' } },
+  { id: 'tool.pen', label: '画笔工具', category: 'tools', defaultBinding: { key: '1' } },
+  { id: 'tool.eraser', label: '橡皮擦工具', category: 'tools', defaultBinding: { key: '2' } },
+  { id: 'tool.pan', label: '平移工具', category: 'tools', defaultBinding: { key: '3' } },
   {
     id: 'tool.rectangle',
-    label: 'Rectangle tool',
+    label: '矩形工具',
     category: 'tools',
     defaultBinding: { key: '4' },
   },
-  { id: 'tool.circle', label: 'Circle tool', category: 'tools', defaultBinding: { key: '5' } },
-  { id: 'tool.text', label: 'Text tool', category: 'tools', defaultBinding: { key: '6' } },
-  { id: 'tool.line', label: 'Line tool', category: 'tools', defaultBinding: { key: '7' } },
-  { id: 'tool.arrow', label: 'Arrow tool', category: 'tools', defaultBinding: { key: '8' } },
-  { id: 'edit.undo', label: 'Undo', category: 'edit', defaultBinding: { key: 'Z', mod: true } },
+  { id: 'tool.circle', label: '圆形工具', category: 'tools', defaultBinding: { key: '5' } },
+  { id: 'tool.text', label: '文字工具', category: 'tools', defaultBinding: { key: '6' } },
+  { id: 'tool.line', label: '直线工具', category: 'tools', defaultBinding: { key: '7' } },
+  { id: 'tool.arrow', label: '箭头工具', category: 'tools', defaultBinding: { key: '8' } },
+  { id: 'edit.undo', label: '撤销', category: 'edit', defaultBinding: { key: 'Z', mod: true } },
   {
     id: 'edit.redo',
-    label: 'Redo',
+    label: '重做',
     category: 'edit',
     defaultBinding: { key: 'Z', mod: true, shift: true },
     fixedBindings: [{ key: 'Y', mod: true }],
   },
-  { id: 'edit.copy', label: 'Copy', category: 'edit', defaultBinding: { key: 'C', mod: true } },
-  { id: 'edit.paste', label: 'Paste', category: 'edit', defaultBinding: { key: 'V', mod: true } },
+  { id: 'edit.copy', label: '复制', category: 'edit', defaultBinding: { key: 'C', mod: true } },
+  { id: 'edit.paste', label: '粘贴', category: 'edit', defaultBinding: { key: 'V', mod: true } },
   {
     id: 'edit.pastePlainText',
-    label: 'Paste as plain text',
+    label: '粘贴为纯文本',
     category: 'edit',
     defaultBinding: { key: 'V', mod: true, shift: true },
   },
   {
     id: 'edit.selectAll',
-    label: 'Select all',
+    label: '全选',
     category: 'edit',
     defaultBinding: { key: 'A', mod: true },
   },
   {
     id: 'edit.delete',
-    label: 'Delete selected',
+    label: '删除所选',
     category: 'edit',
     defaultBinding: { key: 'Delete' },
     fixedBindings: [{ key: 'Backspace' }],
   },
   {
     id: 'edit.duplicate',
-    label: 'Duplicate selected',
+    label: '复制所选',
     category: 'edit',
     defaultBinding: { key: 'D', mod: true },
   },
   {
     id: 'arrange.group',
-    label: 'Group elements',
+    label: '组合元素',
     category: 'arrange',
     defaultBinding: { key: 'G', mod: true },
   },
   {
     id: 'arrange.ungroup',
-    label: 'Ungroup elements',
+    label: '取消组合',
     category: 'arrange',
     defaultBinding: { key: 'G', mod: true, shift: true },
   },
   {
     id: 'arrange.lock',
-    label: 'Lock selected',
+    label: '锁定所选',
     category: 'arrange',
     defaultBinding: { key: 'L', mod: true },
   },
   {
     id: 'arrange.unlock',
-    label: 'Unlock selected',
+    label: '解锁所选',
     category: 'arrange',
     defaultBinding: { key: 'L', mod: true, shift: true },
   },
   {
     id: 'view.zoomIn',
-    label: 'Zoom in',
+    label: '放大',
     category: 'view',
     defaultBinding: { key: '+' },
     fixedBindings: [{ key: '=' }],
   },
-  { id: 'view.zoomOut', label: 'Zoom out', category: 'view', defaultBinding: { key: '-' } },
+  { id: 'view.zoomOut', label: '缩小', category: 'view', defaultBinding: { key: '-' } },
   {
     id: 'view.reset',
-    label: 'Reset view',
+    label: '重置视图',
     category: 'view',
     defaultBinding: { key: '0', mod: true },
   },
   {
     id: 'view.zoomToSelection',
-    label: 'Zoom to selection',
+    label: '缩放到所选',
     category: 'view',
     defaultBinding: { key: '2', mod: true },
   },
   {
     id: 'view.toggleGrid',
-    label: 'Toggle grid',
+    label: '切换网格',
     category: 'view',
     defaultBinding: { key: 'G', shift: true },
   },
   {
     id: 'view.toggleGridSnap',
-    label: 'Toggle grid snap',
+    label: '切换网格吸附',
     category: 'view',
     defaultBinding: { key: 'S', shift: true },
   },
-  { id: 'view.eagleEye', label: 'Eagle Eye', category: 'view', defaultBinding: { key: 'Z' } },
   {
     id: 'style.eyedropper',
-    label: 'Style eyedropper',
+    label: '吸取样式',
     category: 'style',
     defaultBinding: { key: 'Q' },
   },
   {
     id: 'style.cycleGeometry',
-    label: 'Cycle geometry tools',
+    label: '循环切换几何工具',
     category: 'style',
     defaultBinding: { key: 'G' },
   },
   {
     id: 'help.shortcuts',
-    label: 'Keyboard shortcuts',
+    label: '键盘快捷键',
     category: 'help',
     defaultBinding: { key: '?' },
     fixedBindings: [{ key: 'F1' }],
@@ -214,15 +212,14 @@ export const TOOL_SHORTCUT_ACTIONS: Record<ToolType, ShortcutActionId> = {
 
 export const FIXED_SHORTCUT_HELP: { keys: string[]; label: string; category: ShortcutCategory }[] =
   [
-    { keys: ['Arrow Keys'], label: 'Move selected', category: 'arrange' },
-    { keys: ['Ctrl', 'Arrow'], label: 'Move selected by 10px', category: 'arrange' },
-    { keys: ['Shift', 'Arrow'], label: 'Move selected by 50px', category: 'arrange' },
-    { keys: ['Shift', 'Click'], label: 'Multi-select', category: 'arrange' },
-    { keys: ['Shift', '1-0'], label: 'Quick color palette', category: 'style' },
-    { keys: ['Alt', '1-8'], label: 'Quick color presets', category: 'style' },
-    { keys: ['Double-click'], label: 'Edit text', category: 'edit' },
-    { keys: ['Esc'], label: 'Cancel current mode', category: 'view' },
-    { keys: ['Ctrl', 'Shift', 'P'], label: 'Screen Pen', category: 'view' },
+    { keys: ['方向键'], label: '移动所选', category: 'arrange' },
+    { keys: ['Ctrl', '方向键'], label: '移动所选 10px', category: 'arrange' },
+    { keys: ['Shift', '方向键'], label: '移动所选 50px', category: 'arrange' },
+    { keys: ['Shift', '点击'], label: '多选', category: 'arrange' },
+    { keys: ['Shift', '1-0'], label: '快速调色板', category: 'style' },
+    { keys: ['Alt', '1-8'], label: '快速颜色预设', category: 'style' },
+    { keys: ['双击'], label: '编辑文字', category: 'edit' },
+    { keys: ['Esc'], label: '取消当前模式', category: 'view' },
   ]
 
 export function getShortcutCategoryLabel(category: ShortcutCategory): string {
@@ -335,19 +332,19 @@ export function findShortcutAction(
 }
 
 export function formatShortcutBinding(binding: ShortcutBinding | null): string {
-  if (!binding) return 'Disabled'
+  if (!binding) return '未设置'
+  return getShortcutKeyParts(binding).join('+')
+}
+
+export function getShortcutKeyParts(binding: ShortcutBinding | null): string[] {
+  if (!binding) return ['未设置']
   const normalized = normalizeShortcutBinding(binding)
-  const parts = []
+  const parts: string[] = []
   if (normalized.mod) parts.push('Ctrl')
   if (normalized.alt) parts.push('Alt')
   if (normalized.shift) parts.push('Shift')
   parts.push(normalized.key === 'Space' ? 'Space' : normalized.key)
-  return parts.join('+')
-}
-
-export function getShortcutKeyParts(binding: ShortcutBinding | null): string[] {
-  if (!binding) return ['Disabled']
-  return formatShortcutBinding(binding).split('+')
+  return parts
 }
 
 export function formatShortcutBadge(binding: ShortcutBinding | null): string {
@@ -365,11 +362,10 @@ export function getDefinition(actionId: ShortcutActionId): ShortcutActionDefinit
 function getReservedShortcutConflict(binding: ShortcutBinding): ShortcutConflict | null {
   const normalized = normalizeShortcutBinding(binding)
 
-  if (normalized.key === 'Escape') return { label: 'Cancel current mode' }
-  if (normalized.key.startsWith('Arrow')) return { label: 'Move selected elements' }
-  if (normalized.mod && normalized.shift && normalized.key === 'P') return { label: 'Screen Pen' }
-  if (normalized.alt && /^[1-8]$/.test(normalized.key)) return { label: 'Quick color presets' }
-  if (normalized.shift && /^[0-9]$/.test(normalized.key)) return { label: 'Quick color palette' }
+  if (normalized.key === 'Escape') return { label: '取消当前模式' }
+  if (normalized.key.startsWith('Arrow')) return { label: '移动所选元素' }
+  if (normalized.alt && /^[1-8]$/.test(normalized.key)) return { label: '快速颜色预设' }
+  if (normalized.shift && /^[0-9]$/.test(normalized.key)) return { label: '快速调色板' }
 
   return null
 }
@@ -419,7 +415,7 @@ export function validateShortcutBindings(bindings: ShortcutBindingMap): Shortcut
     if (conflict) {
       return {
         ...conflict,
-        label: `${definition.label} conflicts with ${conflict.label}`,
+        label: `${definition.label}与${conflict.label}冲突`,
       }
     }
   }

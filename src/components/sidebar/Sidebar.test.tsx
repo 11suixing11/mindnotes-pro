@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppStore } from '../../store/appStore'
 import type { CanvasDoc } from '../../store/types'
+import { CANVAS_SCHEMA_VERSION } from '../../store/schema'
 import Sidebar from './Sidebar'
 
 const { confirmMock } = vi.hoisted(() => ({
@@ -13,6 +14,7 @@ vi.mock('../confirm-modal', () => ({
 }))
 
 const doc: CanvasDoc = {
+  schemaVersion: CANVAS_SCHEMA_VERSION,
   id: 'doc-1',
   title: 'Original',
   elements: [],
@@ -71,14 +73,14 @@ describe('Sidebar document rename', () => {
     render(<Sidebar />)
 
     fireEvent.doubleClick(screen.getByText('Original'))
-    const input = screen.getByRole('textbox', { name: 'Rename Original' })
+    const input = screen.getByRole('textbox', { name: '重命名 Original' })
     fireEvent.change(input, { target: { value: 'Renamed' } })
     fireEvent.keyDown(input, { key: 'Enter' })
 
     await waitFor(() =>
-      expect(confirmMock).toHaveBeenCalledWith('Rename "Original" to "Renamed"?', {
-        confirmLabel: 'Rename',
-        cancelLabel: 'Keep editing',
+      expect(confirmMock).toHaveBeenCalledWith('将“Original”重命名为“Renamed”？', {
+        confirmLabel: '重命名',
+        cancelLabel: '继续编辑',
         danger: false,
       })
     )
@@ -90,7 +92,7 @@ describe('Sidebar document rename', () => {
     render(<Sidebar />)
 
     fireEvent.doubleClick(screen.getByText('Original'))
-    const input = screen.getByRole('textbox', { name: 'Rename Original' })
+    const input = screen.getByRole('textbox', { name: '重命名 Original' })
     fireEvent.change(input, { target: { value: 'Discarded' } })
     fireEvent.keyDown(input, { key: 'Escape' })
 
@@ -104,7 +106,7 @@ describe('Sidebar document rename', () => {
     render(<Sidebar />)
 
     fireEvent.doubleClick(screen.getByText('Original'))
-    const input = screen.getByRole('textbox', { name: 'Rename Original' })
+    const input = screen.getByRole('textbox', { name: '重命名 Original' })
     fireEvent.change(input, { target: { value: 'Maybe Later' } })
     fireEvent.blur(input)
 
@@ -118,9 +120,9 @@ describe('Sidebar document rename', () => {
     render(<Sidebar />)
 
     fireEvent.contextMenu(screen.getByRole('listitem'))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '重命名' }))
 
-    expect(screen.getByRole('textbox', { name: 'Rename Original' })).toBeTruthy()
+    expect(screen.getByRole('textbox', { name: '重命名 Original' })).toBeTruthy()
   })
 
   it('uses the real document background color for the active canvas preview', async () => {
@@ -160,13 +162,13 @@ describe('Sidebar document rename', () => {
     })
     render(<Sidebar />)
 
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search documents' }), {
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索文档' }), {
       target: { value: 'project' },
     })
 
     expect(screen.getByText('Project')).toBeTruthy()
     expect(screen.getByText('Project').closest('mark')).toBeTruthy()
-    expect(screen.getByText('1 of 2 documents')).toBeTruthy()
+    expect(screen.getByText('显示 1 / 2 个文档')).toBeTruthy()
     expect(screen.queryByText('Original')).toBeNull()
   })
 
@@ -196,14 +198,14 @@ describe('Sidebar document rename', () => {
     })
     render(<Sidebar />)
 
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search documents' }), {
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索文档' }), {
       target: { value: 'timeline' },
     })
 
     expect(screen.getByText('Meeting Notes')).toBeTruthy()
     expect(screen.getByText('timeline')).toBeTruthy()
     expect(screen.getByText('timeline').closest('mark')).toBeTruthy()
-    expect(screen.getByText('1 of 2 documents')).toBeTruthy()
+    expect(screen.getByText('显示 1 / 2 个文档')).toBeTruthy()
     expect(screen.queryByText('Original')).toBeNull()
   })
 
@@ -218,7 +220,7 @@ describe('Sidebar document rename', () => {
     })
     render(<Sidebar />)
 
-    const sort = screen.getByRole('combobox', { name: 'Sort documents' })
+    const sort = screen.getByRole('combobox', { name: '文档排序' })
     expect(listedDocumentTitles()).toEqual(['Alpha', 'Gamma', 'Beta'])
 
     fireEvent.change(sort, { target: { value: 'title-asc' } })
@@ -240,17 +242,17 @@ describe('Sidebar document rename', () => {
   it('stores recent searches and can run them again', () => {
     render(<Sidebar />)
 
-    const input = screen.getByRole('searchbox', { name: 'Search documents' }) as HTMLInputElement
+    const input = screen.getByRole('searchbox', { name: '搜索文档' }) as HTMLInputElement
     fireEvent.change(input, { target: { value: 'original' } })
     const form = input.closest('form') as HTMLFormElement | null
     if (!form) throw new Error('Search form not found')
     fireEvent.submit(form)
 
-    expect(screen.getByRole('button', { name: 'Search again: original' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '再次搜索：original' })).toBeTruthy()
     expect(JSON.parse(localStorage.getItem('mn-sidebar-searches') ?? '[]')).toEqual(['original'])
 
     fireEvent.change(input, { target: { value: '' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Search again: original' }))
+    fireEvent.click(screen.getByRole('button', { name: '再次搜索：original' }))
 
     expect(input.value).toBe('original')
     expect(screen.getByText('Original')).toBeTruthy()

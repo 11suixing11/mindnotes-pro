@@ -59,16 +59,15 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
   const toast = useToastStore((s) => s.show)
   const [showBackground, setShowBackground] = useState(false)
   const [backgroundPos, setBackgroundPos] = useState({ top: 0, left: 0 })
-  const { canvasBg, setCanvasBg, backgroundStyle, setBackgroundStyle, addElement } =
-    useAppStore(
-      useShallow((s) => ({
-        canvasBg: s.bgColor,
-        setCanvasBg: s.setBgColor,
-        backgroundStyle: s.backgroundStyle,
-        setBackgroundStyle: s.setBackgroundStyle,
-        addElement: s.addElement,
-      }))
-    )
+  const { canvasBg, setCanvasBg, backgroundStyle, setBackgroundStyle, addElement } = useAppStore(
+    useShallow((s) => ({
+      canvasBg: s.bgColor,
+      setCanvasBg: s.setBgColor,
+      backgroundStyle: s.backgroundStyle,
+      setBackgroundStyle: s.setBackgroundStyle,
+      addElement: s.addElement,
+    }))
+  )
 
   const imgRef = useRef<HTMLInputElement>(null)
   const bgRef = useRef<HTMLInputElement>(null)

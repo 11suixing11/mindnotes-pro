@@ -35,6 +35,10 @@ function addShape(id: string) {
   })
 }
 
+function expandLayers() {
+  fireEvent.click(screen.getByRole('button', { name: '展开图层' }))
+}
+
 describe('LayersPanel', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -48,19 +52,21 @@ describe('LayersPanel', () => {
 
   it('renders the default layer and creates a new layer', () => {
     render(<LayersPanel />)
+    expandLayers()
 
-    expect(screen.getByText('Layer 1')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Create layer' }))
+    expect(screen.getByText('图层 1')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '新建图层' }))
 
-    expect(screen.getByText('Layer 2')).toBeTruthy()
+    expect(screen.getByText('图层 2')).toBeTruthy()
     expect(useAppStore.getState().activeLayerId).toBe(useAppStore.getState().layers[1].id)
   })
 
   it('renames a layer inline', () => {
     render(<LayersPanel />)
+    expandLayers()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Rename Layer 1' }))
-    const input = screen.getByRole('textbox', { name: 'Rename Layer 1' })
+    fireEvent.click(screen.getByRole('button', { name: '重命名 图层 1' }))
+    const input = screen.getByRole('textbox', { name: '重命名 图层 1' })
     fireEvent.change(input, { target: { value: 'Research' } })
     fireEvent.keyDown(input, { key: 'Enter' })
 
@@ -74,7 +80,8 @@ describe('LayersPanel', () => {
     useAppStore.setState({ selectedIds: ['sh1'] })
 
     render(<LayersPanel />)
-    fireEvent.click(screen.getByRole('button', { name: 'Hide Notes' }))
+    expandLayers()
+    fireEvent.click(screen.getByRole('button', { name: '隐藏 Notes' }))
 
     expect(useAppStore.getState().layers.find((layer) => layer.id === layerId)?.visible).toBe(false)
     expect(useAppStore.getState().selectedIds).toEqual([])
@@ -85,7 +92,8 @@ describe('LayersPanel', () => {
     const layerId = useAppStore.getState().createLayer('Ink')
 
     render(<LayersPanel />)
-    fireEvent.click(screen.getByRole('button', { name: 'Lock Ink' }))
+    expandLayers()
+    fireEvent.click(screen.getByRole('button', { name: '锁定 Ink' }))
 
     expect(useAppStore.getState().layers.find((layer) => layer.id === layerId)?.locked).toBe(true)
     expect(useAppStore.getState().activeLayerId).toBe(defaultLayerId)
@@ -98,7 +106,8 @@ describe('LayersPanel', () => {
     useAppStore.setState({ selectedIds: ['sh1'] })
 
     render(<LayersPanel />)
-    fireEvent.click(screen.getByRole('button', { name: 'Move selected elements to Target' }))
+    expandLayers()
+    fireEvent.click(screen.getByRole('button', { name: '将所选元素移到 Target' }))
 
     expect(useAppStore.getState().elements[0].layerId).toBe(targetLayerId)
   })

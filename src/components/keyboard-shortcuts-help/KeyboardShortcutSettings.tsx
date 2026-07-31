@@ -80,20 +80,20 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
 
     const binding = shortcutBindingFromEvent(e.nativeEvent)
     if (!binding) {
-      setMessage({ type: 'error', text: 'Press a letter, number, symbol, or command shortcut.' })
+      setMessage({ type: 'error', text: '请输入字母、数字、符号或组合快捷键。' })
       return
     }
 
     const result = setShortcut(actionId, binding)
     if (!result.ok) {
-      setMessage({ type: 'error', text: result.error ?? 'Shortcut could not be assigned.' })
+      setMessage({ type: 'error', text: result.error ?? '无法设置这个快捷键。' })
       return
     }
 
     setEditingAction(null)
     setMessage({
       type: 'success',
-      text: `${getDefinition(actionId).label} set to ${formatShortcutBinding(binding)}.`,
+      text: `${getDefinition(actionId).label}已设为 ${formatShortcutBinding(binding)}。`,
     })
   }
 
@@ -103,24 +103,24 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
 
     const writeText = navigator.clipboard?.writeText?.bind(navigator.clipboard)
     if (!writeText) {
-      setMessage({ type: 'success', text: 'Shortcut JSON is ready to copy.' })
+      setMessage({ type: 'success', text: '快捷键 JSON 已生成，可以复制。' })
       return
     }
 
     writeText(json)
-      .then(() => setMessage({ type: 'success', text: 'Shortcut JSON copied to clipboard.' }))
-      .catch(() => setMessage({ type: 'success', text: 'Shortcut JSON is ready to copy.' }))
+      .then(() => setMessage({ type: 'success', text: '快捷键 JSON 已复制到剪贴板。' }))
+      .catch(() => setMessage({ type: 'success', text: '快捷键 JSON 已生成，可以复制。' }))
   }
 
   const handleImport = () => {
     const result = importShortcuts(importText)
     if (!result.ok) {
-      setMessage({ type: 'error', text: result.error ?? 'Shortcut import failed.' })
+      setMessage({ type: 'error', text: result.error ?? '快捷键导入失败。' })
       return
     }
     setImportText('')
     setExportText('')
-    setMessage({ type: 'success', text: 'Shortcuts imported.' })
+    setMessage({ type: 'success', text: '快捷键已导入。' })
   }
 
   return (
@@ -134,17 +134,13 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
       >
         <div className="flex items-start justify-between gap-[16px] mb-[16px]">
           <div>
-            <div className="text-[16px] font-bold text-[var(--text)]">
-              Customize Keyboard Shortcuts
-            </div>
-            <div className="text-[12px] text-[var(--text-4)] mt-[4px]">
-              Changes are saved on this device.
-            </div>
+            <div className="text-[16px] font-bold text-[var(--text)]">自定义键盘快捷键</div>
+            <div className="text-[12px] text-[var(--text-4)] mt-[4px]">更改仅保存在当前设备。</div>
           </div>
           <button
             onClick={onClose}
             className="w-[28px] h-[28px] rounded-[8px] flex items-center justify-center text-[var(--text-3)] hover:bg-[var(--primary-bg)] transition-colors text-[16px]"
-            aria-label="Close shortcut settings"
+            aria-label="关闭快捷键设置"
           >
             &times;
           </button>
@@ -187,7 +183,7 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
                         </div>
                         {fixedLabels.length > 0 && (
                           <div className="text-[11px] text-[var(--text-4)] mt-[2px]">
-                            Also: {fixedLabels.join(', ')}
+                            另可使用：{fixedLabels.join('、')}
                           </div>
                         )}
                       </div>
@@ -198,10 +194,10 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
                         }}
                         onKeyDown={(e) => handleCapture(e, definition.id)}
                         className="min-h-[34px] rounded-[8px] border border-[var(--border)] bg-[var(--bg)] px-[10px] flex items-center justify-center text-[12px] text-[var(--text)] hover:border-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-                        aria-label={`Set shortcut for ${definition.label}`}
+                        aria-label={`设置${definition.label}快捷键`}
                       >
                         {isEditing ? (
-                          <span className="font-semibold text-[var(--primary)]">Press keys</span>
+                          <span className="font-semibold text-[var(--primary)]">请按快捷键</span>
                         ) : (
                           <ShortcutKeys actionId={definition.id} />
                         )}
@@ -212,31 +208,31 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
                             resetShortcut(definition.id)
                             setMessage({
                               type: 'success',
-                              text: `${definition.label} reset to ${formatShortcutBinding(
+                              text: `${definition.label}已重置为 ${formatShortcutBinding(
                                 definition.defaultBinding
-                              )}.`,
+                              )}。`,
                             })
                           }}
                           className="h-[30px] px-[10px] rounded-[7px] border border-[var(--border)] text-[11px] text-[var(--text-3)] hover:text-[var(--primary)] hover:border-[var(--primary)]"
                         >
-                          Reset
+                          重置
                         </button>
                         <button
                           onClick={() => {
                             const result = setShortcut(definition.id, null)
                             setMessage(
                               result.ok
-                                ? { type: 'success', text: `${definition.label} disabled.` }
+                                ? { type: 'success', text: `${definition.label}已停用。` }
                                 : {
                                     type: 'error',
-                                    text: result.error ?? 'Shortcut could not be disabled.',
+                                    text: result.error ?? '无法停用这个快捷键。',
                                   }
                             )
                           }}
                           disabled={binding === null}
                           className="h-[30px] px-[10px] rounded-[7px] border border-[var(--border)] text-[11px] text-[var(--text-3)] hover:text-[var(--danger)] hover:border-[var(--danger)] disabled:opacity-40"
                         >
-                          Disable
+                          停用
                         </button>
                       </div>
                     </div>
@@ -253,30 +249,30 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
                   resetShortcuts()
                   setExportText('')
                   setImportText('')
-                  setMessage({ type: 'success', text: 'Shortcuts reset to defaults.' })
+                  setMessage({ type: 'success', text: '快捷键已恢复默认设置。' })
                 }}
                 className="h-[34px] px-[12px] rounded-[8px] border border-[var(--border)] text-[12px] text-[var(--text)] hover:border-[var(--primary)]"
               >
-                Reset All
+                全部重置
               </button>
               <button
                 onClick={handleExport}
                 className="h-[34px] px-[12px] rounded-[8px] border border-[var(--border)] text-[12px] text-[var(--text)] hover:border-[var(--primary)]"
               >
-                Export JSON
+                导出 JSON
               </button>
               <button
                 onClick={handleImport}
                 disabled={importText.trim().length === 0}
                 className="h-[34px] px-[12px] rounded-[8px] border border-[var(--border)] text-[12px] text-[var(--text)] hover:border-[var(--primary)] disabled:opacity-40"
               >
-                Import JSON
+                导入 JSON
               </button>
             </div>
             <div className="grid grid-cols-2 max-[720px]:grid-cols-1 gap-[10px]">
               <label className="block">
                 <span className="block text-[12px] font-medium text-[var(--text-3)] mb-[5px]">
-                  Import
+                  导入
                 </span>
                 <textarea
                   value={importText}
@@ -287,7 +283,7 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
               </label>
               <label className="block">
                 <span className="block text-[12px] font-medium text-[var(--text-3)] mb-[5px]">
-                  Export
+                  导出
                 </span>
                 <textarea
                   value={exportText}

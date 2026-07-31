@@ -18,7 +18,7 @@ describe('buildSVGString', () => {
     expect(svg).toContain(`width="${W}"`)
     expect(svg).toContain(`height="${H}"`)
     expect(svg).toContain('</svg>')
-    expect(svg).toContain('<rect width="100%" height="100%"')
+    expect(svg).toContain(`<rect x="0" y="0" width="${W}" height="${H}"`)
   })
 
   it('should use dark background when isDarkMode is true', () => {
@@ -41,6 +41,39 @@ describe('buildSVGString', () => {
     expect(svg).toContain('id="arrowhead"')
     expect(svg).toContain('<defs>')
     expect(svg).toContain('</defs>')
+  })
+
+  it('uses document bounds as the viewBox instead of the current viewport', () => {
+    const svg = buildSVGString([], {
+      x: -120,
+      y: 45,
+      width: 320,
+      height: 180,
+      backgroundColor: '#f8fafc',
+      backgroundStyle: 'grid',
+    })
+
+    expect(svg).toContain('viewBox="-120 45 320 180"')
+    expect(svg).toContain('fill="#f8fafc"')
+    expect(svg).toContain('id="document-background"')
+  })
+
+  it('preserves element rotation in SVG output', () => {
+    const element: TextElement = {
+      type: 'text',
+      id: 'rotated-text',
+      x: 10,
+      y: 20,
+      width: 100,
+      height: 40,
+      content: '旋转文本',
+      fontSize: 16,
+      color: '#111827',
+      rotation: Math.PI / 2,
+    }
+
+    const svg = buildSVGString([element], { width: W, height: H })
+    expect(svg).toContain('transform="rotate(90 60 40)"')
   })
 
   // ── strokes ─────────────────────────────────────────────────────────────
@@ -539,7 +572,7 @@ describe('buildSVGString', () => {
       const svg = buildSVGString([], { width: W, height: H })
       expect(svg).toContain('<svg')
       expect(svg).toContain('</svg>')
-      expect(svg).toContain('<rect width="100%"')
+      expect(svg).toContain(`<rect x="0" y="0" width="${W}"`)
     })
 
     it('should handle all element types together', () => {

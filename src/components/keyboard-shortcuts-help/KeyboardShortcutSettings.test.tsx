@@ -21,23 +21,23 @@ describe('KeyboardShortcutSettings', () => {
 
   it('captures and saves a custom shortcut', () => {
     render(<KeyboardShortcutSettings open={true} onClose={onClose} />)
-    const penButton = screen.getByLabelText('Set shortcut for Pen tool')
+    const penButton = screen.getByLabelText('设置画笔工具快捷键')
 
     fireEvent.click(penButton)
     fireEvent.keyDown(penButton, { key: 'p' })
 
     expect(useShortcutStore.getState().bindings['tool.pen']).toEqual({ key: 'P' })
-    expect(screen.getByText('Pen tool set to P.')).toBeTruthy()
+    expect(screen.getByText('画笔工具已设为 P。')).toBeTruthy()
   })
 
   it('shows a conflict when assigning a used shortcut', () => {
     render(<KeyboardShortcutSettings open={true} onClose={onClose} />)
-    const penButton = screen.getByLabelText('Set shortcut for Pen tool')
+    const penButton = screen.getByLabelText('设置画笔工具快捷键')
 
     fireEvent.click(penButton)
     fireEvent.keyDown(penButton, { key: '0' })
 
-    expect(screen.getByText(/already used by Select tool/i)).toBeTruthy()
+    expect(screen.getByText(/已被“选择工具”使用/)).toBeTruthy()
     expect(useShortcutStore.getState().bindings['tool.pen']).toEqual(
       DEFAULT_SHORTCUT_BINDINGS['tool.pen']
     )
@@ -50,20 +50,20 @@ describe('KeyboardShortcutSettings', () => {
     })
     render(<KeyboardShortcutSettings open={true} onClose={onClose} />)
 
-    fireEvent.change(screen.getByLabelText('Import'), { target: { value: json } })
-    fireEvent.click(screen.getByText('Import JSON'))
+    fireEvent.change(screen.getByLabelText('导入'), { target: { value: json } })
+    fireEvent.click(screen.getByText('导入 JSON'))
 
     expect(useShortcutStore.getState().bindings['tool.pen']).toEqual({ key: 'P' })
-    expect(screen.getByText('Shortcuts imported.')).toBeTruthy()
+    expect(screen.getByText('快捷键已导入。')).toBeTruthy()
   })
 
   it('resets all shortcuts', () => {
     useShortcutStore.getState().setShortcut('tool.pen', { key: 'P' })
     render(<KeyboardShortcutSettings open={true} onClose={onClose} />)
 
-    fireEvent.click(screen.getByText('Reset All'))
+    fireEvent.click(screen.getByText('全部重置'))
 
     expect(useShortcutStore.getState().bindings).toEqual(DEFAULT_SHORTCUT_BINDINGS)
-    expect(screen.getByText('Shortcuts reset to defaults.')).toBeTruthy()
+    expect(screen.getByText('快捷键已恢复默认设置。')).toBeTruthy()
   })
 })

@@ -1,24 +1,36 @@
 {
   "name": "mindnotes-pro",
-  "version": "3.2.0",
+  "version": "4.0.0",
   "type": "module",
-  "description": "A beautiful, local-first whiteboard that feels like painting on real paper.",
-  "main": "electron/main.ts",
+  "description": "A local-first lightweight whiteboard for drawing, editable templates, and portable exports.",
+  "author": "11suixing11",
+  "homepage": "https://github.com/11suixing11/mindnotes-pro",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/11suixing11/mindnotes-pro.git"
+  },
+  "desktopName": "mindnotes-pro.desktop",
+  "main": "dist-electron/main.mjs",
   "engines": {
     "node": ">=22.22.2"
   },
   "scripts": {
     "dev": "vite",
-    "dev:desktop": "concurrently \"vite\" \"wait-on http://localhost:3000 && electron .\"",
+    "dev:desktop": "npm run build:electron && concurrently \"vite\" \"wait-on http://127.0.0.1:3000 && electron .\"",
     "build": "tsc && vite build",
-    "build:desktop": "tsc && vite build && electron-builder",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build:desktop": "npm run build -- --base=./ && npm run build:electron && electron-builder",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint \"src/**/*.{ts,tsx}\"",
-    "electron:dev": "electron .",
-    "electron:build": "electron-builder"
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:run": "playwright test",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\" \"electron/**/*.mts\"",
+    "typecheck": "tsc --noEmit && tsc -p e2e/tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "check": "npm run lint && npm run typecheck && npm run test:run && npm run build",
+    "electron:dev": "npm run build:electron && electron .",
+    "electron:build": "npm run build:desktop"
   },
   "build": {
     "appId": "com.mindnotes.pro",
@@ -28,7 +40,7 @@
     },
     "files": [
       "dist/**/*",
-      "electron/**/*",
+      "dist-electron/**/*",
       "package.json"
     ],
     "win": {
@@ -40,7 +52,15 @@
           ]
         }
       ],
-      "icon": "public/icon.png"
+      "icon": "public/icons/icon-512x512.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility",
+      "icon": "public/icons/icon-512x512.png",
+      "syncDesktopName": true
     },
     "nsis": {
       "oneClick": false,
@@ -52,6 +72,7 @@
   },
   "dependencies": {
     "jspdf": "^4.2.1",
+    "lucide-react": "^1.28.0",
     "perfect-freehand": "^1.2.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -59,9 +80,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.1.0",
+    "@types/node": "^22.20.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.65.0",

@@ -4,7 +4,6 @@ import { usePointerEngine } from './usePointerEngine'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { createDefaultLayer, DEFAULT_LAYER_ID } from '../../store/layers'
-import { DEFAULT_ERASER_CONFIG, useEraserStore } from '../../eraser'
 import type { CanvasElement, ShapeElement } from '../../store/types'
 
 function mockBounds(el: CanvasElement): { x: number; y: number; w: number; h: number } {
@@ -132,22 +131,6 @@ function dispatchPointer(canvas: HTMLCanvasElement, event: PointerEvent) {
   })
 }
 
-function configureEraser(mode: 'simple' | 'physics', baseRadius: number) {
-  const config = { ...DEFAULT_ERASER_CONFIG, baseRadius, audioEnabled: false }
-  const eraserStore = useEraserStore.getState()
-  eraserStore.engine.updateConfig(config)
-  eraserStore.engine.setBaseSize(baseRadius)
-  eraserStore.spatialIndex.clear()
-  eraserStore.reset()
-  useEraserStore.setState({
-    eraserMode: mode,
-    eraserConfig: config,
-    particlesEnabled: false,
-    isErasing: false,
-    currentTrail: [],
-  })
-}
-
 function seedCanvasElements(elements: CanvasElement[]) {
   for (const element of elements) {
     useAppStore.getState().addElement(element)
@@ -175,7 +158,6 @@ describe('usePointerEngine', () => {
       undoStack: [],
       redoStack: [],
     })
-    configureEraser('physics', DEFAULT_ERASER_CONFIG.baseRadius)
     useViewStore.setState({
       viewBox: { x: 0, y: 0, zoom: 1 },
       isPanning: false,
@@ -228,6 +210,26 @@ describe('usePointerEngine', () => {
       })
     )
     expect(result.current.getDrawState).toBeTypeOf('function')
+  })
+
+  it('returns hovered element state without registering a window global', () => {
+    const { result } = renderHook(() =>
+      usePointerEngine({
+        canvasRef: createMockCanvasRef(),
+        cachedBounds: mockBounds,
+        scheduleRedraw: vi.fn(),
+        startEditText: vi.fn(),
+        textRef: createMockTextRef(),
+        findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
+        snapLinesRef: { current: { x: [], y: [] } },
+      })
+    )
+
+    expect(result.current.hoveredElementIdRef.current).toBeNull()
+    expect(
+      '__mindnotes_hovered_element_id__' in
+        (window as Window & { __mindnotes_hovered_element_id__?: unknown })
+    ).toBe(false)
   })
 
   describe('getCursor', () => {
@@ -609,8 +611,7 @@ describe('usePointerEngine', () => {
 
   describe('eraser interactions', () => {
     it('erases a sparse stroke when the eraser crosses a segment between sampled points', () => {
-      configureEraser('simple', 30)
-      useAppStore.setState({ tool: 'eraser', size: 1 })
+      useAppStore.setState({ tool: 'eraser', size: 16 })
       seedCanvasElements([
         {
           type: 'stroke',
@@ -655,8 +656,7 @@ describe('usePointerEngine', () => {
     })
 
     it('commits one drag erase as one undo action and restores the original stroke', () => {
-      configureEraser('simple', 30)
-      useAppStore.setState({ tool: 'eraser', size: 1 })
+      useAppStore.setState({ tool: 'eraser', size: 16 })
       seedCanvasElements([
         {
           type: 'stroke',
@@ -726,13 +726,12 @@ describe('usePointerEngine', () => {
       ])
     })
 
-    it('loads current canvas elements into the physics eraser index when erasing starts', () => {
-      configureEraser('physics', 30)
-      useAppStore.setState({ tool: 'eraser', size: 1 })
+    it('does not erase a locked element', () => {
+      useAppStore.setState({ tool: 'eraser', size: 16 })
       seedCanvasElements([
         {
           type: 'stroke',
-          id: 'stroke-physics',
+          id: 'stroke-locked',
           points: [
             [0, 0],
             [200, 0],
@@ -740,6 +739,7 @@ describe('usePointerEngine', () => {
           color: '#000',
           size: 2,
           brush: 'pen',
+          locked: true,
         },
       ])
       const { canvas } = renderPointerEngineHarness()
@@ -754,12 +754,6 @@ describe('usePointerEngine', () => {
           pressure: 0.5,
         })
       )
-      const candidateIds = useEraserStore.getState().spatialIndex.search({
-        x: -10,
-        y: -10,
-        w: 220,
-        h: 20,
-      })
       dispatchPointer(
         canvas,
         createMockPointerEvent('pointerup', {
@@ -772,7 +766,10 @@ describe('usePointerEngine', () => {
         })
       )
 
-      expect(candidateIds).toContain('stroke-physics')
+      expect(useAppStore.getState().elements.map((element) => element.id)).toContain(
+        'stroke-locked'
+      )
+      expect(useAppStore.getState().undoStack).toHaveLength(0)
     })
   })
 

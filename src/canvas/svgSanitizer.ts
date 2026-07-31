@@ -1,15 +1,15 @@
 /**
  * SVG 安全过滤器
- * 
+ *
  * 安全背景:
  * SVG 是 XML 格式，可以包含 <script> 标签执行任意 JavaScript。
  * 当用户粘贴恶意 SVG 并导出时，导出文件可能包含 XSS 攻击代码。
- * 
+ *
  * 设计参考:
  * - SVG 白名单过滤
  * - DOMPurify 一类的安全清理策略
  * - 主流设计工具对 SVG 导入的安全边界
- * 
+ *
  * 实现方案: 白名单机制 - 只允许安全的标签和属性
  * - 移除所有 <script> 标签及内容
  * - 移除所有 on* 事件处理器
@@ -20,39 +20,109 @@
 
 // 安全的 SVG 标签白名单
 const SAFE_SVG_TAGS = new Set([
-  'svg', 'g', 'defs', 'use', 'symbol',
-  'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon',
-  'linearGradient', 'radialGradient', 'stop',
-  'clipPath', 'mask', 'pattern', 'filter',
-  'feGaussianBlur', 'feMerge', 'feMergeNode', 'feOffset', 'feColorMatrix',
-  'image', 'text', 'tspan', 'title', 'desc',
-  'marker', 'style',
+  'svg',
+  'g',
+  'defs',
+  'use',
+  'symbol',
+  'path',
+  'rect',
+  'circle',
+  'ellipse',
+  'line',
+  'polyline',
+  'polygon',
+  'lineargradient',
+  'radialgradient',
+  'stop',
+  'clippath',
+  'mask',
+  'pattern',
+  'filter',
+  'fegaussianblur',
+  'femerge',
+  'femergenode',
+  'feoffset',
+  'fecolormatrix',
+  'image',
+  'text',
+  'tspan',
+  'title',
+  'desc',
+  'marker',
+  'style',
 ])
 
 // 安全的 SVG 属性白名单
 const SAFE_SVG_ATTRS = new Set([
   // 核心属性
-  'id', 'class', 'style', 'transform',
+  'id',
+  'class',
+  'style',
+  'transform',
+  'clip-path',
+  'filter',
+  'mask',
   // 坐标尺寸
-  'x', 'y', 'x1', 'y1', 'x2', 'y2',
-  'cx', 'cy', 'r', 'rx', 'ry',
-  'width', 'height', 'viewBox',
+  'x',
+  'y',
+  'x1',
+  'y1',
+  'x2',
+  'y2',
+  'cx',
+  'cy',
+  'r',
+  'rx',
+  'ry',
+  'width',
+  'height',
+  'viewbox',
   // 路径
-  'd', 'points',
+  'd',
+  'points',
   // 样式
-  'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin',
-  'stroke-dasharray', 'stroke-opacity', 'fill-opacity', 'opacity',
+  'fill',
+  'stroke',
+  'stroke-width',
+  'stroke-linecap',
+  'stroke-linejoin',
+  'stroke-dasharray',
+  'stroke-opacity',
+  'fill-opacity',
+  'opacity',
   // 渐变
-  'offset', 'stop-color', 'stop-opacity',
-  'gradientUnits', 'gradientTransform', 'xlink:href', 'href',
+  'offset',
+  'stop-color',
+  'stop-opacity',
+  'gradientunits',
+  'gradienttransform',
+  'xlink:href',
+  'href',
   // 滤镜
-  'stdDeviation', 'result', 'in',
+  'stddeviation',
+  'result',
+  'in',
   // 文本
-  'font-size', 'font-family', 'text-anchor', 'dominant-baseline', 'dy',
+  'font-size',
+  'font-family',
+  'text-anchor',
+  'dominant-baseline',
+  'dy',
   // 标记
-  'markerWidth', 'markerHeight', 'refX', 'refY', 'orient',
+  'markerwidth',
+  'markerheight',
+  'markerunits',
+  'marker-start',
+  'marker-mid',
+  'marker-end',
+  'refx',
+  'refy',
+  'orient',
   // 命名空间
-  'xmlns', 'xmlns:xlink', 'preserveAspectRatio',
+  'xmlns',
+  'xmlns:xlink',
+  'preserveaspectratio',
 ])
 
 // 危险的属性前缀（事件处理器）
@@ -90,9 +160,7 @@ function extractSvgFromDataUrl(dataUrl: string): string | null {
  * 将 SVG 内容转换为安全的 data URL
  */
 function svgToSafeDataUrl(svg: string): string {
-  const encoded = encodeURIComponent(svg)
-    .replace(/'/g, '%27')
-    .replace(/"/g, '%22')
+  const encoded = encodeURIComponent(svg).replace(/'/g, '%27').replace(/"/g, '%22')
   return `data:image/svg+xml,${encoded}`
 }
 
@@ -110,24 +178,26 @@ function sanitizeNode(node: Element, doc: Document): void {
   const attrs = Array.from(node.attributes)
   for (const attr of attrs) {
     const name = attr.name.toLowerCase()
-    
+
     // 移除事件处理器
-    if (DANGEROUS_ATTR_PREFIXES.some(prefix => name.startsWith(prefix))) {
+    if (DANGEROUS_ATTR_PREFIXES.some((prefix) => name.startsWith(prefix))) {
       node.removeAttribute(attr.name)
       continue
     }
-    
+
     // 移除不在白名单中的属性
     if (!SAFE_SVG_ATTRS.has(name)) {
       node.removeAttribute(attr.name)
       continue
     }
-    
+
     // 检查属性值是否包含危险协议
     const value = attr.value.toLowerCase()
-    if (value.includes('javascript:') || 
-        value.includes('vbscript:') ||
-        value.includes('data:text/html')) {
+    if (
+      value.includes('javascript:') ||
+      value.includes('vbscript:') ||
+      value.includes('data:text/html')
+    ) {
       node.removeAttribute(attr.name)
       continue
     }
@@ -142,7 +212,7 @@ function sanitizeNode(node: Element, doc: Document): void {
 
 /**
  * 清理 SVG 字符串，移除所有危险内容
- * 
+ *
  * @param svgString 原始 SVG 字符串
  * @returns 安全的 SVG 字符串
  */
@@ -151,7 +221,7 @@ export function sanitizeSvg(svgString: string): string {
     // 使用 DOMParser 解析 SVG
     const parser = new DOMParser()
     const doc = parser.parseFromString(svgString, 'image/svg+xml')
-    
+
     // 检查解析错误
     const parseError = doc.querySelector('parsererror')
     if (parseError) {
@@ -160,7 +230,7 @@ export function sanitizeSvg(svgString: string): string {
     }
 
     const svg = doc.documentElement
-    
+
     // 确保有正确的命名空间
     if (!svg.getAttribute('xmlns')) {
       svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
@@ -179,11 +249,11 @@ export function sanitizeSvg(svgString: string): string {
 
 /**
  * 清理 SVG data URL，防止 XSS 攻击
- * 
+ *
  * 使用场景:
  * 1. 用户粘贴 SVG 图片时
  * 2. 导出 SVG 包含嵌入图片时
- * 
+ *
  * @param dataUrl 原始图片 data URL
  * @returns 安全的 data URL（如果是 SVG 则清理，否则原样返回）
  */

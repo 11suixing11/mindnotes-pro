@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { CanvasDoc, ShapeElement } from './types'
+import { CANVAS_SCHEMA_VERSION } from './schema'
 import {
   createDefaultLayer,
+  createCanvasLayer,
   getRenderableElements,
   normalizeCanvasDocLayers,
   orderElementsByLayers,
@@ -59,6 +61,7 @@ describe('layer helpers', () => {
 
   it('normalizes old documents onto a default layer', () => {
     const doc: CanvasDoc = {
+      schemaVersion: CANVAS_SCHEMA_VERSION,
       id: 'doc-1',
       title: 'Old doc',
       elements: [makeShape('legacy')],
@@ -71,7 +74,32 @@ describe('layer helpers', () => {
     const normalized = normalizeCanvasDocLayers(doc, 123)
 
     expect(normalized.layers).toHaveLength(1)
+    expect(normalized.layers?.[0].name).toBe('图层 1')
     expect(normalized.activeLayerId).toBe(normalized.layers?.[0].id)
     expect(normalized.elements[0].layerId).toBe(normalized.activeLayerId)
+  })
+
+  it('localizes historical default layer names without changing custom names', () => {
+    const normalized = normalizeCanvasDocLayers({
+      schemaVersion: CANVAS_SCHEMA_VERSION,
+      id: 'doc-2',
+      title: 'Layer names',
+      elements: [],
+      layers: [
+        { ...createDefaultLayer(1), name: 'Layer 2' },
+        { ...createDefaultLayer(2), id: 'layer-custom', name: 'Sketches', order: 1 },
+      ],
+      activeLayerId: 'layer-default',
+      bgColor: '#fff',
+      folderId: null,
+      createdAt: 1,
+      updatedAt: 1,
+    })
+
+    expect(normalized.layers?.map((layer) => layer.name)).toEqual(['图层 2', 'Sketches'])
+  })
+
+  it('uses a localized fallback when a new layer name is blank', () => {
+    expect(createCanvasLayer('   ', 2, 123).name).toBe('图层 3')
   })
 })

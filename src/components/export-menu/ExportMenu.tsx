@@ -1,106 +1,68 @@
-import { useRef, useState, useCallback, useEffect, memo } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Download, FileJson, FileText, FileUp, Image as ImageIcon, Shapes } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import { useThemeStore } from '../../store/useThemeStore'
 import { useToastStore } from '../../store/toastStore'
-import type { CanvasElement } from '../../store/types'
-import { buildSVGString } from '../../canvas/svgExport'
+import type { CanvasDoc } from '../../store/types'
+import { createCanvasBackup, parseCanvasImportJSON } from '../../store/backup'
 import { getRenderableElements } from '../../store/layers'
+import {
+  canvasToBlob,
+  EmptyDocumentError,
+  formatExportTimestamp,
+  getDocumentExportBounds,
+  renderDocumentToCanvas,
+  type RenderedDocument,
+  sanitizeExportFilename,
+} from '../../canvas/documentExport'
+import { buildSVGString } from '../../canvas/svgExport'
 
-const DARK_BG = '#1C1A24'
 const DEFAULT_JPEG_QUALITY = 85
+const LOSSY_EXPORT_MAX_PIXELS = 16_000_000
 
-const I = {
-  download: (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  ),
-  image: (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <circle cx="8.5" cy="8.5" r="1.5" />
-      <polyline points="21 15 16 10 5 21" />
-    </svg>
-  ),
-  file: (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-      <line x1="16" y1="13" x2="8" y2="13" />
-      <line x1="16" y1="17" x2="8" y2="17" />
-    </svg>
-  ),
+interface ExportContext {
+  doc: CanvasDoc
+  visibleElements: CanvasDoc['elements']
 }
+
+type RasterExport = ExportContext & RenderedDocument
 
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.style.display = 'none'
-  document.body.appendChild(a)
-  a.click()
-  setTimeout(() => {
-    document.body.removeChild(a)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.style.display = 'none'
+  document.body.appendChild(anchor)
+  anchor.click()
+  window.setTimeout(() => {
+    anchor.remove()
     URL.revokeObjectURL(url)
   }, 200)
 }
-function ts() {
-  return new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')
-}
-function getCanvas() {
-  return document.getElementById('main-canvas') as HTMLCanvasElement | null
+
+function exportFilename(doc: CanvasDoc, extension: string) {
+  return `${sanitizeExportFilename(doc.title)}-${formatExportTimestamp()}.${extension}`
 }
 
-function withBg(c: HTMLCanvasElement, bg: string) {
-  const dpr = window.devicePixelRatio || 1
-  const w = Math.round(c.width / dpr),
-    h = Math.round(c.height / dpr)
-  const t = document.createElement('canvas')
-  t.width = w
-  t.height = h
-  const ctx = t.getContext('2d')
-  if (!ctx) return t
-  ctx.fillStyle = bg
-  ctx.fillRect(0, 0, w, h)
-  ctx.drawImage(c, 0, 0, c.width, c.height, 0, 0, w, h)
-  return t
-}
+function getExportContext(): ExportContext {
+  const state = useAppStore.getState()
+  const storedDoc = state.docs.find((doc) => doc.id === state.currentDocId)
+  if (!storedDoc) throw new Error('当前文档未就绪')
 
-function estimateDataUrlBytes(dataUrl: string) {
-  const base64 = dataUrl.split(',')[1] ?? ''
-  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0
-  return Math.max(0, Math.floor((base64.length * 3) / 4) - padding)
+  const doc: CanvasDoc = {
+    ...storedDoc,
+    elements: state.elements,
+    layers: state.layers,
+    activeLayerId: state.activeLayerId,
+    bgColor: state.bgColor,
+    backgroundStyle: state.backgroundStyle,
+  }
+  return {
+    doc,
+    visibleElements: getRenderableElements(state.elements, state.layers),
+  }
 }
 
 function formatBytes(bytes: number) {
@@ -111,247 +73,232 @@ function formatBytes(bytes: number) {
 
 const ExportMenu = memo(function ExportMenu() {
   const exportBtnRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const opaqueRasterRef = useRef<Promise<RasterExport> | null>(null)
   const [showExport, setShowExport] = useState(false)
   const [exportPos, setExportPos] = useState({ top: 0, right: 0 })
   const [jpegQuality, setJpegQuality] = useState(DEFAULT_JPEG_QUALITY)
   const [jpegEstimate, setJpegEstimate] = useState('待估算')
-  // 移除 elements 订阅，只在导出时通过 getState() 获取
-  // 避免任何元素变化都触发 ExportMenu re-render
-  const isDarkMode = useThemeStore((s) => s.isDarkMode)
-  const showToast = useToastStore((s) => s.show)
+  const isDarkMode = useThemeStore((state) => state.isDarkMode)
+  const showToast = useToastStore((state) => state.show)
 
-  const requireCanvas = () => {
-    const c = getCanvas()
-    if (!c) {
-      showToast('画布未就绪', 'warning')
-      return null
-    }
-    return c
-  }
+  const renderRaster = useCallback(
+    async (transparent: boolean): Promise<RasterExport> => {
+      const context = getExportContext()
+      if (context.visibleElements.length === 0) throw new EmptyDocumentError()
+      const rendered = await renderDocumentToCanvas(context.visibleElements, {
+        bgColor: context.doc.bgColor,
+        backgroundStyle: context.doc.backgroundStyle,
+        isDarkMode,
+        transparent,
+        maxPixels: transparent ? undefined : LOSSY_EXPORT_MAX_PIXELS,
+      })
+      return { ...context, ...rendered }
+    },
+    [isDarkMode]
+  )
 
-  const exportPNG = () => {
-    const c = requireCanvas()
-    if (!c) return
-    const t = withBg(c, 'transparent')
-    t.toBlob((b) => {
-      if (b) {
-        download(b, `mindnotes-${ts()}.png`)
-        showToast('PNG 导出成功', 'success')
-      } else {
-        showToast('PNG 导出失败', 'error')
-      }
+  const renderOpaqueRaster = useCallback(() => {
+    if (opaqueRasterRef.current) return opaqueRasterRef.current
+    const pending = renderRaster(false).catch((error: unknown) => {
+      if (opaqueRasterRef.current === pending) opaqueRasterRef.current = null
+      throw error
     })
-  }
-  const updateJpegEstimate = useCallback(() => {
-    const applyEstimate = (nextEstimate: string) => {
-      setJpegEstimate((current) => (current === nextEstimate ? current : nextEstimate))
-    }
+    opaqueRasterRef.current = pending
+    return pending
+  }, [renderRaster])
 
-    const c = getCanvas()
-    if (!c) {
-      applyEstimate('画布未就绪')
-      return
-    }
-
-    try {
-      const t = withBg(c, '#fff')
-      const dataUrl = t.toDataURL('image/jpeg', jpegQuality / 100)
-      applyEstimate(formatBytes(estimateDataUrlBytes(dataUrl)))
-    } catch {
-      applyEstimate('无法估算')
-    }
-  }, [jpegQuality])
+  const closeExport = useCallback((restoreFocus = true) => {
+    setShowExport(false)
+    opaqueRasterRef.current = null
+    if (restoreFocus) queueMicrotask(() => exportBtnRef.current?.focus())
+  }, [])
 
   useEffect(() => {
-    if (showExport) updateJpegEstimate()
-  }, [showExport, updateJpegEstimate])
+    if (!showExport) return
+    const focusTimer = window.setTimeout(() => {
+      const firstButton = dialogRef.current?.querySelector<HTMLButtonElement>('button')
+      firstButton?.focus()
+    }, 0)
 
-  const exportJPEG = () => {
-    const c = requireCanvas()
-    if (!c) return
-    const t = withBg(c, '#fff')
-    t.toBlob(
-      (b) => {
-        if (b) {
-          download(b, `mindnotes-${ts()}.jpg`)
-          showToast('JPEG 导出成功', 'success')
-        } else {
-          showToast('JPEG 导出失败', 'error')
-        }
-      },
-      'image/jpeg',
-      jpegQuality / 100
-    )
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      closeExport()
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.clearTimeout(focusTimer)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [closeExport, showExport])
+
+  useEffect(() => {
+    if (!showExport) return
+    let cancelled = false
+    setJpegEstimate('估算中')
+
+    const timer = window.setTimeout(() => {
+      void renderOpaqueRaster()
+        .then(({ canvas }) => canvasToBlob(canvas, 'image/jpeg', jpegQuality / 100))
+        .then((blob) => {
+          if (!cancelled) setJpegEstimate(formatBytes(blob.size))
+        })
+        .catch((error: unknown) => {
+          if (cancelled) return
+          setJpegEstimate(error instanceof EmptyDocumentError ? '无可见内容' : '无法估算')
+        })
+    }, 100)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [jpegQuality, renderOpaqueRaster, showExport])
+
+  const exportPNG = async () => {
+    const { canvas, doc } = await renderRaster(true)
+    const blob = await canvasToBlob(canvas)
+    download(blob, exportFilename(doc, 'png'))
+    showToast('PNG 导出成功', 'success')
   }
+
+  const exportJPEG = async () => {
+    const { canvas, doc } = await renderOpaqueRaster()
+    const blob = await canvasToBlob(canvas, 'image/jpeg', jpegQuality / 100)
+    download(blob, exportFilename(doc, 'jpg'))
+    showToast('JPEG 导出成功', 'success')
+  }
+
   const exportPDF = async () => {
-    const c = requireCanvas()
-    if (!c) return
-    const t = withBg(c, isDarkMode ? DARK_BG : '#fff')
+    const { canvas, doc } = await renderOpaqueRaster()
     const { jsPDF } = await import('jspdf')
-    const imgData = t.toDataURL('image/png')
-    const pw = t.width * 0.264583,
-      ph = t.height * 0.264583
-    const p = new jsPDF({
-      orientation: pw > ph ? 'landscape' : 'portrait',
+    const imageData = canvas.toDataURL('image/png')
+    const widthMm = canvas.width * 0.264583
+    const heightMm = canvas.height * 0.264583
+    const pdf = new jsPDF({
+      orientation: widthMm > heightMm ? 'landscape' : 'portrait',
       unit: 'mm',
-      format: [pw, ph],
+      format: [widthMm, heightMm],
     })
-    p.addImage(imgData, 'PNG', 0, 0, pw, ph)
-    p.save(`mindnotes-${ts()}.pdf`)
+    pdf.addImage(imageData, 'PNG', 0, 0, widthMm, heightMm)
+    pdf.save(exportFilename(doc, 'pdf'))
     showToast('PDF 导出成功', 'success')
   }
-  const exportSVG = () => {
-    const c = getCanvas()
-    if (!c) return showToast('画布为空', 'warning')
-    const dpr = window.devicePixelRatio || 1
-    const width = Math.round(c.width / dpr)
-    const height = Math.round(c.height / dpr)
-    // 导出时才获取 elements
-    const state = useAppStore.getState()
-    const elements = getRenderableElements(state.elements, state.layers)
-    const svgStr = buildSVGString(elements, { width, height, isDarkMode })
-    download(new Blob([svgStr], { type: 'image/svg+xml' }), `mindnotes-${ts()}.svg`)
+
+  const exportSVG = async () => {
+    const { doc, visibleElements } = getExportContext()
+    const bounds = getDocumentExportBounds(visibleElements)
+    if (!bounds) throw new EmptyDocumentError()
+    const svg = buildSVGString(visibleElements, {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.w,
+      height: bounds.h,
+      isDarkMode,
+      backgroundColor: doc.bgColor,
+      backgroundStyle: doc.backgroundStyle,
+    })
+    download(new Blob([svg], { type: 'image/svg+xml' }), exportFilename(doc, 'svg'))
     showToast('SVG 导出成功', 'success')
   }
-  const exportWord = () => {
-    const c = requireCanvas()
-    if (!c) return
-    const t = withBg(c, isDarkMode ? DARK_BG : '#fff')
-    const d = t.toDataURL('image/png')
-    const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset="utf-8"><style>body{font-family:sans-serif}img{max-width:100%}</style></head><body><h1>MindNotes Pro</h1><p>导出时间：${new Date().toLocaleString('zh-CN')}</p><p><img src="${d}" width="${t.width}" height="${t.height}"/></p></body></html>`
-    download(new Blob([h], { type: 'application/msword' }), `mindnotes-${ts()}.doc`)
-    showToast('Word 导出成功', 'success')
-  }
-  const exportJSON = () => {
-    // 导出时才获取 elements
-    const state = useAppStore.getState()
+
+  const exportJSON = async () => {
+    const { doc } = getExportContext()
+    const backup = createCanvasBackup(doc)
     download(
-      new Blob(
-        [
-          JSON.stringify(
-            {
-              elements: state.elements,
-              layers: state.layers,
-              activeLayerId: state.activeLayerId,
-              version: 3,
-            },
-            null,
-            2
-          ),
-        ],
-        { type: 'application/json' }
-      ),
-      `mindnotes-${ts()}.json`
+      new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }),
+      exportFilename(doc, 'json')
     )
+    showToast('JSON 备份导出成功', 'success')
   }
 
-  const importJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (!f) return
-    const r = new FileReader()
-    r.onload = () => {
-      try {
-        const d = JSON.parse(r.result as string)
-        if (d.elements) {
-          useAppStore.getState().addElements(d.elements)
-        } else if (d.strokes || d.shapes) {
-          const els: CanvasElement[] = []
-          for (const s of d.strokes ?? []) {
-            if (s.imageData)
-              els.push({
-                type: 'image',
-                id: s.id,
-                x: s.points[0][0],
-                y: s.points[0][1],
-                width: s.imageWidth ?? 200,
-                height: s.imageHeight ?? 200,
-                dataUrl: s.imageData,
-              })
-            else if (s.name)
-              els.push({
-                type: 'text',
-                id: s.id,
-                x: s.points[0][0],
-                y: s.points[0][1],
-                width: 200,
-                height: 30,
-                content: s.name,
-                fontSize: 16,
-                color: s.color,
-              })
-            else
-              els.push({
-                type: 'stroke',
-                id: s.id,
-                points: s.points,
-                color: s.color,
-                size: s.size,
-                brush: s.brush ?? 'pen',
-              })
-          }
-          for (const s of d.shapes ?? []) {
-            if (s.type === 'text') continue
-            const sx = s.startX ?? s.x,
-              sy = s.startY ?? s.y,
-              ex = s.endX ?? s.x + s.width,
-              ey = s.endY ?? s.y + s.height
-            els.push({
-              type: 'shape',
-              id: s.id,
-              kind: s.type,
-              x: Math.min(sx, ex),
-              y: Math.min(sy, ey),
-              w: Math.abs(ex - sx),
-              h: Math.abs(ey - sy),
-              color: s.color,
-              size: s.size,
-            })
-          }
-          useAppStore.getState().addElements(els)
-        } else {
-          showToast('文件格式不正确', 'error')
-        }
-      } catch {
-        showToast('无法解析文件', 'error')
+  const runExport = (action: () => Promise<void>) => {
+    const pending = action()
+    closeExport()
+    void pending.catch((error: unknown) => {
+      if (error instanceof EmptyDocumentError) {
+        showToast(error.message, 'warning')
+        return
       }
-    }
-    r.readAsText(f)
-    e.target.value = ''
+      const message = error instanceof Error ? error.message : '未知错误'
+      showToast(`导出失败：${message}`, 'error')
+    })
   }
 
-  const EXPORTS = [
-    { icon: I.image, label: 'PNG 图片', desc: '透明背景', action: exportPNG },
-    { icon: I.file, label: 'PDF 文档', desc: 'mm 单位自适应', action: exportPDF },
-    { icon: I.image, label: 'SVG 矢量', desc: '含图片+多行文字', action: exportSVG },
-    { icon: I.file, label: 'Word 文档', desc: '嵌入截图', action: exportWord },
-    { icon: I.download, label: 'JSON 数据', desc: '完整备份', action: exportJSON },
+  const importJSON = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget
+    const file = input.files?.[0]
+    if (!file) return
+
+    try {
+      const imported = parseCanvasImportJSON(await file.text())
+      await useAppStore.getState().importDoc(imported)
+      showToast('已导入为新的可编辑画布', 'success')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '无法解析文件'
+      showToast(`导入失败：${message}`, 'error')
+    } finally {
+      input.value = ''
+    }
+  }
+
+  const exports = [
+    {
+      icon: <ImageIcon size={16} />,
+      label: 'PNG 图片',
+      desc: '完整内容，透明背景',
+      action: exportPNG,
+    },
+    {
+      icon: <FileText size={16} />,
+      label: 'PDF 文档',
+      desc: '按内容尺寸生成页面',
+      action: exportPDF,
+    },
+    {
+      icon: <Shapes size={16} />,
+      label: 'SVG 矢量图',
+      desc: '保留矢量元素与图片',
+      action: exportSVG,
+    },
+    {
+      icon: <FileJson size={16} />,
+      label: 'JSON 备份',
+      desc: 'MindNotes Pro v4 完整文档',
+      action: exportJSON,
+    },
   ]
 
   const handleToggle = useCallback(() => {
-    if (!showExport && exportBtnRef.current) {
-      const r = exportBtnRef.current.getBoundingClientRect()
-      setExportPos({ top: r.bottom + 8, right: window.innerWidth - r.right })
+    if (showExport) {
+      closeExport(false)
+      return
     }
-    setShowExport(!showExport)
-  }, [showExport])
+    if (exportBtnRef.current) {
+      const rect = exportBtnRef.current.getBoundingClientRect()
+      setExportPos({ top: rect.bottom + 8, right: Math.max(8, window.innerWidth - rect.right) })
+    }
+    opaqueRasterRef.current = null
+    setShowExport(true)
+  }, [closeExport, showExport])
 
-  const renderExportItem = (item: (typeof EXPORTS)[number]) => (
+  const renderExportItem = (item: (typeof exports)[number]) => (
     <button
       key={item.label}
-      onClick={() => {
-        item.action()
-        setShowExport(false)
-      }}
+      type="button"
+      onClick={() => runExport(item.action)}
       className="ditem"
-      role="menuitem"
       aria-label={item.label}
     >
       <span className="di em-icon">{item.icon}</span>
-      <div className="em-labels">
+      <span className="em-labels">
         <span className="dl">{item.label}</span>
         <span className="dd">{item.desc}</span>
-      </div>
+      </span>
     </button>
   )
 
@@ -359,13 +306,15 @@ const ExportMenu = memo(function ExportMenu() {
     <>
       <button
         ref={exportBtnRef}
+        type="button"
         onClick={handleToggle}
         className="pill-btn primary"
         aria-label="导出"
-        aria-haspopup="true"
+        aria-haspopup="dialog"
         aria-expanded={showExport}
+        title="导出或导入画布"
       >
-        {I.download}
+        <Download size={14} />
         <span>导出</span>
       </button>
 
@@ -373,29 +322,28 @@ const ExportMenu = memo(function ExportMenu() {
         createPortal(
           <>
             <div
+              ref={dialogRef}
               className="panel em-menu"
-              role="menu"
+              role="dialog"
+              aria-modal="true"
               aria-label="导出选项"
               style={{ top: exportPos.top, right: exportPos.right }}
             >
-              {EXPORTS.slice(0, 1).map(renderExportItem)}
+              {exports.slice(0, 1).map(renderExportItem)}
               <div className="em-jpeg-panel" role="group" aria-label="JPEG 导出设置">
                 <button
-                  onClick={() => {
-                    exportJPEG()
-                    setShowExport(false)
-                  }}
+                  type="button"
+                  onClick={() => runExport(exportJPEG)}
                   className="ditem em-jpeg-action"
-                  role="menuitem"
                   aria-label="JPEG 图片"
                 >
-                  <span className="di em-icon">{I.image}</span>
-                  <div className="em-labels">
+                  <span className="di em-icon">
+                    <ImageIcon size={16} />
+                  </span>
+                  <span className="em-labels">
                     <span className="dl">JPEG 图片</span>
-                    <span className="dd">
-                      白色背景 · {jpegQuality}% · 预计 {jpegEstimate}
-                    </span>
-                  </div>
+                    <span className="dd">文档背景 · {jpegQuality}%</span>
+                  </span>
                 </button>
                 <label className="em-quality-row">
                   <span>质量</span>
@@ -413,23 +361,27 @@ const ExportMenu = memo(function ExportMenu() {
                   预计大小：{jpegEstimate}
                 </div>
               </div>
-              {EXPORTS.slice(1).map(renderExportItem)}
+              {exports.slice(1).map(renderExportItem)}
               <div className="dsep" />
               <button
+                type="button"
                 onClick={() => {
                   fileRef.current?.click()
-                  setShowExport(false)
+                  closeExport(false)
                 }}
                 className="ditem"
-                role="menuitem"
                 aria-label="导入 JSON"
               >
-                <span className="di em-icon">{I.file}</span>
-                <span className="dl">导入 JSON</span>
+                <span className="di em-icon">
+                  <FileUp size={16} />
+                </span>
+                <span className="em-labels">
+                  <span className="dl">导入 JSON</span>
+                  <span className="dd">作为新画布导入 v4、v3 或旧版文件</span>
+                </span>
               </button>
             </div>
-
-            <div className="em-overlay" onClick={() => setShowExport(false)} />
+            <div className="em-overlay" onClick={() => closeExport()} />
           </>,
           document.body
         )}
@@ -437,7 +389,7 @@ const ExportMenu = memo(function ExportMenu() {
       <input
         ref={fileRef}
         type="file"
-        accept=".json"
+        accept="application/json,.json"
         onChange={importJSON}
         className="em-hidden-input"
         aria-label="选择 JSON 文件"

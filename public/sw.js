@@ -1,157 +1,118 @@
-const CACHE_VERSION = 'v4.1';
-const CACHE_NAME = `mindnotes-${CACHE_VERSION}`;
-const STATIC_CACHE = `mindnotes-static-${CACHE_VERSION}`;
-const RUNTIME_CACHE = `mindnotes-runtime-${CACHE_VERSION}`;
+const CACHE_VERSION = 'v4.0.0'
+const STATIC_CACHE = `mindnotes-static-${CACHE_VERSION}`
+const RUNTIME_CACHE = `mindnotes-runtime-${CACHE_VERSION}`
 
-// Static assets to precache on install
 const PRECACHE_URLS = [
   './',
   './index.html',
   './manifest.json',
-  './icons/icon-192.svg',
-  './icons/icon-512.svg',
-];
+  './icons/icon-192x192.png',
+  './icons/icon-512x512.png',
+]
 
-// File extensions considered static assets (cache-first strategy)
 const STATIC_EXTENSIONS = [
-  '.js', '.css', '.html', '.json',
-  '.png', '.jpg', '.jpeg', '.svg', '.gif', '.ico', '.webp',
-  '.woff', '.woff2', '.ttf', '.eot', '.otf',
-];
-
-// Paths that are API/data requests (network-first strategy)
-const API_PATHS = ['/api/', '/graphql', '/auth/'];
+  '.js',
+  '.css',
+  '.html',
+  '.json',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.svg',
+  '.gif',
+  '.ico',
+  '.webp',
+  '.woff',
+  '.woff2',
+  '.ttf',
+  '.otf',
+]
 
 function isNavigationRequest(request) {
-  return request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html');
+  return request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')
 }
 
 function isStaticAsset(url) {
-  const pathname = url.pathname.toLowerCase();
-  // Root and index.html
-  if (pathname === '/' || pathname === '/index.html') return true;
-  // Check extension
-  return STATIC_EXTENSIONS.some((ext) => pathname.endsWith(ext));
+  const pathname = url.pathname.toLowerCase()
+  return pathname.endsWith('/') || STATIC_EXTENSIONS.some((extension) => pathname.endsWith(extension))
 }
 
-function isApiRequest(url) {
-  const pathname = url.pathname.toLowerCase();
-  return API_PATHS.some((p) => pathname.includes(p));
-}
-
-// ── Install: precache critical shell assets ──
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches
-      .open(STATIC_CACHE)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
-  );
-});
+  event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE_URLS)))
+})
 
-// ── Activate: clean up old caches ──
 self.addEventListener('activate', (event) => {
-  const currentCaches = new Set([STATIC_CACHE, RUNTIME_CACHE]);
+  const activeCaches = new Set([STATIC_CACHE, RUNTIME_CACHE])
   event.waitUntil(
     caches
       .keys()
       .then((keys) =>
-        Promise.all(
-          keys.filter((k) => !currentCaches.has(k)).map((k) => caches.delete(k))
-        )
+        Promise.all(keys.filter((key) => !activeCaches.has(key)).map((key) => caches.delete(key)))
       )
       .then(() => self.clients.claim())
-      .then(() => {
-        // Notify all clients that a new SW version is active
-        return self.clients.matchAll().then((clients) => {
-          clients.forEach((client) =>
-            client.postMessage({ type: 'SW_UPDATED', version: CACHE_VERSION })
-          );
-        });
-      })
-  );
-});
+  )
+})
 
-// ── Fetch handler with strategy routing ──
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
-  if (event.request.method !== 'GET') return;
+  const request = event.request
+  if (request.method !== 'GET') return
 
-  // Skip chrome-extension and non-http(s) schemes
-  const url = new URL(event.request.url);
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
-  if (event.request.url.includes('chrome-extension')) return;
-  if (event.request.cache === 'only-if-cached' && event.request.mode !== 'same-origin') return;
+  const url = new URL(request.url)
+  if (url.origin !== self.location.origin) return
+  if (request.cache === 'only-if-cached' && request.mode !== 'same-origin') return
 
-  // HTML shell should be network-first so users are not trapped on stale entry scripts.
-  if (isNavigationRequest(event.request)) {
+  if (isNavigationRequest(request)) {
     event.respondWith(
-      fetch(event.request)
+      fetch(request)
         .then((response) => {
-          if (response && response.status === 200 && response.type === 'basic') {
-            const clone = response.clone();
-            caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, clone));
+          if (response.ok) {
+            const copy = response.clone()
+            void caches.open(STATIC_CACHE).then((cache) => cache.put(request, copy))
           }
-          return response;
+          return response
         })
-        .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
-    );
-    return;
+        .catch(async () => {
+          const cached = (await caches.match(request)) || (await caches.match('./index.html'))
+          return cached || new Response('MindNotes Pro 当前处于离线状态', { status: 503 })
+        })
+    )
+    return
   }
 
-  // Strategy 1: API requests → Network-first (try network, fall back to cache)
-  if (isApiRequest(url)) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const clone = response.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
-    return;
-  }
-
-  // Strategy 2: Static assets → Cache-first (serve from cache, update in background)
   if (isStaticAsset(url)) {
     event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        // Stale-while-revalidate: return cache immediately, update in background
-        const fetchPromise = fetch(event.request)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-              const clone = networkResponse.clone();
-              caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, clone));
-            }
-            return networkResponse;
-          })
-          .catch(() => null); // Silently fail if offline
-
-        return cachedResponse || fetchPromise;
-      })
-    );
-    return;
-  }
-
-  // Strategy 3: Everything else → Network with runtime cache fallback
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response && response.status === 200 && response.type === 'basic') {
-          const clone = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => cache.put(event.request, clone));
+      caches.match(request).then((cached) => {
+        const fresh = fetch(request).then((response) => {
+          if (response.ok) {
+            const copy = response.clone()
+            void caches.open(STATIC_CACHE).then((cache) => cache.put(request, copy))
+          }
+          return response
+        })
+        if (cached) {
+          event.waitUntil(fresh.catch(() => undefined))
+          return cached
         }
-        return response;
+        return fresh.catch(async () => {
+          const fallback = await caches.match(request)
+          return fallback || new Response('资源暂时不可用', { status: 503 })
+        })
       })
-      .catch(() => caches.match(event.request))
-  );
-});
-
-// ── Listen for skip-waiting message from client ──
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
+    )
+    return
   }
-});
+
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const copy = response.clone()
+          void caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy))
+        }
+        return response
+      })
+      .catch(async () =>
+        (await caches.match(request)) || new Response('资源暂时不可用', { status: 503 })
+      )
+  )
+})

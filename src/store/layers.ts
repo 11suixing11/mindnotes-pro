@@ -1,7 +1,8 @@
 import type { CanvasDoc, CanvasElement, CanvasLayer } from './types'
+import { CANVAS_SCHEMA_VERSION } from './schema'
 
 export const DEFAULT_LAYER_ID = 'layer-default'
-export const DEFAULT_LAYER_NAME = 'Layer 1'
+export const DEFAULT_LAYER_NAME = '图层 1'
 
 export interface NormalizedLayerState {
   layers: CanvasLayer[]
@@ -23,7 +24,7 @@ export function createDefaultLayer(now = Date.now()): CanvasLayer {
 export function createCanvasLayer(name: string, order: number, now = Date.now()): CanvasLayer {
   return {
     id: `layer-${now}-${Math.random().toString(36).slice(2, 8)}`,
-    name: name.trim() || `Layer ${order + 1}`,
+    name: name.trim() || `图层 ${order + 1}`,
     visible: true,
     locked: false,
     order,
@@ -92,12 +93,12 @@ export function normalizeLayers(
   for (const [index, layer] of (rawLayers ?? []).entries()) {
     if (!layer || typeof layer.id !== 'string' || !layer.id.trim() || seen.has(layer.id)) continue
     seen.add(layer.id)
+    const rawName = typeof layer.name === 'string' ? layer.name.trim() : ''
+    const defaultName = `图层 ${index + 1}`
+    const historicalDefaultName = rawName.match(/^Layer (\d+)$/)
     normalized.push({
       id: layer.id,
-      name:
-        typeof layer.name === 'string' && layer.name.trim()
-          ? layer.name.trim()
-          : `Layer ${index + 1}`,
+      name: historicalDefaultName ? `图层 ${historicalDefaultName[1]}` : rawName || defaultName,
       visible: layer.visible !== false,
       locked: layer.locked === true,
       order: Number.isFinite(layer.order) ? layer.order : index,
@@ -132,6 +133,7 @@ export function normalizeCanvasDocLayers(doc: CanvasDoc, now = Date.now()): Canv
   const normalized = normalizeLayers(doc.layers, doc.activeLayerId, now)
   return {
     ...doc,
+    schemaVersion: CANVAS_SCHEMA_VERSION,
     elements: normalizeElementLayers(doc.elements ?? [], normalized.layers),
     layers: normalized.layers,
     activeLayerId: normalized.activeLayerId,
