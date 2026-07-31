@@ -31,8 +31,8 @@ function isCanvasDoc(value: unknown): value is CanvasDoc {
         typeof element.type === 'string' &&
         (CANVAS_ELEMENT_TYPES as readonly string[]).includes(element.type)
     ) &&
-    Array.isArray(value.layers) &&
-    typeof value.activeLayerId === 'string' &&
+    (value.layers === undefined || Array.isArray(value.layers)) &&
+    (value.activeLayerId === undefined || typeof value.activeLayerId === 'string') &&
     typeof value.bgColor === 'string' &&
     (value.backgroundStyle === undefined || typeof value.backgroundStyle === 'string') &&
     (value.folderId === null || typeof value.folderId === 'string') &&

@@ -65,4 +65,13 @@ describe('recovery drafts', () => {
 
     expect(loadRecoveryDraft()).toBeNull()
   })
+
+  it('accepts documents that omit optional layer metadata', () => {
+    const document = makeDocument('without-layers', 30)
+    delete document.layers
+    delete document.activeLayerId
+
+    expect(saveRecoveryDraft(document, 30)).toBe(true)
+    expect(loadRecoveryDraft('without-layers')).toMatchObject({ id: 'without-layers' })
+  })
 })
