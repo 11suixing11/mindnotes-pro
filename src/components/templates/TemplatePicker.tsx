@@ -240,6 +240,7 @@ export function TemplatePicker({
     }, 0)
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing) return
       if (event.key === 'Escape') {
         event.preventDefault()
         onCloseRef.current()

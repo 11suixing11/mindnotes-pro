@@ -120,5 +120,14 @@ describe('TemplatePicker', () => {
 
     view.rerender(<TemplatePicker {...props} isOpen={false} />)
     await waitFor(() => expect(document.activeElement).toBe(trigger))
+    trigger.remove()
+  })
+
+  it('does not close while an IME composition is active', () => {
+    const props = renderPicker()
+
+    fireEvent.keyDown(window, { key: 'Escape', isComposing: true })
+
+    expect(props.onClose).not.toHaveBeenCalled()
   })
 })
