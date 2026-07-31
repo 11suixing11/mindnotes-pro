@@ -258,7 +258,7 @@ describe('useAppStore', () => {
   })
 
   describe('save scheduling', () => {
-    it('should set saveStatus to saving when element is added', () => {
+    it('should keep saveStatus idle when an element is added without a document', () => {
       useAppStore.getState().addElement({
         type: 'stroke',
         id: 's1',
@@ -267,7 +267,7 @@ describe('useAppStore', () => {
         size: 2,
         brush: 'pen',
       })
-      expect(useAppStore.getState().saveStatus).toBe('saving')
+      expect(useAppStore.getState().saveStatus).toBe('idle')
     })
 
     it('should reset saveStatus to idle after save completes', async () => {
@@ -411,6 +411,7 @@ describe('useAppStore', () => {
         expect.objectContaining({ id: 'first-save' }),
         expect.objectContaining({ id: 'second-save' }),
       ])
+      vi.mocked(storageMock.update).mockImplementation(defaultUpdate)
     })
   })
 })

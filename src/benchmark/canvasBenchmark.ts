@@ -17,11 +17,19 @@ export interface CanvasSpatialBenchmarkReport {
   indexedMatchesLinear: boolean
 }
 
+function normalizeCount(value: number | undefined, fallback: number, name: string): number {
+  const count = value ?? fallback
+  if (!Number.isFinite(count)) throw new RangeError(`${name} must be finite`)
+  return Math.max(1, Math.floor(count))
+}
+
 export function createBenchmarkStrokes(elementCount: number): CanvasElement[] {
-  const sideLength = Math.ceil(Math.sqrt(elementCount))
+  if (!Number.isFinite(elementCount)) throw new RangeError('elementCount must be finite')
+  const normalizedCount = Math.max(0, Math.floor(elementCount))
+  const sideLength = Math.max(1, Math.ceil(Math.sqrt(normalizedCount)))
   const elements: CanvasElement[] = []
 
-  for (let index = 0; index < elementCount; index += 1) {
+  for (let index = 0; index < normalizedCount; index += 1) {
     const x = (index % sideLength) * 40
     const y = Math.floor(index / sideLength) * 40
     elements.push({
@@ -68,8 +76,8 @@ function queryLinear(elements: CanvasElement[], bounds: ReturnType<typeof queryB
 export function runCanvasSpatialBenchmark(
   options: CanvasSpatialBenchmarkOptions = {}
 ): CanvasSpatialBenchmarkReport {
-  const elementCount = Math.max(1, Math.floor(options.elementCount ?? 10_000))
-  const queryCount = Math.max(1, Math.floor(options.queryCount ?? 24))
+  const elementCount = normalizeCount(options.elementCount, 10_000, 'elementCount')
+  const queryCount = normalizeCount(options.queryCount, 24, 'queryCount')
   const elements = createBenchmarkStrokes(elementCount)
   const index = new SpatialIndex()
   index.bulkLoad(elements)

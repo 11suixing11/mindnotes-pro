@@ -114,6 +114,8 @@ export interface ImageElement {
 
 export type CanvasElement = StrokeElement | ShapeElement | TextElement | ImageElement
 
+export const CANVAS_ELEMENT_TYPES = ['stroke', 'shape', 'text', 'image'] as const
+
 export interface CanvasLayer {
   id: string
   name: string

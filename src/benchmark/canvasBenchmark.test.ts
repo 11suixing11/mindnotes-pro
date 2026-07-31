@@ -24,4 +24,13 @@ describe('canvas performance benchmark', () => {
     expect(report.indexedMs).toBeGreaterThanOrEqual(0)
     expect(report.linearMs).toBeGreaterThanOrEqual(0)
   })
+
+  it('rejects non-finite benchmark sizes before allocating work', () => {
+    expect(() => createBenchmarkStrokes(Number.POSITIVE_INFINITY)).toThrow(
+      'elementCount must be finite'
+    )
+    expect(() => runCanvasSpatialBenchmark({ queryCount: Number.POSITIVE_INFINITY })).toThrow(
+      'queryCount must be finite'
+    )
+  })
 })

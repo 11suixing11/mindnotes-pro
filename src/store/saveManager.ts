@@ -103,7 +103,7 @@ export function scheduleSave(): void {
   const now = Date.now()
   const documentId = _storeRef.getState().currentDocId
   if (!documentId) {
-    _storeRef.setState({ saveStatus: 'saving' })
+    _storeRef.setState({ saveStatus: 'idle' })
     return
   }
   const lastSaveTime = _lastSaveTimes.get(documentId) ?? 0
@@ -145,20 +145,19 @@ async function persistCurrentDocument(): Promise<boolean> {
     markDocumentSaved(currentDocId)
     return true
   }
+  const currentStateDoc = state.docs.find((doc) => doc.id === currentDocId)
   const recoveryDocument: CanvasDoc = {
     schemaVersion: CANVAS_SCHEMA_VERSION,
     id: currentDocId,
-    title: state.docs.find((doc) => doc.id === currentDocId)?.title ?? '未命名画布',
+    title: currentStateDoc?.title ?? '未命名画布',
     elements,
     layers,
     activeLayerId,
     bgColor,
     backgroundStyle,
-    folderId: state.docs.find((doc) => doc.id === currentDocId)?.folderId ?? null,
-    createdAt: state.docs.find((doc) => doc.id === currentDocId)?.createdAt ?? Date.now(),
+    folderId: currentStateDoc?.folderId ?? null,
+    createdAt: currentStateDoc?.createdAt ?? Date.now(),
     updatedAt: Date.now(),
-    undoStack,
-    redoStack,
   }
 
   try {
@@ -220,7 +219,7 @@ async function persistCurrentDocument(): Promise<boolean> {
     // 重建索引
     rebuildDocsIndex(docs)
     const isCurrentDocument = _storeRef.getState().currentDocId === currentDocId
-    _storeRef.setState(isCurrentDocument ? { docs, saveStatus: 'saved' } : { docs })
+    _storeRef.setState({ docs })
     if (isCurrentDocument) markDocumentSaved(currentDocId)
 
     if (

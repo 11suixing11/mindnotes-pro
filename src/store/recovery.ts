@@ -1,8 +1,10 @@
-import type { CanvasDoc } from './types'
+import { CANVAS_SCHEMA_VERSION } from './schema'
+import { CANVAS_ELEMENT_TYPES, type CanvasDoc } from './types'
 
 export const RECOVERY_DRAFT_STORAGE_KEY = 'mindnotes-pro-v4.recovery-draft'
 const RECOVERY_FORMAT = 'mindnotes-pro-recovery'
 const RECOVERY_VERSION = 1
+const MAX_RECOVERY_DRAFTS = 5
 
 interface RecoveryRecord {
   format: typeof RECOVERY_FORMAT
@@ -18,6 +20,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isCanvasDoc(value: unknown): value is CanvasDoc {
   if (!isRecord(value)) return false
   return (
+    value.schemaVersion === CANVAS_SCHEMA_VERSION &&
     typeof value.id === 'string' &&
     typeof value.title === 'string' &&
     Array.isArray(value.elements) &&
@@ -25,7 +28,8 @@ function isCanvasDoc(value: unknown): value is CanvasDoc {
       (element) =>
         isRecord(element) &&
         typeof element.id === 'string' &&
-        ['stroke', 'shape', 'text', 'image'].includes(String(element.type))
+        typeof element.type === 'string' &&
+        (CANVAS_ELEMENT_TYPES as readonly string[]).includes(element.type)
     ) &&
     Array.isArray(value.layers) &&
     typeof value.activeLayerId === 'string' &&
@@ -35,6 +39,29 @@ function isCanvasDoc(value: unknown): value is CanvasDoc {
     typeof value.createdAt === 'number' &&
     typeof value.updatedAt === 'number'
   )
+}
+
+function isRecoveryRecord(value: unknown): value is RecoveryRecord {
+  return (
+    isRecord(value) &&
+    value.format === RECOVERY_FORMAT &&
+    value.version === RECOVERY_VERSION &&
+    typeof value.savedAt === 'number' &&
+    Number.isFinite(value.savedAt) &&
+    isCanvasDoc(value.document)
+  )
+}
+
+function readRecoveryRecords(): RecoveryRecord[] {
+  if (typeof localStorage === 'undefined') return []
+
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(RECOVERY_DRAFT_STORAGE_KEY) ?? 'null')
+    if (Array.isArray(parsed)) return parsed.filter(isRecoveryRecord)
+    return isRecoveryRecord(parsed) ? [parsed] : []
+  } catch {
+    return []
+  }
 }
 
 export function saveRecoveryDraft(document: CanvasDoc, savedAt = Date.now()): boolean {
@@ -48,25 +75,29 @@ export function saveRecoveryDraft(document: CanvasDoc, savedAt = Date.now()): bo
   }
 
   try {
-    localStorage.setItem(RECOVERY_DRAFT_STORAGE_KEY, JSON.stringify(record))
+    const records = readRecoveryRecords().filter((item) => item.document.id !== document.id)
+    records.push(record)
+    records.sort((a, b) => b.savedAt - a.savedAt)
+    localStorage.setItem(
+      RECOVERY_DRAFT_STORAGE_KEY,
+      JSON.stringify(records.slice(0, MAX_RECOVERY_DRAFTS))
+    )
     return true
   } catch {
     return false
   }
 }
 
-export function loadRecoveryDraft(): CanvasDoc | null {
-  if (typeof localStorage === 'undefined') return null
+export function loadRecoveryDrafts(): CanvasDoc[] {
+  return readRecoveryRecords()
+    .sort((a, b) => b.savedAt - a.savedAt)
+    .map((record) => record.document)
+}
 
-  try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(RECOVERY_DRAFT_STORAGE_KEY) ?? 'null')
-    if (!isRecord(parsed)) return null
-    if (parsed.format !== RECOVERY_FORMAT || parsed.version !== RECOVERY_VERSION) return null
-    if (!isCanvasDoc(parsed.document)) return null
-    return parsed.document
-  } catch {
-    return null
-  }
+export function loadRecoveryDraft(documentId?: string): CanvasDoc | null {
+  const records = readRecoveryRecords().sort((a, b) => b.savedAt - a.savedAt)
+  const record = documentId ? records.find((item) => item.document.id === documentId) : records[0]
+  return record?.document ?? null
 }
 
 export function clearRecoveryDraft(): void {
@@ -82,17 +113,12 @@ export function clearRecoveryDraftForDocument(documentId: string, savedAt: numbe
   if (typeof localStorage === 'undefined') return
 
   try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(RECOVERY_DRAFT_STORAGE_KEY) ?? 'null')
-    if (
-      isRecord(parsed) &&
-      parsed.format === RECOVERY_FORMAT &&
-      parsed.version === RECOVERY_VERSION &&
-      isRecord(parsed.document) &&
-      parsed.document.id === documentId &&
-      typeof parsed.savedAt === 'number' &&
-      parsed.savedAt <= savedAt
-    ) {
-      localStorage.removeItem(RECOVERY_DRAFT_STORAGE_KEY)
+    const records = readRecoveryRecords()
+    const remaining = records.filter(
+      (record) => record.document.id !== documentId || record.savedAt > savedAt
+    )
+    if (remaining.length !== records.length) {
+      localStorage.setItem(RECOVERY_DRAFT_STORAGE_KEY, JSON.stringify(remaining))
     }
   } catch {
     // Recovery is best effort and must never block normal persistence.

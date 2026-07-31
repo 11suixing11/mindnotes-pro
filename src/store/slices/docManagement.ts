@@ -7,7 +7,12 @@ import { createDefaultLayer, normalizeCanvasDocLayers } from '../layers'
 import { CANVAS_SCHEMA_VERSION } from '../schema'
 import { useToastStore } from '../toastStore'
 import type { CanvasBackupDocument } from '../backup'
-import { clearRecoveryDraft, loadRecoveryDraft } from '../recovery'
+import {
+  clearRecoveryDraft,
+  clearRecoveryDraftForDocument,
+  loadRecoveryDraft,
+  loadRecoveryDrafts,
+} from '../recovery'
 
 const DOCUMENT_SEARCH_HISTORY_KEY = 'mn-sidebar-searches'
 const MAX_RECENT_DOCUMENT_SEARCHES = 5
@@ -166,18 +171,24 @@ export function createDocManagementSlice(
 
         docs = docs.map((doc) => normalizeCanvasDocLayers(doc))
         docs.sort((a, b) => b.updatedAt - a.updatedAt)
-        const current = docs[0]
-        const recoveryDraft = loadRecoveryDraft()
-        const persistedRecovery = recoveryDraft
-          ? docs.find((doc) => doc.id === recoveryDraft.id)
-          : undefined
-        if (
-          recoveryDraft &&
-          persistedRecovery &&
-          persistedRecovery.updatedAt >= recoveryDraft.updatedAt
-        ) {
-          clearRecoveryDraft()
+        const recoveredDocumentIds: string[] = []
+        for (const recoveryDraft of loadRecoveryDrafts()) {
+          const persistedRecovery = docs.find((doc) => doc.id === recoveryDraft.id)
+          if (!persistedRecovery) {
+            clearRecoveryDraftForDocument(recoveryDraft.id, Number.POSITIVE_INFINITY)
+            continue
+          }
+          if (persistedRecovery.updatedAt >= recoveryDraft.updatedAt) {
+            clearRecoveryDraftForDocument(recoveryDraft.id, persistedRecovery.updatedAt)
+            continue
+          }
+
+          const recovered = normalizeCanvasDocLayers(recoveryDraft)
+          docs = docs.map((doc) => (doc.id === recovered.id ? recovered : doc))
+          recoveredDocumentIds.push(recovered.id)
         }
+        docs.sort((a, b) => b.updatedAt - a.updatedAt)
+        const current = docs[0]
 
         set({
           docs,
@@ -195,6 +206,9 @@ export function createDocManagementSlice(
         })
 
         loadRuntimeElementIndexes(get, current?.elements ?? [])
+        if (recoveredDocumentIds.length > 0) {
+          useToastStore.getState().show('已恢复最近一次未保存草稿', 'warning', 5000)
+        }
         if (migratedLocalStorage) removeMigratedData()
       } catch (error) {
         console.error('[documents] Failed to initialize persistent storage', error)

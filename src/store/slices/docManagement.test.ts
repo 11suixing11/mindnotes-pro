@@ -226,6 +226,63 @@ describe('docManagement slice', () => {
       expect(toasts[toasts.length - 1]?.message).toContain('已恢复最近一次未保存草稿')
       consoleSpy.mockRestore()
     })
+
+    it('restores a newer recovery draft over the persisted document', async () => {
+      const persisted = {
+        schemaVersion: 4 as const,
+        id: 'recoverable-doc',
+        title: '旧版本',
+        elements: [],
+        layers: [
+          {
+            id: 'layer-default',
+            name: '图层 1',
+            visible: true,
+            locked: false,
+            order: 0,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ],
+        activeLayerId: 'layer-default',
+        bgColor: '#ffffff',
+        backgroundStyle: 'plain' as const,
+        folderId: null,
+        createdAt: 1,
+        updatedAt: 10,
+      }
+      storageMock.__store.docs = { [persisted.id]: persisted }
+      saveRecoveryDraft(
+        {
+          ...persisted,
+          title: '恢复版本',
+          elements: [
+            {
+              type: 'shape',
+              id: 'recovered-shape',
+              kind: 'rectangle',
+              x: 10,
+              y: 20,
+              w: 80,
+              h: 40,
+              color: '#0f766e',
+              size: 2,
+            },
+          ],
+          updatedAt: 20,
+        },
+        20
+      )
+
+      await useAppStore.getState().init()
+
+      const state = useAppStore.getState()
+      expect(state.currentDocId).toBe('recoverable-doc')
+      expect(state.docs[0]).toMatchObject({ title: '恢复版本', updatedAt: 20 })
+      expect(state.elements).toEqual([expect.objectContaining({ id: 'recovered-shape' })])
+      const toasts = useToastStore.getState().toasts
+      expect(toasts[toasts.length - 1]?.message).toContain('已恢复最近一次未保存草稿')
+    })
   })
 
   describe('createDoc', () => {
