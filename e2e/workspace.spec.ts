@@ -10,6 +10,16 @@ test.describe('核心画布', () => {
     await expect(page.getByRole('button', { name: '重做' })).toBeDisabled()
   })
 
+  test('跳过导航链接会把焦点交给绘图画布', async ({ page }) => {
+    await openApp(page)
+
+    const skipLink = page.locator('.skip-to-content')
+    await skipLink.focus()
+    await skipLink.press('Enter')
+
+    await expect(page.locator('#main-canvas')).toBeFocused()
+  })
+
   test('绘制、撤销和重做保持同一条历史记录', async ({ page }) => {
     await openApp(page)
 
