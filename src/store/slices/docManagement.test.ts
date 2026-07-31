@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from '../appStore'
 import { useToastStore } from '../toastStore'
 import { clearSaveTimer, resetSaveCache } from '../saveManager'
+import { saveRecoveryDraft } from '../recovery'
 import type { AppStore } from '../sliceTypes'
 import type * as StorageModule from '../storage'
 
@@ -173,6 +174,56 @@ describe('docManagement slice', () => {
       expect(state.elements).toEqual([])
       const toasts = useToastStore.getState().toasts
       expect(toasts[toasts.length - 1]?.message).toContain('仅保存在内存中')
+      consoleSpy.mockRestore()
+    })
+
+    it('restores the latest recovery draft when storage cannot initialize', async () => {
+      saveRecoveryDraft({
+        schemaVersion: 4,
+        id: 'recovery-doc',
+        title: '恢复草稿',
+        elements: [
+          {
+            type: 'shape',
+            id: 'recovered-shape',
+            kind: 'rectangle',
+            x: 10,
+            y: 20,
+            w: 80,
+            h: 40,
+            color: '#0f766e',
+            size: 2,
+          },
+        ],
+        layers: [
+          {
+            id: 'layer-default',
+            name: '图层 1',
+            visible: true,
+            locked: false,
+            order: 0,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ],
+        activeLayerId: 'layer-default',
+        bgColor: '#ffffff',
+        backgroundStyle: 'plain',
+        folderId: null,
+        createdAt: 1,
+        updatedAt: 2,
+      })
+      vi.mocked(storageMock.getAll).mockRejectedValueOnce(new Error('storage blocked'))
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      await useAppStore.getState().init()
+
+      const state = useAppStore.getState()
+      expect(state.currentDocId).toBe('recovery-doc')
+      expect(state.docs[0].title).toBe('恢复草稿')
+      expect(state.elements).toEqual([expect.objectContaining({ id: 'recovered-shape' })])
+      const toasts = useToastStore.getState().toasts
+      expect(toasts[toasts.length - 1]?.message).toContain('已恢复最近一次未保存草稿')
       consoleSpy.mockRestore()
     })
   })

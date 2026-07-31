@@ -7,6 +7,7 @@ import { createDefaultLayer, normalizeCanvasDocLayers } from '../layers'
 import { CANVAS_SCHEMA_VERSION } from '../schema'
 import { useToastStore } from '../toastStore'
 import type { CanvasBackupDocument } from '../backup'
+import { clearRecoveryDraft, loadRecoveryDraft } from '../recovery'
 
 const DOCUMENT_SEARCH_HISTORY_KEY = 'mn-sidebar-searches'
 const MAX_RECENT_DOCUMENT_SEARCHES = 5
@@ -166,6 +167,17 @@ export function createDocManagementSlice(
         docs = docs.map((doc) => normalizeCanvasDocLayers(doc))
         docs.sort((a, b) => b.updatedAt - a.updatedAt)
         const current = docs[0]
+        const recoveryDraft = loadRecoveryDraft()
+        const persistedRecovery = recoveryDraft
+          ? docs.find((doc) => doc.id === recoveryDraft.id)
+          : undefined
+        if (
+          recoveryDraft &&
+          persistedRecovery &&
+          persistedRecovery.updatedAt >= recoveryDraft.updatedAt
+        ) {
+          clearRecoveryDraft()
+        }
 
         set({
           docs,
@@ -186,23 +198,41 @@ export function createDocManagementSlice(
         if (migratedLocalStorage) removeMigratedData()
       } catch (error) {
         console.error('[documents] Failed to initialize persistent storage', error)
-        const blank = createBlankDocument()
+        const recoveryDraft = loadRecoveryDraft()
+        let fallback = createBlankDocument()
+        let recoveredFromDraft = false
+        if (recoveryDraft) {
+          try {
+            fallback = normalizeCanvasDocLayers(recoveryDraft)
+            recoveredFromDraft = true
+          } catch {
+            clearRecoveryDraft()
+          }
+        }
         set({
-          docs: [blank],
+          docs: [fallback],
           folders: [],
-          currentDocId: blank.id,
-          elements: [],
-          layers: blank.layers,
-          activeLayerId: blank.activeLayerId,
-          bgColor: blank.bgColor,
-          backgroundStyle: blank.backgroundStyle,
-          undoStack: [],
-          redoStack: [],
+          currentDocId: fallback.id,
+          elements: fallback.elements,
+          layers: fallback.layers,
+          activeLayerId: fallback.activeLayerId,
+          bgColor: fallback.bgColor,
+          backgroundStyle: fallback.backgroundStyle,
+          undoStack: fallback.undoStack ?? [],
+          redoStack: fallback.redoStack ?? [],
           loaded: true,
           saveStatus: 'error',
         })
-        loadRuntimeElementIndexes(get, [])
-        useToastStore.getState().show('浏览器存储不可用，当前内容仅保存在内存中', 'error', 6000)
+        loadRuntimeElementIndexes(get, fallback.elements)
+        useToastStore
+          .getState()
+          .show(
+            recoveredFromDraft
+              ? '浏览器存储不可用，已恢复最近一次未保存草稿；当前内容仍只保存在内存中'
+              : '浏览器存储不可用，当前内容仅保存在内存中',
+            'error',
+            6000
+          )
       }
     },
 

@@ -3,6 +3,7 @@ import { useAppStore } from './appStore'
 import { clearSaveTimer, resetSaveCache, saveDocNow } from './saveManager'
 import { useToastStore } from './toastStore'
 import type * as StorageModule from './storage'
+import { RECOVERY_DRAFT_STORAGE_KEY } from './recovery'
 
 vi.mock('./storage', () => {
   const store: Record<string, Record<string, unknown>> = {}
@@ -315,6 +316,7 @@ describe('useAppStore', () => {
       expect(useAppStore.getState().saveStatus).toBe('error')
       const toasts = useToastStore.getState().toasts
       expect(toasts[toasts.length - 1]?.message).toContain('保存失败')
+      expect(localStorage.getItem(RECOVERY_DRAFT_STORAGE_KEY)).not.toBeNull()
     })
 
     it('preserves a rename that completes while an automatic save is waiting', async () => {
@@ -355,6 +357,60 @@ describe('useAppStore', () => {
         title: 'Renamed while saving',
         elements: [expect.objectContaining({ id: 'shape-during-save' })],
       })
+    })
+
+    it('serializes overlapping saves and persists the newest generation', async () => {
+      const id = await useAppStore.getState().createDoc('Concurrent')
+      let releaseFirstSave: (() => void) | undefined
+      const firstSaveGate = new Promise<void>((resolve) => {
+        releaseFirstSave = resolve
+      })
+      const defaultUpdate = vi.mocked(storageMock.update).getMockImplementation()
+      if (!defaultUpdate) throw new Error('Expected an update mock implementation')
+      let updateCount = 0
+      vi.mocked(storageMock.update).mockImplementation(async (...args) => {
+        updateCount += 1
+        if (updateCount === 1) await firstSaveGate
+        return defaultUpdate(...args)
+      })
+
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'first-save',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 20,
+        h: 20,
+        color: '#000000',
+        size: 2,
+      })
+      const firstSave = saveDocNow()
+      await vi.waitFor(() => expect(storageMock.update).toHaveBeenCalledTimes(1))
+
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'second-save',
+        kind: 'circle',
+        x: 40,
+        y: 40,
+        w: 20,
+        h: 20,
+        color: '#000000',
+        size: 2,
+      })
+      const secondSave = saveDocNow()
+      expect(updateCount).toBe(1)
+
+      releaseFirstSave?.()
+      await Promise.all([firstSave, secondSave])
+
+      expect(updateCount).toBe(2)
+      const savedDoc = storageMock.__store.docs[id] as { elements: unknown[] }
+      expect(savedDoc.elements).toEqual([
+        expect.objectContaining({ id: 'first-save' }),
+        expect.objectContaining({ id: 'second-save' }),
+      ])
     })
   })
 })
