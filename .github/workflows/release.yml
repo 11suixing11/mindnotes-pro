@@ -76,6 +76,9 @@ jobs:
       - name: Package dist archive
         run: tar -czf mindnotes-pro-${{ github.ref_name }}.tar.gz -C dist .
 
+      - name: Generate checksums
+        run: sha256sum mindnotes-pro-${{ github.ref_name }}.tar.gz release/*.AppImage > SHA256SUMS
+
       - name: Extract release notes from CHANGELOG
         id: changelog
         run: |
@@ -124,10 +127,15 @@ jobs:
 
             The `mindnotes-pro-${{ github.ref_name }}.tar.gz` archive contains the production web build for static hosting. You can also use the **[Live App](https://11suixing11.github.io/mindnotes-pro)**.
 
+            **Before upgrading**
+
+            Export a JSON backup before clearing browser site data or changing devices. Browser documents remain local to the current origin. v4 imports v3 and supported legacy backups into a separate editable document.
+
             **[Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)** · **[Report Issues](https://github.com/${{ github.repository }}/issues)**
           files: |
             mindnotes-pro-${{ github.ref_name }}.tar.gz
             release/*.AppImage
+            SHA256SUMS
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}

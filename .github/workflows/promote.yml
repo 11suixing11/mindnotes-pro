@@ -1,8 +1,6 @@
 name: Auto Promotion
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       platform:
@@ -34,13 +32,6 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            if (context.eventName === 'release') {
-              return {
-                version: context.payload.release.tag_name,
-                body: context.payload.release.body,
-                url: context.payload.release.html_url
-              };
-            }
             const { data: releases } = await github.rest.repos.listReleases({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -59,7 +50,7 @@ jobs:
           VERSION="${{ fromJSON(steps.release.outputs.result).version }}"
           URL="${{ fromJSON(steps.release.outputs.result).url }}"
 
-          TWITTER="MindNotes Pro ${VERSION} is here! A local-first whiteboard with only 3 dependencies. Less than 1s load time, zero cloud, zero tracking. Try it: https://11suixing11.github.io/mindnotes-pro/ Source: https://github.com/11suixing11/mindnotes-pro #opensource #react #typescript #webdev"
+          TWITTER="MindNotes Pro ${VERSION} is available: a local-first whiteboard with editable templates, portable exports, and no account or cloud workspace. Try it: https://11suixing11.github.io/mindnotes-pro/ Source: https://github.com/11suixing11/mindnotes-pro #opensource #react #typescript #webdev"
 
           DEVTO_TITLE="What is New in MindNotes Pro ${VERSION}"
           DEVTO_TAGS="webdev, react, typescript, opensource, release"
