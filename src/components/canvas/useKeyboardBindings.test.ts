@@ -377,6 +377,19 @@ describe('useKeyboardBindings', () => {
 
       expect(useAppStore.getState().styleEyedropperActive).toBe(true)
     })
+
+    it('cancels active eyedropper mode with Escape', () => {
+      useAppStore.setState({
+        styleEyedropperActive: true,
+        styleEyedropperPreview: { color: '#111827', size: 4, brush: 'pen' },
+      })
+      renderHook(() => useKeyboardBindings())
+
+      press('Escape')
+
+      expect(useAppStore.getState().styleEyedropperActive).toBe(false)
+      expect(useAppStore.getState().styleEyedropperPreview).toBeNull()
+    })
   })
 
   describe('textarea/input focus', () => {

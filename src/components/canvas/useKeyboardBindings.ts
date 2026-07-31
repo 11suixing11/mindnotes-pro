@@ -175,6 +175,17 @@ function handleKeyboardNudge(e: KeyboardEvent): boolean {
   return true
 }
 
+function handleEscapeShortcut(e: KeyboardEvent): boolean {
+  if (e.key !== 'Escape') return false
+
+  const st = useAppStore.getState()
+  if (!st.styleEyedropperActive) return false
+
+  e.preventDefault()
+  st.toggleStyleEyedropper()
+  return true
+}
+
 function executeShortcutAction(
   action: ShortcutActionId,
   e: KeyboardEvent,
@@ -299,6 +310,8 @@ export function useKeyboardBindings(options: Options = {}) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isEditableShortcutTarget(e.target)) return
+
+      if (handleEscapeShortcut(e)) return
 
       const action = findShortcutAction(e, useShortcutStore.getState().bindings)
       if (action && executeShortcutAction(action, e, optionsRef)) return
