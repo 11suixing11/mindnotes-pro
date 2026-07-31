@@ -34,7 +34,7 @@ jobs:
         run: npm run lint
 
       - name: Build web and Linux desktop packages
-        run: npm run build:desktop
+        run: npm run build:desktop -- --publish never
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
