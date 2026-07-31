@@ -89,6 +89,7 @@ export interface CanvasElementsActions {
   alignSelected: (alignment: AlignmentType) => void
   distributeSelected: (distribution: DistributionType) => void
   batchErase: (beforeSnap: CanvasElement[], added: CanvasElement[]) => void
+  restoreElementsSnapshot: (elements: CanvasElement[], selectedIds?: string[]) => void
   // 元素锁定
   // 专业设计工具标配：锁定元素防止误操作
   lockSelected: () => void
@@ -1140,6 +1141,19 @@ export function createCanvasElementsSlice(
 
       // 重建索引后标记为干净
       _indexDirty = false
+      scheduleSave()
+    },
+
+    restoreElementsSnapshot: (elements, selectedIds = get().selectedIds) => {
+      const nextElements = elements.map(shallowClone)
+      const nextIds = new Set(nextElements.map((element) => element.id))
+      incrementSaveGeneration()
+      set({
+        elements: nextElements,
+        selectedIds: selectedIds.filter((id) => nextIds.has(id)),
+        redoStack: [],
+      })
+      setElementCollection(nextElements, get())
       scheduleSave()
     },
 
