@@ -782,7 +782,10 @@ export function createCanvasElementsSlice(
       const pasted: CanvasElement[] = []
       clipboard.forEach((el: CanvasElement, i: number) => {
         const newId = `${el.type}-${now}-${i}`
-        const layeredEl = assignToWritableLayer(moveElement({ ...el, id: newId }, 20, 20), st)
+        const layeredEl = assignToWritableLayer(
+          moveElement({ ...shallowClone(el), id: newId }, 20, 20),
+          st
+        )
         if (!layeredEl) return
         newIds.push(newId)
         pasted.push(layeredEl)
@@ -826,7 +829,7 @@ export function createCanvasElementsSlice(
         .map((el: CanvasElement, i: number) => {
           const newId = `${el.type}-${now}-${i}`
           newIds.push(newId)
-          return assignToWritableLayer(moveElement({ ...el, id: newId }, 20, 20), st)
+          return assignToWritableLayer(moveElement({ ...shallowClone(el), id: newId }, 20, 20), st)
         })
         .filter((el: CanvasElement | null): el is CanvasElement => !!el)
       if (duplicated.length === 0) return

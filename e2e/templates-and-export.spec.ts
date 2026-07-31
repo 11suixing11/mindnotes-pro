@@ -17,7 +17,7 @@ test.describe('模板与导入导出', () => {
 
     await page.getByRole('button', { name: '导出' }).click()
     const downloadPromise = page.waitForEvent('download')
-    await page.getByRole('menuitem', { name: 'JSON 备份' }).click()
+    await page.getByRole('button', { name: 'JSON 备份' }).click()
     const download = await downloadPromise
     const backup = JSON.parse((await downloadBuffer(download)).toString('utf8'))
 
@@ -37,7 +37,7 @@ test.describe('模板与导入导出', () => {
 
     await page.getByRole('button', { name: '导出' }).click()
     const downloadPromise = page.waitForEvent('download')
-    await page.getByRole('menuitem', { name: 'PNG 图片' }).click()
+    await page.getByRole('button', { name: 'PNG 图片' }).click()
     const png = await downloadBuffer(await downloadPromise)
 
     expect(png.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a')

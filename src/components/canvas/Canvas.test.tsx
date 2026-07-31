@@ -92,6 +92,7 @@ describe('Canvas', () => {
     expect(canvas).not.toBeNull()
     if (!canvas) return
     expect(canvas.classList.contains('main-canvas')).toBe(true)
+    expect(canvas.style.touchAction).toBe('none')
   })
 
   it('should not render text editor initially', () => {

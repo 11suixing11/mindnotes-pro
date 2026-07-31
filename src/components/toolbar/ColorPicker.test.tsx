@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ColorPicker from './ColorPicker'
 import { useAppStore } from '../../store/appStore'
 import { COLOR_HISTORY_KEY } from '../../store/slices/toolSettings'
@@ -56,6 +56,18 @@ describe('ColorPicker', () => {
     render(<ColorPicker />)
     fireEvent.click(screen.getByLabelText('颜色'))
     expect(screen.getByLabelText('自定义颜色')).toBeTruthy()
+  })
+
+  it('closes the palette with Escape and restores focus to its trigger', async () => {
+    render(<ColorPicker />)
+    const trigger = screen.getByLabelText('颜色')
+    fireEvent.click(trigger)
+
+    expect(screen.getByRole('dialog', { name: '颜色面板' })).toBeTruthy()
+    fireEvent.keyDown(window, { key: 'Escape' })
+
+    expect(screen.queryByRole('dialog', { name: '颜色面板' })).toBeNull()
+    await waitFor(() => expect(document.activeElement).toBe(trigger))
   })
 
   it('renders size buttons', () => {

@@ -195,6 +195,48 @@ describe('useViewStore', () => {
       expect(contentScreenTop).toBeGreaterThanOrEqual(156)
     })
 
+    it('fits content above the localized application status bar', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 1200, writable: true })
+      Object.defineProperty(window, 'innerHeight', { value: 800, writable: true })
+      const canvas = document.createElement('canvas')
+      canvas.id = 'main-canvas'
+      vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+        x: 240,
+        y: 0,
+        left: 240,
+        top: 0,
+        right: 1200,
+        bottom: 800,
+        width: 960,
+        height: 800,
+        toJSON: () => ({}),
+      })
+      document.body.appendChild(canvas)
+      const status = document.createElement('div')
+      status.className = 'status'
+      status.setAttribute('role', 'status')
+      status.setAttribute('aria-label', '应用状态')
+      vi.spyOn(status, 'getBoundingClientRect').mockReturnValue({
+        x: 500,
+        y: 740,
+        left: 500,
+        top: 740,
+        right: 900,
+        bottom: 780,
+        width: 400,
+        height: 40,
+        toJSON: () => ({}),
+      })
+      document.body.appendChild(status)
+
+      const bounds = { x: 0, y: 0, w: 300, h: 400 }
+      useViewStore.getState().zoomToFit(bounds)
+      const { viewBox } = useViewStore.getState()
+      const contentScreenBottom = (bounds.y + bounds.h - viewBox.y) * viewBox.zoom
+
+      expect(contentScreenBottom).toBeLessThanOrEqual(716)
+    })
+
     it('handles zero-width bounds without error', () => {
       Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true })
       Object.defineProperty(window, 'innerHeight', { value: 768, writable: true })

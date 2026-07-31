@@ -1,6 +1,7 @@
+import type { Page } from '@playwright/test'
 import { expect, insertFlowchart, openApp, test } from './helpers'
 
-async function visibleCanvasContent(page: import('@playwright/test').Page) {
+async function visibleCanvasContent(page: Page) {
   return page.locator('#main-canvas').evaluate((canvasElement) => {
     const canvas = canvasElement as HTMLCanvasElement
     const context = canvas.getContext('2d')

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CanvasElement } from '../store/types'
 
 const { drawBackgroundMock, drawElementMock } = vi.hoisted(() => ({
@@ -12,6 +12,8 @@ vi.mock('./canvasDrawing', () => ({
 }))
 
 import {
+  EmptyDocumentError,
+  formatExportTimestamp,
   getDocumentExportBounds,
   getDocumentExportScale,
   renderDocumentToCanvas,
@@ -34,6 +36,10 @@ describe('document export', () => {
   beforeEach(() => {
     drawBackgroundMock.mockReset()
     drawElementMock.mockReset()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('fits negative world coordinates with stable padding', () => {
@@ -94,8 +100,18 @@ describe('document export', () => {
     expect(drawElementMock).toHaveBeenCalledWith(context, shape, false)
   })
 
+  it('rejects an empty document before allocating an export canvas', async () => {
+    await expect(renderDocumentToCanvas([], { bgColor: '#ffffff' })).rejects.toBeInstanceOf(
+      EmptyDocumentError
+    )
+  })
+
   it('creates portable filenames', () => {
     expect(sanitizeExportFilename('  方案: A/B?  ')).toBe('方案- A-B-')
     expect(sanitizeExportFilename('...')).toBe('MindNotes-Pro')
+  })
+
+  it('formats export timestamps in local time', () => {
+    expect(formatExportTimestamp(new Date(2026, 6, 31, 13, 4, 5))).toBe('2026-07-31-13-04-05')
   })
 })

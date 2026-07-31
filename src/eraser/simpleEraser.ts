@@ -171,7 +171,7 @@ export function eraseElementsAtPoint(options: EraseOptions): ErasePatch {
       const split = splitStroke(element, options.point, options.radius, options.createId)
       if (split === null) continue
       removeIds.push(element.id)
-      additions.push(...split)
+      if (!options.topOnly) additions.push(...split)
     } else if (circleIntersectsBounds(options.point, options.radius, options.getBounds(element))) {
       removeIds.push(element.id)
     } else {

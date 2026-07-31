@@ -106,7 +106,6 @@ export default function App() {
         onClick={(e) => {
           e.preventDefault()
           mainContentRef.current?.focus()
-          document.getElementById('main-canvas')?.focus()
         }}
       >
         跳到画布

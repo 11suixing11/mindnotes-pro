@@ -94,7 +94,7 @@ function getFitArea() {
     left = Math.max(left, drawingToolbarRect.right - canvasRect.left + FIT_OVERLAY_GAP)
   }
 
-  const status = document.querySelector('[aria-label="Application status"]') as HTMLElement | null
+  const status = document.querySelector('.status[role="status"]') as HTMLElement | null
   const statusRect = status?.getBoundingClientRect()
   if (statusRect && overlaps(statusRect, visibleRect)) {
     bottom = Math.min(bottom, statusRect.top - canvasRect.top - FIT_OVERLAY_GAP)

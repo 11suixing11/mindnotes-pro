@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, memo } from 'react'
+import { useCallback, useEffect, useRef, useState, memo } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -78,25 +78,43 @@ const ColorPicker = memo(function ColorPicker() {
   const colorRef = useRef<HTMLInputElement>(null)
   const fillColorRef = useRef<HTMLInputElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
+  const paletteTriggerRef = useRef<HTMLButtonElement>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
+
+  const closePalette = useCallback((restoreFocus = false) => {
+    setPaletteOpen(false)
+    if (restoreFocus) queueMicrotask(() => paletteTriggerRef.current?.focus())
+  }, [])
 
   useEffect(() => {
     if (!paletteOpen) return
     const closeOnOutsideClick = (event: PointerEvent) => {
       if (!pickerRef.current?.contains(event.target as Node)) setPaletteOpen(false)
     }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      closePalette(true)
+    }
+    pickerRef.current?.querySelector<HTMLButtonElement>('.color-popover button')?.focus()
     window.addEventListener('pointerdown', closeOnOutsideClick)
-    return () => window.removeEventListener('pointerdown', closeOnOutsideClick)
-  }, [paletteOpen])
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('pointerdown', closeOnOutsideClick)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [closePalette, paletteOpen])
 
   return (
     <>
       <div className="color-picker" ref={pickerRef}>
         <button
+          ref={paletteTriggerRef}
           type="button"
           className="abtn color-trigger"
           aria-label="颜色"
           aria-expanded={paletteOpen}
+          aria-haspopup="dialog"
           onClick={() => setPaletteOpen((open) => !open)}
         >
           <span className="color-trigger-swatch" style={{ backgroundColor: color }} />

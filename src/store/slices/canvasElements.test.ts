@@ -405,6 +405,32 @@ describe('canvasElements slice', () => {
       expect(useAppStore.getState().selectedIds.length).toBe(1)
     })
 
+    it('pastes pressure strokes with independent pressure samples', () => {
+      const source = makeStroke('s1', { pressures: [0.2, 0.8] })
+      useAppStore.setState({ clipboard: [source] })
+
+      useAppStore.getState().paste()
+
+      const pasted = useAppStore.getState().elements[0] as StrokeElement
+      expect(pasted.pressures).toEqual([0.2, 0.8])
+      expect(pasted.pressures).not.toBe(source.pressures)
+    })
+
+    it('duplicates pressure strokes without sharing pressure arrays', () => {
+      const source = makeStroke('s1', { pressures: [0.25, 0.75] })
+      useAppStore.getState().addElement(source)
+      useAppStore.setState({ undoStack: [], redoStack: [] })
+      useAppStore.getState().setSelectedIds(['s1'])
+
+      useAppStore.getState().duplicateSelected()
+
+      const duplicated = useAppStore
+        .getState()
+        .elements.find((element) => element.id !== 's1') as StrokeElement
+      expect(duplicated.pressures).toEqual([0.25, 0.75])
+      expect(duplicated.pressures).not.toBe(source.pressures)
+    })
+
     it('does nothing when clipboard is empty', () => {
       useAppStore.setState({ elements: [makeStroke('s1')], clipboard: [] })
       useAppStore.getState().paste()

@@ -74,19 +74,23 @@ export function isTransparentImagePixel(
   let alphaData = imageAlphaCache.get(cacheKey)
 
   if (!alphaData) {
-    // 首次访问：渲染图片到离屏 canvas 并提取 alpha 通道
-    alphaSurface.canvas.width = img.naturalWidth
-    alphaSurface.canvas.height = img.naturalHeight
-    alphaSurface.context.clearRect(0, 0, img.naturalWidth, img.naturalHeight)
-    alphaSurface.context.drawImage(img, 0, 0)
+    try {
+      // 首次访问：渲染图片到离屏 canvas 并提取 alpha 通道
+      alphaSurface.canvas.width = img.naturalWidth
+      alphaSurface.canvas.height = img.naturalHeight
+      alphaSurface.context.clearRect(0, 0, img.naturalWidth, img.naturalHeight)
+      alphaSurface.context.drawImage(img, 0, 0)
 
-    // 获取像素数据
-    const imageData = alphaSurface.context.getImageData(0, 0, img.naturalWidth, img.naturalHeight)
-    alphaData = new Uint8ClampedArray(img.naturalWidth * img.naturalHeight)
+      // 获取像素数据
+      const imageData = alphaSurface.context.getImageData(0, 0, img.naturalWidth, img.naturalHeight)
+      alphaData = new Uint8ClampedArray(img.naturalWidth * img.naturalHeight)
 
-    // 只提取 alpha 通道（每4个字节的第4个）
-    for (let i = 0; i < alphaData.length; i++) {
-      alphaData[i] = imageData.data[i * 4 + 3]
+      // 只提取 alpha 通道（每4个字节的第4个）
+      for (let i = 0; i < alphaData.length; i++) {
+        alphaData[i] = imageData.data[i * 4 + 3]
+      }
+    } catch {
+      return false
     }
 
     // LRU 缓存管理
@@ -123,26 +127,38 @@ export function preloadImage(src: string): Promise<HTMLImageElement> {
   const pending = imageLoading.get(src)
   if (pending) return pending
 
+  const img = new Image()
+  let resolveImage: (image: HTMLImageElement) => void
+  let rejectImage: (error: Error) => void
+  let settled = false
   const promise = new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => {
-      imageLoading.delete(src)
-      resolve(cacheImage(src, img))
-      if (typeof window !== 'undefined') window.dispatchEvent(new Event('image-loaded'))
-    }
-    img.onerror = () => {
-      imageLoading.delete(src)
-      reject(new Error('图片加载失败'))
-    }
-    img.src = src
-
-    if (img.complete && img.naturalWidth > 0) {
-      imageLoading.delete(src)
-      resolve(cacheImage(src, img))
-    }
+    resolveImage = resolve
+    rejectImage = reject
   })
-
   imageLoading.set(src, promise)
+
+  const clearPending = () => {
+    if (imageLoading.get(src) === promise) imageLoading.delete(src)
+  }
+  const succeed = () => {
+    if (settled) return
+    settled = true
+    clearPending()
+    resolveImage(cacheImage(src, img))
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('image-loaded'))
+  }
+  const fail = () => {
+    if (settled) return
+    settled = true
+    clearPending()
+    rejectImage(new Error('图片加载失败'))
+  }
+
+  img.onload = succeed
+  img.onerror = fail
+  img.src = src
+  if (img.complete && img.naturalWidth > 0) succeed()
+
   return promise
 }
 

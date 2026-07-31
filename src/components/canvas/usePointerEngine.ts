@@ -11,7 +11,7 @@ import type {
   ToolType,
   UndoAction,
 } from '../../store/types'
-import { snapshot } from '../../store/helpers'
+import { shallowClone, snapshot } from '../../store/helpers'
 import {
   distToSegSq,
   elementBounds,
@@ -626,28 +626,31 @@ export function usePointerEngine(opts: {
         h: radius * 2,
       })
 
-      const cache = idToIndexCacheRef.current
-      if (cache.els !== state.elements) {
-        const map = new Map<string, number>()
-        for (let i = 0; i < state.elements.length; i++) map.set(state.elements[i].id, i)
-        idToIndexCacheRef.current = { els: state.elements, map }
+      const ids = [...(candidateIds ?? state.elements.map((e) => e.id))]
+      if (topOnly) {
+        const cache = idToIndexCacheRef.current
+        if (cache.els !== state.elements) {
+          const map = new Map<string, number>()
+          for (let i = 0; i < state.elements.length; i++) map.set(state.elements[i].id, i)
+          idToIndexCacheRef.current = { els: state.elements, map }
+        }
+        const idToIndex = idToIndexCacheRef.current.map
+        const layerOrder = getLayerOrderMap(state.layers)
+        ids.sort((a, b) => {
+          const aIndex = idToIndex.get(a)
+          const bIndex = idToIndex.get(b)
+          const aEl =
+            state.idToElement.get(a) ?? (aIndex === undefined ? undefined : state.elements[aIndex])
+          const bEl =
+            state.idToElement.get(b) ?? (bIndex === undefined ? undefined : state.elements[bIndex])
+          const layerDiff =
+            (bEl ? (layerOrder.get(getElementLayerId(bEl)) ?? 0) : 0) -
+            (aEl ? (layerOrder.get(getElementLayerId(aEl)) ?? 0) : 0)
+          return layerDiff || (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
+        })
       }
-      const idToIndex = idToIndexCacheRef.current.map
-      const layerOrder = getLayerOrderMap(state.layers)
-      const sortedIds = [...(candidateIds ?? state.elements.map((e) => e.id))].sort((a, b) => {
-        const aIndex = idToIndex.get(a)
-        const bIndex = idToIndex.get(b)
-        const aEl =
-          state.idToElement.get(a) ?? (aIndex === undefined ? undefined : state.elements[aIndex])
-        const bEl =
-          state.idToElement.get(b) ?? (bIndex === undefined ? undefined : state.elements[bIndex])
-        const layerDiff =
-          (bEl ? (layerOrder.get(getElementLayerId(bEl)) ?? 0) : 0) -
-          (aEl ? (layerOrder.get(getElementLayerId(aEl)) ?? 0) : 0)
-        return layerDiff || (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
-      })
 
-      const candidates = sortedIds
+      const candidates = ids
         .map((id) => state.idToElement.get(id))
         .filter((element): element is CanvasElement =>
           Boolean(element && isElementLayerEditable(element, state.layers))
@@ -1340,10 +1343,6 @@ export function usePointerEngine(opts: {
           dragRef.current.dragStarted = true
         }
 
-        // Alt 拖拽复制时保持原始元素位置不变
-        // 问题: 之前按住 Alt 拖拽时，原始元素会跟着鼠标一起移动
-        // 修复: 匹配 Figma/Excalidraw/Sketch 专业工具标准行为 - 原始元素保持原位，只有新复制的元素跟随鼠标
-        // 用户价值: 这是所有专业设计软件的标准交互，用户有强烈的心理预期
         if (
           altDragDuplicateRef.current.isDuplicating &&
           !altDragDuplicateRef.current.hasDuplicated &&
@@ -1360,10 +1359,7 @@ export function usePointerEngine(opts: {
 
             // 深拷贝元素，生成新 ID
             const newId = `${el.type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-            const newEl: CanvasElement =
-              el.type === 'stroke'
-                ? { ...el, id: newId, points: el.points.map((point) => [...point]) }
-                : { ...el, id: newId }
+            const newEl: CanvasElement = { ...shallowClone(el), id: newId }
 
             addElement(newEl)
             newIds.push(newId)

@@ -10,18 +10,23 @@ import { getRenderableElements } from '../../store/layers'
 import {
   canvasToBlob,
   EmptyDocumentError,
+  formatExportTimestamp,
   getDocumentExportBounds,
   renderDocumentToCanvas,
+  type RenderedDocument,
   sanitizeExportFilename,
 } from '../../canvas/documentExport'
 import { buildSVGString } from '../../canvas/svgExport'
 
 const DEFAULT_JPEG_QUALITY = 85
+const LOSSY_EXPORT_MAX_PIXELS = 16_000_000
 
 interface ExportContext {
   doc: CanvasDoc
   visibleElements: CanvasDoc['elements']
 }
+
+type RasterExport = ExportContext & RenderedDocument
 
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
@@ -37,12 +42,8 @@ function download(blob: Blob, filename: string) {
   }, 200)
 }
 
-function timestamp() {
-  return new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')
-}
-
 function exportFilename(doc: CanvasDoc, extension: string) {
-  return `${sanitizeExportFilename(doc.title)}-${timestamp()}.${extension}`
+  return `${sanitizeExportFilename(doc.title)}-${formatExportTimestamp()}.${extension}`
 }
 
 function getExportContext(): ExportContext {
@@ -72,7 +73,9 @@ function formatBytes(bytes: number) {
 
 const ExportMenu = memo(function ExportMenu() {
   const exportBtnRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const opaqueRasterRef = useRef<Promise<RasterExport> | null>(null)
   const [showExport, setShowExport] = useState(false)
   const [exportPos, setExportPos] = useState({ top: 0, right: 0 })
   const [jpegQuality, setJpegQuality] = useState(DEFAULT_JPEG_QUALITY)
@@ -81,7 +84,7 @@ const ExportMenu = memo(function ExportMenu() {
   const showToast = useToastStore((state) => state.show)
 
   const renderRaster = useCallback(
-    async (transparent: boolean) => {
+    async (transparent: boolean): Promise<RasterExport> => {
       const context = getExportContext()
       if (context.visibleElements.length === 0) throw new EmptyDocumentError()
       const rendered = await renderDocumentToCanvas(context.visibleElements, {
@@ -89,11 +92,49 @@ const ExportMenu = memo(function ExportMenu() {
         backgroundStyle: context.doc.backgroundStyle,
         isDarkMode,
         transparent,
+        maxPixels: transparent ? undefined : LOSSY_EXPORT_MAX_PIXELS,
       })
       return { ...context, ...rendered }
     },
     [isDarkMode]
   )
+
+  const renderOpaqueRaster = useCallback(() => {
+    if (opaqueRasterRef.current) return opaqueRasterRef.current
+    const pending = renderRaster(false).catch((error: unknown) => {
+      if (opaqueRasterRef.current === pending) opaqueRasterRef.current = null
+      throw error
+    })
+    opaqueRasterRef.current = pending
+    return pending
+  }, [renderRaster])
+
+  const closeExport = useCallback((restoreFocus = true) => {
+    setShowExport(false)
+    opaqueRasterRef.current = null
+    if (restoreFocus) queueMicrotask(() => exportBtnRef.current?.focus())
+  }, [])
+
+  useEffect(() => {
+    if (!showExport) return
+    const focusTimer = window.setTimeout(() => {
+      const firstButton = dialogRef.current?.querySelector<HTMLButtonElement>('button')
+      firstButton?.focus()
+    }, 0)
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      closeExport()
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.clearTimeout(focusTimer)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [closeExport, showExport])
 
   useEffect(() => {
     if (!showExport) return
@@ -101,7 +142,7 @@ const ExportMenu = memo(function ExportMenu() {
     setJpegEstimate('估算中')
 
     const timer = window.setTimeout(() => {
-      void renderRaster(false)
+      void renderOpaqueRaster()
         .then(({ canvas }) => canvasToBlob(canvas, 'image/jpeg', jpegQuality / 100))
         .then((blob) => {
           if (!cancelled) setJpegEstimate(formatBytes(blob.size))
@@ -116,7 +157,7 @@ const ExportMenu = memo(function ExportMenu() {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [jpegQuality, renderRaster, showExport])
+  }, [jpegQuality, renderOpaqueRaster, showExport])
 
   const exportPNG = async () => {
     const { canvas, doc } = await renderRaster(true)
@@ -126,14 +167,14 @@ const ExportMenu = memo(function ExportMenu() {
   }
 
   const exportJPEG = async () => {
-    const { canvas, doc } = await renderRaster(false)
+    const { canvas, doc } = await renderOpaqueRaster()
     const blob = await canvasToBlob(canvas, 'image/jpeg', jpegQuality / 100)
     download(blob, exportFilename(doc, 'jpg'))
     showToast('JPEG 导出成功', 'success')
   }
 
   const exportPDF = async () => {
-    const { canvas, doc } = await renderRaster(false)
+    const { canvas, doc } = await renderOpaqueRaster()
     const { jsPDF } = await import('jspdf')
     const imageData = canvas.toDataURL('image/png')
     const widthMm = canvas.width * 0.264583
@@ -176,8 +217,9 @@ const ExportMenu = memo(function ExportMenu() {
   }
 
   const runExport = (action: () => Promise<void>) => {
-    setShowExport(false)
-    void action().catch((error: unknown) => {
+    const pending = action()
+    closeExport()
+    void pending.catch((error: unknown) => {
       if (error instanceof EmptyDocumentError) {
         showToast(error.message, 'warning')
         return
@@ -232,12 +274,17 @@ const ExportMenu = memo(function ExportMenu() {
   ]
 
   const handleToggle = useCallback(() => {
-    if (!showExport && exportBtnRef.current) {
+    if (showExport) {
+      closeExport(false)
+      return
+    }
+    if (exportBtnRef.current) {
       const rect = exportBtnRef.current.getBoundingClientRect()
       setExportPos({ top: rect.bottom + 8, right: Math.max(8, window.innerWidth - rect.right) })
     }
-    setShowExport((open) => !open)
-  }, [showExport])
+    opaqueRasterRef.current = null
+    setShowExport(true)
+  }, [closeExport, showExport])
 
   const renderExportItem = (item: (typeof exports)[number]) => (
     <button
@@ -245,7 +292,6 @@ const ExportMenu = memo(function ExportMenu() {
       type="button"
       onClick={() => runExport(item.action)}
       className="ditem"
-      role="menuitem"
       aria-label={item.label}
     >
       <span className="di em-icon">{item.icon}</span>
@@ -264,7 +310,7 @@ const ExportMenu = memo(function ExportMenu() {
         onClick={handleToggle}
         className="pill-btn primary"
         aria-label="导出"
-        aria-haspopup="true"
+        aria-haspopup="dialog"
         aria-expanded={showExport}
         title="导出或导入画布"
       >
@@ -276,8 +322,10 @@ const ExportMenu = memo(function ExportMenu() {
         createPortal(
           <>
             <div
+              ref={dialogRef}
               className="panel em-menu"
-              role="menu"
+              role="dialog"
+              aria-modal="true"
               aria-label="导出选项"
               style={{ top: exportPos.top, right: exportPos.right }}
             >
@@ -287,7 +335,6 @@ const ExportMenu = memo(function ExportMenu() {
                   type="button"
                   onClick={() => runExport(exportJPEG)}
                   className="ditem em-jpeg-action"
-                  role="menuitem"
                   aria-label="JPEG 图片"
                 >
                   <span className="di em-icon">
@@ -320,10 +367,9 @@ const ExportMenu = memo(function ExportMenu() {
                 type="button"
                 onClick={() => {
                   fileRef.current?.click()
-                  setShowExport(false)
+                  closeExport(false)
                 }}
                 className="ditem"
-                role="menuitem"
                 aria-label="导入 JSON"
               >
                 <span className="di em-icon">
@@ -335,7 +381,7 @@ const ExportMenu = memo(function ExportMenu() {
                 </span>
               </button>
             </div>
-            <div className="em-overlay" onClick={() => setShowExport(false)} />
+            <div className="em-overlay" onClick={() => closeExport()} />
           </>,
           document.body
         )}

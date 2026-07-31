@@ -30,6 +30,9 @@ test.describe('核心画布', () => {
     const stroke = await drawStroke(page)
     await expect(appStatus(page)).toContainText('1 个元素')
     await page.getByRole('button', { name: /^橡皮擦工具/ }).click()
+    await expect
+      .poll(() => page.locator('.workspace-main').evaluate((element) => element.scrollTop))
+      .toBe(0)
 
     await page.mouse.move(stroke.startX - 20, stroke.y)
     await page.mouse.down()

@@ -5,6 +5,7 @@ import {
   findShortcutAction,
   findShortcutConflict,
   formatShortcutBinding,
+  getShortcutKeyParts,
   mergeShortcutBindings,
   parseShortcutExport,
   shortcutBindingFromEvent,
@@ -25,6 +26,12 @@ describe('keyboard shortcuts', () => {
   it('normalizes shifted punctuation as the printed key', () => {
     expect(shortcutBindingFromEvent(keyEvent('?', { shiftKey: true }))).toEqual({ key: '?' })
     expect(shortcutBindingFromEvent(keyEvent('+', { shiftKey: true }))).toEqual({ key: '+' })
+  })
+
+  it('keeps the plus key intact when rendering shortcut key caps', () => {
+    expect(getShortcutKeyParts({ key: '+' })).toEqual(['+'])
+    expect(getShortcutKeyParts({ key: '+', mod: true })).toEqual(['Ctrl', '+'])
+    expect(formatShortcutBinding({ key: '+', mod: true })).toBe('Ctrl++')
   })
 
   it('keeps shift as a modifier for shortcut letters', () => {

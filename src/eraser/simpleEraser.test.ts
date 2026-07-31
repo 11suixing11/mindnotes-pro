@@ -96,4 +96,36 @@ describe('simple eraser', () => {
 
     expect(patch).toEqual({ removeIds: ['top'], additions: [] })
   })
+
+  it('removes an entire stroke instead of splitting it in top-only mode', () => {
+    const patch = eraseElementsAtPoint({
+      elements: [stroke],
+      point: { x: 100, y: 0 },
+      radius: 20,
+      topOnly: true,
+      getBounds: bounds,
+      createId: (_sourceId, index) => `part-${index}`,
+    })
+
+    expect(patch).toEqual({ removeIds: ['stroke-1'], additions: [] })
+  })
+
+  it('removes all stroke fragments during a continuous sweep', () => {
+    let elements: CanvasElement[] = [stroke]
+
+    for (let step = 0; step <= 40; step += 1) {
+      const patch = eraseElementsAtPoint({
+        elements,
+        point: { x: -20 + (240 * step) / 40, y: 0 },
+        radius: 10,
+        getBounds: bounds,
+        createId: (sourceId, index) => `${sourceId}-part-${step}-${index}`,
+      })
+      if (patch.removeIds.length === 0) continue
+      const removeIds = new Set(patch.removeIds)
+      elements = elements.filter((element) => !removeIds.has(element.id)).concat(patch.additions)
+    }
+
+    expect(elements).toEqual([])
+  })
 })

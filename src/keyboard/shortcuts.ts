@@ -333,18 +333,18 @@ export function findShortcutAction(
 
 export function formatShortcutBinding(binding: ShortcutBinding | null): string {
   if (!binding) return '未设置'
-  const normalized = normalizeShortcutBinding(binding)
-  const parts = []
-  if (normalized.mod) parts.push('Ctrl')
-  if (normalized.alt) parts.push('Alt')
-  if (normalized.shift) parts.push('Shift')
-  parts.push(normalized.key === 'Space' ? 'Space' : normalized.key)
-  return parts.join('+')
+  return getShortcutKeyParts(binding).join('+')
 }
 
 export function getShortcutKeyParts(binding: ShortcutBinding | null): string[] {
   if (!binding) return ['未设置']
-  return formatShortcutBinding(binding).split('+')
+  const normalized = normalizeShortcutBinding(binding)
+  const parts: string[] = []
+  if (normalized.mod) parts.push('Ctrl')
+  if (normalized.alt) parts.push('Alt')
+  if (normalized.shift) parts.push('Shift')
+  parts.push(normalized.key === 'Space' ? 'Space' : normalized.key)
+  return parts
 }
 
 export function formatShortcutBadge(binding: ShortcutBinding | null): string {
