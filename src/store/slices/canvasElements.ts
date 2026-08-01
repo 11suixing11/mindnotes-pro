@@ -1151,7 +1151,6 @@ export function createCanvasElementsSlice(
       set({
         elements: nextElements,
         selectedIds: selectedIds.filter((id) => nextIds.has(id)),
-        redoStack: [],
       })
       setElementCollection(nextElements, get())
       scheduleSave()
