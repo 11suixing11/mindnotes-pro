@@ -463,7 +463,9 @@ describe('usePointerEngine', () => {
 
       act(() => {
         canvas.dispatchEvent(
-          new MouseEvent('mousedown', {
+          createMockPointerEvent('pointerdown', {
+            pointerId: 31,
+            pointerType: 'mouse',
             clientX: 200,
             clientY: 160,
             button: 0,
@@ -474,7 +476,9 @@ describe('usePointerEngine', () => {
       })
       act(() => {
         canvas.dispatchEvent(
-          new MouseEvent('mousemove', {
+          createMockPointerEvent('pointermove', {
+            pointerId: 31,
+            pointerType: 'mouse',
             clientX: 230,
             clientY: 180,
             buttons: 1,
@@ -484,7 +488,9 @@ describe('usePointerEngine', () => {
       })
       act(() => {
         canvas.dispatchEvent(
-          new MouseEvent('mouseup', {
+          createMockPointerEvent('pointerup', {
+            pointerId: 31,
+            pointerType: 'mouse',
             clientX: 230,
             clientY: 180,
             button: 0,
@@ -549,7 +555,9 @@ describe('usePointerEngine', () => {
 
       act(() => {
         canvas.dispatchEvent(
-          new MouseEvent('mousedown', {
+          createMockPointerEvent('pointerdown', {
+            pointerId: 32,
+            pointerType: 'mouse',
             clientX: 125,
             clientY: 125,
             button: 0,
@@ -560,7 +568,9 @@ describe('usePointerEngine', () => {
       })
       act(() => {
         canvas.dispatchEvent(
-          new MouseEvent('mousemove', {
+          createMockPointerEvent('pointermove', {
+            pointerId: 32,
+            pointerType: 'mouse',
             clientX: 155,
             clientY: 145,
             buttons: 1,
@@ -570,7 +580,9 @@ describe('usePointerEngine', () => {
       })
       act(() => {
         canvas.dispatchEvent(
-          new MouseEvent('mouseup', {
+          createMockPointerEvent('pointerup', {
+            pointerId: 32,
+            pointerType: 'mouse',
             clientX: 155,
             clientY: 145,
             button: 0,
@@ -606,6 +618,160 @@ describe('usePointerEngine', () => {
       expect(restoredArrow.y).toBe(125)
       expect(restoredArrow.w).toBe(50)
       expect(restoredArrow.h).toBe(0)
+    })
+
+    it('restores a cancelled drag without creating a history entry', () => {
+      useAppStore.setState({ tool: 'select' })
+      seedCanvasElements([
+        {
+          type: 'shape',
+          id: 'cancelled-shape',
+          kind: 'rectangle',
+          x: 100,
+          y: 100,
+          w: 80,
+          h: 50,
+          color: '#000',
+          size: 2,
+        },
+      ])
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 34,
+          pointerType: 'mouse',
+          clientX: 140,
+          clientY: 125,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 34,
+          pointerType: 'mouse',
+          clientX: 180,
+          clientY: 155,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointercancel', {
+          pointerId: 34,
+          pointerType: 'mouse',
+          clientX: 180,
+          clientY: 155,
+          buttons: 0,
+        })
+      )
+
+      const restored = useAppStore.getState().idToElement.get('cancelled-shape') as ShapeElement
+      expect(restored.x).toBe(100)
+      expect(restored.y).toBe(100)
+      expect(useAppStore.getState().undoStack).toHaveLength(0)
+    })
+
+    it('preserves redo history when cancelling before a drag starts', () => {
+      useAppStore.setState({
+        tool: 'select',
+        redoStack: [{ type: 'clear', snapshot: [] }],
+      })
+      seedCanvasElements([
+        {
+          type: 'shape',
+          id: 'no-op-cancel',
+          kind: 'rectangle',
+          x: 100,
+          y: 100,
+          w: 80,
+          h: 50,
+          color: '#000',
+          size: 2,
+        },
+      ])
+      useAppStore.setState({ redoStack: [{ type: 'clear', snapshot: [] }] })
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 35,
+          pointerType: 'mouse',
+          clientX: 140,
+          clientY: 125,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointercancel', {
+          pointerId: 35,
+          pointerType: 'mouse',
+          clientX: 140,
+          clientY: 125,
+          buttons: 0,
+        })
+      )
+
+      expect(useAppStore.getState().redoStack).toHaveLength(1)
+      expect(useAppStore.getState().idToElement.get('no-op-cancel')).toMatchObject({
+        x: 100,
+        y: 100,
+      })
+    })
+
+    it('preserves redo history when cancelling a changed drag', () => {
+      useAppStore.setState({ tool: 'select' })
+      seedCanvasElements([
+        {
+          type: 'shape',
+          id: 'changed-cancel',
+          kind: 'rectangle',
+          x: 100,
+          y: 100,
+          w: 80,
+          h: 50,
+          color: '#000',
+          size: 2,
+        },
+      ])
+      useAppStore.setState({ redoStack: [{ type: 'clear', snapshot: [] }] })
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 36,
+          pointerType: 'mouse',
+          clientX: 140,
+          clientY: 125,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 36,
+          pointerType: 'mouse',
+          clientX: 180,
+          clientY: 155,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointercancel', {
+          pointerId: 36,
+          pointerType: 'mouse',
+          clientX: 180,
+          clientY: 155,
+          buttons: 0,
+        })
+      )
+
+      expect(useAppStore.getState().redoStack).toHaveLength(1)
+      expect(useAppStore.getState().idToElement.get('changed-cancel')).toMatchObject({
+        x: 100,
+        y: 100,
+      })
     })
   })
 
@@ -809,7 +975,9 @@ describe('usePointerEngine', () => {
 
       act(() => {
         canvasRef.current?.dispatchEvent(
-          new MouseEvent('mousedown', {
+          createMockPointerEvent('pointerdown', {
+            pointerId: 33,
+            pointerType: 'mouse',
             clientX: 150,
             clientY: 150,
             button: 0,
@@ -820,7 +988,9 @@ describe('usePointerEngine', () => {
       })
       act(() => {
         canvasRef.current?.dispatchEvent(
-          new MouseEvent('mousemove', {
+          createMockPointerEvent('pointermove', {
+            pointerId: 33,
+            pointerType: 'mouse',
             clientX: 169,
             clientY: 176,
             buttons: 1,
@@ -838,7 +1008,9 @@ describe('usePointerEngine', () => {
 
       act(() => {
         canvasRef.current?.dispatchEvent(
-          new MouseEvent('mouseup', {
+          createMockPointerEvent('pointerup', {
+            pointerId: 33,
+            pointerType: 'mouse',
             clientX: 169,
             clientY: 176,
             button: 0,
