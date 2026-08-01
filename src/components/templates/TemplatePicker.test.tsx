@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getBuiltInTemplates, type CanvasTemplate } from '../../templates/canvasTemplates'
@@ -85,5 +85,49 @@ describe('TemplatePicker', () => {
     fireEvent.keyDown(window, { key: 'Escape' })
 
     expect(props.onClose).toHaveBeenCalled()
+  })
+
+  it('traps focus inside the dialog and restores focus to its trigger', async () => {
+    const trigger = document.createElement('button')
+    trigger.type = 'button'
+    document.body.appendChild(trigger)
+    trigger.focus()
+
+    const props: ComponentProps<typeof TemplatePicker> = {
+      isOpen: true,
+      builtInTemplates: getBuiltInTemplates(),
+      customTemplates: [],
+      sourceElementCount: 1,
+      onClose: vi.fn(),
+      onInsert: vi.fn(),
+      onSaveCustom: vi.fn(),
+      onDeleteCustom: vi.fn(),
+    }
+    const view = render(<TemplatePicker {...props} />)
+
+    const dialog = screen.getByRole('dialog', { name: '模板库' })
+    const first = screen.getByRole('button', { name: '关闭模板库' })
+    const buttons = within(dialog).getAllByRole('button')
+    const last = buttons[buttons.length - 1]
+
+    await waitFor(() => expect(document.activeElement).toBe(first))
+    last.focus()
+    fireEvent.keyDown(document, { key: 'Tab' })
+    expect(document.activeElement).toBe(first)
+
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true })
+    expect(document.activeElement).toBe(last)
+
+    view.rerender(<TemplatePicker {...props} isOpen={false} />)
+    await waitFor(() => expect(document.activeElement).toBe(trigger))
+    trigger.remove()
+  })
+
+  it('does not close while an IME composition is active', () => {
+    const props = renderPicker()
+
+    fireEvent.keyDown(window, { key: 'Escape', isComposing: true })
+
+    expect(props.onClose).not.toHaveBeenCalled()
   })
 })

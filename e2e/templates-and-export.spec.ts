@@ -11,6 +11,40 @@ test.describe('模板与导入导出', () => {
     await expect(appStatus(page)).toContainText('13 个元素')
   })
 
+  test('插入模板后可以直接编辑其中的文本节点', async ({ page }) => {
+    await openApp(page)
+    await insertFlowchart(page)
+
+    const canvas = page.locator('#main-canvas')
+    const box = await canvas.boundingBox()
+    expect(box).not.toBeNull()
+    const zoomLabel = await page
+      .getByRole('button', { name: /重置缩放，当前/ })
+      .getAttribute('aria-label')
+    const zoom = Number(zoomLabel?.match(/(\d+)%/)?.[1] ?? 100) / 100
+
+    // The process text is a stable point in the built-in flowchart. Use the
+    // current fitted zoom so the assertion remains valid across viewports.
+    await page.mouse.dblclick(
+      box!.x + box!.width / 2 + (280 - 322) * zoom,
+      box!.y + box!.height / 2 + (163 - 251) * zoom
+    )
+
+    const editor = page.locator('textarea')
+    await expect(editor).toHaveValue('处理')
+    await editor.fill('已编辑节点')
+    await editor.press('Enter')
+    await expect(appStatus(page)).toContainText('13 个元素')
+
+    await page.getByRole('button', { name: '导出' }).click()
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'JSON 备份' }).click()
+    const backup = JSON.parse((await downloadBuffer(await downloadPromise)).toString('utf8'))
+    expect(backup.document.elements).toEqual(
+      expect.arrayContaining([expect.objectContaining({ content: '已编辑节点' })])
+    )
+  })
+
   test('JSON 导出遵循 v4 备份协议', async ({ page }) => {
     await openApp(page)
     await insertFlowchart(page)

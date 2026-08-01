@@ -164,6 +164,25 @@ describe('canvas templates', () => {
     expect(loadCustomTemplates()).toEqual([])
   })
 
+  it('ignores structurally invalid custom template elements', () => {
+    localStorage.setItem(
+      CUSTOM_TEMPLATE_STORAGE_KEY,
+      JSON.stringify([
+        {
+          id: 'broken-template',
+          name: '损坏模板',
+          description: 'invalid',
+          category: 'custom',
+          width: 100,
+          height: 100,
+          elements: [{ type: 'shape', id: 'missing-geometry' }],
+        },
+      ])
+    )
+
+    expect(loadCustomTemplates()).toEqual([])
+  })
+
   it('recovers encrypted custom templates saved by the previous version', () => {
     const template = requireTemplate(createTemplateFromElements('旧模板', [makeShape('legacy')]))
     localStorage.setItem(LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY, encodeLegacyStorageValue([template]))

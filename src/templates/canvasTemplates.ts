@@ -245,6 +245,135 @@ function unlockTemplateElement(el: CanvasElement): CanvasElement {
   return { ...el, locked: false }
 }
 
+const VALID_SHAPE_KINDS = new Set(['rectangle', 'circle', 'line', 'arrow'])
+const VALID_BRUSH_TYPES = new Set([
+  'pen',
+  'highlighter',
+  'pencil',
+  'calligraphy',
+  'marker',
+  'watercolor',
+  'crayon',
+  'dashed',
+  'glow',
+])
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function isOptionalFiniteNumber(value: unknown): boolean {
+  return value === undefined || isFiniteNumber(value)
+}
+
+function isOptionalString(value: unknown): boolean {
+  return value === undefined || typeof value === 'string'
+}
+
+function isBinding(value: unknown): value is Binding {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.targetId === 'string' &&
+    isFiniteNumber(value.anchorX) &&
+    isFiniteNumber(value.anchorY)
+  )
+}
+
+function hasElementMetadata(record: Record<string, unknown>): boolean {
+  return (
+    typeof record.id === 'string' &&
+    record.id.length > 0 &&
+    isOptionalString(record.layerId) &&
+    isOptionalString(record.groupId) &&
+    (record.locked === undefined || typeof record.locked === 'boolean') &&
+    isOptionalFiniteNumber(record.rotation)
+  )
+}
+
+function isCanvasElement(value: unknown): value is CanvasElement {
+  if (!isRecord(value) || !hasElementMetadata(value)) return false
+
+  if (value.type === 'shape') {
+    return (
+      typeof value.kind === 'string' &&
+      VALID_SHAPE_KINDS.has(value.kind) &&
+      isFiniteNumber(value.x) &&
+      isFiniteNumber(value.y) &&
+      isFiniteNumber(value.w) &&
+      isFiniteNumber(value.h) &&
+      typeof value.color === 'string' &&
+      isFiniteNumber(value.size) &&
+      isOptionalString(value.fillColor) &&
+      (value.startBinding === undefined || isBinding(value.startBinding)) &&
+      (value.endBinding === undefined || isBinding(value.endBinding))
+    )
+  }
+
+  if (value.type === 'stroke') {
+    return (
+      Array.isArray(value.points) &&
+      value.points.length > 0 &&
+      value.points.every(
+        (point) =>
+          Array.isArray(point) &&
+          point.length >= 2 &&
+          point.every((coordinate) => isFiniteNumber(coordinate))
+      ) &&
+      typeof value.color === 'string' &&
+      isFiniteNumber(value.size) &&
+      typeof value.brush === 'string' &&
+      VALID_BRUSH_TYPES.has(value.brush) &&
+      (value.opacity === undefined || isFiniteNumber(value.opacity)) &&
+      (value.pressures === undefined ||
+        (Array.isArray(value.pressures) &&
+          value.pressures.every((pressure) => isFiniteNumber(pressure))))
+    )
+  }
+
+  if (value.type === 'text') {
+    return (
+      isFiniteNumber(value.x) &&
+      isFiniteNumber(value.y) &&
+      isFiniteNumber(value.width) &&
+      isFiniteNumber(value.height) &&
+      typeof value.content === 'string' &&
+      isFiniteNumber(value.fontSize) &&
+      typeof value.color === 'string' &&
+      (value.fontWeight === undefined ||
+        value.fontWeight === 'normal' ||
+        value.fontWeight === 'bold') &&
+      (value.fontStyle === undefined ||
+        value.fontStyle === 'normal' ||
+        value.fontStyle === 'italic') &&
+      (value.textDecoration === undefined ||
+        value.textDecoration === 'none' ||
+        value.textDecoration === 'underline') &&
+      (value.textAlign === undefined ||
+        value.textAlign === 'left' ||
+        value.textAlign === 'center' ||
+        value.textAlign === 'right') &&
+      isOptionalString(value.backgroundColor)
+    )
+  }
+
+  if (value.type === 'image') {
+    return (
+      isFiniteNumber(value.x) &&
+      isFiniteNumber(value.y) &&
+      isFiniteNumber(value.width) &&
+      isFiniteNumber(value.height) &&
+      typeof value.dataUrl === 'string' &&
+      (value.opacity === undefined || isFiniteNumber(value.opacity))
+    )
+  }
+
+  return false
+}
+
 export function cloneTemplate(template: CanvasTemplate): CanvasTemplate {
   return { ...template, elements: template.elements.map((el) => cloneElement(el)) }
 }
@@ -304,7 +433,7 @@ export function createTemplateFromElements(
   const normalized = elements.map((el) =>
     unlockTemplateElement(moveElement(cloneElement(el), -bounds.x, -bounds.y))
   )
-  const trimmedName = name.trim() || '未命名模板'
+  const trimmedName = name.trim().slice(0, 80) || '未命名模板'
 
   return {
     id: createRuntimeId('custom-template'),
@@ -327,9 +456,10 @@ function isCanvasTemplate(value: unknown): value is CanvasTemplate {
     typeof maybe.name === 'string' &&
     typeof maybe.description === 'string' &&
     maybe.category === 'custom' &&
-    typeof maybe.width === 'number' &&
-    typeof maybe.height === 'number' &&
-    Array.isArray(maybe.elements)
+    isFiniteNumber(maybe.width) &&
+    isFiniteNumber(maybe.height) &&
+    Array.isArray(maybe.elements) &&
+    maybe.elements.every(isCanvasElement)
   )
 }
 
