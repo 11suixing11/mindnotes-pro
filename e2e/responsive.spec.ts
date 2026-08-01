@@ -42,3 +42,21 @@ test('桌面内容缩到手机宽度后仍在视口内且品牌完整', async ({
   )
   expect(hasHorizontalPageOverflow).toBe(false)
 })
+
+test('窄手机视口仍完整展示 MindNotes Pro 标识且不产生页面溢出', async ({ page }) => {
+  await openApp(page)
+  await page.setViewportSize({ width: 320, height: 568 })
+
+  const brand = page.locator('.toolbar-brand')
+  await expect(brand).toContainText('MindNotes Pro')
+  const brandBox = await brand.boundingBox()
+  expect(brandBox).not.toBeNull()
+  expect(brandBox!.x).toBeGreaterThanOrEqual(0)
+  expect(brandBox!.x + brandBox!.width).toBeLessThanOrEqual(320)
+
+  await expect(page.locator('#main-canvas')).toHaveCSS('width', '320px')
+  const hasHorizontalPageOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth
+  )
+  expect(hasHorizontalPageOverflow).toBe(false)
+})

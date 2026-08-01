@@ -16,6 +16,7 @@ import { LoadingScreen } from './components/loading-screen'
 import { FEEDBACK_DISCUSSION_URL } from './productLinks'
 import { findShortcutAction, isEditableShortcutTarget } from './keyboard/shortcuts'
 import { useShortcutStore } from './store/useShortcutStore'
+import { Download } from 'lucide-react'
 
 const TOOL_LABELS: Record<string, string> = {
   select: '选择',
@@ -105,7 +106,12 @@ export default function App() {
         className="skip-to-content"
         onClick={(e) => {
           e.preventDefault()
-          mainContentRef.current?.focus()
+          const canvas = document.getElementById('main-canvas')
+          if (canvas instanceof HTMLElement) {
+            canvas.focus()
+          } else {
+            mainContentRef.current?.focus()
+          }
         }}
       >
         跳到画布
@@ -239,19 +245,7 @@ export default function App() {
               className="install-btn"
               aria-label="安装 MindNotes Pro"
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 3v12m0 0l-4-4m4 4l4-4" />
-                <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
-              </svg>
+              <Download size={16} aria-hidden="true" />
               安装应用
             </button>
           )}

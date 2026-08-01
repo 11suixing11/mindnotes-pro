@@ -227,6 +227,11 @@ body,
   touch-action: none;
 }
 
+.main-canvas:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
 #root {
   width: 100vw;
   height: 100vh;
@@ -520,6 +525,7 @@ body,
 .toolbar-brand {
   display: flex;
   flex: 0 0 auto;
+  min-width: max-content;
   align-items: center;
   gap: 8px;
   padding-right: 2px;
@@ -952,6 +958,7 @@ body,
 }
 
 .brand-text {
+  flex: 0 0 auto;
   font-size: 14px;
   font-weight: 700;
   color: var(--text);
@@ -1822,6 +1829,11 @@ body,
   /* Keep horizontally scrollable controls usable instead of letting flex shrink collapse them. */
   .topbar > * {
     flex: 0 0 auto;
+  }
+
+  .install-btn {
+    bottom: max(72px, calc(env(safe-area-inset-bottom) + 64px));
+    right: 12px;
   }
 
   .topbar::-webkit-scrollbar {

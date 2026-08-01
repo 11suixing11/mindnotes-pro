@@ -97,7 +97,12 @@ export default function Toolbar() {
   return (
     <>
       {/* Left toolbar: tools + undo/redo/clear only */}
-      <div className="sidebar panel" role="toolbar" aria-label="绘图工具">
+      <div
+        className="sidebar panel"
+        role="toolbar"
+        aria-label="绘图工具"
+        aria-orientation="vertical"
+      >
         <ToolButtons tool={tool} setTool={setTool} />
         <div className="sb-sep" role="separator" />
         <div className="sb-group">
@@ -133,7 +138,12 @@ export default function Toolbar() {
       </div>
 
       {/* Top toolbar: brush + color + zoom + theme + grid + export */}
-      <div className="topbar panel" role="toolbar" aria-label="画布工具">
+      <div
+        className="topbar panel"
+        role="toolbar"
+        aria-label="画布工具"
+        aria-orientation="horizontal"
+      >
         <div className="toolbar-brand" aria-label="MindNotes Pro">
           <div className="brand-icon" aria-hidden="true">
             M

@@ -162,6 +162,7 @@ export default function Canvas() {
           height={Math.round(canvasSize.h * dpr)}
           role="img"
           aria-label="绘图画布"
+          tabIndex={0}
           className="main-canvas"
           style={{
             touchAction: 'none',
