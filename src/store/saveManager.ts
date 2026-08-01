@@ -8,6 +8,7 @@ import type {
 import * as storage from './storage'
 import { CANVAS_SCHEMA_VERSION } from './schema'
 import { useToastStore } from './toastStore'
+import { clearRecoveryDraftForDocument, saveRecoveryDraft } from './recovery'
 const SAVE_DELAY = 1500
 interface StoreRef {
   setState: (partial: Record<string, unknown>) => void
@@ -29,12 +30,14 @@ interface StoreRef {
  * This keeps the timer state private and provides a clean API.
  */
 let _saveTimer: ReturnType<typeof setTimeout> | null = null
+let _saveStatusTimer: ReturnType<typeof setTimeout> | null = null
 let _storeRef: StoreRef | null = null
-// P0 性能优化: 使用 generation 计数器替代内容哈希
+// P0 性能优化: 使用按文档 generation 计数器替代内容哈希
 // 彻底解决中间元素修改无法被检测的问题（数据丢失bug）
-let _saveGeneration: number = 0
-let _lastSavedGeneration: number = -1
-let _lastSaveTime: number = 0
+let _saveGenerations = new Map<string, number>()
+let _lastSavedGenerations = new Map<string, number>()
+let _lastSaveTimes = new Map<string, number>()
+let _saveInFlight: Promise<boolean> | null = null
 // P0 性能优化: 使用 Map 进行 O(1) 文档查找，替代 O(n) 的 findIndex
 let _docsIndexMap: Map<string, number> | null = null
 /**
@@ -52,7 +55,9 @@ function rebuildDocsIndex(docs: CanvasDoc[]): void {
  * 每次 mutation 调用此函数标记内容已修改
  */
 export function incrementSaveGeneration(): void {
-  _saveGeneration++
+  const documentId = _storeRef?.getState().currentDocId
+  if (!documentId) return
+  _saveGenerations.set(documentId, (_saveGenerations.get(documentId) ?? 0) + 1)
 }
 /**
  * Initialize the save manager with a reference to the store.
@@ -69,6 +74,26 @@ export function clearSaveTimer(): void {
     _saveTimer = null
   }
 }
+
+function clearSaveStatusTimer(): void {
+  if (_saveStatusTimer) {
+    clearTimeout(_saveStatusTimer)
+    _saveStatusTimer = null
+  }
+}
+
+function markDocumentSaved(documentId: string): void {
+  if (!_storeRef || _storeRef.getState().currentDocId !== documentId) return
+
+  clearSaveStatusTimer()
+  _storeRef.setState({ saveStatus: 'saved' })
+  _saveStatusTimer = setTimeout(() => {
+    if (_storeRef?.getState().currentDocId === documentId) {
+      if (_storeRef.getState().saveStatus === 'saved') _storeRef.setState({ saveStatus: 'idle' })
+    }
+    _saveStatusTimer = null
+  }, 2000)
+}
 /**
  * Schedule a save after the configured delay.
  */
@@ -76,7 +101,13 @@ export function scheduleSave(): void {
   if (!_storeRef) return
   // P0 性能优化: 节流 - 最小保存间隔 500ms
   const now = Date.now()
-  if (now - _lastSaveTime < 500) {
+  const documentId = _storeRef.getState().currentDocId
+  if (!documentId) {
+    _storeRef.setState({ saveStatus: 'idle' })
+    return
+  }
+  const lastSaveTime = _lastSaveTimes.get(documentId) ?? 0
+  if (now - lastSaveTime < 500) {
     // 太频繁了，重置计时器但不立即触发
     clearSaveTimer()
     _saveTimer = setTimeout(() => {
@@ -87,13 +118,13 @@ export function scheduleSave(): void {
   clearSaveTimer()
   _storeRef.setState({ saveStatus: 'saving' })
   _saveTimer = setTimeout(() => {
-    saveDocNow()
+    void saveDocNow()
   }, SAVE_DELAY)
 }
 /**
  * Save the current document immediately.
  */
-export async function saveDocNow(): Promise<boolean> {
+async function persistCurrentDocument(): Promise<boolean> {
   if (!_storeRef) return false
   const state = _storeRef.getState()
   const {
@@ -109,17 +140,25 @@ export async function saveDocNow(): Promise<boolean> {
   if (!currentDocId) return true
   // 使用 generation 计数器检测变化
   // 彻底解决中间元素修改无法被检测的数据丢失bug
-  if (_saveGeneration === _lastSavedGeneration) {
-    // 内容未变化，直接标记为已保存
-    _storeRef.setState({ saveStatus: 'saved' })
-    setTimeout(() => {
-      if (_storeRef?.getState().saveStatus === 'saved') {
-        _storeRef.setState({ saveStatus: 'idle' })
-      }
-    }, 1000)
+  const generationAtStart = _saveGenerations.get(currentDocId) ?? 0
+  if (_lastSavedGenerations.get(currentDocId) === generationAtStart) {
+    markDocumentSaved(currentDocId)
     return true
   }
-  const generationAtStart = _saveGeneration
+  const currentStateDoc = state.docs.find((doc) => doc.id === currentDocId)
+  const recoveryDocument: CanvasDoc = {
+    schemaVersion: CANVAS_SCHEMA_VERSION,
+    id: currentDocId,
+    title: currentStateDoc?.title ?? '未命名画布',
+    elements,
+    layers,
+    activeLayerId,
+    bgColor,
+    backgroundStyle,
+    folderId: currentStateDoc?.folderId ?? null,
+    createdAt: currentStateDoc?.createdAt ?? Date.now(),
+    updatedAt: Date.now(),
+  }
 
   try {
     const now = Date.now()
@@ -144,8 +183,9 @@ export async function saveDocNow(): Promise<boolean> {
       }
     })
     // 更新缓存
-    _lastSavedGeneration = generationAtStart
-    _lastSaveTime = now
+    _lastSavedGenerations.set(currentDocId, generationAtStart)
+    _lastSaveTimes.set(currentDocId, now)
+    clearRecoveryDraftForDocument(currentDocId, now)
     // P1 性能优化: 增量更新文档列表，避免每次都重新获取所有文档
     // 只更新当前修改的文档，而不是重新 fetch 全部
     // 复用已有的 state 变量，避免重复调用 getState()
@@ -178,34 +218,76 @@ export async function saveDocNow(): Promise<boolean> {
     }
     // 重建索引
     rebuildDocsIndex(docs)
-    _storeRef.setState({ docs, saveStatus: 'saved' })
-    // Reset save status after 2 seconds
-    setTimeout(() => {
-      if (_storeRef?.getState().saveStatus === 'saved') {
-        _storeRef.setState({ saveStatus: 'idle' })
-      }
-    }, 2000)
+    const isCurrentDocument = _storeRef.getState().currentDocId === currentDocId
+    _storeRef.setState({ docs })
+    if (isCurrentDocument) markDocumentSaved(currentDocId)
 
-    if (_saveGeneration !== generationAtStart) scheduleSave()
+    if (
+      (_saveGenerations.get(currentDocId) ?? 0) !== generationAtStart &&
+      _storeRef.getState().currentDocId === currentDocId
+    ) {
+      scheduleSave()
+    }
     return true
   } catch (error) {
     console.error('[save] Failed to persist the current document', error)
-    _storeRef.setState({ saveStatus: 'error' })
-    useToastStore.getState().show('保存失败，请检查浏览器存储权限后重试', 'error', 5000)
+    const recoverySaved = saveRecoveryDraft(recoveryDocument)
+    if (_storeRef.getState().currentDocId === currentDocId) {
+      _storeRef.setState({ saveStatus: 'error' })
+    }
+    useToastStore
+      .getState()
+      .show(
+        recoverySaved
+          ? '保存失败，已保留本地恢复草稿；请检查浏览器存储权限后重试'
+          : '保存失败，请检查浏览器存储权限后重试',
+        'error',
+        5000
+      )
     return false
   }
+}
+
+/**
+ * Serialize saves so an older, slower IndexedDB request cannot finish after a
+ * newer request and overwrite its in-memory document list or save status.
+ */
+export function saveDocNow(): Promise<boolean> {
+  if (_saveInFlight) {
+    const pending = _saveInFlight
+    return pending.then((result) => {
+      if (!result || !_storeRef) return result
+      const currentDocId = _storeRef.getState().currentDocId
+      if (
+        !currentDocId ||
+        _lastSavedGenerations.get(currentDocId) === (_saveGenerations.get(currentDocId) ?? 0)
+      ) {
+        return result
+      }
+      return saveDocNow()
+    })
+  }
+
+  const pending = persistCurrentDocument()
+  _saveInFlight = pending
+  return pending.finally(() => {
+    if (_saveInFlight === pending) _saveInFlight = null
+  })
 }
 /**
  * P1 性能优化: 强制重置缓存（用于导入/导出等场景）
  */
 export function resetSaveCache(): void {
-  _lastSavedGeneration = -1
-  _lastSaveTime = 0
+  _saveGenerations = new Map()
+  _lastSavedGenerations = new Map()
+  _lastSaveTimes = new Map()
   _docsIndexMap = null
+  clearSaveStatusTimer()
 }
 // Clean up on HMR
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     clearSaveTimer()
+    clearSaveStatusTimer()
   })
 }
