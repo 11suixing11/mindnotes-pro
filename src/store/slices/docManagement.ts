@@ -7,6 +7,12 @@ import { createDefaultLayer, normalizeCanvasDocLayers } from '../layers'
 import { CANVAS_SCHEMA_VERSION } from '../schema'
 import { useToastStore } from '../toastStore'
 import type { CanvasBackupDocument } from '../backup'
+import {
+  clearRecoveryDraft,
+  clearRecoveryDraftForDocument,
+  loadRecoveryDraft,
+  loadRecoveryDrafts,
+} from '../recovery'
 
 const DOCUMENT_SEARCH_HISTORY_KEY = 'mn-sidebar-searches'
 const MAX_RECENT_DOCUMENT_SEARCHES = 5
@@ -165,6 +171,23 @@ export function createDocManagementSlice(
 
         docs = docs.map((doc) => normalizeCanvasDocLayers(doc))
         docs.sort((a, b) => b.updatedAt - a.updatedAt)
+        const recoveredDocumentIds: string[] = []
+        for (const recoveryDraft of loadRecoveryDrafts()) {
+          const persistedRecovery = docs.find((doc) => doc.id === recoveryDraft.id)
+          if (!persistedRecovery) {
+            clearRecoveryDraftForDocument(recoveryDraft.id, Number.POSITIVE_INFINITY)
+            continue
+          }
+          if (persistedRecovery.updatedAt >= recoveryDraft.updatedAt) {
+            clearRecoveryDraftForDocument(recoveryDraft.id, persistedRecovery.updatedAt)
+            continue
+          }
+
+          const recovered = normalizeCanvasDocLayers(recoveryDraft)
+          docs = docs.map((doc) => (doc.id === recovered.id ? recovered : doc))
+          recoveredDocumentIds.push(recovered.id)
+        }
+        docs.sort((a, b) => b.updatedAt - a.updatedAt)
         const current = docs[0]
 
         set({
@@ -183,26 +206,47 @@ export function createDocManagementSlice(
         })
 
         loadRuntimeElementIndexes(get, current?.elements ?? [])
+        if (recoveredDocumentIds.length > 0) {
+          useToastStore.getState().show('已恢复最近一次未保存草稿', 'warning', 5000)
+        }
         if (migratedLocalStorage) removeMigratedData()
       } catch (error) {
         console.error('[documents] Failed to initialize persistent storage', error)
-        const blank = createBlankDocument()
+        const recoveryDraft = loadRecoveryDraft()
+        let fallback = createBlankDocument()
+        let recoveredFromDraft = false
+        if (recoveryDraft) {
+          try {
+            fallback = normalizeCanvasDocLayers(recoveryDraft)
+            recoveredFromDraft = true
+          } catch {
+            clearRecoveryDraft()
+          }
+        }
         set({
-          docs: [blank],
+          docs: [fallback],
           folders: [],
-          currentDocId: blank.id,
-          elements: [],
-          layers: blank.layers,
-          activeLayerId: blank.activeLayerId,
-          bgColor: blank.bgColor,
-          backgroundStyle: blank.backgroundStyle,
-          undoStack: [],
-          redoStack: [],
+          currentDocId: fallback.id,
+          elements: fallback.elements,
+          layers: fallback.layers,
+          activeLayerId: fallback.activeLayerId,
+          bgColor: fallback.bgColor,
+          backgroundStyle: fallback.backgroundStyle,
+          undoStack: fallback.undoStack ?? [],
+          redoStack: fallback.redoStack ?? [],
           loaded: true,
           saveStatus: 'error',
         })
-        loadRuntimeElementIndexes(get, [])
-        useToastStore.getState().show('浏览器存储不可用，当前内容仅保存在内存中', 'error', 6000)
+        loadRuntimeElementIndexes(get, fallback.elements)
+        useToastStore
+          .getState()
+          .show(
+            recoveredFromDraft
+              ? '浏览器存储不可用，已恢复最近一次未保存草稿；当前内容仍只保存在内存中'
+              : '浏览器存储不可用，当前内容仅保存在内存中',
+            'error',
+            6000
+          )
       }
     },
 
