@@ -45,6 +45,7 @@ import {
 // P12 箭头绑定: 导入绑定工具函数
 import { tryBindToShape } from '../../store/bindingUtils'
 import { eraseElementsAtPoint, getEraserWorldRadius } from '../../eraser/simpleEraser'
+import { bindCanvasInputEvents } from './pointerEvents'
 
 // 模块级常量，避免每次渲染重建
 const CURSOR_MAP: Record<string, string> = {
@@ -154,6 +155,7 @@ export function usePointerEngine(opts: {
     moveElementsById,
     resizeElementById,
     setSelectedIds,
+    restoreElementsSnapshot,
   } = useAppStore(
     useShallow((s) => ({
       addElement: s.addElement,
@@ -162,6 +164,7 @@ export function usePointerEngine(opts: {
       moveElementsById: s.moveElementsById,
       resizeElementById: s.resizeElementById,
       setSelectedIds: s.setSelectedIds,
+      restoreElementsSnapshot: s.restoreElementsSnapshot,
     }))
   )
   const { startPan, updatePan, endPan } = useViewStore(
@@ -180,7 +183,6 @@ export function usePointerEngine(opts: {
   const currentPtsRef = useRef<number[][]>([])
   const currentPressuresRef = useRef<number[]>([])
   const activeTouchIdRef = useRef<number | null>(null)
-  const activePenPointerIdRef = useRef<number | null>(null)
   const isPinchingRef = useRef(false)
   const shapeStartRef = useRef<{ x: number; y: number } | null>(null)
   const currentShapeRef = useRef<ShapeElement | null>(null)
@@ -246,6 +248,7 @@ export function usePointerEngine(opts: {
     dragStarted: boolean
     startScreenX: number
     startScreenY: number
+    startSelectedIds: string[]
   } | null>(null)
   const resizeRef = useRef<{
     handle: number
@@ -254,6 +257,8 @@ export function usePointerEngine(opts: {
     startY: number
     origBounds: { x: number; y: number; w: number; h: number }
     origElement: CanvasElement | null
+    startElementsSnapshot: CanvasElement[]
+    startSelectedIds: string[]
   } | null>(null)
   // 旋转拖拽状态
   // 支持批量旋转多个元素
@@ -264,6 +269,8 @@ export function usePointerEngine(opts: {
     origRotations: Map<string, number>
     commonCenterX: number
     commonCenterY: number
+    startElementsSnapshot: CanvasElement[]
+    startSelectedIds: string[]
   } | null>(null)
   const marqueeRef = useRef<{ startX: number; startY: number; endX: number; endY: number } | null>(
     null
@@ -730,12 +737,12 @@ export function usePointerEngine(opts: {
       if (curTool === 'select') {
         const h = hitHandle(pos.x, pos.y)
         if (h) {
-          const el = useAppStore.getState().idToElement.get(h.id)
+          const st = useAppStore.getState()
+          const el = st.idToElement.get(h.id)
           if (el) {
             // 旋转手柄交互
             // 支持批量旋转多个选中元素
             if (h.isRotate) {
-              const st = useAppStore.getState()
               const selectedIds = st.selectedIds.length > 0 ? st.selectedIds : [h.id]
 
               // 计算所有选中元素的共同中心点（用于批量旋转）
@@ -765,6 +772,8 @@ export function usePointerEngine(opts: {
                 // 计算共同中心点（所有选中元素的边界框中心）
                 commonCenterX: (minX + maxX) / 2,
                 commonCenterY: (minY + maxY) / 2,
+                startElementsSnapshot: snapshot(st.elements),
+                startSelectedIds: [...st.selectedIds],
               }
             } else {
               // 缩放手柄
@@ -774,6 +783,8 @@ export function usePointerEngine(opts: {
                 startY: pos.y,
                 origBounds: cachedBounds(el),
                 origElement: { ...el } as CanvasElement,
+                startElementsSnapshot: snapshot(st.elements),
+                startSelectedIds: [...st.selectedIds],
               }
             }
           }
@@ -890,6 +901,7 @@ export function usePointerEngine(opts: {
             dragStarted: false,
             startScreenX: screenX,
             startScreenY: screenY,
+            startSelectedIds: [...st.selectedIds],
           }
           scheduleRedraw()
           return
@@ -1296,6 +1308,7 @@ export function usePointerEngine(opts: {
                 dragStarted: true, // 直接跳过阈值检测，立即开始拖拽
                 startScreenX: screenX,
                 startScreenY: screenY,
+                startSelectedIds: [...st.selectedIds],
               }
 
               marqueeRef.current = null
@@ -1748,20 +1761,64 @@ export function usePointerEngine(opts: {
   const cancelActiveInput = useCallback(
     (e?: Event) => {
       e?.preventDefault()
+      const drag = dragRef.current
+      const resize = resizeRef.current
+      const rotate = rotateRef.current
+      const restoreSnapshot =
+        drag?.startElementsSnapshot ??
+        resize?.startElementsSnapshot ??
+        rotate?.startElementsSnapshot
+      const restoreSelectedIds =
+        drag?.startSelectedIds ?? resize?.startSelectedIds ?? rotate?.startSelectedIds
+
       drawingRef.current = false
       currentPtsRef.current = []
       currentPressuresRef.current = []
       currentShapeRef.current = null
       shapeStartRef.current = null
       finishEraseHistory()
+      if (restoreSnapshot) {
+        const hasElementChanges =
+          getChangedElementIds(restoreSnapshot, useAppStore.getState().elements).length > 0
+        if (hasElementChanges) {
+          restoreElementsSnapshot(restoreSnapshot, restoreSelectedIds)
+        } else if (restoreSelectedIds) {
+          const elementIds = new Set(useAppStore.getState().elements.map((element) => element.id))
+          setSelectedIds(restoreSelectedIds.filter((id) => elementIds.has(id)))
+        }
+      }
+
+      dragRef.current = null
+      resizeRef.current = null
+      rotateRef.current = null
+      marqueeRef.current = null
+      snapLinesRef.current = { x: [], y: [] }
+      rightClickPanRef.current = {
+        ...rightClickPanRef.current,
+        isPanning: false,
+        moved: false,
+      }
       activeTouchIdRef.current = null
-      activePenPointerIdRef.current = null
       isPinchingRef.current = false
       penVelocityRef.current = 0
       if (useViewStore.getState().isPanning) endPan()
+      if (spacePanRef.current.isActive) {
+        const originalTool = spacePanRef.current.originalTool
+        if (originalTool) useAppStore.getState().setTool(originalTool as ToolType)
+        spacePanRef.current.isActive = false
+        spacePanRef.current.originalTool = null
+        spacePanRef.current.wasPanning = false
+      }
       scheduleRedraw()
     },
-    [endPan, scheduleRedraw, finishEraseHistory]
+    [
+      endPan,
+      restoreElementsSnapshot,
+      scheduleRedraw,
+      finishEraseHistory,
+      snapLinesRef,
+      setSelectedIds,
+    ]
   )
 
   // Pointer events
@@ -1785,28 +1842,17 @@ export function usePointerEngine(opts: {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const onStart = (e: MouseEvent | TouchEvent) => handleStartRef.current(e)
-    const onMove = (e: MouseEvent | TouchEvent) => handleMoveRef.current(e)
-    const onEnd = (e: MouseEvent | TouchEvent) => handleEndRef.current(e)
-    const onCancel = (e: Event) => handleCancelRef.current(e)
-    const onPointerStart = (e: PointerEvent) => {
-      if (e.pointerType !== 'pen') return
-      activePenPointerIdRef.current = e.pointerId
-      handleStartRef.current(e)
-    }
-    const onPointerMove = (e: PointerEvent) => {
-      if (e.pointerType !== 'pen' || activePenPointerIdRef.current !== e.pointerId) return
-      handleMoveRef.current(e)
-    }
-    const onPointerEnd = (e: PointerEvent) => {
-      if (e.pointerType !== 'pen' || activePenPointerIdRef.current !== e.pointerId) return
-      handleEndRef.current(e)
-      activePenPointerIdRef.current = null
-    }
-    const onPointerCancel = (e: PointerEvent) => {
-      if (e.pointerType !== 'pen' || activePenPointerIdRef.current !== e.pointerId) return
-      handleCancelRef.current(e)
-      activePenPointerIdRef.current = null
+    const unbindInputEvents = bindCanvasInputEvents(canvas, {
+      onStart: (event) => handleStartRef.current(event),
+      onMove: (event) => handleMoveRef.current(event),
+      onEnd: (event) => handleEndRef.current(event),
+      onCancel: (event) => handleCancelRef.current(event),
+    })
+    const onBlur = () => handleCancelRef.current(new Event('blur'))
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleCancelRef.current(new Event('visibilitychange'))
+      }
     }
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
@@ -1864,15 +1910,8 @@ export function usePointerEngine(opts: {
     // 使用 window 监听，确保焦点在 canvas 外也能工作
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
-
-    canvas.addEventListener('mousedown', onStart)
-    canvas.addEventListener('mousemove', onMove)
-    canvas.addEventListener('mouseup', onEnd)
-    canvas.addEventListener('mouseleave', onEnd)
-    canvas.addEventListener('pointerdown', onPointerStart)
-    canvas.addEventListener('pointermove', onPointerMove)
-    canvas.addEventListener('pointerup', onPointerEnd)
-    canvas.addEventListener('pointercancel', onPointerCancel)
+    window.addEventListener('blur', onBlur)
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     // 右键拖拽平移画布
     // 当正在进行右键平移时，阻止默认右键菜单
@@ -1927,29 +1966,15 @@ export function usePointerEngine(opts: {
     }
     canvas.addEventListener('wheel', onWheel, { passive: false })
     canvas.addEventListener('dblclick', onDblClick)
-    canvas.addEventListener('touchstart', onStart, { passive: false })
-    canvas.addEventListener('touchmove', onMove, { passive: false })
-    canvas.addEventListener('touchend', onEnd, { passive: false })
-    canvas.addEventListener('touchcancel', onCancel, { passive: false })
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
-
-      canvas.removeEventListener('mousedown', onStart)
-      canvas.removeEventListener('mousemove', onMove)
-      canvas.removeEventListener('mouseup', onEnd)
-      canvas.removeEventListener('mouseleave', onEnd)
-      canvas.removeEventListener('pointerdown', onPointerStart)
-      canvas.removeEventListener('pointermove', onPointerMove)
-      canvas.removeEventListener('pointerup', onPointerEnd)
-      canvas.removeEventListener('pointercancel', onPointerCancel)
+      window.removeEventListener('blur', onBlur)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      unbindInputEvents()
       canvas.removeEventListener('contextmenu', onContextMenu)
       canvas.removeEventListener('wheel', onWheel)
       canvas.removeEventListener('dblclick', onDblClick)
-      canvas.removeEventListener('touchstart', onStart)
-      canvas.removeEventListener('touchmove', onMove)
-      canvas.removeEventListener('touchend', onEnd)
-      canvas.removeEventListener('touchcancel', onCancel)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasRef])
