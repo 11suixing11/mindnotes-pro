@@ -95,6 +95,13 @@ describe('Canvas', () => {
     expect(canvas.style.touchAction).toBe('none')
   })
 
+  it('should expose the canvas as a keyboard focus target', () => {
+    const { container } = render(<Canvas />)
+    const canvas = container.querySelector('canvas')
+    expect(canvas).not.toBeNull()
+    expect(canvas?.getAttribute('tabindex')).toBe('0')
+  })
+
   it('should not render text editor initially', () => {
     const { container } = render(<Canvas />)
     expect(container.querySelector('textarea')).toBeNull()
