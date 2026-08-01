@@ -1819,6 +1819,11 @@ body,
     scrollbar-width: none;
   }
 
+  /* Keep horizontally scrollable controls usable instead of letting flex shrink collapse them. */
+  .topbar > * {
+    flex: 0 0 auto;
+  }
+
   .topbar::-webkit-scrollbar {
     display: none;
   }
