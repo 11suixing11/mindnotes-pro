@@ -19,12 +19,12 @@
 </div>
 
 <p align="center">
-  <img src=".github/mindnotes-pro-v4.png" width="900" alt="MindNotes Pro v4 画布中选中的可编辑流程图" />
+  <img src=".github/mindnotes-pro-v4.png" width="900" alt="MindNotes Pro v5 画布中选中的可编辑流程图" />
 </p>
 
-## v4 现在能可靠完成什么
+## v5 现在能可靠完成什么
 
-MindNotes Pro 首次打开就是一张可以直接使用的空白画布。v4 的目标不是继续堆演示功能，而是把少量核心流程做完整。
+MindNotes Pro 首次打开就是一张可以直接使用的空白画布。v5 的目标不是继续堆演示功能，而是把少量核心流程做完整。
 
 | 范围     | 当前行为                                                                           |
 | -------- | ---------------------------------------------------------------------------------- |
@@ -33,16 +33,17 @@ MindNotes Pro 首次打开就是一张可以直接使用的空白画布。v4 的
 | 工作区   | 多文档、标题与正文搜索、排序、图层、背景、网格、吸附、缩放和小地图                 |
 | 模板     | 5 个内置可编辑模板，也可以把当前内容保存为自定义模板                               |
 | 持久化   | 文档自动保存到 IndexedDB；偏好与自定义模板保存在本地                               |
-| 导入导出 | 按完整内容导出 PNG、JPEG、PDF、SVG；严格 v4 JSON 备份；兼容导入 v4、v3 和旧版 JSON |
+| 导入导出 | 按完整内容导出 PNG、JPEG、PDF、SVG；严格 v5 JSON 备份；兼容导入 v4、v3 和旧版 JSON |
 | 运行方式 | 响应式 Web 应用、可离线安装的 PWA，以及启用沙箱的 Electron 桌面壳                  |
 
 ## “本地优先”的实际含义
 
-- 文档保存在当前浏览器来源的 IndexedDB 数据库 `mindnotes-pro-v4` 中。
+- 文档保存在当前浏览器来源的 IndexedDB 数据库 `mindnotes-pro-v5` 中。
+- 首次启动会只读导入可用的 v4 数据；原 `mindnotes-pro-v4` 数据库不会被删除。
 - 项目不提供账号、托管同步或多人实时协作。
 - 清除浏览器站点数据可能删除本地文档。重要内容应定期导出 JSON 备份。
 - 导入 JSON 时会创建一个独立的可编辑文档，不会覆盖当前文档。
-- v4 首次启动且数据库为空时，会尽量迁移旧的 `mindnotes-drawing-data` 本地文档。
+- v5 首次启动且数据库为空时，会尽量迁移旧的 `mindnotes-drawing-data` 本地文档。
 
 ## 快速开始
 
@@ -82,7 +83,7 @@ npx playwright install chromium
 
 图片与文档导出使用完整可见内容的边界，不受当前平移和缩放影响。PNG 保留透明背景；JPEG 与 PDF 使用文档背景；SVG 尽量保留矢量内容。
 
-v4 JSON 备份协议是明确且可验证的：
+v5 JSON 备份协议是明确且可验证的：
 
 ```json
 {

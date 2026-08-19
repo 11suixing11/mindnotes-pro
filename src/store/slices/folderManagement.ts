@@ -1,5 +1,6 @@
-import type { CanvasFolder, CanvasDoc } from '../types'
-import * as storage from '../storage'
+import type { CanvasFolder } from '../types'
+import { getDocumentRepository } from '../documentRepository'
+import { CANVAS_SCHEMA_VERSION } from '../schema'
 
 export interface FolderManagementState {
   folders: CanvasFolder[]
@@ -25,31 +26,38 @@ export function createFolderManagementSlice(
     // Actions
     createFolder: async (name, parentId = null) => {
       const id = `folder-${Date.now()}`
-      await storage.put('folders', { id, name, parentId, order: 0, expanded: true })
-      set({ folders: await storage.getAll<CanvasFolder>('folders') })
+      const repository = getDocumentRepository()
+      await repository.saveFolder({ id, name, parentId, order: 0, expanded: true })
+      set({ folders: await repository.listFolders() })
       return id
     },
 
     renameFolder: async (id, name) => {
-      const folder = await storage.get<CanvasFolder>('folders', id)
+      const repository = getDocumentRepository()
+      const folder = await repository.getFolder(id)
       if (folder) {
-        await storage.put('folders', { ...folder, name })
-        set({ folders: await storage.getAll<CanvasFolder>('folders') })
+        await repository.saveFolder({ ...folder, name })
+        set({ folders: await repository.listFolders() })
       }
     },
 
     deleteFolder: async (id) => {
       // 将文件夹内的画布移到根目录（folderId 设为 null）
-      const docs = await storage.getAll<CanvasDoc>('docs')
+      const repository = getDocumentRepository()
+      const docs = await repository.listDocuments()
       for (const doc of docs) {
         if (doc.folderId === id) {
-          await storage.put('docs', { ...doc, folderId: null })
+          await repository.saveDocument({
+            ...doc,
+            schemaVersion: CANVAS_SCHEMA_VERSION,
+            folderId: null,
+          })
         }
       }
-      await storage.del('folders', id)
+      await repository.deleteFolder(id)
       set({
-        folders: await storage.getAll<CanvasFolder>('folders'),
-        docs: (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt),
+        folders: await repository.listFolders(),
+        docs: (await repository.listDocuments()).sort((a, b) => b.updatedAt - a.updatedAt),
       })
     },
 
@@ -57,7 +65,7 @@ export function createFolderManagementSlice(
       const folder = get().folders.find((f: CanvasFolder) => f.id === id)
       if (folder) {
         const updated = { ...folder, expanded: !folder.expanded }
-        await storage.put('folders', updated)
+        await getDocumentRepository().saveFolder(updated)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         set((s: any) => ({
           folders: s.folders.map((f: CanvasFolder) => (f.id === id ? updated : f)),

@@ -3,6 +3,7 @@ import type { CanvasElement, ShapeElement } from '../store/types'
 import type { CanvasTemplate } from './canvasTemplates'
 import {
   CUSTOM_TEMPLATE_STORAGE_KEY,
+  LEGACY_V4_CUSTOM_TEMPLATE_STORAGE_KEY,
   LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY,
   createTemplateFromElements,
   deleteCustomTemplate,
@@ -190,5 +191,13 @@ describe('canvas templates', () => {
     expect(loadCustomTemplates()).toEqual([expect.objectContaining({ name: '旧模板' })])
     expect(localStorage.getItem(CUSTOM_TEMPLATE_STORAGE_KEY)).not.toBeNull()
     expect(localStorage.getItem(LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY)).toBeNull()
+  })
+
+  it('imports plain v4 custom templates into the v5 key', () => {
+    const template = requireTemplate(createTemplateFromElements('v4', [makeShape('v4')]))
+    localStorage.setItem(LEGACY_V4_CUSTOM_TEMPLATE_STORAGE_KEY, JSON.stringify([template]))
+
+    expect(loadCustomTemplates()).toEqual([expect.objectContaining({ name: 'v4' })])
+    expect(localStorage.getItem(LEGACY_V4_CUSTOM_TEMPLATE_STORAGE_KEY)).toBeNull()
   })
 })

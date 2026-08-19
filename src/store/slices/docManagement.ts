@@ -1,7 +1,8 @@
 import type { CanvasDoc, CanvasElement, CanvasFolder } from '../types'
-import * as storage from '../storage'
+import { getDocumentRepository, getLegacyDocumentSource } from '../documentRepository'
 import { useViewStore } from '../useViewStore'
 import { migrateOld, removeMigratedData } from '../migration'
+import { migrateV4ToV5 } from '../v4Import'
 import { saveDocNow, clearSaveTimer } from '../saveManager'
 import { createDefaultLayer, normalizeCanvasDocLayers } from '../layers'
 import { CANVAS_SCHEMA_VERSION } from '../schema'
@@ -16,7 +17,7 @@ import {
 
 const DOCUMENT_SEARCH_HISTORY_KEY = 'mn-sidebar-searches'
 const MAX_RECENT_DOCUMENT_SEARCHES = 5
-const LEGACY_DATABASE_MIGRATION_KEY = 'mindnotes-pro-v4.legacy-database-migrated'
+const LEGACY_DATABASE_MIGRATION_KEY = 'mindnotes-pro-v5.v4-imported'
 
 export interface DocManagementState {
   docs: CanvasDoc[]
@@ -123,36 +124,40 @@ export function createDocManagementSlice(
     // Actions
     init: async () => {
       try {
-        let docs = await storage.getAll<CanvasDoc>('docs')
-        let folders = await storage.getAll<CanvasFolder>('folders')
+        const repository = getDocumentRepository()
+        let docs = await repository.listDocuments()
+        let folders = await repository.listFolders()
         let migratedLocalStorage = false
 
-        if (docs.length === 0 && localStorage.getItem(LEGACY_DATABASE_MIGRATION_KEY) !== '1') {
-          try {
-            const legacy = await storage.readLegacyDatabase<CanvasDoc, CanvasFolder>()
-            const legacyDocs = (legacy?.docs ?? []).map((doc) => normalizeCanvasDocLayers(doc))
-
-            for (const doc of legacyDocs) await storage.put('docs', doc)
-            if (folders.length === 0) {
-              for (const folder of legacy?.folders ?? []) await storage.put('folders', folder)
-              folders = legacy?.folders ?? []
+        const migrationAlreadyAttempted =
+          localStorage.getItem(LEGACY_DATABASE_MIGRATION_KEY) === '1'
+        if (docs.length === 0 && !migrationAlreadyAttempted) {
+          const migration = await migrateV4ToV5(repository, getLegacyDocumentSource())
+          if (migration.status === 'imported') {
+            docs = await repository.listDocuments()
+            folders = await repository.listFolders()
+            try {
+              localStorage.setItem(LEGACY_DATABASE_MIGRATION_KEY, '1')
+            } catch {
+              // The v5 database is the source of truth; a missing advisory
+              // marker must not hide a successful import.
             }
-            docs = legacyDocs
-            localStorage.setItem(LEGACY_DATABASE_MIGRATION_KEY, '1')
-          } catch (error) {
-            console.warn('[documents] Legacy database migration could not be completed', error)
+          } else if (migration.status === 'failed') {
+            throw migration.error instanceof Error
+              ? migration.error
+              : new Error('Legacy v4 database migration could not be completed')
           }
         }
 
         if (docs.length === 0) {
           const migrated = migrateOld()
           if (migrated) {
-            await storage.put('docs', migrated)
+            await repository.saveDocument({ ...migrated, schemaVersion: CANVAS_SCHEMA_VERSION })
             docs = [migrated]
             migratedLocalStorage = true
           } else {
             const blank = createBlankDocument()
-            await storage.put('docs', blank)
+            await repository.saveDocument({ ...blank, schemaVersion: CANVAS_SCHEMA_VERSION })
             docs = [blank]
           }
         }
@@ -165,7 +170,7 @@ export function createDocManagementSlice(
             order: 0,
             expanded: true,
           }
-          await storage.put('folders', defaultFolder)
+          await repository.saveFolder(defaultFolder)
           folders = [defaultFolder]
         }
 
@@ -260,8 +265,9 @@ export function createDocManagementSlice(
       const id = createDocumentId(now)
       const doc: CanvasDoc = { ...createBlankDocument(now), id, title, folderId }
       const layers = doc.layers ?? [createDefaultLayer(now)]
-      await storage.put('docs', doc)
-      const docs = (await storage.getAll<CanvasDoc>('docs'))
+      const repository = getDocumentRepository()
+      await repository.saveDocument({ ...doc, schemaVersion: CANVAS_SCHEMA_VERSION })
+      const docs = (await repository.listDocuments())
         .map((doc) => normalizeCanvasDocLayers(doc))
         .sort((a, b) => b.updatedAt - a.updatedAt)
       set({
@@ -287,7 +293,7 @@ export function createDocManagementSlice(
       if (state.currentDocId && !(await saveDocNow())) {
         throw new Error('Current document could not be saved')
       }
-      const doc = await storage.get<CanvasDoc>('docs', id)
+      const doc = await getDocumentRepository().getDocument(id)
       if (doc) {
         const normalizedDoc = normalizeCanvasDocLayers(doc)
         set({
@@ -330,10 +336,11 @@ export function createDocManagementSlice(
       }
 
       try {
-        const storedDoc = await storage.update<CanvasDoc>('docs', id, (current) =>
+        const storedDoc = await getDocumentRepository().updateDocument(id, (current) =>
           current
             ? {
                 ...current,
+                schemaVersion: CANVAS_SCHEMA_VERSION,
                 title: nextTitle,
                 updatedAt: updatedDoc.updatedAt,
               }
@@ -350,11 +357,10 @@ export function createDocManagementSlice(
     },
 
     deleteDoc: async (id) => {
-      await storage.del('docs', id)
+      const repository = getDocumentRepository()
+      await repository.deleteDocument(id)
       const { currentDocId } = get()
-      const docs = (await storage.getAll<CanvasDoc>('docs')).sort(
-        (a, b) => b.updatedAt - a.updatedAt
-      )
+      const docs = (await repository.listDocuments()).sort((a, b) => b.updatedAt - a.updatedAt)
       if (currentDocId === id) {
         const first = docs[0] ? normalizeCanvasDocLayers(docs[0]) : undefined
         set({
@@ -380,19 +386,21 @@ export function createDocManagementSlice(
       if (get().currentDocId && !(await saveDocNow())) {
         throw new Error('Current document could not be saved')
       }
-      const doc = await storage.get<CanvasDoc>('docs', id)
+      const repository = getDocumentRepository()
+      const doc = await repository.getDocument(id)
       if (!doc) return
       const now = Date.now()
       const dup: CanvasDoc = {
         ...normalizeCanvasDocLayers(doc),
+        schemaVersion: CANVAS_SCHEMA_VERSION,
         id: createDocumentId(now),
         title: `${doc.title} (副本)`,
         createdAt: now,
         updatedAt: now,
       }
-      await storage.put('docs', dup)
+      await repository.saveDocument({ ...dup, schemaVersion: CANVAS_SCHEMA_VERSION })
       set({
-        docs: (await storage.getAll<CanvasDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt),
+        docs: (await repository.listDocuments()).sort((a, b) => b.updatedAt - a.updatedAt),
       })
     },
 
@@ -419,8 +427,9 @@ export function createDocManagementSlice(
         updatedAt: now,
       })
 
-      await storage.put('docs', imported)
-      const docs = (await storage.getAll<CanvasDoc>('docs'))
+      const repository = getDocumentRepository()
+      await repository.saveDocument({ ...imported, schemaVersion: CANVAS_SCHEMA_VERSION })
+      const docs = (await repository.listDocuments())
         .map((doc) => normalizeCanvasDocLayers(doc))
         .sort((a, b) => b.updatedAt - a.updatedAt)
 

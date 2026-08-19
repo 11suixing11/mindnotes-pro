@@ -1,6 +1,6 @@
 import { normalizeElementLayers, normalizeLayers } from './layers'
 import { sanitizeSvgDataUrl } from '../canvas/svgSanitizer'
-import { CANVAS_SCHEMA_VERSION } from './schema'
+import { CANVAS_SCHEMA_VERSION, LEGACY_CANVAS_SCHEMA_VERSION } from './schema'
 import type {
   Binding,
   BrushType,
@@ -26,12 +26,22 @@ export interface CanvasBackupDocument {
   backgroundStyle: CanvasBackgroundStyle
 }
 
-export interface CanvasBackupV4 {
+export interface CanvasBackupV5 {
   format: typeof CANVAS_BACKUP_FORMAT
   version: typeof CANVAS_SCHEMA_VERSION
   exportedAt: string
   document: CanvasBackupDocument
 }
+
+/** Read-only compatibility shape accepted from the previous release. */
+export interface CanvasBackupV4 {
+  format: typeof CANVAS_BACKUP_FORMAT
+  version: typeof LEGACY_CANVAS_SCHEMA_VERSION
+  exportedAt: string
+  document: CanvasBackupDocument
+}
+
+export type CanvasBackup = CanvasBackupV4 | CanvasBackupV5
 
 export class CanvasImportError extends Error {
   constructor(message: string) {
@@ -377,7 +387,7 @@ function parseLegacyDocument(value: Record<string, unknown>): CanvasBackupDocume
   })
 }
 
-export function createCanvasBackup(doc: CanvasDoc): CanvasBackupV4 {
+export function createCanvasBackup(doc: CanvasDoc): CanvasBackupV5 {
   const document = normalizeImportedDocument({
     title: doc.title,
     elements: doc.elements,
@@ -398,13 +408,20 @@ export function parseCanvasImport(value: unknown): CanvasBackupDocument {
   if (!isRecord(value)) throw new CanvasImportError('文件根节点必须是对象')
 
   if (value.format === CANVAS_BACKUP_FORMAT) {
-    if (value.version !== CANVAS_SCHEMA_VERSION || !isRecord(value.document)) {
+    if (
+      (value.version !== CANVAS_SCHEMA_VERSION && value.version !== LEGACY_CANVAS_SCHEMA_VERSION) ||
+      !isRecord(value.document)
+    ) {
       throw new CanvasImportError('不支持的 MindNotes Pro 备份版本')
     }
     return normalizeImportedDocument(value.document)
   }
 
-  if (value.schemaVersion === CANVAS_SCHEMA_VERSION && Array.isArray(value.elements)) {
+  if (
+    (value.schemaVersion === CANVAS_SCHEMA_VERSION ||
+      value.schemaVersion === LEGACY_CANVAS_SCHEMA_VERSION) &&
+    Array.isArray(value.elements)
+  ) {
     return normalizeImportedDocument(value)
   }
 

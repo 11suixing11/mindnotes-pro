@@ -19,10 +19,10 @@
 </div>
 
 <p align="center">
-  <img src=".github/mindnotes-pro-v4.png" width="900" alt="MindNotes Pro v4 with an editable flowchart selected on the canvas" />
+  <img src=".github/mindnotes-pro-v4.png" width="900" alt="MindNotes Pro v5 with an editable flowchart selected on the canvas" />
 </p>
 
-## What v4 delivers
+## What v5 delivers
 
 MindNotes Pro starts on a blank, immediately usable canvas. It focuses on a small set of complete workflows instead of disconnected demos.
 
@@ -32,17 +32,18 @@ MindNotes Pro starts on a blank, immediately usable canvas. It focuses on a smal
 | Editing     | Selection, move, resize, rotate, group, lock, copy/paste, undo/redo, and predictable partial-stroke erasing |
 | Workspace   | Multiple documents, title/content search, sorting, layers, backgrounds, grid, snapping, zoom, and minimap   |
 | Templates   | Five built-in editable templates plus reusable custom templates made from canvas content                    |
-| Persistence | Autosaved v4 documents in IndexedDB, with preferences and custom templates stored locally                   |
-| Portability | Full-content PNG, JPEG, PDF, and SVG exports; strict v4 JSON backups; v4, v3, and legacy JSON import        |
+| Persistence | Autosaved v5 documents in IndexedDB, with preferences and custom templates stored locally                   |
+| Portability | Full-content PNG, JPEG, PDF, and SVG exports; strict v5 JSON backups; v4, v3, and legacy JSON import        |
 | Runtimes    | Responsive browser app, installable offline PWA, and a sandboxed Electron desktop shell                     |
 
 ## Local-first means local
 
-- Documents are stored in the browser origin's IndexedDB database, `mindnotes-pro-v4`.
+- Documents are stored in the browser origin's IndexedDB database, `mindnotes-pro-v5`.
+- v4 documents are imported read-only on first startup when available; the original `mindnotes-pro-v4` database is never deleted.
 - The app does not provide an account system, hosted sync, or real-time collaboration.
 - Clearing browser site data can remove local documents. Export a JSON backup for important work.
 - JSON import always creates a separate editable document instead of overwriting the current one.
-- A previous `mindnotes-drawing-data` local-storage document is migrated on the first empty v4 startup when possible.
+- A previous `mindnotes-drawing-data` local-storage document is migrated on the first empty v5 startup when possible.
 
 ## Quick start
 
@@ -82,7 +83,7 @@ npx playwright install chromium
 
 Visual exports are rendered from the complete visible document bounds, not from the current pan and zoom. PNG keeps transparency; JPEG and PDF use the document background; SVG keeps vector content where possible.
 
-The v4 JSON backup contract is intentionally explicit:
+The v5 JSON backup contract is intentionally explicit:
 
 ```json
 {

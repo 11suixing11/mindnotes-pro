@@ -149,8 +149,11 @@ export type UndoAction =
   | { type: 'lock'; elementIds: string[]; beforeLock: { id: string; wasLocked: boolean }[] }
   | { type: 'unlock'; elementIds: string[]; beforeUnlock: { id: string; wasLocked: boolean }[] }
 
+/** Documents can be read from the v4 import boundary before normalization. */
+export type CanvasSchemaVersion = 4 | 5
+
 export interface CanvasDoc {
-  schemaVersion: 4
+  schemaVersion: CanvasSchemaVersion
   id: string
   title: string
   elements: CanvasElement[]
@@ -164,6 +167,8 @@ export interface CanvasDoc {
   undoStack?: UndoAction[]
   redoStack?: UndoAction[]
 }
+
+export type CurrentCanvasDoc = Omit<CanvasDoc, 'schemaVersion'> & { schemaVersion: 5 }
 
 export interface CanvasFolder {
   id: string

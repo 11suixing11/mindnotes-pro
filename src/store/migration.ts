@@ -1,8 +1,13 @@
 import { parseCanvasImport } from './backup'
-import { CANVAS_SCHEMA_VERSION } from './schema'
 import type { CanvasDoc } from './types'
+import { CANVAS_SCHEMA_VERSION } from './schema'
 
 const MIGRATE_KEY = 'mindnotes-drawing-data'
+
+// Kept as a compatibility export; the persistence-specific implementation
+// lives in its own module so callers can mock local-storage migration alone.
+export { migrateV4ToV5, parseV4Snapshot } from './v4Import'
+export type { V4MigrationReport, V4MigrationResult, V4MigrationStatus } from './v4Import'
 
 export function migrateOld(): CanvasDoc | null {
   try {

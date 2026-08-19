@@ -26,7 +26,8 @@ export const TEMPLATE_CATEGORY_LABELS: Record<TemplateCategory, string> = {
   custom: '自定义',
 }
 
-export const CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes-pro-v4.custom-templates'
+export const CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes-pro-v5.custom-templates'
+export const LEGACY_V4_CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes-pro-v4.custom-templates'
 export const LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes.customTemplates.v1'
 
 let idCounter = 0
@@ -464,6 +465,7 @@ function isCanvasTemplate(value: unknown): value is CanvasTemplate {
 }
 
 export function loadCustomTemplates(): CanvasTemplate[] {
+  migrateLegacyStorageKey(LEGACY_V4_CUSTOM_TEMPLATE_STORAGE_KEY, CUSTOM_TEMPLATE_STORAGE_KEY)
   migrateLegacyStorageKey(LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY, CUSTOM_TEMPLATE_STORAGE_KEY)
   const stored = loadFromStorage<unknown>(CUSTOM_TEMPLATE_STORAGE_KEY, [])
   if (!Array.isArray(stored)) return []
