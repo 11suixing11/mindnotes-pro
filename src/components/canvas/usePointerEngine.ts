@@ -12,14 +12,16 @@ import type {
   UndoAction,
 } from '../../store/types'
 import { shallowClone, snapshot } from '../../store/helpers'
+import { elementBounds, isTransparentImagePixel } from '../../canvas/canvasUtils'
 import {
-  distToSegSq,
-  elementBounds,
+  clientToWorld,
   getGridSnapDelta,
-  isTransparentImagePixel,
-  snapPointToGrid,
-  snapValueToGrid,
-} from '../../canvas/canvasUtils'
+  snapPointIfEnabled,
+  snapTargetIfEnabled,
+  worldToClient,
+  zoomViewBoxAtScreenPoint,
+} from '../../canvas/coordinates'
+import { findSelectionHandleAtPoint, findTopmostElementAtPoint } from '../../canvas/hitTesting'
 import { drawElement } from '../../canvas/canvasDrawing'
 import {
   getElementLayerId,
@@ -193,22 +195,12 @@ export function usePointerEngine(opts: {
 
   const snapPointIfGridEnabled = useCallback((point: { x: number; y: number }) => {
     const { snapToGrid, gridSize } = useViewStore.getState()
-    return snapToGrid ? snapPointToGrid(point, gridSize) : point
+    return snapPointIfEnabled(point, snapToGrid, gridSize)
   }, [])
 
   const snapResizeTargetIfGridEnabled = useCallback((target: { x?: number; y?: number }) => {
     const { snapToGrid, gridSize } = useViewStore.getState()
-    if (!snapToGrid) return { ...target, linesX: [], linesY: [] }
-
-    const x = target.x === undefined ? undefined : snapValueToGrid(target.x, gridSize)
-    const y = target.y === undefined ? undefined : snapValueToGrid(target.y, gridSize)
-
-    return {
-      x,
-      y,
-      linesX: x === undefined || x === target.x ? [] : [x],
-      linesY: y === undefined || y === target.y ? [] : [y],
-    }
+    return snapTargetIfEnabled(target, snapToGrid, gridSize)
   }, [])
 
   const finishEraseHistory = useCallback(() => {
@@ -343,10 +335,7 @@ export function usePointerEngine(opts: {
       if (!canvas) return { x: 0, y: 0 }
       const rect = canvas.getBoundingClientRect()
       const vb = useViewStore.getState().viewBox
-      return {
-        x: (contact.clientX - rect.left) / vb.zoom + vb.x,
-        y: (contact.clientY - rect.top) / vb.zoom + vb.y,
-      }
+      return clientToWorld({ x: contact.clientX, y: contact.clientY }, rect, vb)
     },
     [canvasRef]
   )
@@ -367,115 +356,42 @@ export function usePointerEngine(opts: {
 
   const hitTest = useCallback(
     (px: number, py: number): string | null => {
-      const r = 12 / (useViewStore.getState().viewBox.zoom || 1)
+      const tolerance = 12 / (useViewStore.getState().viewBox.zoom || 1)
       const state = useAppStore.getState()
-      const els = state.elements
+      const elements = state.elements
 
-      // 使用缓存的 idToIndex，仅在 elements 引用变化时重建
+      // Keep the id index cache local to the hook so spatial candidates can be
+      // ordered without rebuilding a map on every pointer event.
       const cache = idToIndexCacheRef.current
-      if (cache.els !== els) {
+      if (cache.els !== elements) {
         const map = new Map<string, number>()
-        for (let i = 0; i < els.length; i++) map.set(els[i].id, i)
-        idToIndexCacheRef.current = { els, map }
+        for (let index = 0; index < elements.length; index++) map.set(elements[index].id, index)
+        idToIndexCacheRef.current = { els: elements, map }
       }
-      const idToIndex = idToIndexCacheRef.current.map
-      const layerOrder = getLayerOrderMap(state.layers)
-
-      const isHit = (el: CanvasElement): boolean => {
-        if (!isElementLayerEditable(el, state.layers)) return false
-
-        if (el.type === 'image') {
-          if (
-            px >= el.x - r &&
-            px <= el.x + el.width + r &&
-            py >= el.y - r &&
-            py <= el.y + el.height + r
-          ) {
-            // 图片透明像素点击穿透
-            // 点击图片透明区域时，跳过该图片，继续检测下面的元素
-            // 遵循常见设计工具行为
-            return !isTransparentImagePixel(el, px, py)
-          }
-          return false
-        }
-
-        if (el.type === 'text') {
-          return (
-            px >= el.x - r &&
-            px <= el.x + (el.width || 100) + r &&
-            py >= el.y - r &&
-            py <= el.y + (el.height || 30) + r
-          )
-        }
-
-        if (el.type === 'shape') {
-          const b = cachedBounds(el)
-          return px >= b.x - r && px <= b.x + b.w + r && py >= b.y - r && py <= b.y + b.h + r
-        }
-
-        if (el.type === 'stroke' && el.points.length >= 2) {
-          // P1 性能优化: 使用边界框快速排除，避免逐点距离计算
-          const b = cachedBounds(el)
-          if (px < b.x - r || px > b.x + b.w + r || py < b.y - r || py > b.y + b.h + r) return false
-
-          // P1 性能优化: 使用平方距离比较，避免 Math.sqrt 开销
-          const threshold = r + el.size / 2
-          const thresholdSq = threshold * threshold
-          for (let j = 1; j < el.points.length; j++) {
-            if (
-              distToSegSq(
-                px,
-                py,
-                el.points[j - 1][0],
-                el.points[j - 1][1],
-                el.points[j][0],
-                el.points[j][1]
-              ) < thresholdSq
-            )
-              return true
-          }
-        }
-
-        return false
-      }
-
-      // P0 性能优化: 先用空间索引快速筛选候选元素（O(log n)）
       const candidateIds = state.spatialIndex?.search({
-        x: px - r,
-        y: py - r,
-        w: r * 2,
-        h: r * 2,
+        x: px - tolerance,
+        y: py - tolerance,
+        w: tolerance * 2,
+        h: tolerance * 2,
       })
 
-      // 如果空间索引可用，直接遍历候选元素而非全部元素
-      // 按 layer order + 元素顺序排序，保持与渲染一致的 Z-order
-      if (candidateIds && candidateIds.length > 0) {
-        candidateIds.sort((a, b) => {
-          const aIndex = idToIndex.get(a)
-          const bIndex = idToIndex.get(b)
-          const aEl = state.idToElement.get(a) ?? (aIndex === undefined ? undefined : els[aIndex])
-          const bEl = state.idToElement.get(b) ?? (bIndex === undefined ? undefined : els[bIndex])
-          const layerDiff =
-            (bEl ? (layerOrder.get(getElementLayerId(bEl)) ?? 0) : 0) -
-            (aEl ? (layerOrder.get(getElementLayerId(aEl)) ?? 0) : 0)
-          return layerDiff || (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
-        })
-
-        for (const id of candidateIds) {
-          const idx = idToIndex.get(id)
-          const el = (idx === undefined ? state.idToElement.get(id) : els[idx]) ?? null
-          if (el && isHit(el)) return el.id
-        }
-        return null
-      }
-
-      // 降级: 空间索引不可用时按渲染顺序反向遍历
-      const renderableElements = getRenderableElements(els, state.layers)
-      for (let i = renderableElements.length - 1; i >= 0; i--) {
-        const el = renderableElements[i]
-        if (isHit(el)) return el.id
-      }
-      return null
+      return (
+        findTopmostElementAtPoint({
+          point: { x: px, y: py },
+          tolerance,
+          elements,
+          layers: state.layers,
+          candidateIds,
+          idToElement: state.idToElement,
+          idToIndex: idToIndexCacheRef.current.map,
+          getBounds: cachedBounds,
+          isElementEditable: isElementLayerEditable,
+          getLayerId: getElementLayerId,
+          getLayerOrder: getLayerOrderMap,
+          getRenderableElements,
+          isImagePixelTransparent: isTransparentImagePixel,
+        })?.id ?? null
+      )
     },
     [cachedBounds]
   )
@@ -492,117 +408,20 @@ export function usePointerEngine(opts: {
       isEdge?: boolean
     } | null => {
       const state = useAppStore.getState()
-      const selIds = state.selectedIds
-      if (selIds.length === 0) return null
+      if (state.selectedIds.length === 0) return null
       const zoom = useViewStore.getState().viewBox.zoom || 1
-      const hr = 12 / zoom
-      const edgeHr = 10 / zoom
-      // 旋转手柄命中检测
-      // 专业设计工具标准：选择框顶部中央的旋转手柄
-      const rotateHr = 15 / zoom
+      const selectedElements = state.selectedIds
+        .map((id) => state.idToElement.get(id))
+        .filter((element): element is CanvasElement =>
+          Boolean(element && isElementLayerEditable(element, state.layers))
+        )
 
-      const selectedElements: CanvasElement[] = []
-      for (const selId of selIds) {
-        const el = state.idToElement.get(selId)
-        if (!el || !isElementLayerEditable(el, state.layers)) continue
-        selectedElements.push(el)
-      }
-      if (selectedElements.length === 0) return null
-
-      let mergedBounds: { x: number; y: number; w: number; h: number } | null = null
-      for (const el of selectedElements) {
-        const b = cachedBounds(el)
-        if (!mergedBounds) {
-          mergedBounds = { ...b }
-        } else {
-          const minX = Math.min(mergedBounds.x, b.x)
-          const minY = Math.min(mergedBounds.y, b.y)
-          const maxX = Math.max(mergedBounds.x + mergedBounds.w, b.x + b.w)
-          const maxY = Math.max(mergedBounds.y + mergedBounds.h, b.y + b.h)
-          mergedBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
-        }
-      }
-
-      const hitRotateHandle = (id: string, b: { x: number; y: number; w: number; h: number }) => {
-        const rotateHandleX = b.x + b.w / 2
-        const rotateHandleY = b.y - 20 / zoom
-        if (Math.abs(px - rotateHandleX) < rotateHr && Math.abs(py - rotateHandleY) < rotateHr) {
-          return { handle: 99, id, bounds: b, isRotate: true }
-        }
-        return null
-      }
-
-      if (selectedElements.length > 1) {
-        return mergedBounds ? hitRotateHandle(selectedElements[0].id, mergedBounds) : null
-      }
-
-      for (const el of selectedElements) {
-        if (!el) continue
-        const b = cachedBounds(el)
-        // 先检测旋转手柄（优先级高于缩放手柄）
-        const rotateHit = hitRotateHandle(el.id, b)
-        if (rotateHit) return rotateHit
-
-        // 边缘手柄命中检测
-        // 手柄编号约定:
-        // 0-3: 角落手柄 (左上、右上、左下、右下)
-        // 4: 上边缘中点
-        // 5: 下边缘中点
-        // 6: 左边缘中点
-        // 7: 右边缘中点
-
-        // 小形状防重叠 - 动态计算边缘手柄实际位置
-        // 与 drawSelBox 中的逻辑保持一致
-        const cornerR = 4 / zoom
-        const edgeR = 3.5 / zoom
-        const minSafeWidth = (cornerR + edgeR + 4 / zoom) * 2
-        const minSafeHeight = (cornerR + edgeR + 4 / zoom) * 2
-
-        let edgeTopY = b.y
-        let edgeBottomY = b.y + b.h
-        let edgeLeftX = b.x
-        let edgeRightX = b.x + b.w
-
-        if (b.w < minSafeWidth) {
-          const offset = (minSafeWidth - b.w) / 2 + 2 / zoom
-          edgeLeftX = b.x + offset
-          edgeRightX = b.x + b.w - offset
-        }
-        if (b.h < minSafeHeight) {
-          const offset = (minSafeHeight - b.h) / 2 + 2 / zoom
-          edgeTopY = b.y + offset
-          edgeBottomY = b.y + b.h - offset
-        }
-
-        // 边缘手柄（优先级低于角落手柄，所以先检测角落）
-        const edges: [number, number, number][] = [
-          [b.x + b.w / 2, edgeTopY, 4], // 上边缘中点
-          [b.x + b.w / 2, edgeBottomY, 5], // 下边缘中点
-          [edgeLeftX, b.y + b.h / 2, 6], // 左边缘中点
-          [edgeRightX, b.y + b.h / 2, 7], // 右边缘中点
-        ]
-
-        // 角落手柄（优先级最高）
-        const corners: [number, number, number][] = [
-          [b.x, b.y, 0],
-          [b.x + b.w, b.y, 1],
-          [b.x, b.y + b.h, 2],
-          [b.x + b.w, b.y + b.h, 3],
-        ]
-
-        // 先检测角落手柄（用户优先想要抓住角落）
-        for (const [cx, cy, handle] of corners) {
-          if (Math.abs(px - cx) < hr && Math.abs(py - cy) < hr)
-            return { handle, id: el.id, bounds: b }
-        }
-
-        // 再检测边缘手柄
-        for (const [ex, ey, handle] of edges) {
-          if (Math.abs(px - ex) < edgeHr && Math.abs(py - ey) < edgeHr)
-            return { handle, id: el.id, bounds: b, isEdge: true }
-        }
-      }
-      return null
+      return findSelectionHandleAtPoint({
+        point: { x: px, y: py },
+        zoom,
+        selectedElements,
+        getBounds: cachedBounds,
+      })
     },
     [cachedBounds]
   )
@@ -1865,11 +1684,9 @@ export function usePointerEngine(opts: {
       const vb = useViewStore.getState().viewBox
       const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1
       const newZoom = Math.max(0.2, Math.min(5, vb.zoom * zoomFactor))
-      const worldX = mouseX / vb.zoom + vb.x
-      const worldY = mouseY / vb.zoom + vb.y
-      const newX = worldX - mouseX / newZoom
-      const newY = worldY - mouseY / newZoom
-      useViewStore.getState().setViewBox({ x: newX, y: newY, zoom: newZoom })
+      useViewStore
+        .getState()
+        .setViewBox(zoomViewBoxAtScreenPoint(vb, { x: mouseX, y: mouseY }, newZoom))
       scheduleRedraw()
     }
     // 按住 Space 键临时切换 Pan 工具
@@ -1945,8 +1762,9 @@ export function usePointerEngine(opts: {
 
       // 双击文本元素进入编辑模式
       if (el.type === 'text') {
-        const screenX = (el.x - vb.x) * vb.zoom + rect.left
-        const screenY = (el.y - vb.y) * vb.zoom + rect.top
+        const screen = worldToClient({ x: el.x, y: el.y }, rect, vb)
+        const screenX = screen.x
+        const screenY = screen.y
         startEditText(el.x, el.y, screenX, screenY, el.color, el)
         setTimeout(() => textRef.current?.focus(), 50)
       }
@@ -1958,8 +1776,9 @@ export function usePointerEngine(opts: {
         // 计算形状中心点（文本居中放置）
         const textX = b.x + b.w / 2
         const textY = b.y + b.h / 2
-        const screenX = (textX - vb.x) * vb.zoom + rect.left
-        const screenY = (textY - vb.y) * vb.zoom + rect.top
+        const screen = worldToClient({ x: textX, y: textY }, rect, vb)
+        const screenX = screen.x
+        const screenY = screen.y
 
         // 使用形状的颜色作为文本颜色，保持视觉一致性
         // 默认字号 16，与工具栏默认一致
@@ -2038,16 +1857,13 @@ export function usePointerEngine(opts: {
       }
       const midX = newMid.x - rect.left
       const midY = newMid.y - rect.top
-      const worldX = midX / vb.zoom + vb.x
-      const worldY = midY / vb.zoom + vb.y
-      const newX = worldX - midX / newZoom
-      const newY = worldY - midY / newZoom
+      const zoomedViewBox = zoomViewBoxAtScreenPoint(vb, { x: midX, y: midY }, newZoom)
       // Also account for midpoint panning (finger movement)
       const panDx = (newMid.x - pinchMid.x) / newZoom
       const panDy = (newMid.y - pinchMid.y) / newZoom
       useViewStore.getState().setViewBox({
-        x: newX - panDx,
-        y: newY - panDy,
+        x: zoomedViewBox.x - panDx,
+        y: zoomedViewBox.y - panDy,
         zoom: newZoom,
       })
       pinchDist = newDist

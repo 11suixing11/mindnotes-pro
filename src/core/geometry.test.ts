@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import type { StrokeElement, ShapeElement, TextElement, ImageElement } from './model'
-import { elementBounds, moveElement, resizeElement } from './geometry'
+import { distanceToSegmentSquared, elementBounds, moveElement, resizeElement } from './geometry'
+
+describe('distanceToSegmentSquared', () => {
+  it('projects onto a segment and clamps to its endpoints', () => {
+    expect(distanceToSegmentSquared(5, 3, 0, 0, 10, 0)).toBe(9)
+    expect(distanceToSegmentSquared(-3, 4, 0, 0, 10, 0)).toBe(25)
+    expect(distanceToSegmentSquared(3, 4, 0, 0, 0, 0)).toBe(25)
+  })
+})
 
 describe('elementBounds', () => {
   it('should compute bounds for a stroke element', () => {

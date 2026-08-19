@@ -9,6 +9,24 @@ export interface Bounds {
   h: number
 }
 
+export function distanceToSegmentSquared(
+  px: number,
+  py: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number
+): number {
+  const dx = bx - ax
+  const dy = by - ay
+  const lengthSquared = dx * dx + dy * dy
+  let t = lengthSquared === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / lengthSquared
+  t = Math.max(0, Math.min(1, t))
+  const closestX = ax + t * dx - px
+  const closestY = ay + t * dy - py
+  return closestX * closestX + closestY * closestY
+}
+
 export function invalidateStrokeBounds(el: StrokeElement): void {
   strokeBoundsCache.delete(el)
 }
