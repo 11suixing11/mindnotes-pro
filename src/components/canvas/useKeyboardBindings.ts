@@ -1,4 +1,5 @@
 import { useEffect, useRef, type MutableRefObject } from 'react'
+import { getContentBounds } from '../../canvas/canvasUtils'
 import { sanitizeSvgDataUrl } from '../../canvas/svgSanitizer'
 import {
   findShortcutAction,
@@ -272,7 +273,13 @@ function executeShortcutAction(
       return true
     case 'view.zoomToSelection':
       e.preventDefault()
-      vs.zoomToSelection()
+      vs.zoomToSelection(
+        getContentBounds(
+          st.selectedIds
+            .map((id) => st.idToElement.get(id))
+            .filter((element): element is NonNullable<typeof element> => element !== undefined)
+        )
+      )
       return true
     case 'view.toggleGrid':
       e.preventDefault()
