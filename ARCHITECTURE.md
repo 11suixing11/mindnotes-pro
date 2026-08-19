@@ -68,6 +68,7 @@ Key shared modules include:
 - `marquee.ts`: normalized selection rectangles, intersection tests, and modifier-selection merging.
 - `selectionTransforms.ts`: pure selection resize, drag-snap, rotation, and anchor-position calculations.
 - `pointerSession.ts`: pointer-session contracts and pure cancellation/undo snapshot decisions.
+- `drawingSession.ts`: pure pen sampling, shape endpoint binding, and eraser-session commit decisions.
 - `hitTesting.ts`: pure element, z-order, image-alpha, and selection-handle hit testing with injected runtime services.
 - `strokeElements.ts` and `shapeElements.ts`: element creation and draft rules.
 - `resizeRules.ts`: pure resize and aspect-ratio behavior.
@@ -113,7 +114,7 @@ Owns desktop shell behavior only.
 The highest-risk files are large mixed-responsibility modules. Split them behind tests and in reviewable changes.
 
 1. `src/components/canvas/usePointerEngine.ts`
-   Extracted coordinate, hit-testing, viewport, gesture-threshold, pinch, marquee, selection-transform, and pointer-session primitives; next split per-tool pointer handlers and remaining input cleanup.
+   Extracted coordinate, hit-testing, viewport, gesture-threshold, pinch, marquee, selection-transform, pointer-session, and drawing-session primitives; next split per-tool pointer handlers and remaining input cleanup.
 2. `src/canvas/canvasDrawing.ts`
    Separate element renderers while retaining one shared rendering contract.
 3. `src/index.css`

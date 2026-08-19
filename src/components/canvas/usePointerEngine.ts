@@ -66,6 +66,11 @@ import {
   type ResizeSession,
   type RotateSession,
 } from '../../canvas/pointerSession'
+import {
+  getPenSampleUpdate,
+  resolveShapeBindings,
+  shouldCommitEraseSession,
+} from '../../canvas/drawingSession'
 import { createShapeElement, shouldCommitShape, updateShapeDraft } from '../../canvas/shapeElements'
 import { createStrokeElement } from '../../canvas/strokeElements'
 import {
@@ -187,11 +192,7 @@ export function usePointerEngine(opts: {
     if (!beforeSnap || !baseUndoStack) return
 
     const st = useAppStore.getState()
-    const elementsChanged =
-      st.elements.length !== beforeSnap.length ||
-      st.elements.some((el, index) => el.id !== beforeSnap[index]?.id)
-
-    if (!elementsChanged && st.undoStack === baseUndoStack) return
+    if (!shouldCommitEraseSession(beforeSnap, st.elements, baseUndoStack, st.undoStack)) return
 
     useAppStore.getState().batchErase(beforeSnap, [], baseUndoStack)
   }, [])
@@ -1085,21 +1086,22 @@ export function usePointerEngine(opts: {
       }
       if (!drawingRef.current) return
       if (curTool === 'pen') {
-        // 跟踪笔触速度
-        if (currentPtsRef.current.length > 0) {
-          const last = currentPtsRef.current[currentPtsRef.current.length - 1]
-          const dx = pos.x - last[0]
-          const dy = pos.y - last[1]
-          penVelocityRef.current = Math.sqrt(dx * dx + dy * dy)
-        }
+        const update = getPenSampleUpdate(
+          currentPtsRef.current,
+          currentPressuresRef.current,
+          pos,
+          contact.pressure,
+          DEFAULT_INPUT_PRESSURE
+        )
+        penVelocityRef.current = update.velocity
         currentPtsRef.current.push([pos.x, pos.y])
-        if (currentPressuresRef.current.length > 0 || contact.pressure !== undefined) {
-          if (currentPressuresRef.current.length === 0) {
-            currentPressuresRef.current = new Array(currentPtsRef.current.length - 1).fill(
+        if (update.hasPressure) {
+          if (update.pressurePrefixLength > 0) {
+            currentPressuresRef.current = new Array(update.pressurePrefixLength).fill(
               DEFAULT_INPUT_PRESSURE
             )
           }
-          currentPressuresRef.current.push(contact.pressure ?? DEFAULT_INPUT_PRESSURE)
+          currentPressuresRef.current.push(update.pressure)
         }
       } else if (shapeStartRef.current && currentShapeRef.current) {
         const shift = 'shiftKey' in e && (e as MouseEvent).shiftKey
@@ -1187,36 +1189,13 @@ export function usePointerEngine(opts: {
           currentPressuresRef.current = []
         } else if (currentShapeRef.current) {
           if (shouldCommitShape(currentShapeRef.current)) {
-            // P12 箭头绑定: 检测箭头/线条端点是否靠近形状边缘
-            // 如果靠近，自动建立绑定关系
             const shape = currentShapeRef.current
             if (shape.kind === 'arrow' || shape.kind === 'line') {
               const st = useAppStore.getState()
-              // 计算起点和终点坐标
-              const startPoint: [number, number] = [shape.x, shape.y]
-              const endPoint: [number, number] = [shape.x + shape.w, shape.y + shape.h]
-
               const visibleElements = st.elements.filter((el) =>
                 isElementLayerVisible(el, st.layers)
               )
-              // 检测起点绑定
-              const startBinding = tryBindToShape(startPoint, visibleElements, shape.id)
-              // 检测终点绑定
-              const endBinding = tryBindToShape(endPoint, visibleElements, shape.id)
-
-              // 如果有绑定，更新形状的绑定信息
-              if (startBinding || endBinding) {
-                const updatedShape = { ...shape }
-                if (startBinding) {
-                  updatedShape.startBinding = startBinding
-                }
-                if (endBinding) {
-                  updatedShape.endBinding = endBinding
-                }
-                addElement(updatedShape)
-              } else {
-                addElement(shape)
-              }
+              addElement(resolveShapeBindings(shape, visibleElements, tryBindToShape))
             } else {
               addElement(shape)
             }
