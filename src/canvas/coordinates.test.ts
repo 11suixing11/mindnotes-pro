@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   clientToWorld,
   getGridSnapDelta,
+  getTouchDistance,
+  getTouchMidpoint,
+  pinchViewBoxAtClientMidpoint,
   screenToWorld,
   snapPointIfEnabled,
   snapPointToGrid,
@@ -70,5 +73,26 @@ describe('canvas coordinate helpers', () => {
       linesX: [],
       linesY: [],
     })
+  })
+
+  it('calculates touch geometry and keeps the pinch midpoint anchored', () => {
+    const touches = [
+      { clientX: 100, clientY: 100 },
+      { clientX: 200, clientY: 100 },
+    ]
+    expect(getTouchDistance(touches)).toBe(100)
+    expect(getTouchMidpoint(touches)).toEqual({ x: 150, y: 100 })
+    expect(getTouchDistance([])).toBe(0)
+    expect(getTouchMidpoint([])).toBeNull()
+
+    const next = pinchViewBoxAtClientMidpoint({
+      viewBox: { x: 0, y: 0, zoom: 1 },
+      canvasRect: { left: 10, top: 20 },
+      previousDistance: 100,
+      previousMidpoint: { x: 150, y: 100 },
+      nextDistance: 200,
+      nextMidpoint: { x: 160, y: 110 },
+    })
+    expect(next).toEqual({ x: 70, y: 40, zoom: 2 })
   })
 })

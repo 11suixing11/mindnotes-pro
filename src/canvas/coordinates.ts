@@ -14,6 +14,11 @@ export interface CanvasRectLike {
   top: number
 }
 
+export interface ClientPointLike {
+  clientX: number
+  clientY: number
+}
+
 export interface SnapTarget {
   x?: number
   y?: number
@@ -100,6 +105,67 @@ export function zoomViewBoxAtScreenPoint(
   return {
     x: worldPoint.x - screenPoint.x / nextZoom,
     y: worldPoint.y - screenPoint.y / nextZoom,
+    zoom: nextZoom,
+  }
+}
+
+/** Return the distance between the first two accepted touch contacts. */
+export function getTouchDistance(touches: readonly ClientPointLike[]): number {
+  if (touches.length < 2) return 0
+  const dx = touches[0].clientX - touches[1].clientX
+  const dy = touches[0].clientY - touches[1].clientY
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+/** Return the client-space midpoint of the first two accepted touch contacts. */
+export function getTouchMidpoint(touches: readonly ClientPointLike[]): CanvasPoint | null {
+  if (touches.length < 2) return null
+  return {
+    x: (touches[0].clientX + touches[1].clientX) / 2,
+    y: (touches[0].clientY + touches[1].clientY) / 2,
+  }
+}
+
+export interface PinchViewBoxOptions {
+  viewBox: CanvasViewBox
+  canvasRect: CanvasRectLike
+  previousDistance: number
+  previousMidpoint: CanvasPoint
+  nextDistance: number
+  nextMidpoint: CanvasPoint
+  minZoom?: number
+  maxZoom?: number
+}
+
+/**
+ * Calculate one incremental pinch update. The midpoint is client-space while
+ * the anchor passed to zoomViewBoxAtScreenPoint is canvas-local.
+ */
+export function pinchViewBoxAtClientMidpoint(options: PinchViewBoxOptions): CanvasViewBox {
+  const {
+    viewBox,
+    canvasRect,
+    previousDistance,
+    previousMidpoint,
+    nextDistance,
+    nextMidpoint,
+    minZoom = 0.2,
+    maxZoom = 5,
+  } = options
+  const scale =
+    previousDistance > 0 ? Math.max(0.1, Math.min(10, nextDistance / previousDistance)) : 1
+  const nextZoom = Math.max(minZoom, Math.min(maxZoom, viewBox.zoom * scale))
+  const localMidpoint = {
+    x: nextMidpoint.x - canvasRect.left,
+    y: nextMidpoint.y - canvasRect.top,
+  }
+  const zoomedViewBox = zoomViewBoxAtScreenPoint(viewBox, localMidpoint, nextZoom)
+  const panDx = (nextMidpoint.x - previousMidpoint.x) / nextZoom
+  const panDy = (nextMidpoint.y - previousMidpoint.y) / nextZoom
+
+  return {
+    x: zoomedViewBox.x - panDx,
+    y: zoomedViewBox.y - panDy,
     zoom: nextZoom,
   }
 }
