@@ -15,7 +15,6 @@ import { shallowClone, snapshot } from '../../store/helpers'
 import { elementBounds, isTransparentImagePixel } from '../../canvas/canvasUtils'
 import {
   clientToWorld,
-  getGridSnapDelta,
   getTouchDistance,
   getTouchMidpoint,
   pinchViewBoxAtClientMidpoint,
@@ -50,9 +49,13 @@ import {
   isElementLayerVisible,
 } from '../../store/layers'
 import {
-  lockResizeScalesToAspectRatio,
-  shouldPreserveResizeAspectRatio,
-} from '../../canvas/resizeRules'
+  calculateDragTransform,
+  calculateResizeTransform,
+  calculateRotationDelta,
+  collectElementAnchorPositions,
+  getElementAnchorPosition,
+  radiansToNormalizedDegrees,
+} from '../../canvas/selectionTransforms'
 import { createShapeElement, shouldCommitShape, updateShapeDraft } from '../../canvas/shapeElements'
 import { createStrokeElement } from '../../canvas/strokeElements'
 import {
@@ -636,18 +639,7 @@ export function usePointerEngine(opts: {
               setSelectedIds([hit])
             }
           }
-          const startPositions = new Map<string, { x: number; y: number }>()
-          // 使用 idToElement O(1) 查找替代遍历所有 elements
-          // 原实现: 1000 元素 + 选中 5 个 = 1000 * O(5) = 5000 次比较
-          // 新实现: O(ids.length) 次 Map 查找
-          for (const id of ids) {
-            const el = st.idToElement.get(id)
-            if (!el) continue
-            if (el.type === 'stroke')
-              startPositions.set(id, { x: el.points[0]?.[0] ?? 0, y: el.points[0]?.[1] ?? 0 })
-            else if (el.type === 'shape' || el.type === 'text' || el.type === 'image')
-              startPositions.set(id, { x: el.x, y: el.y })
-          }
+          const startPositions = collectElementAnchorPositions(ids, (id) => st.idToElement.get(id))
           // 记录屏幕坐标用于拖动阈值检测
           // 使用屏幕坐标而非世界坐标，确保阈值在所有缩放级别下一致
           const screenX = contact.clientX
@@ -857,128 +849,21 @@ export function usePointerEngine(opts: {
       const curTool = useAppStore.getState().tool
       if (curTool === 'select' && resizeRef.current) {
         const { handle, id, startX, startY, origBounds: ob } = resizeRef.current
-        const totalDx = pos.x - startX,
-          totalDy = pos.y - startY
-
-        if (ob.w < 1 || ob.h < 1) {
+        const transform = calculateResizeTransform({
+          handle,
+          bounds: ob,
+          totalDelta: { x: pos.x - startX, y: pos.y - startY },
+          elementType: resizeRef.current.origElement?.type,
+          shiftPressed: 'shiftKey' in e && (e as MouseEvent).shiftKey,
+          snapTarget: snapResizeTargetIfGridEnabled,
+        })
+        if (!transform) {
           scheduleRedraw()
           return
         }
 
-        // 边缘手柄缩放支持
-        // 手柄编号约定:
-        // 0-3: 角落手柄 (左上、右上、左下、右下) - 同时调整宽高
-        // 4: 上边缘中点 - 只调整高度
-        // 5: 下边缘中点 - 只调整高度
-        // 6: 左边缘中点 - 只调整宽度
-        // 7: 右边缘中点 - 只调整宽度
-
-        // 角落手柄锚点（对角点）
-        const cornerAnchors: [number, number][] = [
-          [ob.x + ob.w, ob.y + ob.h], // 0: 左上 -> 右下锚点
-          [ob.x, ob.y + ob.h], // 1: 右上 -> 左下锚点
-          [ob.x + ob.w, ob.y], // 2: 左下 -> 右上锚点
-          [ob.x, ob.y], // 3: 右下 -> 左上锚点
-        ]
-
-        // 角落手柄原始位置
-        const cornerOrigins: [number, number][] = [
-          [ob.x, ob.y], // 0: 左上
-          [ob.x + ob.w, ob.y], // 1: 右上
-          [ob.x, ob.y + ob.h], // 2: 左下
-          [ob.x + ob.w, ob.y + ob.h], // 3: 右下
-        ]
-
-        let ax = 0,
-          ay = 0
-        let nsx = 1,
-          nsy = 1
-        let linesX: number[] = []
-        let linesY: number[] = []
-
-        if (handle >= 0 && handle <= 3) {
-          // 角落手柄：同时调整宽高
-          ax = cornerAnchors[handle][0]
-          ay = cornerAnchors[handle][1]
-          const orig = cornerOrigins[handle]
-          const snappedTarget = snapResizeTargetIfGridEnabled({
-            x: orig[0] + totalDx,
-            y: orig[1] + totalDy,
-          })
-          const targetX = snappedTarget.x ?? orig[0] + totalDx
-          const targetY = snappedTarget.y ?? orig[1] + totalDy
-          linesX = snappedTarget.linesX
-          linesY = snappedTarget.linesY
-
-          nsx = Math.max(
-            0.1,
-            Math.min(
-              10,
-              handle === 0 || handle === 2
-                ? (targetX - ax) / (orig[0] - ax || 1)
-                : (ax - targetX) / (ax - orig[0] || 1)
-            )
-          )
-          nsy = Math.max(
-            0.1,
-            Math.min(
-              10,
-              handle === 0 || handle === 1
-                ? (targetY - ay) / (orig[1] - ay || 1)
-                : (ay - targetY) / (ay - orig[1] || 1)
-            )
-          )
-
-          // Images preserve aspect ratio by default; Shift allows freeform image resizing.
-          // Non-image elements keep the existing Shift-to-preserve behavior.
-          const shiftPressed = 'shiftKey' in e && (e as MouseEvent).shiftKey
-          if (
-            shouldPreserveResizeAspectRatio(
-              resizeRef.current.origElement?.type,
-              handle,
-              shiftPressed
-            )
-          ) {
-            const locked = lockResizeScalesToAspectRatio(nsx, nsy)
-            nsx = locked.sx
-            nsy = locked.sy
-          }
-        } else if (handle === 4) {
-          // 上边缘中点：只调整高度（向下锚定）
-          ax = ob.x + ob.w / 2
-          ay = ob.y + ob.h // 底部作为锚点
-          const snappedTarget = snapResizeTargetIfGridEnabled({ y: ob.y + totalDy })
-          const targetY = snappedTarget.y ?? ob.y + totalDy
-          linesY = snappedTarget.linesY
-          nsy = Math.max(0.1, Math.min(10, (ay - targetY) / ob.h))
-        } else if (handle === 5) {
-          // 下边缘中点：只调整高度（向上锚定）
-          ax = ob.x + ob.w / 2
-          ay = ob.y // 顶部作为锚点
-          const snappedTarget = snapResizeTargetIfGridEnabled({ y: ob.y + ob.h + totalDy })
-          const targetY = snappedTarget.y ?? ob.y + ob.h + totalDy
-          linesY = snappedTarget.linesY
-          nsy = Math.max(0.1, Math.min(10, (targetY - ay) / ob.h))
-        } else if (handle === 6) {
-          // 左边缘中点：只调整宽度（向右锚定）
-          ax = ob.x + ob.w // 右侧作为锚点
-          ay = ob.y + ob.h / 2
-          const snappedTarget = snapResizeTargetIfGridEnabled({ x: ob.x + totalDx })
-          const targetX = snappedTarget.x ?? ob.x + totalDx
-          linesX = snappedTarget.linesX
-          nsx = Math.max(0.1, Math.min(10, (ax - targetX) / ob.w))
-        } else if (handle === 7) {
-          // 右边缘中点：只调整宽度（向左锚定）
-          ax = ob.x // 左侧作为锚点
-          ay = ob.y + ob.h / 2
-          const snappedTarget = snapResizeTargetIfGridEnabled({ x: ob.x + ob.w + totalDx })
-          const targetX = snappedTarget.x ?? ob.x + ob.w + totalDx
-          linesX = snappedTarget.linesX
-          nsx = Math.max(0.1, Math.min(10, (targetX - ax) / ob.w))
-        }
-
-        snapLinesRef.current = { x: linesX, y: linesY }
-        resizeElementById(id, ax, ay, nsx, nsy)
+        snapLinesRef.current = { x: transform.linesX, y: transform.linesY }
+        resizeElementById(id, transform.ax, transform.ay, transform.sx, transform.sy)
         scheduleRedraw()
         return
       }
@@ -989,33 +874,14 @@ export function usePointerEngine(opts: {
         const { ids, startX, startY, origRotations, commonCenterX, commonCenterY } =
           rotateRef.current
 
-        // 计算起始向量：从共同中心点到起始拖拽点
-        const startVecX = startX - commonCenterX
-        const startVecY = startY - commonCenterY
-        // 计算当前向量：从共同中心点到当前鼠标位置
-        const currentVecX = pos.x - commonCenterX
-        const currentVecY = pos.y - commonCenterY
-
-        // 使用 Math.atan2 计算两个向量的角度
-        const startAngle = Math.atan2(startVecY, startVecX)
-        const currentAngle = Math.atan2(currentVecY, currentVecX)
-
-        // 计算角度差（弧度）
-        let angleDelta = currentAngle - startAngle
-
-        // Shift 键步进旋转
-        // 专业设计工具标准：按住 Shift 键时旋转对齐到 15° 的整数倍
         const shiftPressed = 'shiftKey' in e && (e as MouseEvent).shiftKey
-        if (shiftPressed) {
-          // 15° = π/12 弧度
-          const step = Math.PI / 12
-          // 获取第一个元素的原始旋转角度作为参考（所有元素相对旋转相同角度）
-          const firstOrigRotation = origRotations.get(ids[0]) || 0
-          const totalAngle = firstOrigRotation + angleDelta
-          // 对齐到最近的 15° 步进
-          const snappedAngle = Math.round(totalAngle / step) * step
-          angleDelta = snappedAngle - firstOrigRotation
-        }
+        const angleDelta = calculateRotationDelta({
+          start: { x: startX, y: startY },
+          current: pos,
+          center: { x: commonCenterX, y: commonCenterY },
+          referenceRotation: origRotations.get(ids[0]) || 0,
+          shiftPressed,
+        })
 
         // 批量旋转所有选中元素
         // 所有元素围绕共同中心点旋转相同角度
@@ -1065,15 +931,9 @@ export function usePointerEngine(opts: {
               setSelectedIds(hits)
 
               // 立即进入拖拽模式，无缝衔接
-              const startPositions = new Map<string, { x: number; y: number }>()
-              for (const id of hits) {
-                const el = st.idToElement.get(id)
-                if (!el) continue
-                if (el.type === 'stroke')
-                  startPositions.set(id, { x: el.points[0]?.[0] ?? 0, y: el.points[0]?.[1] ?? 0 })
-                else if (el.type === 'shape' || el.type === 'text' || el.type === 'image')
-                  startPositions.set(id, { x: el.x, y: el.y })
-              }
+              const startPositions = collectElementAnchorPositions(hits, (id) =>
+                st.idToElement.get(id)
+              )
 
               const screenX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
               const screenY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
@@ -1145,14 +1005,7 @@ export function usePointerEngine(opts: {
             newIds.push(newId)
 
             // 记录新元素的起始位置（用于拖拽计算）
-            if (el.type === 'stroke') {
-              newStartPositions.set(newId, {
-                x: el.points[0]?.[0] ?? 0,
-                y: el.points[0]?.[1] ?? 0,
-              })
-            } else if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
-              newStartPositions.set(newId, { x: el.x, y: el.y })
-            }
+            newStartPositions.set(newId, getElementAnchorPosition(el))
           }
 
           // 2. 关键修复: 将原始元素移回原位（撤销已发生的移动）
@@ -1176,26 +1029,13 @@ export function usePointerEngine(opts: {
             const startPos = startPositions.get(id)
             if (!startPos) continue
 
-            if (el.type === 'stroke') {
-              // 计算 stroke 当前位置与起始位置的偏移
-              const currentX = el.points[0]?.[0] ?? 0
-              const currentY = el.points[0]?.[1] ?? 0
-              const dx = startPos.x - currentX
-              const dy = startPos.y - currentY
+            const currentPos = getElementAnchorPosition(el)
+            const dx = startPos.x - currentPos.x
+            const dy = startPos.y - currentPos.y
 
-              // 只有当确实有偏移时才移动
-              if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
-                moveElementById(id, dx, dy)
-              }
-            } else if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
-              // 计算元素当前位置与起始位置的偏移
-              const dx = startPos.x - el.x
-              const dy = startPos.y - el.y
-
-              // 只有当确实有偏移时才移动
-              if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
-                moveElementById(id, dx, dy)
-              }
+            // 只有当确实有偏移时才移动
+            if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
+              moveElementById(id, dx, dy)
             }
           }
 
@@ -1209,8 +1049,10 @@ export function usePointerEngine(opts: {
           altDragDuplicateRef.current.hasDuplicated = true
         }
 
-        let dx = pos.x - dragRef.current.x,
-          dy = pos.y - dragRef.current.y
+        const pointerDelta = {
+          x: pos.x - dragRef.current.x,
+          y: pos.y - dragRef.current.y,
+        }
         const st = useAppStore.getState()
         const ids = st.selectedIds.length > 0 ? st.selectedIds : [dragRef.current.id]
         const idSet = new Set(ids)
@@ -1227,41 +1069,24 @@ export function usePointerEngine(opts: {
           maxX = Math.max(maxX, b.x + b.w)
           maxY = Math.max(maxY, b.y + b.h)
         }
-        const movingBounds = { x: minX + dx, y: minY + dy, w: maxX - minX, h: maxY - minY }
-        if (!Number.isFinite(movingBounds.x) || !Number.isFinite(movingBounds.y)) return
-        const snap = findSnaps(movingBounds, idSet)
-        let snapDx = snap.dx
-        let snapDy = snap.dy
-        let linesX = snap.linesX
-        let linesY = snap.linesY
-
+        const selectionBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+        if (!Number.isFinite(selectionBounds.x) || !Number.isFinite(selectionBounds.y)) return
         const { snapToGrid, gridSize } = useViewStore.getState()
-        if (snapToGrid) {
-          const snappedBounds = {
-            ...movingBounds,
-            x: movingBounds.x + snapDx,
-            y: movingBounds.y + snapDy,
-          }
-          const gridSnap = getGridSnapDelta(snappedBounds, gridSize)
-          if (snap.dx === 0) {
-            snapDx += gridSnap.dx
-            linesX = gridSnap.linesX
-          }
-          if (snap.dy === 0) {
-            snapDy += gridSnap.dy
-            linesY = gridSnap.linesY
-          }
-        }
-
-        dx += snapDx
-        dy += snapDy
-        snapLinesRef.current = { x: linesX, y: linesY }
-        if (ids.length > 1) moveElementsById(ids, dx, dy, { recordHistory: false })
-        else moveElementById(dragRef.current.id, dx, dy)
+        const transform = calculateDragTransform({
+          bounds: selectionBounds,
+          delta: pointerDelta,
+          findSnaps: (movingBounds) => findSnaps(movingBounds, idSet),
+          snapToGrid,
+          gridSize,
+        })
+        snapLinesRef.current = { x: transform.linesX, y: transform.linesY }
+        if (ids.length > 1)
+          moveElementsById(ids, transform.dx, transform.dy, { recordHistory: false })
+        else moveElementById(dragRef.current.id, transform.dx, transform.dy)
         dragRef.current = {
           ...dragRef.current,
-          x: pos.x + snapDx,
-          y: pos.y + snapDy,
+          x: pos.x + transform.snapDx,
+          y: pos.y + transform.snapDy,
           id: dragRef.current.id,
         }
         scheduleRedraw()
@@ -1918,21 +1743,14 @@ export function usePointerEngine(opts: {
       const mouseX = mouseRef.current?.x ?? startX
       const mouseY = mouseRef.current?.y ?? startY
 
-      // 计算从起始点到当前点的角度变化
-      const startVecX = startX - commonCenterX
-      const startVecY = startY - commonCenterY
-      const startAngle = Math.atan2(startVecY, startVecX)
-
-      const currentVecX = mouseX - commonCenterX
-      const currentVecY = mouseY - commonCenterY
-      const currentAngle = Math.atan2(currentVecY, currentVecX)
-
-      const angleDelta = currentAngle - startAngle
       const firstOrigRotation = origRotations.get(ids[0]) || 0
-      const totalAngle = firstOrigRotation + angleDelta
-
-      // 转换为度数并归一化到 0-360
-      const degrees = ((((totalAngle * 180) / Math.PI) % 360) + 360) % 360
+      const angleDelta = calculateRotationDelta({
+        start: { x: startX, y: startY },
+        current: { x: mouseX, y: mouseY },
+        center: { x: commonCenterX, y: commonCenterY },
+        referenceRotation: firstOrigRotation,
+      })
+      const degrees = radiansToNormalizedDegrees(firstOrigRotation + angleDelta)
 
       rotationAngle = {
         angle: degrees,
