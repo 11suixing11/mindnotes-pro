@@ -56,12 +56,15 @@ import {
   radiansToNormalizedDegrees,
 } from '../../canvas/selectionTransforms'
 import {
+  calculateSelectionBounds,
   createResizeHistorySnapshot,
   createRotationHistorySnapshot,
   filterExistingSelectionIds,
   getDragHistoryDetails,
   getRestoreSessionState,
+  getRotationSessionGeometry,
   hasSessionGeometryChanges,
+  resolveSelectionPress,
   type DragSession,
   type ResizeSession,
   type RotateSession,
@@ -508,36 +511,20 @@ export function usePointerEngine(opts: {
             // 支持批量旋转多个选中元素
             if (h.isRotate) {
               const selectedIds = st.selectedIds.length > 0 ? st.selectedIds : [h.id]
-
-              // 计算所有选中元素的共同中心点（用于批量旋转）
-              let minX = Infinity,
-                minY = Infinity,
-                maxX = -Infinity,
-                maxY = -Infinity
-              const origRotations = new Map<string, number>()
-
-              for (const id of selectedIds) {
-                const selEl = st.idToElement.get(id)
-                if (!selEl) continue
-                const b = cachedBounds(selEl)
-                minX = Math.min(minX, b.x)
-                minY = Math.min(minY, b.y)
-                maxX = Math.max(maxX, b.x + b.w)
-                maxY = Math.max(maxY, b.y + b.h)
-                origRotations.set(id, selEl.rotation ?? 0)
-              }
-
-              // 初始化旋转状态
-              rotateRef.current = {
-                ids: selectedIds,
-                startX: pos.x,
-                startY: pos.y,
-                origRotations,
-                // 计算共同中心点（所有选中元素的边界框中心）
-                commonCenterX: (minX + maxX) / 2,
-                commonCenterY: (minY + maxY) / 2,
-                startElementsSnapshot: snapshot(st.elements),
-                startSelectedIds: [...st.selectedIds],
+              const geometry = getRotationSessionGeometry(
+                selectedIds,
+                (id) => st.idToElement.get(id),
+                cachedBounds
+              )
+              if (geometry) {
+                rotateRef.current = {
+                  ids: selectedIds,
+                  startX: pos.x,
+                  startY: pos.y,
+                  ...geometry,
+                  startElementsSnapshot: snapshot(st.elements),
+                  startSelectedIds: [...st.selectedIds],
+                }
               }
             } else {
               // 缩放手柄
@@ -558,67 +545,20 @@ export function usePointerEngine(opts: {
         const hit = hitTest(pos.x, pos.y)
         if (hit) {
           const st = useAppStore.getState()
-          // 组选择逻辑 - 点击组内元素时选中整个组
-          // 参考: 通用编辑器安全处理做法
           const hitEl = st.idToElement.get(hit)
-          let effectiveHit = hit
-          const groupMembers: string[] = []
-
-          // 如果点击的元素属于某个组，选中整个组
-          if (hitEl?.groupId) {
-            const groupId = hitEl.groupId
-            // 收集该组的所有成员
-            for (const el of st.elements) {
-              if (el.groupId === groupId && isElementLayerEditable(el, st.layers)) {
-                groupMembers.push(el.id)
-              }
-            }
-            // 如果组内成员都已选中，则使用原点击元素（允许单独选择）
-            // 否则选中整个组
-            const allGroupSelected = groupMembers.every((id) => st.selectedIds.includes(id))
-            if (!allGroupSelected && groupMembers.length > 0) {
-              effectiveHit = groupMembers[0]
-            }
-          }
-
-          const ids = st.selectedIds.includes(effectiveHit)
-            ? st.selectedIds
-            : groupMembers.length > 0
-              ? groupMembers
-              : [effectiveHit]
-
-          // Cmd/Ctrl+click 添加到多选
-          // 匹配 Figma/Sketch/Photoshop 专业工具标准：Shift 或 Cmd/Ctrl 都支持多选
           const isMultiSelectKey = e.shiftKey || e.metaKey || e.ctrlKey
-
-          if (isMultiSelectKey) {
-            // Shift/Cmd/Ctrl+click: 切换选中状态（添加或移除）
-            if (groupMembers.length > 0) {
-              // 点击组元素: 切换整个组的选中状态
-              const allSelected = groupMembers.every((id) => st.selectedIds.includes(id))
-              if (allSelected) {
-                setSelectedIds(st.selectedIds.filter((id) => !groupMembers.includes(id)))
-              } else {
-                setSelectedIds([...new Set([...st.selectedIds, ...groupMembers])])
-              }
-            } else if (st.selectedIds.includes(hit)) {
-              // 已选中的元素: 从选区中移除
-              setSelectedIds(st.selectedIds.filter((id) => id !== hit))
-            } else {
-              // 未选中的元素: 添加到选区
-              setSelectedIds([...st.selectedIds, hit])
-            }
-          } else {
-            if (groupMembers.length > 0) {
-              // 点击组元素: 选中整个组
-              const allGroupSelected = groupMembers.every((id) => st.selectedIds.includes(id))
-              if (!allGroupSelected) {
-                setSelectedIds(groupMembers)
-              }
-            } else if (!st.selectedIds.includes(hit)) {
-              setSelectedIds([hit])
-            }
+          const selectionPress = resolveSelectionPress({
+            hitId: hit,
+            hitElement: hitEl,
+            elements: st.elements,
+            selectedIds: st.selectedIds,
+            multiSelect: isMultiSelectKey,
+            isEditable: (element) => isElementLayerEditable(element, st.layers),
+          })
+          if (selectionPress.nextSelectedIds !== null) {
+            setSelectedIds(selectionPress.nextSelectedIds)
           }
+          const ids = selectionPress.dragIds
           const startPositions = collectElementAnchorPositions(ids, (id) => st.idToElement.get(id))
           // 记录屏幕坐标用于拖动阈值检测
           // 使用屏幕坐标而非世界坐标，确保阈值在所有缩放级别下一致
@@ -1036,21 +976,13 @@ export function usePointerEngine(opts: {
         const st = useAppStore.getState()
         const ids = st.selectedIds.length > 0 ? st.selectedIds : [dragRef.current.id]
         const idSet = new Set(ids)
-        let minX = Infinity,
-          minY = Infinity,
-          maxX = -Infinity,
-          maxY = -Infinity
-        for (const el of st.elements) {
-          if (!idSet.has(el.id)) continue
-          if (!isElementLayerEditable(el, st.layers)) continue
-          const b = cachedBounds(el)
-          minX = Math.min(minX, b.x)
-          minY = Math.min(minY, b.y)
-          maxX = Math.max(maxX, b.x + b.w)
-          maxY = Math.max(maxY, b.y + b.h)
-        }
-        const selectionBounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
-        if (!Number.isFinite(selectionBounds.x) || !Number.isFinite(selectionBounds.y)) return
+        const selectionBounds = calculateSelectionBounds(
+          st.elements.filter(
+            (element) => idSet.has(element.id) && isElementLayerEditable(element, st.layers)
+          ),
+          cachedBounds
+        )
+        if (!selectionBounds) return
         const { snapToGrid, gridSize } = useViewStore.getState()
         const transform = calculateDragTransform({
           bounds: selectionBounds,
