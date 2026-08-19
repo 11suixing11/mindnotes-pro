@@ -2,6 +2,7 @@ import { useRef, useCallback, useState } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { DEFAULT_GRID_SIZE, useViewStore } from '../../store/useViewStore'
 import { useThemeStore } from '../../store/useThemeStore'
+import { clientToWorld, worldToClient } from '../../canvas/coordinates'
 import { getTextLineHeight, type TextFormatState } from '../../canvas/textFormatting'
 import { ContextMenu } from '../context-menu'
 import type { DrawState } from './useCanvasRenderer'
@@ -99,8 +100,9 @@ export default function Canvas() {
           const w = Math.round(img.width * scale)
           const h = Math.round(img.height * scale)
           // Position at drop location in canvas coordinates
-          const cx = (e.clientX - rect.left) / vb.zoom + vb.x
-          const cy = (e.clientY - rect.top) / vb.zoom + vb.y
+          const dropPoint = clientToWorld({ x: e.clientX, y: e.clientY }, rect, vb)
+          const cx = dropPoint.x
+          const cy = dropPoint.y
           useAppStore.getState().addElement({
             type: 'image',
             id: `img-${Date.now()}`,
@@ -177,8 +179,9 @@ export default function Canvas() {
             if (!rect) return null
             // P1-1 性能优化: 仅在需要时读取 viewBox，避免订阅导致的频繁重渲染
             const viewBox = useViewStore.getState().viewBox
-            const screenX = (editingText.x - viewBox.x) * viewBox.zoom + rect.left
-            const screenY = (editingText.y - viewBox.y) * viewBox.zoom + rect.top
+            const screen = worldToClient({ x: editingText.x, y: editingText.y }, rect, viewBox)
+            const screenX = screen.x
+            const screenY = screen.y
             const lineHeight = getTextLineHeight(editingText.fontSize)
             const lineCount = Math.max(1, editingText.content.split('\n').length)
             const editorHeight = Math.max(editingText.height, lineHeight * lineCount)

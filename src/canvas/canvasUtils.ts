@@ -1,5 +1,6 @@
-import type { CanvasElement, ImageElement } from '../store/types'
-import { elementBounds } from '../store/types'
+import type { CanvasElement, ImageElement } from '../core/model'
+import { distanceToSegmentSquared, elementBounds } from '../core/geometry'
+import { getGridSnapDelta, snapPointToGrid, snapValueToGrid } from './coordinates'
 
 export const IMAGE_CACHE_MAX = 50
 const imageCache = new Map<string, HTMLImageElement>()
@@ -213,14 +214,7 @@ export function distToSegSq(
   bx: number,
   by: number
 ): number {
-  const dx = bx - ax,
-    dy = by - ay,
-    lenSq = dx * dx + dy * dy
-  let t = lenSq === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / lenSq
-  t = Math.max(0, Math.min(1, t))
-  const closestX = ax + t * dx - px
-  const closestY = ay + t * dy - py
-  return closestX * closestX + closestY * closestY
+  return distanceToSegmentSquared(px, py, ax, ay, bx, by)
 }
 
 export function isVisibleInView(
@@ -236,39 +230,7 @@ export function isVisibleInView(
 
 export { elementBounds }
 
-export function snapValueToGrid(value: number, gridSize: number): number {
-  if (gridSize <= 0) return value
-  return Math.round(value / gridSize) * gridSize
-}
-
-export function snapPointToGrid(
-  point: { x: number; y: number },
-  gridSize: number
-): { x: number; y: number } {
-  return {
-    x: snapValueToGrid(point.x, gridSize),
-    y: snapValueToGrid(point.y, gridSize),
-  }
-}
-
-export function getGridSnapDelta(
-  bounds: { x: number; y: number; w: number; h: number },
-  gridSize: number
-): { dx: number; dy: number; linesX: number[]; linesY: number[] } {
-  if (gridSize <= 0) return { dx: 0, dy: 0, linesX: [], linesY: [] }
-
-  const snappedX = snapValueToGrid(bounds.x, gridSize)
-  const snappedY = snapValueToGrid(bounds.y, gridSize)
-  const dx = snappedX - bounds.x
-  const dy = snappedY - bounds.y
-
-  return {
-    dx,
-    dy,
-    linesX: dx === 0 ? [] : [snappedX],
-    linesY: dy === 0 ? [] : [snappedY],
-  }
-}
+export { getGridSnapDelta, snapPointToGrid, snapValueToGrid }
 
 export function getContentBounds(
   elements: CanvasElement[],

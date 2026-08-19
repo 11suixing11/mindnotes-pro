@@ -46,7 +46,7 @@ Owns application state and persisted contracts.
 Owns dependency-free document concepts and deterministic transforms.
 
 - `model.ts` contains persisted element, layer, document, folder, and history contracts.
-- `geometry.ts` contains bounds and element transforms.
+- `geometry.ts` contains bounds, element transforms, and dependency-free distance primitives.
 - `arrangement.ts` contains alignment and distribution algorithms.
 - Core modules must not import Zustand, React, browser APIs, persistence, or rendering code.
 
@@ -62,6 +62,8 @@ Owns rendering and export behavior that can be tested without React.
 Key shared modules include:
 
 - `brushPresets.ts`: brush labels and rendering metadata.
+- `coordinates.ts`: pure screen/client/world conversion, anchored zoom, and grid-snap helpers.
+- `hitTesting.ts`: pure element, z-order, image-alpha, and selection-handle hit testing with injected runtime services.
 - `strokeElements.ts` and `shapeElements.ts`: element creation and draft rules.
 - `resizeRules.ts`: pure resize and aspect-ratio behavior.
 - `documentExport.ts` and `svgExport.ts`: full-document export behavior.
@@ -106,7 +108,7 @@ Owns desktop shell behavior only.
 The highest-risk files are large mixed-responsibility modules. Split them behind tests and in reviewable changes.
 
 1. `src/components/canvas/usePointerEngine.ts`
-   Extract per-tool pointer handlers and shared gesture lifecycle code.
+   Extracted coordinate and hit-testing primitives; next split per-tool pointer handlers and shared gesture lifecycle code.
 2. `src/canvas/canvasDrawing.ts`
    Separate element renderers while retaining one shared rendering contract.
 3. `src/index.css`
