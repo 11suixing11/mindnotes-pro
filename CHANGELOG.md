@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pan, pinch, drag-threshold, geometry-change, and marquee-selection calculations now live behind tested pure modules
 - Selection resize, drag snapping, rotation, and drag-anchor calculations now live behind a tested pure module
 - Pointer-session contracts, cancellation restoration, and selection undo snapshot decisions now live behind a tested pure module
+- Pen sampling, shape endpoint binding, and eraser-session commit decisions now live behind a tested pure module
 
 ### Fixed
 
