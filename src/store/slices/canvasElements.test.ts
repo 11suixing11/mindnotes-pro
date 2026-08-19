@@ -191,6 +191,24 @@ describe('canvasElements slice', () => {
       useAppStore.getState().updateElement('s1', (el) => ({ ...el, color: '#fff' }) as any)
       expect((useAppStore.getState().elements[1] as any).color).toBe('#000')
     })
+
+    it('keeps runtime indexes in sync through commitElements', () => {
+      useAppStore.getState().addElements([makeShape('sh1'), makeShape('sh2')])
+      useAppStore.setState({ redoStack: [{ type: 'clear', snapshot: [] }] })
+
+      const next = useAppStore
+        .getState()
+        .elements.filter((element) => element.id !== 'sh1')
+        .map((element) => ({ ...element, x: 200 }))
+      useAppStore.getState().commitElements(next, { clearRedo: true })
+
+      const state = useAppStore.getState()
+      expect(state.elements).toHaveLength(1)
+      expect(state.idToElement.has('sh1')).toBe(false)
+      expect(state.idToElement.get('sh2')).toEqual(expect.objectContaining({ x: 200 }))
+      expect(state.idToIndex.get('sh2')).toBe(0)
+      expect(state.redoStack).toEqual([])
+    })
   })
 
   describe('moveElementById', () => {
@@ -435,6 +453,56 @@ describe('canvasElements slice', () => {
       useAppStore.setState({ elements: [makeStroke('s1')], clipboard: [] })
       useAppStore.getState().paste()
       expect(useAppStore.getState().elements).toHaveLength(1)
+    })
+  })
+
+  describe('alignSelected', () => {
+    it('records a snapshot that restores and reapplies aligned positions', () => {
+      useAppStore
+        .getState()
+        .addElements([makeShape('left', { x: 0, y: 0 }), makeShape('right', { x: 80, y: 40 })])
+      useAppStore.setState({ selectedIds: ['left', 'right'], undoStack: [], redoStack: [] })
+
+      useAppStore.getState().alignSelected('alignLeft')
+
+      expect((useAppStore.getState().elements[1] as ShapeElement).x).toBe(0)
+      expect(useAppStore.getState().undoStack.slice(-1)[0]?.type).toBe('snapshot')
+
+      useAppStore.getState().undo()
+      expect((useAppStore.getState().elements[0] as ShapeElement).x).toBe(0)
+      expect((useAppStore.getState().elements[1] as ShapeElement).x).toBe(80)
+
+      useAppStore.getState().redo()
+      expect((useAppStore.getState().elements[0] as ShapeElement).x).toBe(0)
+      expect((useAppStore.getState().elements[1] as ShapeElement).x).toBe(0)
+    })
+  })
+
+  describe('distributeSelected', () => {
+    it('records a snapshot that restores and reapplies distributed positions', () => {
+      useAppStore
+        .getState()
+        .addElements([
+          makeShape('left', { x: 0, y: 0, w: 10, h: 10 }),
+          makeShape('middle', { x: 30, y: 0, w: 10, h: 10 }),
+          makeShape('right', { x: 100, y: 0, w: 10, h: 10 }),
+        ])
+      useAppStore.setState({
+        selectedIds: ['left', 'middle', 'right'],
+        undoStack: [],
+        redoStack: [],
+      })
+
+      useAppStore.getState().distributeSelected('distributeH')
+
+      expect((useAppStore.getState().elements[1] as ShapeElement).x).toBe(50)
+      expect(useAppStore.getState().undoStack.slice(-1)[0]?.type).toBe('snapshot')
+
+      useAppStore.getState().undo()
+      expect((useAppStore.getState().elements[1] as ShapeElement).x).toBe(30)
+
+      useAppStore.getState().redo()
+      expect((useAppStore.getState().elements[1] as ShapeElement).x).toBe(50)
     })
   })
 

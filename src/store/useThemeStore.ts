@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { useAppStore } from './appStore'
+import type { CanvasElement } from '../core/model'
 
 const THEME_MEDIA_QUERY = '(prefers-color-scheme: dark)'
 
@@ -25,8 +25,31 @@ function isColorDark(hex: string): boolean {
   return (r * 299 + g * 587 + b * 114) / 1000 < 128
 }
 
+interface ThemeAppPort {
+  color: string
+  elements: CanvasElement[]
+  bgColor: string
+  setColor: (color: string) => void
+  setBgColor: (color: string) => void
+  commitElements: (elements: CanvasElement[]) => void
+}
+
+let themeAppPort: (() => ThemeAppPort) | null = null
+
+export function bindThemeAppPort(getApp: () => ThemeAppPort): () => void {
+  themeAppPort = getApp
+  return () => {
+    if (themeAppPort === getApp) themeAppPort = null
+  }
+}
+
+function getThemeApp(): ThemeAppPort | null {
+  return themeAppPort ? themeAppPort() : null
+}
+
 function adaptStrokeColor(toDark: boolean) {
-  const app = useAppStore.getState()
+  const app = getThemeApp()
+  if (!app) return
   if (toDark && isColorDark(app.color)) {
     app.setColor(DARK_MODE_COLOR)
   } else if (!toDark && !isColorDark(app.color)) {
@@ -35,7 +58,8 @@ function adaptStrokeColor(toDark: boolean) {
 }
 
 function adaptExistingElements(toDark: boolean) {
-  const app = useAppStore.getState()
+  const app = getThemeApp()
+  if (!app) return
   const elements = app.elements
   let hasChanges = false
   const updatedElements = elements.map((el) => {
@@ -52,8 +76,7 @@ function adaptExistingElements(toDark: boolean) {
     return el
   })
   if (hasChanges) {
-    useAppStore.setState({ elements: updatedElements })
-    app.saveNow()
+    app.commitElements(updatedElements)
   }
 }
 
@@ -87,7 +110,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
 
     localStorage.setItem('mindnotes-theme', newMode ? 'dark' : 'light')
 
-    const app = useAppStore.getState()
+    const app = getThemeApp()
+    if (!app) return
     const cur = app.bgColor
     const isLight = cur === '#ffffff' || cur === '#FFFFFF' || cur === '#fff' || cur === '#FFF'
     const isDark = cur === '#1A1820' || cur === '#1a1820'
@@ -112,7 +136,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     // 存储偏好
     localStorage.setItem('mindnotes-theme', isDark ? 'dark' : 'light')
 
-    const app = useAppStore.getState()
+    const app = getThemeApp()
+    if (!app) return
     const cur = app.bgColor
     const isLight = cur === '#ffffff' || cur === '#FFFFFF' || cur === '#fff' || cur === '#FFF'
     const isDarkBg = cur === '#1A1820' || cur === '#1a1820'

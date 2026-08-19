@@ -150,7 +150,7 @@ export function usePointerEngine(opts: {
   // Store selectors
   const {
     addElement,
-    removeElement,
+    commitElements,
     moveElementById,
     moveElementsById,
     resizeElementById,
@@ -159,7 +159,7 @@ export function usePointerEngine(opts: {
   } = useAppStore(
     useShallow((s) => ({
       addElement: s.addElement,
-      removeElement: s.removeElement,
+      commitElements: s.commitElements,
       moveElementById: s.moveElementById,
       moveElementsById: s.moveElementsById,
       resizeElementById: s.resizeElementById,
@@ -225,8 +225,7 @@ export function usePointerEngine(opts: {
 
     if (!elementsChanged && st.undoStack === baseUndoStack) return
 
-    useAppStore.setState({ undoStack: baseUndoStack, redoStack: [] })
-    useAppStore.getState().batchErase(beforeSnap, [])
+    useAppStore.getState().batchErase(beforeSnap, [], baseUndoStack)
   }, [])
 
   const beginEraseSession = useCallback(() => {
@@ -659,10 +658,14 @@ export function usePointerEngine(opts: {
           `${sourceId}-part-${++eraserPartCounterRef.current}-${partIndex}`,
       })
 
-      for (const id of patch.removeIds) removeElement(id)
-      for (const element of patch.additions) addElement(element)
+      if (patch.removeIds.length === 0 && patch.additions.length === 0) return
+      const removeIds = new Set(patch.removeIds)
+      const nextElements = state.elements
+        .filter((element) => !removeIds.has(element.id))
+        .concat(patch.additions)
+      commitElements(nextElements, { clearRedo: true })
     },
-    [removeElement, addElement, cachedBounds]
+    [commitElements, cachedBounds]
   )
 
   const handleStart = useCallback(

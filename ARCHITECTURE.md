@@ -8,7 +8,8 @@ MindNotes Pro is a local-first React whiteboard with a PWA runtime and a minimal
 
 ```text
 src/
-├── canvas/        Rendering, geometry, brushes, image loading, and export helpers
+├── core/          Pure document models, geometry, and arrangement algorithms
+├── canvas/        Rendering-specific geometry, brushes, image loading, and export helpers
 ├── components/    React UI and browser interaction orchestration
 ├── eraser/        Geometry eraser and spatial index
 ├── keyboard/      Shortcut definitions, matching, and serialization
@@ -31,9 +32,21 @@ Owns application state and persisted contracts.
 
 - Store slices must not import React components.
 - Persisted document changes require schema or migration tests.
-- The active document schema is v4 and lives in `src/store/types.ts` and `src/store/schema.ts`.
+- The active document schema is v4; document contracts live in `src/core/model.ts` and the schema version constant lives in `src/store/schema.ts`.
 - JSON backup validation belongs in `src/store/backup.ts`; UI code must not parse backup data ad hoc.
 - Document records live in IndexedDB. Small preferences and custom-template metadata may use local storage.
+- `src/store/types.ts` is a compatibility barrel; canonical document models and pure transforms live in `src/core`.
+- View state and theme state must not import `appStore` directly. Cross-store coordination uses explicit application ports or data passed by the caller.
+- Element mutations that affect the document should go through a slice action such as `commitElements`; direct `setState({ elements: ... })` is reserved for test setup and hydration.
+
+### `src/core`
+
+Owns dependency-free document concepts and deterministic transforms.
+
+- `model.ts` contains persisted element, layer, document, folder, and history contracts.
+- `geometry.ts` contains bounds and element transforms.
+- `arrangement.ts` contains alignment and distribution algorithms.
+- Core modules must not import Zustand, React, browser APIs, persistence, or rendering code.
 
 ### `src/canvas`
 
@@ -42,7 +55,7 @@ Owns rendering and export behavior that can be tested without React.
 - Keep Canvas rendering pure against explicit context and state inputs where practical.
 - Visual exports use document content bounds, not viewport screenshots.
 - Canvas and SVG output should share domain defaults unless a format requires a documented difference.
-- Brush metadata, geometry rules, and image caching belong here rather than in toolbar components.
+- Brush metadata, rendering geometry rules, and image caching belong here rather than in toolbar components.
 
 Key shared modules include:
 

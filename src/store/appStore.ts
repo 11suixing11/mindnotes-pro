@@ -12,6 +12,7 @@ import type { FolderManagementState, FolderManagementActions } from './slices/fo
 import { createUISlice } from './slices/uiState'
 import type { UIState, UIActions } from './slices/uiState'
 import { initSaveManager } from './saveManager'
+import { bindThemeAppPort } from './useThemeStore'
 
 // Re-export all slice types for consumers
 export type {
@@ -46,6 +47,17 @@ export type AppActions = ToolSettingsActions &
 export const useAppStore = create<AppState & AppActions>((set, get) => {
   const storeApi = { getState: get, setState: set }
   initSaveManager(storeApi)
+  bindThemeAppPort(() => {
+    const state = get()
+    return {
+      color: state.color,
+      elements: state.elements,
+      bgColor: state.bgColor,
+      setColor: state.setColor,
+      setBgColor: state.setBgColor,
+      commitElements: state.commitElements,
+    }
+  })
 
   return {
     ...createToolSettingsSlice(set, get),

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import type { StrokeElement, ShapeElement, TextElement, ImageElement } from './types'
-import { elementBounds, moveElement, resizeElement } from './types'
+import type { StrokeElement, ShapeElement, TextElement, ImageElement } from './model'
+import { elementBounds, moveElement, resizeElement } from './geometry'
 
 describe('elementBounds', () => {
   it('should compute bounds for a stroke element', () => {

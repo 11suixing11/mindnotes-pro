@@ -52,6 +52,13 @@ export interface MoveElementsOptions {
   recordHistory?: boolean
 }
 
+export interface CommitElementsOptions {
+  action?: UndoAction
+  selectedIds?: string[]
+  clearRedo?: boolean
+  undoStack?: UndoAction[]
+}
+
 export interface CanvasElementsActions {
   addElement: (el: CanvasElement) => void
   addElements: (els: CanvasElement[]) => void
@@ -65,6 +72,7 @@ export interface CanvasElementsActions {
   moveElementsToLayer: (ids: string[], layerId: string) => void
   moveSelectedToLayer: (layerId: string) => void
   updateElement: (id: string, update: (el: CanvasElement) => CanvasElement) => void
+  commitElements: (elements: CanvasElement[], options?: CommitElementsOptions) => void
   removeElement: (id: string) => void
   removeElements: (ids: string[]) => void
   moveElementById: (id: string, dx: number, dy: number) => void
@@ -88,7 +96,11 @@ export interface CanvasElementsActions {
   ungroupSelected: () => void
   alignSelected: (alignment: AlignmentType) => void
   distributeSelected: (distribution: DistributionType) => void
-  batchErase: (beforeSnap: CanvasElement[], added: CanvasElement[]) => void
+  batchErase: (
+    beforeSnap: CanvasElement[],
+    added: CanvasElement[],
+    baseUndoStack?: UndoAction[]
+  ) => void
   restoreElementsSnapshot: (elements: CanvasElement[], selectedIds?: string[]) => void
   // 元素锁定
   // 专业设计工具标配：锁定元素防止误操作
@@ -180,6 +192,72 @@ export function createCanvasElementsSlice(
       spatialIndex.insert(el)
     })
     _indexDirty = false
+  }
+
+  function syncElementCollection(next: CanvasElement[], st = get()) {
+    const nextIds = new Set(next.map((element) => element.id))
+
+    for (const id of st.idToElement.keys()) {
+      if (nextIds.has(id)) continue
+      idToElement.delete(id)
+      st.idToElement.delete(id)
+      idToIndex.delete(id)
+      st.idToIndex.delete(id)
+      spatialIndex.remove(id)
+    }
+
+    for (let index = 0; index < next.length; index++) {
+      const element = next[index]
+      const previous = st.idToElement.get(element.id)
+      if (!previous) {
+        spatialIndex.insert(element)
+      } else if (previous !== element) {
+        spatialIndex.update(element)
+      }
+      idToElement.set(element.id, element)
+      st.idToElement.set(element.id, element)
+      idToIndex.set(element.id, index)
+      st.idToIndex.set(element.id, index)
+    }
+
+    _indexDirty = false
+  }
+
+  function commitElements(
+    nextElements: CanvasElement[],
+    options: CommitElementsOptions = {}
+  ): void {
+    const st = get()
+    const hasElementChanges =
+      st.elements.length !== nextElements.length ||
+      st.elements.some((element: CanvasElement, index: number) => element !== nextElements[index])
+    const nextIds = new Set(nextElements.map((element) => element.id))
+    const nextSelectedIds = (options.selectedIds ?? st.selectedIds).filter((id: string) =>
+      nextIds.has(id)
+    )
+    const selectionChanged =
+      nextSelectedIds.length !== st.selectedIds.length ||
+      nextSelectedIds.some((id: string, index: number) => id !== st.selectedIds[index])
+
+    if (!hasElementChanges && !selectionChanged && !options.action && !options.undoStack) return
+
+    incrementSaveGeneration()
+    const nextUndoStack = options.undoStack
+      ? options.action
+        ? [...options.undoStack.slice(-MAX_HISTORY), options.action]
+        : options.undoStack
+      : options.action
+        ? [...st.undoStack.slice(-MAX_HISTORY), options.action]
+        : st.undoStack
+    const shouldClearRedo = options.clearRedo ?? Boolean(options.action || options.undoStack)
+    set({
+      elements: nextElements,
+      selectedIds: nextSelectedIds,
+      undoStack: nextUndoStack,
+      ...(shouldClearRedo ? { redoStack: [] } : {}),
+    })
+    syncElementCollection(nextElements, get())
+    scheduleSave()
   }
 
   const defaultLayer = createDefaultLayer()
@@ -448,6 +526,8 @@ export function createCanvasElementsSlice(
       set({ elements: next })
       scheduleSave()
     },
+
+    commitElements,
 
     removeElement: (id) => {
       incrementSaveGeneration()
@@ -966,11 +1046,9 @@ export function createCanvasElementsSlice(
       const editableIds = getEditableIds(selectedIds, st)
       if (editableIds.length < 2) return
 
-      // 记录对齐前的位置用于撤销
+      // 保存完整文档快照，确保撤销不会丢失未选中的元素
       const selSet = new Set(editableIds)
-      const beforeMove = elements
-        .filter((el: CanvasElement) => selSet.has(el.id))
-        .map((el: CanvasElement) => shallowClone(el))
+      const beforeSnapshot = snapshot(elements)
 
       // 执行对齐
       const next = alignElements(elements, editableIds, alignment)
@@ -997,10 +1075,13 @@ export function createCanvasElementsSlice(
         }
       }
 
-      // 构建撤销操作：记录对齐前的位置
+      // 对齐可能让每个元素产生不同位移，不能用单一 move delta 表示
       const action: UndoAction = {
-        type: 'move',
-        deltas: beforeMove.map((el: CanvasElement) => ({ id: el.id, dx: 0, dy: 0 })),
+        type: 'snapshot',
+        before: beforeSnapshot,
+        after: snapshot(next),
+        label: 'Align elements',
+        affectedIds: editableIds,
       }
 
       incrementSaveGeneration()
@@ -1024,11 +1105,9 @@ export function createCanvasElementsSlice(
       const editableIds = getEditableIds(selectedIds, st)
       if (editableIds.length < 3) return
 
-      // 记录分布前的位置用于撤销
+      // 保存完整文档快照，确保撤销不会丢失未选中的元素
       const selSet = new Set(editableIds)
-      const beforeMove = elements
-        .filter((el: CanvasElement) => selSet.has(el.id))
-        .map((el: CanvasElement) => shallowClone(el))
+      const beforeSnapshot = snapshot(elements)
 
       // 执行分布
       const next = distributeElements(elements, editableIds, distribution)
@@ -1055,10 +1134,13 @@ export function createCanvasElementsSlice(
         }
       }
 
-      // 构建撤销操作：记录分布前的位置
+      // 分布会给每个元素计算独立位移，不能用单一 move delta 表示
       const action: UndoAction = {
-        type: 'move',
-        deltas: beforeMove.map((el: CanvasElement) => ({ id: el.id, dx: 0, dy: 0 })),
+        type: 'snapshot',
+        before: beforeSnapshot,
+        after: snapshot(next),
+        label: 'Distribute elements',
+        affectedIds: editableIds,
       }
 
       incrementSaveGeneration()
@@ -1072,76 +1154,18 @@ export function createCanvasElementsSlice(
       scheduleSave()
     },
 
-    batchErase: (beforeSnap, _added) => {
-      incrementSaveGeneration()
+    batchErase: (beforeSnap, _added, baseUndoStack) => {
       const st = get()
       const action: UndoAction = {
         type: 'erase',
         before: beforeSnap.map(shallowClone),
         after: st.elements.map(shallowClone),
       }
-      const newElements = st.elements
-      set({
-        elements: newElements,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
+      commitElements(st.elements, {
+        action,
         selectedIds: [],
+        undoStack: baseUndoStack,
       })
-
-      // P1 性能优化: 增量更新 ID 映射和空间索引，而非全量重建
-      // 性能提升: 擦除操作从 O(n log n) → O(k log n)，k 为变化元素数量
-      // 大画布场景（1000+ 元素）擦除性能提升 5-20x
-
-      // 1. 构建 before 快照的 ID Set 用于差集计算
-      const beforeIdSet = new Set(beforeSnap.map((e: CanvasElement) => e.id))
-      const afterIdSet = new Set(newElements.map((e: CanvasElement) => e.id))
-
-      // 2. 计算删除的元素（在 before 中但不在 after 中）
-      for (const id of beforeIdSet) {
-        if (!afterIdSet.has(id)) {
-          // 同步更新 ID 映射（闭包和 store 都更新）
-          idToElement.delete(id)
-          st.idToElement.delete(id)
-          idToIndex.delete(id)
-          st.idToIndex.delete(id)
-          spatialIndex.remove(id)
-        }
-      }
-
-      // 3. 计算新增/修改的元素（在 after 中但不在 before 中，或引用变化）
-      // 构建 before 的 ID → 元素引用映射
-      const beforeRefMap = new Map<string, CanvasElement>()
-      for (const el of beforeSnap) {
-        beforeRefMap.set(el.id, el)
-      }
-
-      for (let i = 0; i < newElements.length; i++) {
-        const el = newElements[i]
-        const beforeEl = beforeRefMap.get(el.id)
-        // 元素是新增的（不在 before 中）或被修改的（引用变化）
-        if (!beforeEl || beforeEl !== el) {
-          // 同步更新 ID 映射（闭包和 store 都更新）
-          idToElement.set(el.id, el)
-          st.idToElement.set(el.id, el)
-          idToIndex.set(el.id, i)
-          st.idToIndex.set(el.id, i)
-          if (!beforeEl) {
-            // 新增元素 - 插入空间索引
-            spatialIndex.insert(el)
-          } else {
-            // 修改元素 - 更新空间索引
-            spatialIndex.update(el)
-          }
-        } else {
-          // 未变化元素 - 只更新索引
-          idToIndex.set(el.id, i)
-          st.idToIndex.set(el.id, i)
-        }
-      }
-
-      // 重建索引后标记为干净
-      _indexDirty = false
-      scheduleSave()
     },
 
     restoreElementsSnapshot: (elements, selectedIds = get().selectedIds) => {

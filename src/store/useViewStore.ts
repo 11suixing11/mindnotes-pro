@@ -1,6 +1,4 @@
 import { create } from 'zustand'
-import { elementBounds } from './types'
-import { useAppStore } from './appStore'
 
 export const GRID_SIZE_OPTIONS = [10, 20, 40] as const
 export type GridSize = (typeof GRID_SIZE_OPTIONS)[number]
@@ -30,7 +28,7 @@ interface ViewActions {
   zoomToFit: (bounds: { x: number; y: number; w: number; h: number } | null) => void
   // Zoom to Selection (缩放到选中元素)
   // 设计参考: Figma Cmd+2, Sketch Cmd+2, Graphic Cmd+2 - 行业标准快捷键
-  zoomToSelection: () => void
+  zoomToSelection: (bounds?: { x: number; y: number; w: number; h: number } | null) => void
   toggleGrid: () => void
   toggleSnapToGrid: () => void
   setSnapToGrid: (enabled: boolean) => void
@@ -173,44 +171,9 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
     set({ viewBox: getFitViewBox(bounds, FIT_PADDING) })
   },
 
-  // Zoom to Selection (缩放到选中元素)
-  // 专业设计工具标准功能：选中元素后一键缩放到合适大小查看细节
-  // 用户价值：处理复杂画布时，无需手动滚动缩放，一键定位到选中内容
-  zoomToSelection: () => {
-    const appState = useAppStore.getState()
-    const selectedIds = appState.selectedIds
-    if (selectedIds.length === 0) return
-
-    // 获取所有选中元素
-    const selectedElements = selectedIds
-      .map((id) => appState.idToElement.get(id))
-      .filter((el): el is NonNullable<typeof el> => el !== undefined)
-
-    if (selectedElements.length === 0) return
-
-    // 计算选中元素的整体边界
-    let minX = Infinity
-    let minY = Infinity
-    let maxX = -Infinity
-    let maxY = -Infinity
-
-    for (const el of selectedElements) {
-      // 使用 elementBounds 统一处理所有类型元素（包括 StrokeElement）
-      const bounds = elementBounds(el)
-      minX = Math.min(minX, bounds.x)
-      minY = Math.min(minY, bounds.y)
-      maxX = Math.max(maxX, bounds.x + bounds.w)
-      maxY = Math.max(maxY, bounds.y + bounds.h)
-    }
-
-    const bounds = {
-      x: minX,
-      y: minY,
-      w: maxX - minX,
-      h: maxY - minY,
-    }
-
-    // 复用 zoomToFit 的逻辑，缩放到选中元素边界
+  // 选区边界由应用层传入，视图状态不再反向读取文档 store。
+  zoomToSelection: (bounds) => {
+    if (!bounds) return
     set({ viewBox: getFitViewBox(bounds, 80) })
   },
 
