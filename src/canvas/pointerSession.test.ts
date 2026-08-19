@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import type { CanvasElement, ShapeElement } from '../core/model'
 import {
+  calculateSelectionBounds,
   createResizeHistorySnapshot,
   createRotationHistorySnapshot,
   filterExistingSelectionIds,
   getDragHistoryDetails,
   getRestoreSessionState,
+  getRotationSessionGeometry,
   hasSessionGeometryChanges,
+  resolveSelectionPress,
   type DragSession,
   type ResizeSession,
   type RotateSession,
@@ -100,5 +103,99 @@ describe('pointer session helpers', () => {
     const rotated = createRotationHistorySnapshot(elements, ['a'], new Map([['a', Math.PI / 4]]))
     expect(rotated).toEqual([shape('a', 20, Math.PI / 4), shape('b', 40, 0)])
     expect(elements[0]).toEqual(shape('a', 20, Math.PI / 2))
+  })
+
+  it('resolves grouped and standalone selection presses without store access', () => {
+    const groupedA = { ...shape('a', 10), groupId: 'group-1' }
+    const groupedB = { ...shape('b', 60), groupId: 'group-1' }
+    const standalone = shape('c', 120)
+    const elements = [groupedA, groupedB, standalone]
+    const isEditable = () => true
+
+    expect(
+      resolveSelectionPress({
+        hitId: 'a',
+        hitElement: groupedA,
+        elements,
+        selectedIds: [],
+        multiSelect: false,
+        isEditable,
+      })
+    ).toEqual({ dragIds: ['a', 'b'], nextSelectedIds: ['a', 'b'] })
+
+    expect(
+      resolveSelectionPress({
+        hitId: 'a',
+        hitElement: groupedA,
+        elements,
+        selectedIds: ['a', 'b', 'c'],
+        multiSelect: true,
+        isEditable,
+      })
+    ).toEqual({ dragIds: ['a', 'b', 'c'], nextSelectedIds: ['c'] })
+
+    expect(
+      resolveSelectionPress({
+        hitId: 'a',
+        hitElement: groupedA,
+        elements,
+        selectedIds: ['a', 'b', 'c'],
+        multiSelect: false,
+        isEditable,
+      })
+    ).toEqual({ dragIds: ['a', 'b', 'c'], nextSelectedIds: null })
+
+    expect(
+      resolveSelectionPress({
+        hitId: 'c',
+        hitElement: standalone,
+        elements,
+        selectedIds: ['a', 'c'],
+        multiSelect: true,
+        isEditable,
+      })
+    ).toEqual({ dragIds: ['a', 'c'], nextSelectedIds: ['a'] })
+
+    expect(
+      resolveSelectionPress({
+        hitId: 'a',
+        hitElement: groupedA,
+        elements: [groupedA, { ...groupedB, locked: true }],
+        selectedIds: [],
+        multiSelect: false,
+        isEditable: (element) => !element.locked,
+      })
+    ).toEqual({ dragIds: ['a'], nextSelectedIds: ['a'] })
+  })
+
+  it('calculates selection bounds and rotation session geometry', () => {
+    const elements = [shape('a', 10, Math.PI / 4), shape('b', 60, Math.PI / 2)]
+    const getBounds = (element: CanvasElement) => ({
+      x: element.type === 'stroke' ? 0 : element.x,
+      y: element.type === 'stroke' ? 0 : element.y,
+      w: 40,
+      h: 30,
+    })
+
+    expect(calculateSelectionBounds(elements, getBounds)).toEqual({
+      x: 10,
+      y: 20,
+      w: 90,
+      h: 30,
+    })
+    expect(
+      getRotationSessionGeometry(
+        ['a', 'missing', 'b'],
+        (id) => elements.find((element) => element.id === id),
+        getBounds
+      )
+    ).toEqual({
+      origRotations: new Map([
+        ['a', Math.PI / 4],
+        ['b', Math.PI / 2],
+      ]),
+      commonCenterX: 55,
+      commonCenterY: 35,
+    })
   })
 })

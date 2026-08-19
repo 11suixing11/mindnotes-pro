@@ -41,6 +41,120 @@ export interface RestoreSessionState {
   selectedIds?: string[]
 }
 
+export interface SelectionPressOptions {
+  hitId: string
+  hitElement?: CanvasElement
+  elements: readonly CanvasElement[]
+  selectedIds: readonly string[]
+  multiSelect: boolean
+  isEditable: (element: CanvasElement) => boolean
+}
+
+export interface SelectionPressResult {
+  dragIds: string[]
+  nextSelectedIds: string[] | null
+}
+
+/** Resolve grouped selection and modifier-key behavior for an element press. */
+export function resolveSelectionPress(options: SelectionPressOptions): SelectionPressResult {
+  const { hitId, hitElement, elements, selectedIds, multiSelect, isEditable } = options
+  const groupMemberIds = hitElement?.groupId
+    ? elements
+        .filter((element) => element.groupId === hitElement.groupId && isEditable(element))
+        .map((element) => element.id)
+    : []
+  const allGroupSelected =
+    groupMemberIds.length > 0 && groupMemberIds.every((id) => selectedIds.includes(id))
+  const effectiveHit = groupMemberIds.length > 0 && !allGroupSelected ? groupMemberIds[0] : hitId
+  const dragIds = selectedIds.includes(effectiveHit)
+    ? [...selectedIds]
+    : groupMemberIds.length > 0
+      ? groupMemberIds
+      : [effectiveHit]
+
+  if (multiSelect) {
+    if (groupMemberIds.length > 0) {
+      return {
+        dragIds,
+        nextSelectedIds: allGroupSelected
+          ? selectedIds.filter((id) => !groupMemberIds.includes(id))
+          : [...new Set([...selectedIds, ...groupMemberIds])],
+      }
+    }
+    return {
+      dragIds,
+      nextSelectedIds: selectedIds.includes(hitId)
+        ? selectedIds.filter((id) => id !== hitId)
+        : [...selectedIds, hitId],
+    }
+  }
+
+  if (groupMemberIds.length > 0) {
+    return {
+      dragIds,
+      nextSelectedIds: allGroupSelected ? null : groupMemberIds,
+    }
+  }
+
+  return {
+    dragIds,
+    nextSelectedIds: selectedIds.includes(hitId) ? null : [hitId],
+  }
+}
+
+/** Calculate the union bounds for an explicit set of selected elements. */
+export function calculateSelectionBounds(
+  elements: readonly CanvasElement[],
+  getBounds: (element: CanvasElement) => Bounds
+): Bounds | null {
+  if (elements.length === 0) return null
+
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const element of elements) {
+    const bounds = getBounds(element)
+    minX = Math.min(minX, bounds.x)
+    minY = Math.min(minY, bounds.y)
+    maxX = Math.max(maxX, bounds.x + bounds.w)
+    maxY = Math.max(maxY, bounds.y + bounds.h)
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null
+
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+}
+
+export interface RotationSessionGeometry {
+  origRotations: Map<string, number>
+  commonCenterX: number
+  commonCenterY: number
+}
+
+/** Collect rotation baselines and the shared center for a selection. */
+export function getRotationSessionGeometry(
+  ids: readonly string[],
+  getElement: (id: string) => CanvasElement | undefined,
+  getBounds: (element: CanvasElement) => Bounds
+): RotationSessionGeometry | null {
+  const elements: CanvasElement[] = []
+  const origRotations = new Map<string, number>()
+  for (const id of ids) {
+    const element = getElement(id)
+    if (!element) continue
+    elements.push(element)
+    origRotations.set(id, element.rotation ?? 0)
+  }
+
+  const bounds = calculateSelectionBounds(elements, getBounds)
+  if (!bounds) return null
+  return {
+    origRotations,
+    commonCenterX: bounds.x + bounds.w / 2,
+    commonCenterY: bounds.y + bounds.h / 2,
+  }
+}
+
 /** Resolve the snapshot and selection to restore when an input session is cancelled. */
 export function getRestoreSessionState(
   drag: DragSession | null,
