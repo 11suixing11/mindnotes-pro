@@ -27,7 +27,6 @@ import {
   DRAG_THRESHOLD,
   RIGHT_CLICK_PAN_THRESHOLD,
   distanceSquared,
-  getChangedElementIds,
   hasMovedBeyondThreshold,
 } from '../../canvas/gestureGeometry'
 import {
@@ -56,6 +55,17 @@ import {
   getElementAnchorPosition,
   radiansToNormalizedDegrees,
 } from '../../canvas/selectionTransforms'
+import {
+  createResizeHistorySnapshot,
+  createRotationHistorySnapshot,
+  filterExistingSelectionIds,
+  getDragHistoryDetails,
+  getRestoreSessionState,
+  hasSessionGeometryChanges,
+  type DragSession,
+  type ResizeSession,
+  type RotateSession,
+} from '../../canvas/pointerSession'
 import { createShapeElement, shouldCommitShape, updateShapeDraft } from '../../canvas/shapeElements'
 import { createStrokeElement } from '../../canvas/strokeElements'
 import {
@@ -194,40 +204,9 @@ export function usePointerEngine(opts: {
   // 拖动阈值 - 防止选择时意外移动元素
   // 只有鼠标移动超过 DRAG_THRESHOLD 像素才开始真正拖动
   // 这是竞品 excalidraw 和 tldraw 都实现的核心 UX 改进
-  const dragRef = useRef<{
-    x: number
-    y: number
-    id: string
-    startPositions?: Map<string, { x: number; y: number }>
-    startElementsSnapshot?: CanvasElement[]
-    // 拖动阈值状态跟踪
-    dragStarted: boolean
-    startScreenX: number
-    startScreenY: number
-    startSelectedIds: string[]
-  } | null>(null)
-  const resizeRef = useRef<{
-    handle: number
-    id: string
-    startX: number
-    startY: number
-    origBounds: { x: number; y: number; w: number; h: number }
-    origElement: CanvasElement | null
-    startElementsSnapshot: CanvasElement[]
-    startSelectedIds: string[]
-  } | null>(null)
-  // 旋转拖拽状态
-  // 支持批量旋转多个元素
-  const rotateRef = useRef<{
-    ids: string[]
-    startX: number
-    startY: number
-    origRotations: Map<string, number>
-    commonCenterX: number
-    commonCenterY: number
-    startElementsSnapshot: CanvasElement[]
-    startSelectedIds: string[]
-  } | null>(null)
+  const dragRef = useRef<DragSession | null>(null)
+  const resizeRef = useRef<ResizeSession | null>(null)
+  const rotateRef = useRef<RotateSession | null>(null)
   const marqueeRef = useRef<{ startX: number; startY: number; endX: number; endY: number } | null>(
     null
   )
@@ -1281,17 +1260,14 @@ export function usePointerEngine(opts: {
         if (dragRef.current?.startPositions) {
           const st = useAppStore.getState()
           const before = dragRef.current.startElementsSnapshot
-          const affectedIds = before ? getChangedElementIds(before, st.elements) : []
-          if (before && affectedIds.length > 0) {
-            const draggedCount =
-              [...dragRef.current.startPositions.keys()].filter((id) => affectedIds.includes(id))
-                .length || affectedIds.length
+          const history = getDragHistoryDetails(before, st.elements, dragRef.current.startPositions)
+          if (before && history) {
             useAppStore.getState().pushUndo({
               type: 'snapshot',
               before: snapshot(before),
               after: snapshot(st.elements),
-              label: draggedCount === 1 ? 'Move element' : `Move ${draggedCount} elements`,
-              affectedIds,
+              label: history.label,
+              affectedIds: history.affectedIds,
             })
           }
         }
@@ -1302,9 +1278,11 @@ export function usePointerEngine(opts: {
             const origEl = resizeCur.origElement
             useAppStore.getState().pushUndo({
               type: 'clear',
-              snapshot: useAppStore
-                .getState()
-                .elements.map((e) => (e.id === resizeCur.id ? origEl : e)),
+              snapshot: createResizeHistorySnapshot(
+                useAppStore.getState().elements,
+                resizeCur.id,
+                origEl
+              ),
             })
           }
         }
@@ -1314,18 +1292,13 @@ export function usePointerEngine(opts: {
         const rotateCur = rotateRef.current
         if (rotateCur) {
           const { ids, origRotations } = rotateCur
-          const idSet = new Set(ids)
-          // 保存所有旋转元素的原始状态到撤销栈
           useAppStore.getState().pushUndo({
             type: 'clear',
-            snapshot: useAppStore.getState().elements.map((e) => {
-              if (idSet.has(e.id)) {
-                // 创建旋转前的元素副本
-                const origRotation = origRotations.get(e.id) || 0
-                return { ...e, rotation: origRotation }
-              }
-              return e
-            }),
+            snapshot: createRotationHistorySnapshot(
+              useAppStore.getState().elements,
+              ids,
+              origRotations
+            ),
           })
         }
         dragRef.current = null
@@ -1360,12 +1333,11 @@ export function usePointerEngine(opts: {
       const drag = dragRef.current
       const resize = resizeRef.current
       const rotate = rotateRef.current
-      const restoreSnapshot =
-        drag?.startElementsSnapshot ??
-        resize?.startElementsSnapshot ??
-        rotate?.startElementsSnapshot
-      const restoreSelectedIds =
-        drag?.startSelectedIds ?? resize?.startSelectedIds ?? rotate?.startSelectedIds
+      const { snapshot: restoreSnapshot, selectedIds: restoreSelectedIds } = getRestoreSessionState(
+        drag,
+        resize,
+        rotate
+      )
 
       drawingRef.current = false
       currentPtsRef.current = []
@@ -1374,13 +1346,16 @@ export function usePointerEngine(opts: {
       shapeStartRef.current = null
       finishEraseHistory()
       if (restoreSnapshot) {
-        const hasElementChanges =
-          getChangedElementIds(restoreSnapshot, useAppStore.getState().elements).length > 0
+        const hasElementChanges = hasSessionGeometryChanges(
+          restoreSnapshot,
+          useAppStore.getState().elements
+        )
         if (hasElementChanges) {
           restoreElementsSnapshot(restoreSnapshot, restoreSelectedIds)
         } else if (restoreSelectedIds) {
-          const elementIds = new Set(useAppStore.getState().elements.map((element) => element.id))
-          setSelectedIds(restoreSelectedIds.filter((id) => elementIds.has(id)))
+          setSelectedIds(
+            filterExistingSelectionIds(restoreSelectedIds, useAppStore.getState().elements)
+          )
         }
       }
 
