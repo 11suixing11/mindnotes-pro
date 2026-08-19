@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recovery drafts and custom templates migrate forward without deleting the v4 database
 - Element collection mutations now share one synchronization boundary for runtime indexes
 - Canvas coordinate conversion, grid snapping, and hit testing now live behind tested pure modules
+- Pan, pinch, drag-threshold, geometry-change, and marquee-selection calculations now live behind tested pure modules
 
 ### Fixed
 

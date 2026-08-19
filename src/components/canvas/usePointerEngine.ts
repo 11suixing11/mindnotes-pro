@@ -16,11 +16,30 @@ import { elementBounds, isTransparentImagePixel } from '../../canvas/canvasUtils
 import {
   clientToWorld,
   getGridSnapDelta,
+  getTouchDistance,
+  getTouchMidpoint,
+  pinchViewBoxAtClientMidpoint,
   snapPointIfEnabled,
   snapTargetIfEnabled,
   worldToClient,
   zoomViewBoxAtScreenPoint,
 } from '../../canvas/coordinates'
+import {
+  DRAG_THRESHOLD,
+  RIGHT_CLICK_PAN_THRESHOLD,
+  distanceSquared,
+  getChangedElementIds,
+  hasMovedBeyondThreshold,
+} from '../../canvas/gestureGeometry'
+import {
+  collectMarqueeElementIds,
+  hasMarqueeArea,
+  hasMarqueeDragSize,
+  isMarqueeShrinking,
+  isPointInsideMarquee,
+  mergeMarqueeSelectionIds,
+  normalizeMarqueeRect,
+} from '../../canvas/marquee'
 import { findSelectionHandleAtPoint, findTopmostElementAtPoint } from '../../canvas/hitTesting'
 import { drawElement } from '../../canvas/canvasDrawing'
 import {
@@ -63,62 +82,6 @@ const CURSOR_MAP: Record<string, string> = {
 }
 // P5 样式吸管光标 - 使用 CSS 自定义光标
 const EYEDROPPER_CURSOR = 'crosshair'
-
-function haveStrokePointsChanged(before: number[][], after: number[][]): boolean {
-  if (before.length !== after.length) return true
-  for (let i = 0; i < before.length; i++) {
-    if (before[i]?.[0] !== after[i]?.[0] || before[i]?.[1] !== after[i]?.[1]) return true
-  }
-  return false
-}
-
-function hasDragGeometryChanged(before: CanvasElement, after: CanvasElement): boolean {
-  if (before.type !== after.type) return true
-  if (before.type === 'stroke') {
-    return haveStrokePointsChanged(before.points, (after as typeof before).points)
-  }
-  if (before.type === 'shape') {
-    const next = after as typeof before
-    return (
-      before.x !== next.x ||
-      before.y !== next.y ||
-      before.w !== next.w ||
-      before.h !== next.h ||
-      (before.rotation ?? 0) !== (next.rotation ?? 0)
-    )
-  }
-  const next = after as typeof before
-  return (
-    before.x !== next.x ||
-    before.y !== next.y ||
-    before.width !== next.width ||
-    before.height !== next.height ||
-    (before.rotation ?? 0) !== (next.rotation ?? 0)
-  )
-}
-
-function getChangedElementIds(before: CanvasElement[], after: CanvasElement[]): string[] {
-  const beforeById = new Map(before.map((el) => [el.id, el]))
-  const afterById = new Map(after.map((el) => [el.id, el]))
-  const changedIds = new Set<string>()
-
-  for (const beforeEl of before) {
-    const afterEl = afterById.get(beforeEl.id)
-    if (!afterEl) {
-      changedIds.add(beforeEl.id)
-      continue
-    }
-    if (hasDragGeometryChanged(beforeEl, afterEl)) {
-      changedIds.add(beforeEl.id)
-    }
-  }
-
-  for (const afterEl of after) {
-    if (!beforeById.has(afterEl.id)) changedIds.add(afterEl.id)
-  }
-
-  return [...changedIds]
-}
 
 export function usePointerEngine(opts: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>
@@ -228,7 +191,6 @@ export function usePointerEngine(opts: {
   // 拖动阈值 - 防止选择时意外移动元素
   // 只有鼠标移动超过 DRAG_THRESHOLD 像素才开始真正拖动
   // 这是竞品 excalidraw 和 tldraw 都实现的核心 UX 改进
-  const DRAG_THRESHOLD = 4 // 像素，考虑缩放后的实际距离
   const dragRef = useRef<{
     x: number
     y: number
@@ -271,11 +233,9 @@ export function usePointerEngine(opts: {
   const marqueeToDragRef = useRef<{
     enabled: boolean
     lastMoveTime: number
-    selectionComplete: boolean
   }>({
     enabled: true,
     lastMoveTime: 0,
-    selectionComplete: false,
   })
   // 右键拖拽平移画布
   // 遵循常见设计工具交互：右键拖动直接平移，右键点击显示菜单
@@ -292,7 +252,6 @@ export function usePointerEngine(opts: {
     startScreenY: 0,
     moved: false,
   })
-  const RIGHT_CLICK_PAN_THRESHOLD = 3 // 像素，超过此距离才进入平移模式
   // 按住 Space 键临时切换 Pan 工具
   // 遵循常见设计工具交互：按住 Space 临时平移，松开恢复原工具
   const spacePanRef = useRef<{
@@ -875,9 +834,13 @@ export function usePointerEngine(opts: {
       ) {
         const screenX = (e as MouseEvent).clientX
         const screenY = (e as MouseEvent).clientY
-        const dx = screenX - rightClickPanRef.current.startScreenX
-        const dy = screenY - rightClickPanRef.current.startScreenY
-        const distSq = dx * dx + dy * dy
+        const distSq = distanceSquared(
+          {
+            x: rightClickPanRef.current.startScreenX,
+            y: rightClickPanRef.current.startScreenY,
+          },
+          { x: screenX, y: screenY }
+        )
 
         if (distSq > RIGHT_CLICK_PAN_THRESHOLD * RIGHT_CLICK_PAN_THRESHOLD) {
           rightClickPanRef.current.moved = true
@@ -1066,43 +1029,37 @@ export function usePointerEngine(opts: {
         // 检测用户是否想要开始拖拽而不是继续扩大选择区域
         // 策略: 如果鼠标向选择区域内部移动，说明用户想拖拽而不是继续框选
         const m = marqueeRef.current
-        const x1 = Math.min(m.startX, m.endX)
-        const y1 = Math.min(m.startY, m.endY)
-        const x2 = Math.max(m.startX, m.endX)
-        const y2 = Math.max(m.startY, m.endY)
+        const marqueeRect = normalizeMarqueeRect(
+          { x: m.startX, y: m.startY },
+          { x: m.endX, y: m.endY }
+        )
 
         // 只有当框选区域有一定大小时才触发自动拖拽
-        const marqueeSize = Math.max(x2 - x1, y2 - y1)
         const now = performance.now()
 
-        if (marqueeToDragRef.current.enabled && marqueeSize > 20) {
+        if (marqueeToDragRef.current.enabled && hasMarqueeDragSize(marqueeRect)) {
           // 检测鼠标是否向选择区域内部移动
-          const isMovingInside = pos.x >= x1 && pos.x <= x2 && pos.y >= y1 && pos.y <= y2
+          const isMovingInside = isPointInsideMarquee(pos, marqueeRect)
 
           // 检测鼠标移动方向是否是"收缩"而不是"扩大"
-          const prevWidth = x2 - x1
-          const prevHeight = y2 - y1
-          const newX1 = Math.min(m.startX, pos.x)
-          const newY1 = Math.min(m.startY, pos.y)
-          const newX2 = Math.max(m.startX, pos.x)
-          const newY2 = Math.max(m.startY, pos.y)
-          const newWidth = newX2 - newX1
-          const newHeight = newY2 - newY1
-
-          const isShrinking = newWidth < prevWidth * 0.95 || newHeight < prevHeight * 0.95
+          const isShrinking = isMarqueeShrinking(
+            { x: m.startX, y: m.startY },
+            { x: m.endX, y: m.endY },
+            pos
+          )
 
           // 如果鼠标在选择区域内，或者区域在收缩，说明用户想开始拖拽
           if ((isMovingInside || isShrinking) && now - marqueeToDragRef.current.lastMoveTime > 50) {
             // 先完成选择
             const st = useAppStore.getState()
-            const candidateIds = st.spatialIndex?.search({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 })
-            const hits: string[] = []
-            for (const id of candidateIds ?? []) {
-              const el = st.idToElement.get(id)
-              if (!el || !isElementLayerEditable(el, st.layers)) continue
-              const b = cachedBounds(el)
-              if (b.x + b.w >= x1 && b.x <= x2 && b.y + b.h >= y1 && b.y <= y2) hits.push(el.id)
-            }
+            const candidateIds = st.spatialIndex?.search(marqueeRect)
+            const hits = collectMarqueeElementIds({
+              candidateIds,
+              getElement: (id) => st.idToElement.get(id),
+              getBounds: cachedBounds,
+              isSelectable: (element) => isElementLayerEditable(element, st.layers),
+              rect: marqueeRect,
+            })
 
             if (hits.length > 0) {
               setSelectedIds(hits)
@@ -1134,7 +1091,6 @@ export function usePointerEngine(opts: {
               }
 
               marqueeRef.current = null
-              marqueeToDragRef.current.selectionComplete = true
               scheduleRedraw()
               return
             }
@@ -1152,12 +1108,14 @@ export function usePointerEngine(opts: {
         if (!dragRef.current.dragStarted) {
           const screenX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
           const screenY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
-          const dxScreen = screenX - dragRef.current.startScreenX
-          const dyScreen = screenY - dragRef.current.startScreenY
-          const distSq = dxScreen * dxScreen + dyScreen * dyScreen
-
           // 移动距离小于阈值时，不执行拖动
-          if (distSq < DRAG_THRESHOLD * DRAG_THRESHOLD) {
+          if (
+            !hasMovedBeyondThreshold(
+              { x: dragRef.current.startScreenX, y: dragRef.current.startScreenY },
+              { x: screenX, y: screenY },
+              DRAG_THRESHOLD
+            )
+          ) {
             return
           }
 
@@ -1470,35 +1428,28 @@ export function usePointerEngine(opts: {
       if (curTool === 'select') {
         if (marqueeRef.current) {
           const m = marqueeRef.current
-          const x1 = Math.min(m.startX, m.endX),
-            y1 = Math.min(m.startY, m.endY),
-            x2 = Math.max(m.startX, m.endX),
-            y2 = Math.max(m.startY, m.endY)
-          if (x2 - x1 > 3 || y2 - y1 > 3) {
+          const marqueeRect = normalizeMarqueeRect(
+            { x: m.startX, y: m.startY },
+            { x: m.endX, y: m.endY }
+          )
+          if (hasMarqueeArea(marqueeRect)) {
             // P1-2 性能修复: 使用空间索引预筛选框选范围内的元素
             // 原实现: O(n) 遍历所有元素检测框选命中
             // 新实现: O(log n) R-tree 查询 + 少量精确检测
             const st = useAppStore.getState()
-            const candidateIds = st.spatialIndex?.search({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 })
-            const hits: string[] = []
-            for (const id of candidateIds ?? []) {
-              const el = st.idToElement.get(id)
-              if (!el || !isElementLayerEditable(el, st.layers)) continue
-              const b = cachedBounds(el)
-              if (b.x + b.w >= x1 && b.x <= x2 && b.y + b.h >= y1 && b.y <= y2) hits.push(el.id)
-            }
+            const candidateIds = st.spatialIndex?.search(marqueeRect)
+            const hits = collectMarqueeElementIds({
+              candidateIds,
+              getElement: (id) => st.idToElement.get(id),
+              getBounds: cachedBounds,
+              isSelectable: (element) => isElementLayerEditable(element, st.layers),
+              rect: marqueeRect,
+            })
 
             // 按住 Cmd/Ctrl 框选追加选区
             // 匹配 Figma/Sketch/Photoshop 行业标准：按住修饰键框选时追加选区而非替换
             const isAppendSelectKey = e.metaKey || e.ctrlKey
-            if (isAppendSelectKey) {
-              // 按住 Cmd/Ctrl 时：将新选中的元素追加到现有选区
-              // 使用 Set 去重，确保同一元素不会被重复选中
-              setSelectedIds([...new Set([...st.selectedIds, ...hits])])
-            } else {
-              // 不按住修饰键时：替换选区（原有行为）
-              setSelectedIds(hits)
-            }
+            setSelectedIds(mergeMarqueeSelectionIds(st.selectedIds, hits, isAppendSelectKey))
           }
           marqueeRef.current = null
         }
@@ -1556,8 +1507,6 @@ export function usePointerEngine(opts: {
         resizeRef.current = null
         rotateRef.current = null
         snapLinesRef.current = { x: [], y: [] }
-        // 重置 Lasso 拖拽状态
-        marqueeToDragRef.current.selectionComplete = false
         // 重置 Alt 拖拽复制状态
         altDragDuplicateRef.current = {
           ...altDragDuplicateRef.current,
@@ -1808,17 +1757,6 @@ export function usePointerEngine(opts: {
     let pinching = false,
       pinchDist = 0,
       pinchMid = { x: 0, y: 0 }
-    function getTouchDist(touches: ReturnType<typeof getAcceptedTouches>) {
-      const dx = touches[0].clientX - touches[1].clientX,
-        dy = touches[0].clientY - touches[1].clientY
-      return Math.sqrt(dx * dx + dy * dy)
-    }
-    function getTouchMid(touches: ReturnType<typeof getAcceptedTouches>) {
-      return {
-        x: (touches[0].clientX + touches[1].clientX) / 2,
-        y: (touches[0].clientY + touches[1].clientY) / 2,
-      }
-    }
     function onTouchStart(e: TouchEvent) {
       const touches = getAcceptedTouches(e.touches)
       if (touches.length >= 2) {
@@ -1833,8 +1771,10 @@ export function usePointerEngine(opts: {
         activeTouchIdRef.current = null
         pinching = true
         isPinchingRef.current = true
-        pinchDist = getTouchDist(touches)
-        pinchMid = getTouchMid(touches)
+        const midpoint = getTouchMidpoint(touches)
+        if (!midpoint) return
+        pinchDist = getTouchDistance(touches)
+        pinchMid = midpoint
         e.preventDefault()
       }
     }
@@ -1842,11 +1782,9 @@ export function usePointerEngine(opts: {
       const touches = getAcceptedTouches(e.touches)
       if (!pinching || touches.length < 2) return
       e.preventDefault()
-      const newDist = getTouchDist(touches),
-        newMid = getTouchMid(touches),
-        scale = Math.max(0.1, Math.min(10, newDist / pinchDist))
-      const vb = useViewStore.getState().viewBox
-      const newZoom = Math.max(0.2, Math.min(5, vb.zoom * scale))
+      const newDist = getTouchDistance(touches)
+      const newMid = getTouchMidpoint(touches)
+      if (!newMid) return
 
       // Zoom around the pinch midpoint: keep the world point under the midpoint fixed
       const rect = canvasRef.current?.getBoundingClientRect()
@@ -1855,17 +1793,17 @@ export function usePointerEngine(opts: {
         pinchMid = newMid
         return
       }
-      const midX = newMid.x - rect.left
-      const midY = newMid.y - rect.top
-      const zoomedViewBox = zoomViewBoxAtScreenPoint(vb, { x: midX, y: midY }, newZoom)
-      // Also account for midpoint panning (finger movement)
-      const panDx = (newMid.x - pinchMid.x) / newZoom
-      const panDy = (newMid.y - pinchMid.y) / newZoom
-      useViewStore.getState().setViewBox({
-        x: zoomedViewBox.x - panDx,
-        y: zoomedViewBox.y - panDy,
-        zoom: newZoom,
-      })
+      const vb = useViewStore.getState().viewBox
+      useViewStore.getState().setViewBox(
+        pinchViewBoxAtClientMidpoint({
+          viewBox: vb,
+          canvasRect: rect,
+          previousDistance: pinchDist,
+          previousMidpoint: pinchMid,
+          nextDistance: newDist,
+          nextMidpoint: newMid,
+        })
+      )
       pinchDist = newDist
       pinchMid = newMid
       scheduleRedraw()

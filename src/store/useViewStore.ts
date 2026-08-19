@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { panViewBox } from '../core/viewport'
 
 export const GRID_SIZE_OPTIONS = [10, 20, 40] as const
 export type GridSize = (typeof GRID_SIZE_OPTIONS)[number]
@@ -156,10 +157,8 @@ export const useViewStore = create<ViewState & ViewActions>((set, get) => ({
   updatePan: (x, y) => {
     const { lastPanPosition, viewBox } = get()
     if (!lastPanPosition) return
-    const dx = (x - lastPanPosition.x) / viewBox.zoom
-    const dy = (y - lastPanPosition.y) / viewBox.zoom
     set({
-      viewBox: { ...viewBox, x: viewBox.x - dx, y: viewBox.y - dy },
+      viewBox: panViewBox(viewBox, lastPanPosition, { x, y }),
       lastPanPosition: { x, y },
     })
   },
