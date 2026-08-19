@@ -5,7 +5,7 @@ import type {
   CanvasLayer,
   UndoAction,
 } from './types'
-import * as storage from './storage'
+import { getDocumentRepository } from './documentRepository'
 import { CANVAS_SCHEMA_VERSION } from './schema'
 import { useToastStore } from './toastStore'
 import { clearRecoveryDraftForDocument, saveRecoveryDraft } from './recovery'
@@ -162,7 +162,7 @@ async function persistCurrentDocument(): Promise<boolean> {
 
   try {
     const now = Date.now()
-    const updatedDoc = await storage.update<CanvasDoc>('docs', currentDocId, (existing) => {
+    const updatedDoc = await getDocumentRepository().updateDocument(currentDocId, (existing) => {
       const currentStateDoc = _storeRef?.getState().docs.find((doc) => doc.id === currentDocId)
       if (!existing && !currentStateDoc) return undefined
 

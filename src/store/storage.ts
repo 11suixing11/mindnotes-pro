@@ -1,7 +1,6 @@
-import { STORAGE_DB_NAME } from './schema'
+import { LEGACY_STORAGE_DB_NAME, OLDEST_LEGACY_STORAGE_DB_NAME, STORAGE_DB_NAME } from './schema'
 
 const DB_VERSION = 1
-const LEGACY_DB_NAME = 'mindnotes-pro'
 const LEGACY_STORAGE_ENCRYPTION_KEY = 'mindnotes-pro-encryption-key-2024'
 let database: IDBDatabase | null = null
 let databasePromise: Promise<IDBDatabase> | null = null
@@ -110,6 +109,34 @@ export async function put<T>(storeName: string, record: T): Promise<void> {
   await transactionComplete(transaction)
 }
 
+/** Persist several records in one IndexedDB transaction. */
+export async function putMany<T>(storeName: string, records: T[]): Promise<void> {
+  if (records.length === 0) return
+  const db = await openDB()
+  const transaction = db.transaction(storeName, 'readwrite')
+  const store = transaction.objectStore(storeName)
+  for (const record of records) store.put(record)
+  await transactionComplete(transaction)
+}
+
+/** Persist documents and folders together so a migration cannot half-commit. */
+export async function putManyStores(
+  batches: Array<{ storeName: string; records: unknown[] }>
+): Promise<void> {
+  const nonEmpty = batches.filter((batch) => batch.records.length > 0)
+  if (nonEmpty.length === 0) return
+  const db = await openDB()
+  const transaction = db.transaction(
+    nonEmpty.map((batch) => batch.storeName),
+    'readwrite'
+  )
+  for (const batch of nonEmpty) {
+    const store = transaction.objectStore(batch.storeName)
+    for (const record of batch.records) store.put(record)
+  }
+  await transactionComplete(transaction)
+}
+
 export async function update<T>(
   storeName: string,
   id: string,
@@ -148,22 +175,11 @@ export async function del(storeName: string, id: string): Promise<void> {
   await transactionComplete(transaction)
 }
 
-export function readLegacyDatabase<TDoc, TFolder>(): Promise<LegacyDatabaseSnapshot<
-  TDoc,
-  TFolder
-> | null> {
+function readLegacyDatabaseByName<TDoc, TFolder>(
+  databaseName: string
+): Promise<LegacyDatabaseSnapshot<TDoc, TFolder> | null> {
   return new Promise((resolve, reject) => {
-    if (typeof indexedDB === 'undefined') {
-      resolve(null)
-      return
-    }
-
-    const request = indexedDB.open(LEGACY_DB_NAME)
-    let createdEmptyDatabase = false
-
-    request.onupgradeneeded = (event) => {
-      createdEmptyDatabase = (event as IDBVersionChangeEvent).oldVersion === 0
-    }
+    const request = indexedDB.open(databaseName)
     request.onerror = () =>
       reject(request.error ?? new Error('Failed to open the legacy IndexedDB database'))
     request.onsuccess = () => {
@@ -171,9 +187,11 @@ export function readLegacyDatabase<TDoc, TFolder>(): Promise<LegacyDatabaseSnaps
       const hasDocs = db.objectStoreNames.contains('docs')
       const hasFolders = db.objectStoreNames.contains('folders')
 
-      if (createdEmptyDatabase || (!hasDocs && !hasFolders)) {
+      if (!hasDocs && !hasFolders) {
+        // Never delete a legacy database. An empty database may have been
+        // created by the read itself, but preserving it is safer than a
+        // destructive cleanup that could race with another tab.
         db.close()
-        if (createdEmptyDatabase) indexedDB.deleteDatabase(LEGACY_DB_NAME)
         resolve(null)
         return
       }
@@ -209,6 +227,39 @@ export function readLegacyDatabase<TDoc, TFolder>(): Promise<LegacyDatabaseSnaps
       transaction.onabort = transaction.onerror
     }
   })
+}
+
+async function legacyDatabaseExists(databaseName: string): Promise<boolean> {
+  const databases = (
+    indexedDB as IDBFactory & {
+      databases?: () => Promise<Array<{ name?: string }>>
+    }
+  ).databases
+  if (typeof databases !== 'function') return true
+  try {
+    const knownDatabases = await databases.call(indexedDB)
+    return knownDatabases.some((database) => database.name === databaseName)
+  } catch {
+    // Older browsers may expose databases() but reject it; opening remains the
+    // only compatible fallback in that case.
+    return true
+  }
+}
+
+export async function readLegacyDatabase<TDoc, TFolder>(): Promise<LegacyDatabaseSnapshot<
+  TDoc,
+  TFolder
+> | null> {
+  if (typeof indexedDB === 'undefined') return null
+
+  // v4 is the explicit import source. The older name remains a fallback for
+  // users who skipped the v4 release entirely.
+  for (const databaseName of [LEGACY_STORAGE_DB_NAME, OLDEST_LEGACY_STORAGE_DB_NAME]) {
+    if (!(await legacyDatabaseExists(databaseName))) continue
+    const snapshot = await readLegacyDatabaseByName<TDoc, TFolder>(databaseName)
+    if (snapshot && (snapshot.docs.length > 0 || snapshot.folders.length > 0)) return snapshot
+  }
+  return null
 }
 
 function decodeLegacyStorageValue(serialized: string): unknown {

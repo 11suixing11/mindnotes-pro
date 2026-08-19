@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-08-19
+
+### Added
+
+- Dependency-free core models, geometry, and arrangement transforms
+- A `DocumentRepository` application port with an IndexedDB v5 adapter
+- Read-only v4 database import with validation, atomic v5 writes, and failure recovery tests
+
+### Changed
+
+- Documents now persist in the isolated `mindnotes-pro-v5` database
+- v5 JSON backups remain compatible with v4, v3, and supported legacy imports
+- Recovery drafts and custom templates migrate forward without deleting the v4 database
+- Element collection mutations now share one synchronization boundary for runtime indexes
+
+### Fixed
+
+- Alignment and distribution undo now restore exact document snapshots
+- View and theme stores no longer depend cyclically on the application store
+
 ## [4.0.0] - 2026-08-01
 
 ### Added
@@ -230,6 +250,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic canvas with undo/redo
 - LocalStorage persistence
 
+[5.0.0]: https://github.com/11suixing11/mindnotes-pro/compare/v4.0.0...v5.0.0
 [4.0.0]: https://github.com/11suixing11/mindnotes-pro/compare/v3.3.0...v4.0.0
 [3.3.0]: https://github.com/11suixing11/mindnotes-pro/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/11suixing11/mindnotes-pro/compare/v3.1.0...v3.2.0

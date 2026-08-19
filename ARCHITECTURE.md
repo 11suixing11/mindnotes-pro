@@ -32,7 +32,9 @@ Owns application state and persisted contracts.
 
 - Store slices must not import React components.
 - Persisted document changes require schema or migration tests.
-- The active document schema is v4; document contracts live in `src/core/model.ts` and the schema version constant lives in `src/store/schema.ts`.
+- The active document schema is v5; document contracts live in `src/core/model.ts` and the schema version constant lives in `src/store/schema.ts`.
+- v5 documents live in the `mindnotes-pro-v5` IndexedDB database. The `mindnotes-pro-v4` database is a read-only migration source and is never deleted.
+- Application code talks to persistence through `src/application/ports/documentRepository.ts`; the IndexedDB implementation lives in `src/store/indexedDbDocumentRepository.ts`.
 - JSON backup validation belongs in `src/store/backup.ts`; UI code must not parse backup data ad hoc.
 - Document records live in IndexedDB. Small preferences and custom-template metadata may use local storage.
 - `src/store/types.ts` is a compatibility barrel; canonical document models and pure transforms live in `src/core`.

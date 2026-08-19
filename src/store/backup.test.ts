@@ -43,11 +43,11 @@ function makeDocument(): CanvasDoc {
 }
 
 describe('canvas backup format', () => {
-  it('creates a versioned v4 backup without document storage metadata', () => {
+  it('creates a versioned v5 backup without document storage metadata', () => {
     const backup = createCanvasBackup(makeDocument())
 
     expect(backup.format).toBe(CANVAS_BACKUP_FORMAT)
-    expect(backup.version).toBe(4)
+    expect(backup.version).toBe(CANVAS_SCHEMA_VERSION)
     expect(backup.document.title).toBe('项目画布')
     expect(backup.document.elements[0]).toMatchObject({
       id: 'text-1',
@@ -58,12 +58,20 @@ describe('canvas backup format', () => {
     expect(backup).not.toHaveProperty('document.undoStack')
   })
 
-  it('roundtrips a v4 backup', () => {
+  it('roundtrips a v5 backup', () => {
     const imported = parseCanvasImport(createCanvasBackup(makeDocument()))
 
     expect(imported.title).toBe('项目画布')
     expect(imported.backgroundStyle).toBe('grid')
     expect(imported.elements[0]).toMatchObject({ id: 'text-1', layerId: 'layer-default' })
+  })
+
+  it('imports a v4 backup through the read-only compatibility boundary', () => {
+    const backup = createCanvasBackup(makeDocument())
+    const imported = parseCanvasImport({ ...backup, version: 4 })
+
+    expect(imported.title).toBe(makeDocument().title)
+    expect(imported.elements[0]).toMatchObject({ id: 'text-1' })
   })
 
   it('imports the previous v3 JSON format and assigns a writable layer', () => {

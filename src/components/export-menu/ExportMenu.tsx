@@ -268,7 +268,7 @@ const ExportMenu = memo(function ExportMenu() {
     {
       icon: <FileJson size={16} />,
       label: 'JSON 备份',
-      desc: 'MindNotes Pro v4 完整文档',
+      desc: 'MindNotes Pro v5 完整文档',
       action: exportJSON,
     },
   ]

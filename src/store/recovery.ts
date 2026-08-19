@@ -1,7 +1,9 @@
-import { CANVAS_SCHEMA_VERSION } from './schema'
+import { CANVAS_SCHEMA_VERSION, LEGACY_CANVAS_SCHEMA_VERSION } from './schema'
+import { normalizeCanvasDocLayers } from './layers'
 import { CANVAS_ELEMENT_TYPES, type CanvasDoc } from './types'
 
-export const RECOVERY_DRAFT_STORAGE_KEY = 'mindnotes-pro-v4.recovery-draft'
+export const RECOVERY_DRAFT_STORAGE_KEY = 'mindnotes-pro-v5.recovery-draft'
+export const LEGACY_RECOVERY_DRAFT_STORAGE_KEY = 'mindnotes-pro-v4.recovery-draft'
 const RECOVERY_FORMAT = 'mindnotes-pro-recovery'
 const RECOVERY_VERSION = 1
 const MAX_RECOVERY_DRAFTS = 5
@@ -20,7 +22,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isCanvasDoc(value: unknown): value is CanvasDoc {
   if (!isRecord(value)) return false
   return (
-    value.schemaVersion === CANVAS_SCHEMA_VERSION &&
+    (value.schemaVersion === CANVAS_SCHEMA_VERSION ||
+      value.schemaVersion === LEGACY_CANVAS_SCHEMA_VERSION) &&
     typeof value.id === 'string' &&
     typeof value.title === 'string' &&
     Array.isArray(value.elements) &&
@@ -35,10 +38,20 @@ function isCanvasDoc(value: unknown): value is CanvasDoc {
     (value.activeLayerId === undefined || typeof value.activeLayerId === 'string') &&
     typeof value.bgColor === 'string' &&
     (value.backgroundStyle === undefined || typeof value.backgroundStyle === 'string') &&
-    (value.folderId === null || typeof value.folderId === 'string') &&
+    (value.folderId === undefined ||
+      value.folderId === null ||
+      typeof value.folderId === 'string') &&
     typeof value.createdAt === 'number' &&
     typeof value.updatedAt === 'number'
   )
+}
+
+function normalizeRecoveryDocument(document: CanvasDoc): CanvasDoc {
+  return normalizeCanvasDocLayers({
+    ...document,
+    schemaVersion: CANVAS_SCHEMA_VERSION,
+    folderId: document.folderId ?? null,
+  })
 }
 
 function isRecoveryRecord(value: unknown): value is RecoveryRecord {
@@ -52,16 +65,45 @@ function isRecoveryRecord(value: unknown): value is RecoveryRecord {
   )
 }
 
-function readRecoveryRecords(): RecoveryRecord[] {
+function readRecoveryRecordsFromKey(key: string): RecoveryRecord[] {
   if (typeof localStorage === 'undefined') return []
 
   try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(RECOVERY_DRAFT_STORAGE_KEY) ?? 'null')
-    if (Array.isArray(parsed)) return parsed.filter(isRecoveryRecord)
-    return isRecoveryRecord(parsed) ? [parsed] : []
+    const parsed: unknown = JSON.parse(localStorage.getItem(key) ?? 'null')
+    const records = Array.isArray(parsed)
+      ? parsed.filter(isRecoveryRecord)
+      : isRecoveryRecord(parsed)
+        ? [parsed]
+        : []
+    return records.map((record) => ({
+      ...record,
+      document: normalizeRecoveryDocument(record.document),
+    }))
   } catch {
     return []
   }
+}
+
+function readRecoveryRecords(): RecoveryRecord[] {
+  const current = readRecoveryRecordsFromKey(RECOVERY_DRAFT_STORAGE_KEY)
+  const legacy = readRecoveryRecordsFromKey(LEGACY_RECOVERY_DRAFT_STORAGE_KEY)
+  if (legacy.length > 0 && typeof localStorage !== 'undefined') {
+    try {
+      const merged = [...current, ...legacy]
+        .sort((a, b) => b.savedAt - a.savedAt)
+        .filter(
+          (record, index, records) =>
+            records.findIndex((candidate) => candidate.document.id === record.document.id) === index
+        )
+        .slice(0, MAX_RECOVERY_DRAFTS)
+      localStorage.setItem(RECOVERY_DRAFT_STORAGE_KEY, JSON.stringify(merged))
+      localStorage.removeItem(LEGACY_RECOVERY_DRAFT_STORAGE_KEY)
+      return merged
+    } catch {
+      return [...current, ...legacy]
+    }
+  }
+  return current
 }
 
 export function saveRecoveryDraft(document: CanvasDoc, savedAt = Date.now()): boolean {
@@ -71,7 +113,7 @@ export function saveRecoveryDraft(document: CanvasDoc, savedAt = Date.now()): bo
     format: RECOVERY_FORMAT,
     version: RECOVERY_VERSION,
     savedAt,
-    document,
+    document: normalizeRecoveryDocument(document),
   }
 
   try {

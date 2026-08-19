@@ -17,7 +17,9 @@ export type {
   CanvasElement,
   CanvasLayer,
   UndoAction,
+  CanvasSchemaVersion,
   CanvasDoc,
+  CurrentCanvasDoc,
   CanvasFolder,
 } from '../core/model'
 export { CANVAS_ELEMENT_TYPES } from '../core/model'

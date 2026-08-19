@@ -40,7 +40,7 @@ const {
       currentDocId: 'doc-1',
       docs: [
         {
-          schemaVersion: 4 as const,
+          schemaVersion: 5 as const,
           id: 'doc-1',
           title: '测试画布',
           elements: [element],

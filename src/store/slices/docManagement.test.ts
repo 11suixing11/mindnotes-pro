@@ -3,6 +3,7 @@ import { useAppStore } from '../appStore'
 import { useToastStore } from '../toastStore'
 import { clearSaveTimer, resetSaveCache } from '../saveManager'
 import { saveRecoveryDraft } from '../recovery'
+import { CANVAS_SCHEMA_VERSION } from '../schema'
 import type { AppStore } from '../sliceTypes'
 import type * as StorageModule from '../storage'
 
@@ -134,17 +135,17 @@ describe('docManagement slice', () => {
       expect(state.docs[0]).toMatchObject({
         id: 'legacy-doc',
         title: '旧版项目',
-        schemaVersion: 4,
+        schemaVersion: CANVAS_SCHEMA_VERSION,
       })
       expect(state.docs[0].layers?.[0].name).toBe('图层 1')
       expect(state.folders).toEqual([expect.objectContaining({ id: 'legacy-folder' })])
-      expect(localStorage.getItem('mindnotes-pro-v4.legacy-database-migrated')).toBe('1')
+      expect(localStorage.getItem('mindnotes-pro-v5.v4-imported')).toBe('1')
     })
 
-    it('does not inspect or overwrite legacy data when v4 documents already exist', async () => {
+    it('does not inspect the legacy source when v5 documents already exist', async () => {
       storageMock.__store.docs = {
         current: {
-          schemaVersion: 4,
+          schemaVersion: CANVAS_SCHEMA_VERSION,
           id: 'current',
           title: '当前项目',
           elements: [],
@@ -159,6 +160,33 @@ describe('docManagement slice', () => {
 
       expect(vi.mocked(storageMock.readLegacyDatabase)).not.toHaveBeenCalled()
       expect(useAppStore.getState().docs.map((doc) => doc.id)).toEqual(['current'])
+    })
+
+    it('keeps v4 migration retryable when the v5 write fails', async () => {
+      vi.mocked(storageMock.readLegacyDatabase).mockResolvedValueOnce({
+        docs: [
+          {
+            schemaVersion: 4,
+            id: 'legacy-doc',
+            title: 'Legacy',
+            elements: [],
+            bgColor: '#ffffff',
+            folderId: null,
+            createdAt: 1,
+            updatedAt: 2,
+          },
+        ],
+        folders: [],
+      })
+      vi.mocked(storageMock.put).mockRejectedValueOnce(new Error('quota exceeded'))
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      await useAppStore.getState().init()
+
+      expect(useAppStore.getState().saveStatus).toBe('error')
+      expect(localStorage.getItem('mindnotes-pro-v5.v4-imported')).toBeNull()
+      expect(storageMock.__store.docs).toBeUndefined()
+      consoleSpy.mockRestore()
     })
 
     it('falls back to an editable in-memory canvas when storage cannot initialize', async () => {
@@ -229,7 +257,7 @@ describe('docManagement slice', () => {
 
     it('restores a newer recovery draft over the persisted document', async () => {
       const persisted = {
-        schemaVersion: 4 as const,
+        schemaVersion: CANVAS_SCHEMA_VERSION,
         id: 'recoverable-doc',
         title: '旧版本',
         elements: [],

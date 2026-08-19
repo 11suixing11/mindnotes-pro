@@ -45,7 +45,7 @@ test.describe('模板与导入导出', () => {
     )
   })
 
-  test('JSON 导出遵循 v4 备份协议', async ({ page }) => {
+  test('JSON 导出遵循 v5 备份协议', async ({ page }) => {
     await openApp(page)
     await insertFlowchart(page)
 
@@ -58,7 +58,7 @@ test.describe('模板与导入导出', () => {
     expect(download.suggestedFilename()).toMatch(/^未命名画布-.*\.json$/)
     expect(backup).toMatchObject({
       format: 'mindnotes-pro-backup',
-      version: 4,
+      version: 5,
       document: { title: '未命名画布' },
     })
     expect(backup.document.elements).toHaveLength(13)

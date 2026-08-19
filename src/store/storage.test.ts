@@ -4,6 +4,8 @@ import {
   getAll,
   get,
   put,
+  putMany,
+  putManyStores,
   update,
   del,
   loadFromStorage,
@@ -28,6 +30,11 @@ describe('storage', () => {
 
     it('should export put function', () => {
       expect(put).toBeTypeOf('function')
+    })
+
+    it('should export atomic batch functions', () => {
+      expect(putMany).toBeTypeOf('function')
+      expect(putManyStores).toBeTypeOf('function')
     })
 
     it('should export update function', () => {
@@ -165,6 +172,13 @@ describe('storage', () => {
 
     it('put rejects when DB is unavailable', async () => {
       await expect(put('docs', { id: 'test' })).rejects.toThrow('IndexedDB is unavailable')
+    })
+
+    it('batch writes reject when DB is unavailable', async () => {
+      await expect(putMany('docs', [{ id: 'test' }])).rejects.toThrow('IndexedDB is unavailable')
+      await expect(
+        putManyStores([{ storeName: 'docs', records: [{ id: 'test' }] }])
+      ).rejects.toThrow('IndexedDB is unavailable')
     })
 
     it('update rejects when DB is unavailable', async () => {
