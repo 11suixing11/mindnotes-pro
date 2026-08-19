@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { CanvasElement, ShapeElement } from '../core/model'
 import {
   calculateSelectionBounds,
+  createAltDragDuplicatePlan,
   createResizeHistorySnapshot,
   createRotationHistorySnapshot,
   filterExistingSelectionIds,
@@ -197,5 +198,35 @@ describe('pointer session helpers', () => {
       commonCenterX: 55,
       commonCenterY: 35,
     })
+  })
+
+  it('plans Alt-drag copies and restores originals without mutating inputs', () => {
+    const original = shape('a', 15)
+    const plan = createAltDragDuplicatePlan({
+      originalIds: ['a', 'missing'],
+      startPositions: new Map([['a', { x: 10, y: 20 }]]),
+      getElement: (id) => (id === original.id ? original : undefined),
+      cloneElement: (element) => ({ ...element }),
+      getAnchorPosition: (element) =>
+        element.type === 'shape' ? { x: element.x, y: element.y } : { x: 0, y: 0 },
+      createId: (element) => `copy-${element.id}`,
+    })
+
+    expect(plan.copies).toEqual([{ ...original, id: 'copy-a' }])
+    expect(plan.copyStartPositions).toEqual(new Map([['copy-a', { x: 15, y: 20 }]]))
+    expect(plan.restoreMoves).toEqual([{ id: 'a', dx: -5, dy: 0 }])
+    expect(plan.shouldStopAfterDuplicate).toBe(false)
+    expect(original).toEqual(shape('a', 15))
+
+    expect(
+      createAltDragDuplicatePlan({
+        originalIds: ['a'],
+        getElement: (id) => (id === original.id ? original : undefined),
+        cloneElement: (element) => ({ ...element }),
+        getAnchorPosition: (element) =>
+          element.type === 'shape' ? { x: element.x, y: element.y } : { x: 0, y: 0 },
+        createId: (element) => `copy-${element.id}`,
+      }).shouldStopAfterDuplicate
+    ).toBe(true)
   })
 })

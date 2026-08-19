@@ -67,7 +67,7 @@ Key shared modules include:
 - `gestureGeometry.ts`: pointer thresholds and snapshot geometry-change detection.
 - `marquee.ts`: normalized selection rectangles, intersection tests, and modifier-selection merging.
 - `selectionTransforms.ts`: pure selection resize, drag-snap, rotation, and anchor-position calculations.
-- `pointerSession.ts`: pointer-session contracts plus pure selection-start, bounds, cancellation, and undo decisions.
+- `pointerSession.ts`: pointer-session contracts plus pure selection-start, bounds, duplication, cancellation, and undo decisions.
 - `drawingSession.ts`: pure pen sampling, shape endpoint binding, and eraser-session commit decisions.
 - `hitTesting.ts`: pure element, z-order, image-alpha, and selection-handle hit testing with injected runtime services.
 - `strokeElements.ts` and `shapeElements.ts`: element creation and draft rules.

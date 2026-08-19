@@ -155,6 +155,59 @@ export function getRotationSessionGeometry(
   }
 }
 
+export interface AltDragDuplicatePlan {
+  copies: CanvasElement[]
+  copyStartPositions: Map<string, { x: number; y: number }>
+  restoreMoves: Array<{ id: string; dx: number; dy: number }>
+  shouldStopAfterDuplicate: boolean
+}
+
+/** Plan Alt/Option-drag duplication without mutating the store or session refs. */
+export function createAltDragDuplicatePlan(options: {
+  originalIds: readonly string[]
+  startPositions?: ReadonlyMap<string, { x: number; y: number }>
+  getElement: (id: string) => CanvasElement | undefined
+  cloneElement: (element: CanvasElement) => CanvasElement
+  getAnchorPosition: (element: CanvasElement) => { x: number; y: number }
+  createId: (element: CanvasElement) => string
+}): AltDragDuplicatePlan {
+  const { originalIds, startPositions, getElement, cloneElement, getAnchorPosition, createId } =
+    options
+  const copies: CanvasElement[] = []
+  const copyStartPositions = new Map<string, { x: number; y: number }>()
+
+  for (const id of originalIds) {
+    const element = getElement(id)
+    if (!element) continue
+    const newId = createId(element)
+    copies.push({ ...cloneElement(element), id: newId })
+    copyStartPositions.set(newId, getAnchorPosition(element))
+  }
+
+  const restoreMoves: Array<{ id: string; dx: number; dy: number }> = []
+  if (startPositions) {
+    for (const id of originalIds) {
+      const element = getElement(id)
+      const startPosition = startPositions.get(id)
+      if (!element || !startPosition) continue
+
+      const currentPosition = getAnchorPosition(element)
+      const dx = startPosition.x - currentPosition.x
+      const dy = startPosition.y - currentPosition.y
+      if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
+        restoreMoves.push({ id, dx, dy })
+      }
+    }
+  }
+
+  return {
+    copies,
+    copyStartPositions,
+    restoreMoves,
+    shouldStopAfterDuplicate: !startPositions,
+  }
+}
+
 /** Resolve the snapshot and selection to restore when an input session is cancelled. */
 export function getRestoreSessionState(
   drag: DragSession | null,
