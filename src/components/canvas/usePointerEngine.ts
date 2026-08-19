@@ -56,6 +56,7 @@ import {
   radiansToNormalizedDegrees,
 } from '../../canvas/selectionTransforms'
 import {
+  createAltDragDuplicatePlan,
   calculateSelectionBounds,
   createResizeHistorySnapshot,
   createRotationHistorySnapshot,
@@ -909,64 +910,24 @@ export function usePointerEngine(opts: {
           altDragDuplicateRef.current.originalSelectedIds.length > 0
         ) {
           const st = useAppStore.getState()
-          const newIds: string[] = []
-          const newStartPositions = new Map<string, { x: number; y: number }>()
+          const plan = createAltDragDuplicatePlan({
+            originalIds: altDragDuplicateRef.current.originalSelectedIds,
+            startPositions: dragRef.current.startPositions,
+            getElement: (id) => st.idToElement.get(id),
+            cloneElement: shallowClone,
+            getAnchorPosition: getElementAnchorPosition,
+            createId: (element) =>
+              `${element.type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          })
 
-          // 1. 复制所有原始选中元素
-          for (const id of altDragDuplicateRef.current.originalSelectedIds) {
-            const el = st.idToElement.get(id)
-            if (!el) continue
+          for (const copy of plan.copies) addElement(copy)
+          for (const move of plan.restoreMoves) moveElementById(move.id, move.dx, move.dy)
 
-            // 深拷贝元素，生成新 ID
-            const newId = `${el.type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-            const newEl: CanvasElement = { ...shallowClone(el), id: newId }
-
-            addElement(newEl)
-            newIds.push(newId)
-
-            // 记录新元素的起始位置（用于拖拽计算）
-            newStartPositions.set(newId, getElementAnchorPosition(el))
-          }
-
-          // 2. 关键修复: 将原始元素移回原位（撤销已发生的移动）
-          // 因为在复制发生前，原始元素已经跟随鼠标移动了一段距离
-          // 我们需要把它们移回 startPositions 记录的起始位置
-          const originalIds = altDragDuplicateRef.current.originalSelectedIds
-          const startPositions = dragRef.current.startPositions
-
-          if (!startPositions) {
-            // 如果没有起始位置记录，直接跳过修复（理论上不会发生）
-            setSelectedIds(newIds)
-            dragRef.current.startPositions = newStartPositions
-            altDragDuplicateRef.current.hasDuplicated = true
-            return
-          }
-
-          for (const id of originalIds) {
-            const el = st.idToElement.get(id)
-            if (!el) continue
-
-            const startPos = startPositions.get(id)
-            if (!startPos) continue
-
-            const currentPos = getElementAnchorPosition(el)
-            const dx = startPos.x - currentPos.x
-            const dy = startPos.y - currentPos.y
-
-            // 只有当确实有偏移时才移动
-            if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
-              moveElementById(id, dx, dy)
-            }
-          }
-
-          // 3. 选中新复制的元素（让用户拖拽的是新元素）
+          const newIds = plan.copies.map((copy) => copy.id)
           setSelectedIds(newIds)
-
-          // 4. 更新 dragRef 的 startPositions 为新元素的位置
-          dragRef.current.startPositions = newStartPositions
-
-          // 5. 标记已复制，防止多次复制
+          dragRef.current.startPositions = plan.copyStartPositions
           altDragDuplicateRef.current.hasDuplicated = true
+          if (plan.shouldStopAfterDuplicate) return
         }
 
         const pointerDelta = {

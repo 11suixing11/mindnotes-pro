@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pointer-session contracts, cancellation restoration, and selection undo snapshot decisions now live behind a tested pure module
 - Pen sampling, shape endpoint binding, and eraser-session commit decisions now live behind a tested pure module
 - Group-selection presses, selection bounds, and rotation-session initialization now live behind tested pure helpers
+- Alt/Option-drag duplication now derives a pure copy-and-restore plan before applying Store mutations
 
 ### Fixed
 
