@@ -70,6 +70,7 @@ Key shared modules include:
 - `pointerSession.ts`: pointer-session contracts plus pure selection-start, bounds, duplication, cancellation, and undo decisions.
 - `drawingSession.ts`: pure pen sampling, shape endpoint binding, and eraser-session commit decisions.
 - `systemClipboard.ts`: selected-element PNG rendering and browser clipboard writes behind injectable runtime services.
+- `pointerEvents.ts`: pointer capture plus auxiliary wheel, keyboard, context-menu, double-click, and cancellation bindings.
 - `hitTesting.ts`: pure element, z-order, image-alpha, and selection-handle hit testing with injected runtime services.
 - `strokeElements.ts` and `shapeElements.ts`: element creation and draft rules.
 - `resizeRules.ts`: pure resize and aspect-ratio behavior.
@@ -115,7 +116,7 @@ Owns desktop shell behavior only.
 The highest-risk files are large mixed-responsibility modules. Split them behind tests and in reviewable changes.
 
 1. `src/components/canvas/usePointerEngine.ts`
-   Extracted coordinate, hit-testing, viewport, gesture-threshold, pinch, marquee, selection-transform, pointer-session, drawing-session, and system-clipboard primitives; next split per-tool pointer handlers and remaining input cleanup.
+   Extracted coordinate, hit-testing, viewport, gesture-threshold, pinch, marquee, selection-transform, pointer-session, drawing-session, system-clipboard, and auxiliary input-binding primitives; next split per-tool pointer handlers and remaining input cleanup.
 2. `src/canvas/canvasDrawing.ts`
    Separate element renderers while retaining one shared rendering contract.
 3. `src/index.css`

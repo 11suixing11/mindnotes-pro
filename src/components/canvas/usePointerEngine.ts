@@ -15,9 +15,6 @@ import { shallowClone, snapshot } from '../../store/helpers'
 import { isTransparentImagePixel } from '../../canvas/canvasUtils'
 import {
   clientToWorld,
-  getTouchDistance,
-  getTouchMidpoint,
-  pinchViewBoxAtClientMidpoint,
   snapPointIfEnabled,
   snapTargetIfEnabled,
   worldToClient,
@@ -88,7 +85,8 @@ import {
 // P12 箭头绑定: 导入绑定工具函数
 import { tryBindToShape } from '../../store/bindingUtils'
 import { eraseElementsAtPoint, getEraserWorldRadius } from '../../eraser/simpleEraser'
-import { bindCanvasInputEvents } from './pointerEvents'
+import { bindCanvasAuxiliaryEvents, bindCanvasInputEvents } from './pointerEvents'
+import { bindCanvasPinchZoom } from './touchGestures'
 
 // 模块级常量，避免每次渲染重建
 const CURSOR_MAP: Record<string, string> = {
@@ -1291,12 +1289,6 @@ export function usePointerEngine(opts: {
       onEnd: (event) => handleEndRef.current(event),
       onCancel: (event) => handleCancelRef.current(event),
     })
-    const onBlur = () => handleCancelRef.current(new Event('blur'))
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        handleCancelRef.current(new Event('visibilitychange'))
-      }
-    }
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       const rect = canvas.getBoundingClientRect()
@@ -1349,11 +1341,6 @@ export function usePointerEngine(opts: {
       }
     }
     // 使用 window 监听，确保焦点在 canvas 外也能工作
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
-    window.addEventListener('blur', onBlur)
-    document.addEventListener('visibilitychange', onVisibilityChange)
-
     // 右键拖拽平移画布
     // 当正在进行右键平移时，阻止默认右键菜单
     const onContextMenu = (e: MouseEvent) => {
@@ -1361,8 +1348,6 @@ export function usePointerEngine(opts: {
         e.preventDefault()
       }
     }
-    canvas.addEventListener('contextmenu', onContextMenu)
-
     // P12-双击交互体系
     // 双击文本元素进入编辑模式
     // 双击形状内部添加文本
@@ -1407,17 +1392,17 @@ export function usePointerEngine(opts: {
         setTimeout(() => textRef.current?.focus(), 50)
       }
     }
-    canvas.addEventListener('wheel', onWheel, { passive: false })
-    canvas.addEventListener('dblclick', onDblClick)
+    const unbindAuxiliaryEvents = bindCanvasAuxiliaryEvents(canvas, {
+      onCancel: (event) => handleCancelRef.current(event),
+      onWheel,
+      onKeyDown,
+      onKeyUp,
+      onContextMenu,
+      onDoubleClick: onDblClick,
+    })
     return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
-      window.removeEventListener('blur', onBlur)
-      document.removeEventListener('visibilitychange', onVisibilityChange)
       unbindInputEvents()
-      canvas.removeEventListener('contextmenu', onContextMenu)
-      canvas.removeEventListener('wheel', onWheel)
-      canvas.removeEventListener('dblclick', onDblClick)
+      unbindAuxiliaryEvents()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasRef])
@@ -1426,81 +1411,26 @@ export function usePointerEngine(opts: {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    let pinching = false,
-      pinchDist = 0,
-      pinchMid = { x: 0, y: 0 }
-    function onTouchStart(e: TouchEvent) {
-      const touches = getAcceptedTouches(e.touches)
-      if (touches.length >= 2) {
-        // Cancel any ongoing single-finger drawing when a second finger touches
-        if (drawingRef.current) {
-          drawingRef.current = false
-          currentPtsRef.current = []
-          currentPressuresRef.current = []
-          currentShapeRef.current = null
-          shapeStartRef.current = null
-        }
+    return bindCanvasPinchZoom(canvas, {
+      cancelDrawing: () => {
+        if (!drawingRef.current) return
+        drawingRef.current = false
+        currentPtsRef.current = []
+        currentPressuresRef.current = []
+        currentShapeRef.current = null
+        shapeStartRef.current = null
+      },
+      setPinching: (active) => {
+        isPinchingRef.current = active
+      },
+      clearActiveTouch: () => {
         activeTouchIdRef.current = null
-        pinching = true
-        isPinchingRef.current = true
-        const midpoint = getTouchMidpoint(touches)
-        if (!midpoint) return
-        pinchDist = getTouchDistance(touches)
-        pinchMid = midpoint
-        e.preventDefault()
-      }
-    }
-    function onTouchMove(e: TouchEvent) {
-      const touches = getAcceptedTouches(e.touches)
-      if (!pinching || touches.length < 2) return
-      e.preventDefault()
-      const newDist = getTouchDistance(touches)
-      const newMid = getTouchMidpoint(touches)
-      if (!newMid) return
-
-      // Zoom around the pinch midpoint: keep the world point under the midpoint fixed
-      const rect = canvasRef.current?.getBoundingClientRect()
-      if (!rect) {
-        pinchDist = newDist
-        pinchMid = newMid
-        return
-      }
-      const vb = useViewStore.getState().viewBox
-      useViewStore.getState().setViewBox(
-        pinchViewBoxAtClientMidpoint({
-          viewBox: vb,
-          canvasRect: rect,
-          previousDistance: pinchDist,
-          previousMidpoint: pinchMid,
-          nextDistance: newDist,
-          nextMidpoint: newMid,
-        })
-      )
-      pinchDist = newDist
-      pinchMid = newMid
-      scheduleRedraw()
-    }
-    function onTouchEnd(e: TouchEvent) {
-      if (getAcceptedTouches(e.touches).length < 2) {
-        pinching = false
-        isPinchingRef.current = false
-      }
-    }
-    function onTouchCancel() {
-      pinching = false
-      isPinchingRef.current = false
-      activeTouchIdRef.current = null
-    }
-    canvas.addEventListener('touchstart', onTouchStart, { passive: false })
-    canvas.addEventListener('touchmove', onTouchMove, { passive: false })
-    canvas.addEventListener('touchend', onTouchEnd, { passive: false })
-    canvas.addEventListener('touchcancel', onTouchCancel, { passive: false })
-    return () => {
-      canvas.removeEventListener('touchstart', onTouchStart)
-      canvas.removeEventListener('touchmove', onTouchMove)
-      canvas.removeEventListener('touchend', onTouchEnd)
-      canvas.removeEventListener('touchcancel', onTouchCancel)
-    }
+      },
+      getCanvasRect: () => canvasRef.current?.getBoundingClientRect() ?? null,
+      getViewBox: () => useViewStore.getState().viewBox,
+      setViewBox: (viewBox) => useViewStore.getState().setViewBox(viewBox),
+      scheduleRedraw,
+    })
   }, [canvasRef, scheduleRedraw])
 
   // Cursor (使用模块级常量，避免每次渲染重建)
