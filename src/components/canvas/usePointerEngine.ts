@@ -12,7 +12,7 @@ import type {
   UndoAction,
 } from '../../store/types'
 import { shallowClone, snapshot } from '../../store/helpers'
-import { elementBounds, isTransparentImagePixel } from '../../canvas/canvasUtils'
+import { isTransparentImagePixel } from '../../canvas/canvasUtils'
 import {
   clientToWorld,
   getTouchDistance,
@@ -39,7 +39,7 @@ import {
   normalizeMarqueeRect,
 } from '../../canvas/marquee'
 import { findSelectionHandleAtPoint, findTopmostElementAtPoint } from '../../canvas/hitTesting'
-import { drawElement } from '../../canvas/canvasDrawing'
+import { copyElementsToSystemClipboard } from '../../canvas/systemClipboard'
 import {
   getElementLayerId,
   getLayerOrderMap,
@@ -1546,37 +1546,8 @@ export function usePointerEngine(opts: {
     const els = st.elements
     const selEls = els.filter((e) => selSet.has(e.id) && isElementLayerVisible(e, st.layers))
     if (selEls.length === 0) return
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity
-    for (const el of selEls) {
-      const b = elementBounds(el)
-      minX = Math.min(minX, b.x)
-      minY = Math.min(minY, b.y)
-      maxX = Math.max(maxX, b.x + b.w)
-      maxY = Math.max(maxY, b.y + b.h)
-    }
-    const pad = 8,
-      w = maxX - minX + pad * 2,
-      h = maxY - minY + pad * 2
-    const offscreen = document.createElement('canvas')
-    const odpr = window.devicePixelRatio || 1
-    offscreen.width = w * odpr
-    offscreen.height = h * odpr
-    const octx = offscreen.getContext('2d')
-    if (!octx) return
-    octx.setTransform(odpr, 0, 0, odpr, 0, 0)
-    octx.translate(-minX + pad, -minY + pad)
     const dark = useThemeStore.getState().isDarkMode
-    for (const el of selEls) drawElement(octx, el, dark)
-    try {
-      const blob = await new Promise<Blob | null>((r) => offscreen.toBlob(r, 'image/png'))
-      if (blob) await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-      // Clipboard API may be blocked by browser permissions
-    } catch {
-      /* Clipboard API may fail silently */
-    }
+    await copyElementsToSystemClipboard(selEls, { isDarkMode: dark })
   }
 
   // getDrawState for renderer
