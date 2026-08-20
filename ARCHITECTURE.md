@@ -71,6 +71,7 @@ Key shared modules include:
 - `drawingSession.ts`: pure pen sampling, shape endpoint binding, and eraser-session commit decisions.
 - `systemClipboard.ts`: selected-element PNG rendering and browser clipboard writes behind injectable runtime services.
 - `elementRenderers.ts`: shape, text, and image rendering plus their local path/wrap caches; `canvasDrawing.ts` keeps the shared dispatch contract.
+- `canvasOverlays.ts`: selection-box handles and zoom indicator overlays; exports remain available through `canvasDrawing.ts`.
 - `drawingCaches.ts`: reusable bounded LRU/TTL cache primitive for rendering modules.
 - `pointerEvents.ts`: pointer capture plus auxiliary wheel, keyboard, context-menu, double-click, and cancellation bindings.
 - `hitTesting.ts`: pure element, z-order, image-alpha, and selection-handle hit testing with injected runtime services.
@@ -120,7 +121,7 @@ The highest-risk files are large mixed-responsibility modules. Split them behind
 1. `src/components/canvas/usePointerEngine.ts`
    Extracted coordinate, hit-testing, viewport, gesture-threshold, pinch, marquee, selection-transform, pointer-session, drawing-session, system-clipboard, auxiliary input-binding, and Select-tool pointer-handler primitives; remaining work is limited to other input cleanup.
 2. `src/canvas/canvasDrawing.ts`
-   Continue separating remaining stroke, background, minimap, and overlay rendering while retaining one shared rendering contract. Shape, text, and image renderers now live in `elementRenderers.ts`.
+   Continue separating remaining stroke, background, and minimap rendering while retaining one shared rendering contract. Shape, text, image, selection-box, and zoom overlays now live in focused canvas modules.
 3. `src/index.css`
    Move touched component styles into clear sections or modules without broad formatting churn.
 4. `src/store/slices/canvasElements.ts`
