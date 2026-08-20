@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Minimap rendering and aggregate-bounds caching now live behind a focused renderer while retaining the existing canvas drawing exports
 - Brush-specific stroke rendering, perfect-freehand outline caching, and calligraphy pooling now live behind a focused renderer while retaining the existing canvas drawing exports
 - Canvas element editability, selection eligibility, writable-layer assignment, and bound-arrow history decisions now live behind tested pure rules
+- Canvas element maps, position indexes, and spatial-index synchronization now share a tested collection boundary
 
 ### Fixed
 

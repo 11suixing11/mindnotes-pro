@@ -41,6 +41,7 @@ Owns application state and persisted contracts.
 - View state and theme state must not import `appStore` directly. Cross-store coordination uses explicit application ports or data passed by the caller.
 - Element mutations that affect the document should go through a slice action such as `commitElements`; direct `setState({ elements: ... })` is reserved for test setup and hydration.
 - `canvasElementRules.ts` owns dependency-free selection eligibility, writable-layer assignment, and bound-arrow snapshot decisions used by the canvas element slice.
+- `canvasElementCollection.ts` owns synchronization of element/id/index maps with the spatial index, including full replacement, incremental synchronization, and lazy position-index rebuilds.
 
 ### `src/core`
 
@@ -129,7 +130,7 @@ The highest-risk files are large mixed-responsibility modules. Split them behind
 3. `src/index.css`
    Move touched component styles into clear sections or modules without broad formatting churn.
 4. `src/store/slices/canvasElements.ts`
-   Selection and writable-layer rules now live in `canvasElementRules.ts`; continue separating collection indexes, geometry transforms, ordering, clipboard, and persistence triggers behind tests.
+   Selection rules and collection-index synchronization now live in focused modules; continue separating geometry transforms, ordering, clipboard, and persistence triggers behind tests.
 
 ## Verification policy
 

@@ -24,7 +24,7 @@ import {
 import { shallowClone, snapshot } from '../helpers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import { MAX_HISTORY } from './history'
-import { SpatialIndex } from '../../eraser/SpatialIndex'
+import type { SpatialIndex } from '../../eraser/SpatialIndex'
 // P12 箭头绑定: 导入绑定工具函数
 import { updateBoundArrows } from '../bindingUtils'
 import {
@@ -33,6 +33,12 @@ import {
   getSelectableIds,
   hasBoundArrowForAny,
 } from './canvasElementRules'
+import {
+  createCanvasElementCollectionRuntime,
+  rebuildElementIndexes,
+  replaceElementCollection,
+  synchronizeElementCollection,
+} from './canvasElementCollection'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
@@ -125,11 +131,10 @@ export function createCanvasElementsSlice(
   get: any
 ): CanvasElementsState & CanvasElementsActions {
   // 全局空间索引实例 - 实时维护，O(log n) 区域查询
-  const spatialIndex = new SpatialIndex()
+  const collectionRuntime = createCanvasElementCollectionRuntime()
+  const { spatialIndex, idToElement, idToIndex } = collectionRuntime
   // P0 性能优化: ID → 元素 映射，O(1) 查找
-  const idToElement = new Map<string, CanvasElement>()
   // P0-2 性能优化: ID → 数组索引 映射，O(1) 查找
-  const idToIndex = new Map<string, number>()
   // P0-3 性能优化: 索引脏标记 - 懒更新策略
   // 使用闭包变量作为内部状态，避免触发 store 更新
   // 这是安全的，因为索引映射只在 slice 内部使用
@@ -141,58 +146,17 @@ export function createCanvasElementsSlice(
   function rebuildIndexIfNeeded() {
     if (!_indexDirty) return
     const st = get()
-    // 同时更新闭包中的 idToIndex 和 store 中的 idToIndex
-    idToIndex.clear()
-    st.idToIndex.clear()
-    for (let i = 0; i < st.elements.length; i++) {
-      idToIndex.set(st.elements[i].id, i)
-      st.idToIndex.set(st.elements[i].id, i)
-    }
+    rebuildElementIndexes(collectionRuntime, st.elements, st)
     _indexDirty = false
   }
 
   function setElementCollection(next: CanvasElement[], st = get()) {
-    idToElement.clear()
-    st.idToElement.clear()
-    idToIndex.clear()
-    st.idToIndex.clear()
-    spatialIndex.clear()
-    next.forEach((el, index) => {
-      idToElement.set(el.id, el)
-      st.idToElement.set(el.id, el)
-      idToIndex.set(el.id, index)
-      st.idToIndex.set(el.id, index)
-      spatialIndex.insert(el)
-    })
+    replaceElementCollection(collectionRuntime, next, st)
     _indexDirty = false
   }
 
   function syncElementCollection(next: CanvasElement[], st = get()) {
-    const nextIds = new Set(next.map((element) => element.id))
-
-    for (const id of st.idToElement.keys()) {
-      if (nextIds.has(id)) continue
-      idToElement.delete(id)
-      st.idToElement.delete(id)
-      idToIndex.delete(id)
-      st.idToIndex.delete(id)
-      spatialIndex.remove(id)
-    }
-
-    for (let index = 0; index < next.length; index++) {
-      const element = next[index]
-      const previous = st.idToElement.get(element.id)
-      if (!previous) {
-        spatialIndex.insert(element)
-      } else if (previous !== element) {
-        spatialIndex.update(element)
-      }
-      idToElement.set(element.id, element)
-      st.idToElement.set(element.id, element)
-      idToIndex.set(element.id, index)
-      st.idToIndex.set(element.id, index)
-    }
-
+    synchronizeElementCollection(collectionRuntime, next, st)
     _indexDirty = false
   }
 
