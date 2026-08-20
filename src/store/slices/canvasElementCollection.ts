@@ -63,6 +63,20 @@ export function synchronizeElementReferences(
   })
 }
 
+export function synchronizeElementGeometry(
+  runtime: CanvasElementCollectionRuntime,
+  elements: CanvasElement[],
+  elementIds: string[],
+  mirror: CanvasElementCollectionMirror = runtime
+) {
+  const affected = new Set(elementIds)
+  elements.forEach((element, index) => {
+    if (!affected.has(element.id)) return
+    setElementMaps(runtime, mirror, element, index)
+    runtime.spatialIndex.update(element)
+  })
+}
+
 export function replaceElementCollection(
   runtime: CanvasElementCollectionRuntime,
   elements: CanvasElement[],

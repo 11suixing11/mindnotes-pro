@@ -5,6 +5,7 @@ import {
   rebuildElementIndexes,
   replaceElementCollection,
   synchronizeElementCollection,
+  synchronizeElementGeometry,
   synchronizeElementReferences,
 } from './canvasElementCollection'
 
@@ -73,5 +74,18 @@ describe('canvas element collection runtime', () => {
 
     expect(runtime.idToElement.get('a')).toBe(updated)
     expect(runtime.idToIndex.get('a')).toBe(0)
+  })
+
+  it('updates geometry maps, indexes, and spatial entries for affected elements', () => {
+    const runtime = createCanvasElementCollectionRuntime()
+    const elements = [makeShape('a', 0), makeShape('b', 100)]
+    replaceElementCollection(runtime, elements)
+    const updated = [{ ...elements[0], x: 200 }, elements[1]]
+
+    synchronizeElementGeometry(runtime, updated, ['a'])
+
+    expect(runtime.idToElement.get('a')).toBe(updated[0])
+    expect(runtime.idToIndex.get('a')).toBe(0)
+    expect(runtime.spatialIndex.search({ x: 200, y: 0, w: 20, h: 20 })).toContain('a')
   })
 })
