@@ -13,7 +13,6 @@ import {
   rotateElement,
 } from '../types'
 import {
-  assignElementLayer,
   createCanvasLayer,
   createDefaultLayer,
   getElementLayerId,
@@ -28,6 +27,12 @@ import { MAX_HISTORY } from './history'
 import { SpatialIndex } from '../../eraser/SpatialIndex'
 // P12 箭头绑定: 导入绑定工具函数
 import { updateBoundArrows } from '../bindingUtils'
+import {
+  assignToWritableLayer,
+  getEditableIds,
+  getSelectableIds,
+  hasBoundArrowForAny,
+} from './canvasElementRules'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
@@ -146,38 +151,6 @@ export function createCanvasElementsSlice(
     _indexDirty = false
   }
 
-  function getEditableIds(ids: string[], st = get()): string[] {
-    return ids.filter((id) => {
-      const el = st.idToElement.get(id) ?? st.elements.find((item: CanvasElement) => item.id === id)
-      return el && isElementLayerEditable(el, st.layers)
-    })
-  }
-
-  function getSelectableIds(ids: string[], st = get()): string[] {
-    return ids.filter((id) => {
-      const el = st.idToElement.get(id) ?? st.elements.find((item: CanvasElement) => item.id === id)
-      return el && isLayerWritable(st.layers, getElementLayerId(el))
-    })
-  }
-
-  function assignToWritableLayer(el: CanvasElement, st = get()): CanvasElement | null {
-    const preferredLayerId =
-      el.layerId && isLayerWritable(st.layers, el.layerId) ? el.layerId : st.activeLayerId
-    const layerId = getWritableLayerId(st.layers, preferredLayerId)
-    if (!layerId) return null
-    return assignElementLayer(el, layerId, st.layers)
-  }
-
-  function hasBoundArrowForAny(ids: Set<string>, elements: CanvasElement[]): boolean {
-    for (const el of elements) {
-      if (el.type !== 'shape') continue
-      if (el.kind !== 'line' && el.kind !== 'arrow') continue
-      if (el.startBinding && ids.has(el.startBinding.targetId)) return true
-      if (el.endBinding && ids.has(el.endBinding.targetId)) return true
-    }
-    return false
-  }
-
   function setElementCollection(next: CanvasElement[], st = get()) {
     idToElement.clear()
     st.idToElement.clear()
@@ -275,7 +248,7 @@ export function createCanvasElementsSlice(
     _indexDirty: false,
 
     // Actions
-    setSelectedIds: (ids) => set({ selectedIds: getSelectableIds(ids) }),
+    setSelectedIds: (ids) => set({ selectedIds: getSelectableIds(ids, get()) }),
 
     createLayer: (name) => {
       const st = get()
