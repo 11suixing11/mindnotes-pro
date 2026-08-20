@@ -1,22 +1,15 @@
-import type {
-  CanvasElement,
-  StrokeElement,
-  ShapeElement,
-  TextElement,
-  ImageElement,
-  BrushType,
-  CanvasBackgroundStyle,
-} from '../store/types'
+import type { CanvasBackgroundStyle, CanvasElement, BrushType, StrokeElement } from '../store/types'
 import { getBrushDashArray, getBrushDefaultOpacity, getCanvasStrokeWidth } from './brushPresets'
-import { getImage } from './canvasUtils'
+import { LRUCache } from './drawingCaches'
 import {
-  getTextAnchorX,
-  getTextFont,
-  getTextLineHeight,
-  isVisibleTextBackground,
-  normalizeTextFormat,
-} from './textFormatting'
+  drawImageEl,
+  drawShapeEl,
+  drawTextEl,
+  invalidateElementRendererCaches,
+} from './elementRenderers'
 import getStroke from 'perfect-freehand'
+
+export { drawImageEl, drawShapeEl, drawTextEl } from './elementRenderers'
 
 // ==================== 性能缓存层 (P0 优化) ====================
 
@@ -92,122 +85,6 @@ function getSegmentPool(): { next: () => Segment } {
 function resetCalligraphyPool() {
   segmentPoolIndex = 0
 }
-// 真正的 O(1) LRU 缓存实现 - 使用双向链表 + Map
-// 替代原来的 O(n) 线性扫描，大缓存场景下性能提升显著
-class LRUCache<K, V> {
-  private cache: Map<K, { value: V; prev: K | null; next: K | null; lastAccess: number }>
-  private head: K | null = null
-  private tail: K | null = null
-  private maxSize: number
-  private ttl: number
-
-  constructor(maxSize: number, ttl: number) {
-    this.cache = new Map()
-    this.maxSize = maxSize
-    this.ttl = ttl
-  }
-
-  get(key: K): V | null {
-    const entry = this.cache.get(key)
-    if (!entry) return null
-
-    const now = Date.now()
-    if (now - entry.lastAccess > this.ttl) {
-      this.delete(key)
-      return null
-    }
-
-    // 移动到头部 (O(1) 操作)
-    this.moveToHead(key, entry)
-    entry.lastAccess = now
-    return entry.value
-  }
-
-  set(key: K, value: V): void {
-    const existing = this.cache.get(key)
-    if (existing) {
-      existing.value = value
-      existing.lastAccess = Date.now()
-      this.moveToHead(key, existing)
-      return
-    }
-
-    // 缓存已满，删除最久未使用的 (O(1) 操作)
-    if (this.cache.size >= this.maxSize && this.tail !== null) {
-      this.delete(this.tail)
-    }
-
-    const entry = { value, prev: null, next: this.head, lastAccess: Date.now() }
-    this.cache.set(key, entry)
-
-    if (this.head !== null) {
-      const headEntry = this.cache.get(this.head)
-      if (headEntry) headEntry.prev = key
-    }
-    this.head = key
-
-    if (this.tail === null) {
-      this.tail = key
-    }
-  }
-
-  private moveToHead(key: K, entry: { prev: K | null; next: K | null }): void {
-    if (key === this.head) return
-
-    // 从当前位置移除
-    if (entry.prev !== null) {
-      const prevEntry = this.cache.get(entry.prev)
-      if (prevEntry) prevEntry.next = entry.next
-    }
-    if (entry.next !== null) {
-      const nextEntry = this.cache.get(entry.next)
-      if (nextEntry) nextEntry.prev = entry.prev
-    }
-
-    if (key === this.tail && entry.prev !== null) {
-      this.tail = entry.prev
-    }
-
-    // 移动到头部
-    entry.prev = null
-    entry.next = this.head
-
-    if (this.head !== null) {
-      const headEntry = this.cache.get(this.head)
-      if (headEntry) headEntry.prev = key
-    }
-    this.head = key
-  }
-
-  private delete(key: K): void {
-    const entry = this.cache.get(key)
-    if (!entry) return
-
-    if (entry.prev !== null) {
-      const prevEntry = this.cache.get(entry.prev)
-      if (prevEntry) prevEntry.next = entry.next
-    }
-    if (entry.next !== null) {
-      const nextEntry = this.cache.get(entry.next)
-      if (nextEntry) nextEntry.prev = entry.prev
-    }
-
-    if (key === this.head) this.head = entry.next
-    if (key === this.tail) this.tail = entry.prev
-
-    this.cache.delete(key)
-  }
-
-  size(): number {
-    return this.cache.size
-  }
-
-  clear(): void {
-    this.cache.clear()
-    this.head = null
-    this.tail = null
-  }
-}
 
 // Perfect-Freehand 笔触缓存 - 避免每帧重复计算昂贵的描边路径
 const STROKE_CACHE_MAX_SIZE = 200
@@ -280,43 +157,6 @@ function fillStrokeOutline(
   ctx.globalAlpha = previousAlpha
 }
 
-// 文本换行缓存 - 避免每次渲染都进行昂贵的 measureText 计算
-const TEXT_CACHE_MAX_SIZE = 100
-const TEXT_CACHE_TTL = 30000 // 30秒
-const textWrapCache = new LRUCache<string, string[]>(TEXT_CACHE_MAX_SIZE, TEXT_CACHE_TTL)
-
-// P0 FIX: 使用内容前32个字符而非length，避免编辑文本后长度不变时缓存不失效
-function getTextCacheKey(el: TextElement): string {
-  return `${el.id}:${el.content.slice(0, 32)}:${el.content.length}:${el.width}:${el.fontSize}:${el.fontWeight ?? ''}:${el.fontStyle ?? ''}`
-}
-function getCachedTextWrap(el: TextElement, ctx: CanvasRenderingContext2D): string[] {
-  const key = getTextCacheKey(el)
-  const cached = textWrapCache.get(key)
-  if (cached) return cached
-
-  const rawLines = el.content.split('\n')
-  const wrappedLines: string[] = []
-  for (const line of rawLines) {
-    if (line === '') {
-      wrappedLines.push('')
-      continue
-    }
-    let current = ''
-    for (const char of line) {
-      const test = current + char
-      if (ctx.measureText(test).width > el.width && current.length > 0) {
-        wrappedLines.push(current)
-        current = char
-      } else {
-        current = test
-      }
-    }
-    wrappedLines.push(current)
-  }
-
-  textWrapCache.set(key, wrappedLines)
-  return wrappedLines
-}
 // 小地图边界缓存 - 避免每次渲染都遍历所有元素计算边界
 interface MinimapCacheValue {
   minX: number
@@ -386,17 +226,7 @@ let cachedGridParams: {
   step: number
 } | null = null
 
-// P0 性能优化: 通用形状 Path2D 缓存 - 用于矩形、圆形等常见形状
-// 避免每次绘制都重建路径，静态元素性能提升 2-5x
-const shapePathCache = new LRUCache<string, Path2D>(150, 45000)
-function getShapeCacheKey(el: ShapeElement): string {
-  const rx = el.kind === 'rectangle' ? Math.min(6, Math.abs(el.w) * 0.05, Math.abs(el.h) * 0.05) : 0
-  return `${el.kind}:${el.x.toFixed(1)}:${el.y.toFixed(1)}:${el.w.toFixed(1)}:${el.h.toFixed(1)}:${rx.toFixed(2)}`
-}
-// ==================== 导出函数 ====================
-// 旋转渲染支持
-// 问题：P18/P19 实现了旋转数据层和 UI 交互，但 shape/text/image 元素的 rotation 属性没有在渲染时应用
-// 用户痛点："我旋转了元素，但画布上看起来完全没变！"
+// Shape, text, and image rotation remains centralized in the shared dispatcher.
 function applyRotationTransform(
   ctx: CanvasRenderingContext2D,
   el: CanvasElement,
@@ -715,127 +545,6 @@ export function drawStrokeRaw(
     { type: 'stroke', id: '', points: pts, color: c, size: s, brush: b, pressures },
     isDarkMode
   )
-}
-export function drawShapeEl(ctx: CanvasRenderingContext2D, el: ShapeElement) {
-  ctx.strokeStyle = el.color
-  ctx.lineWidth = el.size
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  const { x, y, w, h } = el
-  const hasFill = el.fillColor && el.fillColor !== 'transparent'
-
-  // P0 性能优化: 使用 Path2D 缓存静态形状路径
-  // 对于矩形和圆形，避免每次绘制都重建贝塞尔曲线路径
-  if (el.kind === 'rectangle' || el.kind === 'circle') {
-    const key = getShapeCacheKey(el)
-    let path = shapePathCache.get(key)
-    if (!path) {
-      path = new Path2D()
-      if (el.kind === 'rectangle') {
-        const rx = Math.min(6, Math.abs(w) * 0.05, Math.abs(h) * 0.05)
-        path.moveTo(x + rx, y)
-        path.lineTo(x + w - rx, y)
-        path.quadraticCurveTo(x + w, y, x + w, y + rx)
-        path.lineTo(x + w, y + h - rx)
-        path.quadraticCurveTo(x + w, y + h, x + w - rx, y + h)
-        path.lineTo(x + rx, y + h)
-        path.quadraticCurveTo(x, y + h, x, y + h - rx)
-        path.lineTo(x, y + rx)
-        path.quadraticCurveTo(x, y, x + rx, y)
-        path.closePath()
-      } else {
-        path.ellipse(x + w / 2, y + h / 2, Math.abs(w) / 2, Math.abs(h) / 2, 0, 0, Math.PI * 2)
-      }
-      shapePathCache.set(key, path)
-    }
-    if (hasFill && el.fillColor) {
-      ctx.fillStyle = el.fillColor
-      ctx.fill(path)
-    }
-    ctx.stroke(path)
-    return
-  }
-
-  switch (el.kind) {
-    case 'line':
-      ctx.beginPath()
-      ctx.moveTo(x, y)
-      ctx.lineTo(x + w, y + h)
-      ctx.stroke()
-      break
-    case 'arrow': {
-      ctx.beginPath()
-      ctx.moveTo(x, y)
-      ctx.lineTo(x + w, y + h)
-      ctx.stroke()
-      const a = Math.atan2(h, w),
-        hl = Math.max(15, el.size * 3)
-      ctx.beginPath()
-      ctx.moveTo(x + w, y + h)
-      ctx.lineTo(x + w - hl * Math.cos(a - Math.PI / 6), y + h - hl * Math.sin(a - Math.PI / 6))
-      ctx.moveTo(x + w, y + h)
-      ctx.lineTo(x + w - hl * Math.cos(a + Math.PI / 6), y + h - hl * Math.sin(a + Math.PI / 6))
-      ctx.stroke()
-      break
-    }
-  }
-}
-export function drawTextEl(ctx: CanvasRenderingContext2D, el: TextElement, editingTextId?: string) {
-  if (el.id === editingTextId) return
-  ctx.save()
-  const format = normalizeTextFormat(el)
-  ctx.font = getTextFont(format)
-  ctx.fillStyle = el.color
-  ctx.textBaseline = 'top'
-  ctx.textAlign = format.textAlign
-  const lineHeight = getTextLineHeight(format.fontSize)
-  const textX = getTextAnchorX(el.x, el.width, format.textAlign)
-
-  // 使用缓存的换行结果 - P0 性能优化
-  const wrappedLines = getCachedTextWrap(el, ctx)
-
-  if (isVisibleTextBackground(format.backgroundColor)) {
-    ctx.fillStyle = format.backgroundColor
-    ctx.fillRect(el.x, el.y, el.width, Math.max(el.height, wrappedLines.length * lineHeight))
-    ctx.fillStyle = el.color
-  }
-
-  for (let i = 0; i < wrappedLines.length; i++) {
-    const y = el.y + i * lineHeight
-    ctx.fillText(wrappedLines[i], textX, y)
-    if (format.textDecoration === 'underline') {
-      const metrics = ctx.measureText(wrappedLines[i])
-      const textWidth = metrics.width
-      const startX =
-        format.textAlign === 'center'
-          ? textX - textWidth / 2
-          : format.textAlign === 'right'
-            ? textX - textWidth
-            : textX
-      const underlineY = y + format.fontSize * 1.18
-      ctx.beginPath()
-      ctx.moveTo(startX, underlineY)
-      ctx.lineTo(startX + textWidth, underlineY)
-      ctx.strokeStyle = el.color
-      ctx.lineWidth = Math.max(1, format.fontSize / 16)
-      ctx.stroke()
-    }
-  }
-  ctx.restore()
-}
-export function drawImageEl(ctx: CanvasRenderingContext2D, el: ImageElement) {
-  const img = getImage(el.dataUrl)
-  if (img?.complete) {
-    ctx.save()
-    ctx.globalAlpha = el.opacity ?? 1
-    // P0 性能优化: 使用 roundRect API 替代手动路径构建
-    const r = 6
-    ctx.beginPath()
-    ctx.roundRect(el.x, el.y, el.width, el.height, r)
-    ctx.clip()
-    ctx.drawImage(img, el.x, el.y, el.width, el.height)
-    ctx.restore()
-  }
 }
 export function drawSelBox(
   ctx: CanvasRenderingContext2D,
@@ -1199,7 +908,7 @@ export function invalidateDrawingCaches() {
   cachedGridPath = null
   cachedGridParams = null
   // 清除形状 Path2D 缓存 - 元素移动/调整大小时需要重建
-  shapePathCache.clear()
+  invalidateElementRendererCaches()
   // 重置书法笔触对象池索引
   resetCalligraphyPool()
 }
