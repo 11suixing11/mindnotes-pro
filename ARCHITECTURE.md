@@ -74,6 +74,7 @@ Key shared modules include:
 - `canvasOverlays.ts`: selection-box handles and zoom indicator overlays; exports remain available through `canvasDrawing.ts`.
 - `canvasBackground.ts`: canvas backgrounds plus decorative and snap-grid rendering with explicit cache invalidation; exports remain available through `canvasDrawing.ts`.
 - `canvasMinimap.ts`: lightweight element-bound and viewport minimap rendering with an explicit aggregate-bounds cache; exports remain available through `canvasDrawing.ts`.
+- `strokeRenderer.ts`: brush-specific stroke rendering, perfect-freehand outlines, and calligraphy pooling; exports remain available through `canvasDrawing.ts`.
 - `drawingCaches.ts`: reusable bounded LRU/TTL cache primitive for rendering modules.
 - `pointerEvents.ts`: pointer capture plus auxiliary wheel, keyboard, context-menu, double-click, and cancellation bindings.
 - `hitTesting.ts`: pure element, z-order, image-alpha, and selection-handle hit testing with injected runtime services.
@@ -123,7 +124,7 @@ The highest-risk files are large mixed-responsibility modules. Split them behind
 1. `src/components/canvas/usePointerEngine.ts`
    Extracted coordinate, hit-testing, viewport, gesture-threshold, pinch, marquee, selection-transform, pointer-session, drawing-session, system-clipboard, auxiliary input-binding, and Select-tool pointer-handler primitives; remaining work is limited to other input cleanup.
 2. `src/canvas/canvasDrawing.ts`
-   Continue separating remaining stroke rendering while retaining one shared rendering contract. Element renderers, overlays, backgrounds, grids, and minimap rendering now live in focused canvas modules.
+   Shared element dispatch and cache invalidation remain here; element, stroke, overlay, background, grid, and minimap rendering now live in focused canvas modules.
 3. `src/index.css`
    Move touched component styles into clear sections or modules without broad formatting churn.
 4. `src/store/slices/canvasElements.ts`

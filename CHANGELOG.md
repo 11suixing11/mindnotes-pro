@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Selection-box handles and the zoom indicator now live behind a focused overlay renderer while retaining the existing canvas drawing exports
 - Canvas backgrounds and decorative grids now live behind a focused renderer with explicit cache invalidation while retaining the existing canvas drawing exports
 - Minimap rendering and aggregate-bounds caching now live behind a focused renderer while retaining the existing canvas drawing exports
+- Brush-specific stroke rendering, perfect-freehand outline caching, and calligraphy pooling now live behind a focused renderer while retaining the existing canvas drawing exports
 
 ### Fixed
 
