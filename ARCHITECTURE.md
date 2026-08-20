@@ -42,6 +42,7 @@ Owns application state and persisted contracts.
 - Element mutations that affect the document should go through a slice action such as `commitElements`; direct `setState({ elements: ... })` is reserved for test setup and hydration.
 - `canvasElementRules.ts` owns dependency-free selection eligibility, writable-layer assignment, and bound-arrow snapshot decisions used by the canvas element slice.
 - `canvasElementCollection.ts` owns synchronization of element/id/index maps with the spatial index, including full replacement, incremental synchronization, and lazy position-index rebuilds.
+- `canvasElementClipboard.ts` owns deterministic copy, paste, and duplicate plans, including deep stroke samples, offsets, IDs, and writable-layer assignment.
 
 ### `src/core`
 
@@ -130,7 +131,7 @@ The highest-risk files are large mixed-responsibility modules. Split them behind
 3. `src/index.css`
    Move touched component styles into clear sections or modules without broad formatting churn.
 4. `src/store/slices/canvasElements.ts`
-   Selection rules and collection-index synchronization now live in focused modules; continue separating geometry transforms, ordering, clipboard, and persistence triggers behind tests.
+   Selection rules, collection-index synchronization, and clipboard plans now live in focused modules; continue separating geometry transforms, ordering, and persistence triggers behind tests.
 
 ## Verification policy
 
