@@ -5,13 +5,7 @@ import type {
   CanvasLayer,
   UndoAction,
 } from '../types'
-import {
-  alignElements,
-  distributeElements,
-  moveElement,
-  resizeElement,
-  rotateElement,
-} from '../types'
+import { moveElement, resizeElement, rotateElement } from '../types'
 import {
   createCanvasLayer,
   createDefaultLayer,
@@ -38,10 +32,12 @@ import {
   rebuildElementIndexes,
   replaceElementCollection,
   synchronizeElementCollection,
+  synchronizeElementGeometry,
   synchronizeElementReferences,
 } from './canvasElementCollection'
 import { copySelectedElements, createOffsetCopyPlan } from './canvasElementClipboard'
 import { createElementLockPlan, createGroupPlan, createUngroupPlan } from './canvasElementMetadata'
+import { createAlignmentPlan, createDistributionPlan } from './canvasElementArrangement'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
@@ -907,58 +903,20 @@ export function createCanvasElementsSlice(
       const editableIds = getEditableIds(selectedIds, st)
       if (editableIds.length < 2) return
 
-      // 保存完整文档快照，确保撤销不会丢失未选中的元素
-      const selSet = new Set(editableIds)
-      const beforeSnapshot = snapshot(elements)
-
-      // 执行对齐
-      const next = alignElements(elements, editableIds, alignment)
-
-      // 检查是否有实际变化
-      let hasChanges = false
-      for (let i = 0; i < elements.length; i++) {
-        if (elements[i] !== next[i]) {
-          hasChanges = true
-          break
-        }
-      }
-      if (!hasChanges) return
-
-      // 更新 ID 映射和空间索引
-      for (let i = 0; i < next.length; i++) {
-        const el = next[i]
-        if (selSet.has(el.id)) {
-          idToElement.set(el.id, el)
-          st.idToElement.set(el.id, el)
-          idToIndex.set(el.id, i)
-          st.idToIndex.set(el.id, i)
-          spatialIndex.update(el)
-        }
-      }
-
-      // 对齐可能让每个元素产生不同位移，不能用单一 move delta 表示
-      const action: UndoAction = {
-        type: 'snapshot',
-        before: beforeSnapshot,
-        after: snapshot(next),
-        label: 'Align elements',
-        affectedIds: editableIds,
-      }
+      const plan = createAlignmentPlan(elements, editableIds, alignment)
+      if (!plan) return
+      synchronizeElementGeometry(collectionRuntime, plan.elements, editableIds, st)
 
       incrementSaveGeneration()
       set({
-        elements: next,
+        elements: plan.elements,
         selectedIds: editableIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
         redoStack: [],
       })
-
       scheduleSave()
     },
 
-    // 元素分布
-    // 专业设计工具标配：选中多个元素后一键等间距分布
-    // 支持 2 种分布方式：水平分布、垂直分布
     distributeSelected: (distribution) => {
       const st = get()
       const { elements, selectedIds } = st
@@ -966,52 +924,17 @@ export function createCanvasElementsSlice(
       const editableIds = getEditableIds(selectedIds, st)
       if (editableIds.length < 3) return
 
-      // 保存完整文档快照，确保撤销不会丢失未选中的元素
-      const selSet = new Set(editableIds)
-      const beforeSnapshot = snapshot(elements)
-
-      // 执行分布
-      const next = distributeElements(elements, editableIds, distribution)
-
-      // 检查是否有实际变化
-      let hasChanges = false
-      for (let i = 0; i < elements.length; i++) {
-        if (elements[i] !== next[i]) {
-          hasChanges = true
-          break
-        }
-      }
-      if (!hasChanges) return
-
-      // 更新 ID 映射和空间索引
-      for (let i = 0; i < next.length; i++) {
-        const el = next[i]
-        if (selSet.has(el.id)) {
-          idToElement.set(el.id, el)
-          st.idToElement.set(el.id, el)
-          idToIndex.set(el.id, i)
-          st.idToIndex.set(el.id, i)
-          spatialIndex.update(el)
-        }
-      }
-
-      // 分布会给每个元素计算独立位移，不能用单一 move delta 表示
-      const action: UndoAction = {
-        type: 'snapshot',
-        before: beforeSnapshot,
-        after: snapshot(next),
-        label: 'Distribute elements',
-        affectedIds: editableIds,
-      }
+      const plan = createDistributionPlan(elements, editableIds, distribution)
+      if (!plan) return
+      synchronizeElementGeometry(collectionRuntime, plan.elements, editableIds, st)
 
       incrementSaveGeneration()
       set({
-        elements: next,
+        elements: plan.elements,
         selectedIds: editableIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
         redoStack: [],
       })
-
       scheduleSave()
     },
 
