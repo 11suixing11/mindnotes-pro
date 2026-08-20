@@ -39,6 +39,7 @@ import {
   replaceElementCollection,
   synchronizeElementCollection,
 } from './canvasElementCollection'
+import { copySelectedElements, createOffsetCopyPlan } from './canvasElementClipboard'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
@@ -786,28 +787,14 @@ export function createCanvasElementsSlice(
     copySelected: () => {
       const { elements, selectedIds } = get()
       if (selectedIds.length === 0) return
-      const selSet = new Set(selectedIds)
-      const copied = elements.filter((e: CanvasElement) => selSet.has(e.id)).map(shallowClone)
-      set({ clipboard: copied })
+      set({ clipboard: copySelectedElements(elements, selectedIds) })
     },
 
     paste: () => {
       const st = get()
       const { clipboard, elements } = st
       if (clipboard.length === 0) return
-      const now = Date.now()
-      const newIds: string[] = []
-      const pasted: CanvasElement[] = []
-      clipboard.forEach((el: CanvasElement, i: number) => {
-        const newId = `${el.type}-${now}-${i}`
-        const layeredEl = assignToWritableLayer(
-          moveElement({ ...shallowClone(el), id: newId }, 20, 20),
-          st
-        )
-        if (!layeredEl) return
-        newIds.push(newId)
-        pasted.push(layeredEl)
-      })
+      const { elements: pasted, ids: newIds } = createOffsetCopyPlan(clipboard, st, Date.now())
       if (pasted.length === 0) return
       incrementSaveGeneration()
       const action: UndoAction = { type: 'add', ids: newIds, els: pasted.map(shallowClone) }
@@ -841,15 +828,11 @@ export function createCanvasElementsSlice(
       const editableIds = getEditableIds(selectedIds, st)
       if (editableIds.length === 0) return
       const selSet = new Set(editableIds)
-      const newIds: string[] = []
-      const duplicated = elements
-        .filter((e: CanvasElement) => selSet.has(e.id))
-        .map((el: CanvasElement, i: number) => {
-          const newId = `${el.type}-${now}-${i}`
-          newIds.push(newId)
-          return assignToWritableLayer(moveElement({ ...shallowClone(el), id: newId }, 20, 20), st)
-        })
-        .filter((el: CanvasElement | null): el is CanvasElement => !!el)
+      const { elements: duplicated, ids: newIds } = createOffsetCopyPlan(
+        elements.filter((element: CanvasElement) => selSet.has(element.id)),
+        st,
+        now
+      )
       if (duplicated.length === 0) return
       incrementSaveGeneration()
       const action: UndoAction = { type: 'add', ids: newIds, els: duplicated.map(shallowClone) }
