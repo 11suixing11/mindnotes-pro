@@ -116,7 +116,7 @@ Owns desktop shell behavior only.
 The highest-risk files are large mixed-responsibility modules. Split them behind tests and in reviewable changes.
 
 1. `src/components/canvas/usePointerEngine.ts`
-   Extracted coordinate, hit-testing, viewport, gesture-threshold, pinch, marquee, selection-transform, pointer-session, drawing-session, system-clipboard, and auxiliary input-binding primitives; next split per-tool pointer handlers and remaining input cleanup.
+   Extracted coordinate, hit-testing, viewport, gesture-threshold, pinch, marquee, selection-transform, pointer-session, drawing-session, system-clipboard, auxiliary input-binding, and Select-tool pointer-handler primitives; remaining work is limited to other input cleanup.
 2. `src/canvas/canvasDrawing.ts`
    Separate element renderers while retaining one shared rendering contract.
 3. `src/index.css`
