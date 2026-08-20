@@ -2,6 +2,7 @@ import type { CanvasElement, BrushType, StrokeElement } from '../store/types'
 import { getBrushDashArray, getBrushDefaultOpacity, getCanvasStrokeWidth } from './brushPresets'
 import { LRUCache } from './drawingCaches'
 import { resetCanvasBackgroundCaches } from './canvasBackground'
+import { resetCanvasMinimapCaches } from './canvasMinimap'
 import {
   drawImageEl,
   drawShapeEl,
@@ -13,6 +14,7 @@ import getStroke from 'perfect-freehand'
 export { drawImageEl, drawShapeEl, drawTextEl } from './elementRenderers'
 export { drawSelBox, drawZoomLevel } from './canvasOverlays'
 export { drawCanvasBackground, drawGrid, drawMonetGrid } from './canvasBackground'
+export { drawElementMinimap, drawMinimap } from './canvasMinimap'
 
 // ==================== 性能缓存层 (P0 优化) ====================
 
@@ -160,53 +162,6 @@ function fillStrokeOutline(
   ctx.globalAlpha = previousAlpha
 }
 
-// 小地图边界缓存 - 避免每次渲染都遍历所有元素计算边界
-interface MinimapCacheValue {
-  minX: number
-  minY: number
-  maxX: number
-  maxY: number
-  elementCount: number
-  lastAccess: number
-}
-let minimapCache: MinimapCacheValue | null = null
-const MINIMAP_CACHE_TTL = 5000 // 5秒
-function getCachedMinimapBounds(
-  elements: CanvasElement[],
-  cachedBounds: (el: CanvasElement) => { x: number; y: number; w: number; h: number }
-): { minX: number; minY: number; maxX: number; maxY: number } {
-  const now = Date.now()
-  const elementCount = elements.length
-
-  if (
-    minimapCache &&
-    minimapCache.elementCount === elementCount &&
-    now - minimapCache.lastAccess < MINIMAP_CACHE_TTL
-  ) {
-    minimapCache.lastAccess = now
-    return {
-      minX: minimapCache.minX,
-      minY: minimapCache.minY,
-      maxX: minimapCache.maxX,
-      maxY: minimapCache.maxY,
-    }
-  }
-
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity
-  for (const el of elements) {
-    const b = cachedBounds(el)
-    minX = Math.min(minX, b.x)
-    minY = Math.min(minY, b.y)
-    maxX = Math.max(maxX, b.x + b.w)
-    maxY = Math.max(maxY, b.y + b.h)
-  }
-
-  minimapCache = { minX, minY, maxX, maxY, elementCount, lastAccess: now }
-  return { minX, minY, maxX, maxY }
-}
 // Shape, text, and image rotation remains centralized in the shared dispatcher.
 function applyRotationTransform(
   ctx: CanvasRenderingContext2D,
@@ -256,18 +211,6 @@ export function drawElement(
   if (hasRotation) {
     ctx.restore()
   }
-}
-
-// P0 性能优化：小地图专用简化绘制函数 - 只画边界矩形，不渲染完整笔触细节
-export function drawElementMinimap(
-  ctx: CanvasRenderingContext2D,
-  _el: CanvasElement,
-  isDarkMode: boolean,
-  bounds: { x: number; y: number; w: number; h: number }
-) {
-  const color = isDarkMode ? 'rgba(200,160,176,0.6)' : 'rgba(176,125,110,0.5)'
-  ctx.fillStyle = color
-  ctx.fillRect(bounds.x, bounds.y, bounds.w, bounds.h)
 }
 
 export function drawStrokeEl(
@@ -527,81 +470,8 @@ export function drawStrokeRaw(
     isDarkMode
   )
 }
-export function drawMinimap(
-  ctx: CanvasRenderingContext2D,
-  elements: CanvasElement[],
-  cachedBounds: (el: CanvasElement) => { x: number; y: number; w: number; h: number },
-  viewBox: { x: number; y: number; zoom: number },
-  canvasSize: { w: number; h: number },
-  isDarkMode: boolean,
-  bgColor?: string
-) {
-  const mmW = 140,
-    mmH = 90,
-    pad = 12
-  const mmX = canvasSize.w - mmW - pad,
-    mmY = canvasSize.h - mmH - pad
-
-  ctx.save()
-  ctx.globalAlpha = 0.8
-  ctx.fillStyle = 'transparent'
-  ctx.beginPath()
-  ctx.roundRect(mmX - 2, mmY - 2, mmW + 4, mmH + 4, 8)
-  ctx.fill()
-
-  if (elements.length === 0) {
-    ctx.restore()
-    return
-  }
-
-  // 使用缓存的边界计算 - P0 性能优化
-  const { minX, minY, maxX, maxY } = getCachedMinimapBounds(elements, cachedBounds)
-
-  if (!isFinite(minX)) {
-    ctx.restore()
-    return
-  }
-
-  const contentW = maxX - minX || 1
-  const contentH = maxY - minY || 1
-  const padding = 20
-  const availW = mmW - padding * 2
-  const availH = mmH - padding * 2
-  const scale = Math.min(availW / contentW, availH / contentH)
-  const offX = mmX + (mmW - contentW * scale) / 2 - minX * scale
-  const offY = mmY + (mmH - contentH * scale) / 2 - minY * scale
-
-  ctx.save()
-  ctx.beginPath()
-  ctx.roundRect(mmX, mmY, mmW, mmH, 6)
-  ctx.clip()
-  ctx.fillStyle = bgColor || (isDarkMode ? '#1C1A24' : '#ffffff')
-  ctx.fillRect(mmX, mmY, mmW, mmH)
-  ctx.translate(offX, offY)
-  ctx.scale(scale, scale)
-
-  // P0 性能优化：小地图只绘制边界矩形，不完整渲染每个元素
-  // 避免调用 drawElement 进行复杂的笔触渲染
-  for (const el of elements) {
-    drawElementMinimap(ctx, el, isDarkMode, cachedBounds(el))
-  }
-
-  ctx.restore()
-  // Draw viewport rectangle
-  const vpX = offX + viewBox.x * scale
-  const vpY = offY + viewBox.y * scale
-  const vpW = (canvasSize.w / viewBox.zoom) * scale
-  const vpH = (canvasSize.h / viewBox.zoom) * scale
-  const vpColor = isDarkMode ? '#C8A0B0' : '#B07D6E'
-  ctx.strokeStyle = vpColor
-  ctx.lineWidth = 1.5
-  ctx.beginPath()
-  ctx.roundRect(vpX, vpY, vpW, vpH, 2)
-  ctx.stroke()
-  ctx.restore()
-}
 export function invalidateDrawingCaches() {
-  minimapCache = null
+  resetCanvasMinimapCaches()
   resetCanvasBackgroundCaches()
   // 清除形状 Path2D 缓存 - 元素移动/调整大小时需要重建
   invalidateElementRendererCaches()
