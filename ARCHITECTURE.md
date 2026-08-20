@@ -40,6 +40,7 @@ Owns application state and persisted contracts.
 - `src/store/types.ts` is a compatibility barrel; canonical document models and pure transforms live in `src/core`.
 - View state and theme state must not import `appStore` directly. Cross-store coordination uses explicit application ports or data passed by the caller.
 - Element mutations that affect the document should go through a slice action such as `commitElements`; direct `setState({ elements: ... })` is reserved for test setup and hydration.
+- `canvasElementRules.ts` owns dependency-free selection eligibility, writable-layer assignment, and bound-arrow snapshot decisions used by the canvas element slice.
 
 ### `src/core`
 
@@ -128,7 +129,7 @@ The highest-risk files are large mixed-responsibility modules. Split them behind
 3. `src/index.css`
    Move touched component styles into clear sections or modules without broad formatting churn.
 4. `src/store/slices/canvasElements.ts`
-   Keep geometry transforms, ordering, selection, and persistence triggers independently testable.
+   Selection and writable-layer rules now live in `canvasElementRules.ts`; continue separating collection indexes, geometry transforms, ordering, clipboard, and persistence triggers behind tests.
 
 ## Verification policy
 
