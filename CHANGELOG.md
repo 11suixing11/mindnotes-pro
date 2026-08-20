@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shape, text, and image renderers now live behind a tested canvas renderer module, with a shared bounded LRU/TTL cache primitive
 - Selection-box handles and the zoom indicator now live behind a focused overlay renderer while retaining the existing canvas drawing exports
 - Canvas backgrounds and decorative grids now live behind a focused renderer with explicit cache invalidation while retaining the existing canvas drawing exports
+- Minimap rendering and aggregate-bounds caching now live behind a focused renderer while retaining the existing canvas drawing exports
 
 ### Fixed
 
