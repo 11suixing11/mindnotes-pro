@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Canvas element editability, selection eligibility, writable-layer assignment, and bound-arrow history decisions now live behind tested pure rules
 - Canvas element maps, position indexes, and spatial-index synchronization now share a tested collection boundary
 - Copy, paste, and duplicate element planning now share a tested clipboard boundary with independent stroke samples
+- Grouping and element lock metadata now use tested pure transforms that produce explicit history payloads
 
 ### Fixed
 

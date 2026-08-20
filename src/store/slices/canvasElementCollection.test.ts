@@ -5,6 +5,7 @@ import {
   rebuildElementIndexes,
   replaceElementCollection,
   synchronizeElementCollection,
+  synchronizeElementReferences,
 } from './canvasElementCollection'
 
 function makeShape(id: string, x: number): ShapeElement {
@@ -60,5 +61,17 @@ describe('canvas element collection runtime', () => {
     expect(runtime.idToElement.get('a')).toBe(elements[0])
     expect(runtime.idToIndex.get('a')).toBe(1)
     expect(runtime.idToIndex.get('b')).toBe(0)
+  })
+
+  it('updates element references without changing position indexes', () => {
+    const runtime = createCanvasElementCollectionRuntime()
+    const elements = [makeShape('a', 0), makeShape('b', 100)]
+    replaceElementCollection(runtime, elements)
+    const updated = { ...elements[0], locked: true }
+
+    synchronizeElementReferences(runtime, [updated])
+
+    expect(runtime.idToElement.get('a')).toBe(updated)
+    expect(runtime.idToIndex.get('a')).toBe(0)
   })
 })

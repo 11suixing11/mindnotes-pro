@@ -38,8 +38,10 @@ import {
   rebuildElementIndexes,
   replaceElementCollection,
   synchronizeElementCollection,
+  synchronizeElementReferences,
 } from './canvasElementCollection'
 import { copySelectedElements, createOffsetCopyPlan } from './canvasElementClipboard'
+import { createElementLockPlan, createGroupPlan, createUngroupPlan } from './canvasElementMetadata'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
@@ -864,46 +866,19 @@ export function createCanvasElementsSlice(
       const editableIds = getEditableIds(selectedIds, st)
       if (editableIds.length < 2) return
 
-      const groupId = `group-${Date.now()}`
-      const selSet = new Set(editableIds)
-
-      // 记录分组前的状态用于撤销
-      const beforeGroup = elements
-        .filter((e: CanvasElement) => selSet.has(e.id))
-        .map((e: CanvasElement) => ({ id: e.id, oldGroupId: e.groupId }))
-
-      // 更新选中元素的 groupId
-      const next = elements.map((el: CanvasElement) => {
-        if (selSet.has(el.id)) {
-          const updated = { ...el, groupId }
-          // 同步更新 ID 映射（闭包和 store 都更新）
-          idToElement.set(el.id, updated)
-          st.idToElement.set(el.id, updated)
-          return updated
-        }
-        return el
-      })
-
-      const action: UndoAction = {
-        type: 'group',
-        groupId,
-        elementIds: editableIds,
-        beforeGroup,
-      }
+      const plan = createGroupPlan(elements, editableIds, `group-${Date.now()}`)
+      synchronizeElementReferences(collectionRuntime, plan.updatedElements, st)
 
       incrementSaveGeneration()
       set({
-        elements: next,
+        elements: plan.elements,
         selectedIds: editableIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
         redoStack: [],
       })
-
       scheduleSave()
     },
 
-    // Ctrl+Shift+G 取消分组
-    // 解散选中的组，组内元素恢复为独立可选择状态
     ungroupSelected: () => {
       const st = get()
       const { elements, selectedIds } = st
@@ -911,54 +886,20 @@ export function createCanvasElementsSlice(
       const editableIds = getEditableIds(selectedIds, st)
       if (editableIds.length === 0) return
 
-      const selSet = new Set(editableIds)
-      const affectedGroups = new Set<string>()
-
-      // 收集所有选中元素所属的组
-      elements.forEach((el: CanvasElement) => {
-        if (selSet.has(el.id) && el.groupId) {
-          affectedGroups.add(el.groupId)
-        }
-      })
-
-      if (affectedGroups.size === 0) return
-
-      // 记录取消分组前的状态用于撤销
-      const beforeUngroup: { id: string; oldGroupId: string | undefined }[] = []
-
-      // 移除所有受影响组的 groupId
-      const next = elements.map((el: CanvasElement) => {
-        if (el.groupId && affectedGroups.has(el.groupId)) {
-          beforeUngroup.push({ id: el.id, oldGroupId: el.groupId })
-          const updated = { ...el, groupId: undefined }
-          // 同步更新 ID 映射（闭包和 store 都更新）
-          idToElement.set(el.id, updated)
-          st.idToElement.set(el.id, updated)
-          return updated
-        }
-        return el
-      })
-
-      const action: UndoAction = {
-        type: 'ungroup',
-        groupIds: Array.from(affectedGroups),
-        beforeUngroup,
-      }
+      const plan = createUngroupPlan(elements, editableIds)
+      if (!plan) return
+      synchronizeElementReferences(collectionRuntime, plan.updatedElements, st)
 
       incrementSaveGeneration()
       set({
-        elements: next,
+        elements: plan.elements,
         selectedIds: editableIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
         redoStack: [],
       })
-
       scheduleSave()
     },
 
-    // 元素对齐
-    // 专业白板/设计工具标配：选中多个元素后一键对齐
-    // 支持 6 种对齐方式：左对齐、水平居中、右对齐、顶对齐、垂直居中、底对齐
     alignSelected: (alignment) => {
       const st = get()
       const { elements, selectedIds } = st
@@ -1109,91 +1050,35 @@ export function createCanvasElementsSlice(
       const { elements, selectedIds } = st
       if (selectedIds.length === 0) return
 
-      const selSet = new Set(selectedIds)
-      // 记录锁定前的状态用于撤销
-      const beforeLock = elements
-        .filter((el: CanvasElement) => selSet.has(el.id) && isElementLayerEditable(el, st.layers))
-        .map((el: CanvasElement) => ({ id: el.id, wasLocked: !!el.locked }))
-
-      if (beforeLock.length === 0) return
-
-      const elementIds = beforeLock.map((item: { id: string; wasLocked: boolean }) => item.id)
-      const lockSet = new Set(elementIds)
-
-      // 更新选中元素的 locked 状态
-      const next = elements.map((el: CanvasElement) => {
-        if (lockSet.has(el.id)) {
-          const updated = { ...el, locked: true }
-          // 同步更新 ID 映射（闭包和 store 都更新）
-          idToElement.set(el.id, updated)
-          st.idToElement.set(el.id, updated)
-          return updated
-        }
-        return el
-      })
-
-      const action: UndoAction = {
-        type: 'lock',
-        elementIds,
-        beforeLock,
-      }
+      const plan = createElementLockPlan(elements, selectedIds, st.layers, true)
+      if (!plan) return
+      synchronizeElementReferences(collectionRuntime, plan.updatedElements, st)
 
       set({
-        elements: next,
+        elements: plan.elements,
         selectedIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
         redoStack: [],
       })
-
       scheduleSave()
     },
 
-    // 解锁选中元素
     unlockSelected: () => {
       incrementSaveGeneration()
       const st = get()
       const { elements, selectedIds } = st
       if (selectedIds.length === 0) return
 
-      const selSet = new Set(selectedIds)
-      // 记录解锁前的状态用于撤销
-      const beforeUnlock = elements
-        .filter(
-          (el: CanvasElement) =>
-            selSet.has(el.id) && el.locked && isLayerWritable(st.layers, getElementLayerId(el))
-        )
-        .map((el: CanvasElement) => ({ id: el.id, wasLocked: !!el.locked }))
-
-      if (beforeUnlock.length === 0) return
-
-      const elementIds = beforeUnlock.map((item: { id: string; wasLocked: boolean }) => item.id)
-      const unlockSet = new Set(elementIds)
-
-      // 更新选中元素的 locked 状态
-      const next = elements.map((el: CanvasElement) => {
-        if (unlockSet.has(el.id)) {
-          const updated = { ...el, locked: false }
-          // 同步更新 ID 映射（闭包和 store 都更新）
-          idToElement.set(el.id, updated)
-          st.idToElement.set(el.id, updated)
-          return updated
-        }
-        return el
-      })
-
-      const action: UndoAction = {
-        type: 'unlock',
-        elementIds,
-        beforeUnlock,
-      }
+      const plan = createElementLockPlan(elements, selectedIds, st.layers, false)
+      if (!plan) return
+      synchronizeElementReferences(collectionRuntime, plan.updatedElements, st)
 
       set({
-        elements: next,
+        elements: plan.elements,
         selectedIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
         redoStack: [],
       })
-
       scheduleSave()
     },
   }

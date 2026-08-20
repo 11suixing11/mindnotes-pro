@@ -52,6 +52,17 @@ export function rebuildElementIndexes(
   })
 }
 
+export function synchronizeElementReferences(
+  runtime: CanvasElementCollectionRuntime,
+  elements: CanvasElement[],
+  mirror: CanvasElementCollectionMirror = runtime
+) {
+  elements.forEach((element) => {
+    runtime.idToElement.set(element.id, element)
+    if (mirror.idToElement !== runtime.idToElement) mirror.idToElement.set(element.id, element)
+  })
+}
+
 export function replaceElementCollection(
   runtime: CanvasElementCollectionRuntime,
   elements: CanvasElement[],
