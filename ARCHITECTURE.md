@@ -43,6 +43,7 @@ Owns application state and persisted contracts.
 - `canvasElementRules.ts` owns dependency-free selection eligibility, writable-layer assignment, and bound-arrow snapshot decisions used by the canvas element slice.
 - `canvasElementCollection.ts` owns synchronization of element/id/index maps with the spatial index, including full replacement, incremental synchronization, and lazy position-index rebuilds.
 - `canvasElementClipboard.ts` owns deterministic copy, paste, and duplicate plans, including deep stroke samples, offsets, IDs, and writable-layer assignment.
+- `canvasElementMetadata.ts` owns group, ungroup, lock, and unlock transforms plus their history payloads.
 
 ### `src/core`
 
@@ -131,7 +132,7 @@ The highest-risk files are large mixed-responsibility modules. Split them behind
 3. `src/index.css`
    Move touched component styles into clear sections or modules without broad formatting churn.
 4. `src/store/slices/canvasElements.ts`
-   Selection rules, collection-index synchronization, and clipboard plans now live in focused modules; continue separating geometry transforms, ordering, and persistence triggers behind tests.
+   Selection rules, collection synchronization, clipboard plans, and element metadata transforms now live in focused modules; continue separating geometry transforms, ordering, and persistence triggers behind tests.
 
 ## Verification policy
 
