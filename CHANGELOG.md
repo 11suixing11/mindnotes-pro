@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Auxiliary canvas wheel, Space-pan, context-menu, and double-click decisions now live behind a focused tested handler boundary
 - Canvas redraw scheduling, resize observation, store and image invalidation subscriptions, and bounds-cache synchronization now share a focused tested lifecycle boundary
 - Select-tool drag, resize, rotate, marquee, duplication, cancellation, and undo orchestration now live behind a focused hook and tests
+- Pen, shape, and eraser pointer-session coordination now lives behind a focused hook with direct tests
 - Shape, text, and image renderers now live behind a tested canvas renderer module, with a shared bounded LRU/TTL cache primitive
 - Selection-box handles and the zoom indicator now live behind a focused overlay renderer while retaining the existing canvas drawing exports
 - Canvas backgrounds and decorative grids now live behind a focused renderer with explicit cache invalidation while retaining the existing canvas drawing exports
