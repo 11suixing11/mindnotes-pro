@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document and folder record construction, schema normalization, ordering, duplication, and import transforms now live in a tested helper boundary; document management retains hydration, recovery, search-history, and persistence coordination
 - Recovery-draft reconciliation now lives in a tested pure boundary; document management retains localStorage cleanup and recovery feedback coordination
 - Recent document search parsing, persistence, and bounded deduplication now live in a tested helper boundary
+- Runtime element-map and spatial-index rebuilding now lives in a tested helper boundary
 
 ### Fixed
 

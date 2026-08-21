@@ -1,4 +1,4 @@
-import type { CanvasDoc, CanvasElement } from '../types'
+import type { CanvasDoc } from '../types'
 import { getDocumentRepository, getLegacyDocumentSource } from '../documentRepository'
 import { useViewStore } from '../useViewStore'
 import { migrateOld, removeMigratedData } from '../migration'
@@ -18,6 +18,7 @@ import {
   sortDocuments,
 } from './documentRecords'
 import { reconcileDocumentRecovery } from './documentRecovery'
+import { rebuildDocumentRuntimeIndexes } from './documentRuntimeIndexes'
 import {
   loadRecentDocumentSearches,
   persistRecentDocumentSearches,
@@ -51,24 +52,6 @@ export interface DocManagementActions {
   setDocumentSearchQuery: (query: string) => void
   addRecentDocumentSearch: (query: string) => void
   saveNow: () => Promise<void>
-}
-
-function loadRuntimeElementIndexes(
-  get: () => {
-    idToElement?: Map<string, CanvasElement>
-    idToIndex?: Map<string, number>
-    spatialIndex?: { bulkLoad: (elements: CanvasElement[]) => void }
-  },
-  elements: CanvasElement[]
-) {
-  const state = get()
-  state.idToElement?.clear()
-  state.idToIndex?.clear()
-  elements.forEach((element, index) => {
-    state.idToElement?.set(element.id, element)
-    state.idToIndex?.set(element.id, index)
-  })
-  state.spatialIndex?.bulkLoad(elements)
 }
 
 export function createDocManagementSlice(
@@ -154,7 +137,7 @@ export function createDocManagementSlice(
           saveStatus: 'idle',
         })
 
-        loadRuntimeElementIndexes(get, current?.elements ?? [])
+        rebuildDocumentRuntimeIndexes(get(), current?.elements ?? [])
         if (recovery.recoveredDocumentIds.length > 0) {
           useToastStore.getState().show('已恢复最近一次未保存草稿', 'warning', 5000)
         }
@@ -186,7 +169,7 @@ export function createDocManagementSlice(
           loaded: true,
           saveStatus: 'error',
         })
-        loadRuntimeElementIndexes(get, fallback.elements)
+        rebuildDocumentRuntimeIndexes(get(), fallback.elements)
         useToastStore
           .getState()
           .show(
@@ -224,7 +207,7 @@ export function createDocManagementSlice(
         selectedIds: [],
       })
       // 新文档，清空空间索引
-      loadRuntimeElementIndexes(get, [])
+      rebuildDocumentRuntimeIndexes(get(), [])
       return doc.id
     },
 
@@ -249,7 +232,7 @@ export function createDocManagementSlice(
           selectedIds: [],
         })
         // 加载新文档，重建空间索引
-        loadRuntimeElementIndexes(get, normalizedDoc.elements)
+        rebuildDocumentRuntimeIndexes(get(), normalizedDoc.elements)
         useViewStore.getState().resetView()
       }
     },
@@ -316,7 +299,7 @@ export function createDocManagementSlice(
           redoStack: [],
         })
         // 删除当前文档后加载第一个文档，重建空间索引
-        loadRuntimeElementIndexes(get, first?.elements ?? [])
+        rebuildDocumentRuntimeIndexes(get(), first?.elements ?? [])
       } else {
         set({ docs })
       }
@@ -363,7 +346,7 @@ export function createDocManagementSlice(
         selectedIds: [],
         saveStatus: 'saved',
       })
-      loadRuntimeElementIndexes(get, imported.elements)
+      rebuildDocumentRuntimeIndexes(get(), imported.elements)
       useViewStore.getState().resetView()
       return imported.id
     },

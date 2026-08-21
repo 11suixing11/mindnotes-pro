@@ -53,6 +53,7 @@ Owns application state and persisted contracts.
 - `slices/documentRecords.ts` owns pure document/folder record construction, schema normalization, ordering, duplication, and import-record transforms; `docManagement.ts` retains hydration, recovery, search-history, and persistence coordination.
 - `slices/documentRecovery.ts` owns pure comparison and replacement decisions for persisted documents versus recovery drafts; localStorage draft deletion and user feedback remain in `docManagement.ts`.
 - `slices/documentSearchHistory.ts` owns recent-document-search parsing, persistence, and bounded deduplication; document management retains only the store action wiring.
+- `slices/documentRuntimeIndexes.ts` owns rebuilding the runtime element maps and spatial index from a document; document management retains only when hydration or document switching requires the rebuild.
 
 ### `src/core`
 
