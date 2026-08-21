@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { useRef, useCallback, useState } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useThemeStore } from '../../store/useThemeStore'
@@ -14,10 +14,11 @@ import {
   drawMinimap,
   drawZoomLevel,
   drawGrid,
-  invalidateDrawingCaches,
 } from '../../canvas/canvasDrawing'
 import { getEraserWorldRadius } from '../../eraser/simpleEraser'
-import { CANVAS_INVALIDATED_EVENT } from './renderEvents'
+import { normalizeCanvasMetrics, useCanvasRendererLifecycle } from './useCanvasRendererLifecycle'
+
+export { normalizeCanvasMetrics, preserveViewCenterOnResize } from './useCanvasRendererLifecycle'
 export interface DrawState {
   drawing: boolean
   currentPts: number[][]
@@ -41,33 +42,6 @@ export interface DrawState {
 }
 
 type ElementBounds = { x: number; y: number; w: number; h: number }
-
-const MAX_CANVAS_DPR = 2
-
-export function normalizeCanvasMetrics(width: number, height: number, dpr: number) {
-  return {
-    size: {
-      w: Math.max(1, Math.round(Number.isFinite(width) ? width : 1)),
-      h: Math.max(1, Math.round(Number.isFinite(height) ? height : 1)),
-    },
-    dpr: Math.min(MAX_CANVAS_DPR, Math.max(1, Number.isFinite(dpr) ? dpr : 1)),
-  }
-}
-
-export function preserveViewCenterOnResize(
-  viewBox: { x: number; y: number; zoom: number },
-  previousSize: { w: number; h: number },
-  nextSize: { w: number; h: number }
-) {
-  const zoom = Math.max(0.01, viewBox.zoom)
-  const centerX = viewBox.x + previousSize.w / 2 / zoom
-  const centerY = viewBox.y + previousSize.h / 2 / zoom
-  return {
-    x: centerX - nextSize.w / 2 / zoom,
-    y: centerY - nextSize.h / 2 / zoom,
-    zoom: viewBox.zoom,
-  }
-}
 
 export function mergeSelectionBounds<T extends { id: string }>(
   elements: T[],
@@ -104,9 +78,6 @@ export function useCanvasRenderer(
   const boundsCacheRef = useRef<Map<string, { x: number; y: number; w: number; h: number }>>(
     new Map()
   )
-  const rafRef = useRef<number>(0)
-  const redrawRef = useRef<() => void>(() => {})
-
   // P0 性能优化: selectedIds 缓存 - 使用 Zustand selector 直接获取 Set，避免每次创建
   // 性能提升: 避免每次重绘都创建新的 Set 对象，减少 GC 压力
   const selectedIdsSetRef = useRef<Set<string>>(new Set())
@@ -120,6 +91,10 @@ export function useCanvasRenderer(
   const canvasSizeRef = useRef({ w: 1, h: 1 })
   const [, forceUpdate] = useState(0)
   const canvasSize = canvasSizeRef.current
+  const commitCanvasSize = useCallback((size: { w: number; h: number }) => {
+    canvasSizeRef.current = size
+    forceUpdate((n) => n + 1)
+  }, [])
 
   // P1 性能优化: 笔触光标颜色缓存
   const penColorCacheRef = useRef<{
@@ -444,160 +419,16 @@ export function useCanvasRenderer(
     )
     drawZoomLevel(ctx, vb, canvasSize, dark, dpr)
   }, [dpr, canvasSize, getOrCreateEC, renderElementsToCache, canvasRef, getDrawState])
-  const scheduleRedraw = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => redrawRef.current())
-  }, [])
-  useEffect(() => {
-    redrawRef.current = redraw
-  }, [redraw])
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const obs = new ResizeObserver((entries) => {
-      for (const e of entries) {
-        const { width, height } = e.contentRect
-        if (width > 0 && height > 0) {
-          const { size } = normalizeCanvasMetrics(width, height, dprRef.current)
-          const { w, h } = size
-          if (canvasSizeRef.current.w !== w || canvasSizeRef.current.h !== h) {
-            const previousSize = canvasSizeRef.current
-            if (previousSize.w > 1 && previousSize.h > 1) {
-              const viewState = useViewStore.getState()
-              viewState.setViewBox(
-                preserveViewCenterOnResize(viewState.viewBox, previousSize, { w, h })
-              )
-            }
-            canvasSizeRef.current = { w, h }
-            forceUpdate((n) => n + 1) // 触发一次重渲染以更新依赖 canvasSize 的 callbacks
-          }
-        }
-      }
-    })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [containerRef])
-  useEffect(() => {
-    redraw()
-  }, [redraw, canvasSize])
-  useEffect(() => {
-    let prevColor = useAppStore.getState().bgColor
-    let prevStyle = useAppStore.getState().backgroundStyle
-    const unsub = useAppStore.subscribe((s) => {
-      if (s.bgColor !== prevColor || s.backgroundStyle !== prevStyle) {
-        const plainLayerChanged = (s.backgroundStyle === 'plain') !== (prevStyle === 'plain')
-        prevColor = s.bgColor
-        prevStyle = s.backgroundStyle
-        if (plainLayerChanged) elementsDirtyRef.current = true
-        scheduleRedraw()
-      }
-    })
-    return unsub
-  }, [scheduleRedraw])
-  // P0 修复 + 增量更新 bounds 缓存，精确检测元素修改
-  // 避免每帧创建完整 Map，使用引用比较 + Set 差集
-  useEffect(() => {
-    let prevElements = useAppStore.getState().elements
-    let prevLayers = useAppStore.getState().layers
-    let prevIdSet = new Set(prevElements.map((e) => e.id))
-    const prevRefMap = new Map<string, CanvasElement>()
-    for (const e of prevElements) prevRefMap.set(e.id, e)
+  const scheduleRedraw = useCanvasRendererLifecycle({
+    containerRef,
+    dprRef,
+    canvasSizeRef,
+    canvasSize,
+    commitCanvasSize,
+    redraw,
+    elementsDirtyRef,
+    boundsCacheRef,
+  })
 
-    // subscribe 仅处理 elements 变化，非 elements 变化快速退出
-    const unsub = useAppStore.subscribe((s) => {
-      const currElements = s.elements
-      const currLayers = s.layers
-      if (currElements === prevElements && currLayers === prevLayers) return
-
-      {
-        // elements 变化处理块
-        elementsDirtyRef.current = true
-
-        // 元素变化时主动清除绘制缓存（minimap、网格、渐变等）
-        invalidateDrawingCaches()
-
-        // 使用引用比较而非全量 Map 创建
-        // 只在元素引用变化时才失效缓存
-        const currIdSet = new Set<string>()
-        for (const el of currElements) {
-          currIdSet.add(el.id)
-          const prevEl = prevRefMap.get(el.id)
-          // 元素不存在（新增）或引用变化（修改）时失效缓存
-          if (!prevEl || prevEl !== el) {
-            boundsCacheRef.current.delete(el.id)
-          }
-        }
-
-        // 移除已删除元素的缓存
-        for (const id of prevIdSet) {
-          if (!currIdSet.has(id)) {
-            boundsCacheRef.current.delete(id)
-          }
-        }
-
-        // 增量更新 prevRefMap，避免每次都重建完整 Map
-        // 只添加新元素，删除已移除的元素
-        for (const el of currElements) {
-          prevRefMap.set(el.id, el)
-        }
-        // 删除已不存在的元素
-        for (const id of prevIdSet) {
-          if (!currIdSet.has(id)) {
-            prevRefMap.delete(id)
-          }
-        }
-        // 更新快照引用
-        prevElements = currElements
-        prevLayers = currLayers
-        prevIdSet = currIdSet
-      }
-
-      // 调度重绘（已通过 raf 合并）
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-      rafRef.current = requestAnimationFrame(() => redrawRef.current())
-    })
-
-    return () => {
-      unsub()
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    }
-  }, [])
-  useEffect(() => {
-    const h = () => {
-      elementsDirtyRef.current = true
-      redraw()
-    }
-    window.addEventListener('image-loaded', h)
-    window.addEventListener(CANVAS_INVALIDATED_EVENT, h)
-    return () => {
-      window.removeEventListener('image-loaded', h)
-      window.removeEventListener(CANVAS_INVALIDATED_EVENT, h)
-    }
-  }, [redraw])
-  useEffect(() => {
-    let prevSelectedIds = useAppStore.getState().selectedIds
-    const unsub = useAppStore.subscribe((s) => {
-      if (s.selectedIds === prevSelectedIds) return
-      prevSelectedIds = s.selectedIds
-      elementsDirtyRef.current = true
-      scheduleRedraw()
-    })
-    return unsub
-  }, [scheduleRedraw])
-  // 仅订阅 viewBox/showGrid/gridSize 变化触发重绘
-  useEffect(() => {
-    let prevVB = useViewStore.getState().viewBox
-    let prevGrid = useViewStore.getState().showGrid
-    let prevGridSize = useViewStore.getState().gridSize
-    const unsub = useViewStore.subscribe((s) => {
-      if (s.viewBox !== prevVB || s.showGrid !== prevGrid || s.gridSize !== prevGridSize) {
-        prevVB = s.viewBox
-        prevGrid = s.showGrid
-        prevGridSize = s.gridSize
-        scheduleRedraw()
-      }
-    })
-    return unsub
-  }, [scheduleRedraw])
   return { redraw, scheduleRedraw, elementsDirtyRef, boundsCacheRef, cachedBounds, canvasSize, dpr }
 }
