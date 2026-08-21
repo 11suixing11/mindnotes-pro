@@ -86,7 +86,6 @@ Key shared modules include:
 - `strokeRenderer.ts`: brush-specific stroke rendering, perfect-freehand outlines, and calligraphy pooling; exports remain available through `canvasDrawing.ts`.
 - `drawingCaches.ts`: reusable bounded LRU/TTL cache primitive for rendering modules.
 - `pointerEvents.ts`: pointer capture plus auxiliary wheel, keyboard, context-menu, double-click, and cancellation bindings.
-- `canvasAuxiliaryInput.ts`: component-side handler construction for anchored wheel zoom, temporary Space-pan, context-menu suppression, and double-click text editing.
 - `hitTesting.ts`: pure element, z-order, image-alpha, and selection-handle hit testing with injected runtime services.
 - `strokeElements.ts` and `shapeElements.ts`: element creation and draft rules.
 - `resizeRules.ts`: pure resize and aspect-ratio behavior.
@@ -100,6 +99,8 @@ Owns React rendering, UI state wiring, and browser event orchestration.
 - Large hooks may orchestrate behavior, but new per-tool rules should be extracted and tested.
 - Component and hook tests stay next to the code they cover.
 - Visible workflow changes need either a focused UI test or a Playwright journey.
+- `canvas/canvasAuxiliaryInput.ts`: handler construction for anchored wheel zoom, temporary Space-pan, context-menu suppression, and double-click text editing.
+- `canvas/useCanvasRendererLifecycle.ts`: RAF scheduling, resize observation, store invalidation subscriptions, image/canvas invalidation events, and incremental element-bounds cache synchronization.
 
 ### `src/eraser`
 
