@@ -112,6 +112,7 @@ Owns React rendering, UI state wiring, and browser event orchestration.
 - Components consume domain helpers instead of duplicating geometry or persistence rules.
 - Context-menu capability and viewport-position decisions live in `context-menu/contextMenuModel.ts`; `ContextMenu.tsx` coordinates Store actions while reusable menu primitives render the surface.
 - Sidebar search matching, snippets, and document ordering live in `sidebar/sidebarDocumentList.ts`; the document-list view renders those projections while `Sidebar.tsx` retains document workflow coordination.
+- Export filename and size formatting live in `export-menu/exportMenuModel.ts`; reusable export-item views are separated from rendering, backup, import, and download coordination in `ExportMenu.tsx`.
 - Large hooks may orchestrate behavior, but new per-tool rules should be extracted and tested.
 - Component and hook tests stay next to the code they cover.
 - Visible workflow changes need either a focused UI test or a Playwright journey.
