@@ -17,6 +17,7 @@ import {
   normalizeAndSortDocuments,
   sortDocuments,
 } from './documentRecords'
+import { reconcileDocumentRecovery } from './documentRecovery'
 import {
   clearRecoveryDraft,
   clearRecoveryDraftForDocument,
@@ -153,24 +154,11 @@ export function createDocManagementSlice(
           folders = [defaultFolder]
         }
 
-        docs = normalizeAndSortDocuments(docs)
-        const recoveredDocumentIds: string[] = []
-        for (const recoveryDraft of loadRecoveryDrafts()) {
-          const persistedRecovery = docs.find((doc) => doc.id === recoveryDraft.id)
-          if (!persistedRecovery) {
-            clearRecoveryDraftForDocument(recoveryDraft.id, Number.POSITIVE_INFINITY)
-            continue
-          }
-          if (persistedRecovery.updatedAt >= recoveryDraft.updatedAt) {
-            clearRecoveryDraftForDocument(recoveryDraft.id, persistedRecovery.updatedAt)
-            continue
-          }
-
-          const recovered = normalizeCanvasDocLayers(recoveryDraft)
-          docs = docs.map((doc) => (doc.id === recovered.id ? recovered : doc))
-          recoveredDocumentIds.push(recovered.id)
+        const recovery = reconcileDocumentRecovery(docs, loadRecoveryDrafts())
+        docs = recovery.docs
+        for (const draft of recovery.draftsToClear) {
+          clearRecoveryDraftForDocument(draft.documentId, draft.savedAt)
         }
-        docs = normalizeAndSortDocuments(docs)
         const current = docs[0]
 
         set({
@@ -189,7 +177,7 @@ export function createDocManagementSlice(
         })
 
         loadRuntimeElementIndexes(get, current?.elements ?? [])
-        if (recoveredDocumentIds.length > 0) {
+        if (recovery.recoveredDocumentIds.length > 0) {
           useToastStore.getState().show('已恢复最近一次未保存草稿', 'warning', 5000)
         }
         if (migratedLocalStorage) removeMigratedData()
