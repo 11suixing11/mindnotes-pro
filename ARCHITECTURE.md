@@ -115,6 +115,7 @@ Owns React rendering, UI state wiring, and browser event orchestration.
 - Export filename and size formatting live in `export-menu/exportMenuModel.ts`; reusable export-item views are separated from rendering, backup, import, and download coordination in `ExportMenu.tsx`.
 - Template category projection lives in `templates/templatePickerModel.ts`; preview cards and gallery sections are separate views while `TemplatePicker.tsx` retains modal focus and custom-template form coordination.
 - `app/useAppLifecycle.ts` owns theme/document bootstrap, before-unload saves, shortcut-help dispatch, and install-prompt lifecycle; `app/AppStatusBar.tsx` owns the status projection and content-fit affordance while `App.tsx` composes the shell.
+- `src/index.css` remains the shared visual contract for the canvas shell and feature surfaces; the audit removes only unreferenced legacy animation and markdown/JPEG helper rules, preserving active class names and responsive overrides.
 - Large hooks may orchestrate behavior, but new per-tool rules should be extracted and tested.
 - Component and hook tests stay next to the code they cover.
 - Visible workflow changes need either a focused UI test or a Playwright journey.

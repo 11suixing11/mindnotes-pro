@@ -57,22 +57,6 @@ button:focus:not(:focus-visible) {
   border-width: 0;
 }
 
-/* Improve color contrast for status bar text */
-.status {
-  color: var(--text-2);
-}
-
-/* Improve contrast for disabled states */
-.tbtn:disabled {
-  opacity: 0.3;
-  pointer-events: none;
-}
-
-.abtn:disabled {
-  opacity: 0.3;
-  pointer-events: none;
-}
-
 @font-face {
   font-family: 'Noto Sans SC';
   font-style: normal;
@@ -306,31 +290,6 @@ body,
     opacity: 1;
   }
 }
-@keyframes waterRipple {
-  0% {
-    transform: scale(1);
-    opacity: 0.5;
-  }
-  50% {
-    transform: scale(1.03);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0.5;
-  }
-}
-@keyframes gradientFlow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
 @keyframes loadDots {
   0%,
   80%,
@@ -343,16 +302,6 @@ body,
     transform: scale(1);
   }
 }
-@keyframes gentleFloat {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
-}
-
 .panel {
   background: var(--card);
   backdrop-filter: var(--glass);
@@ -884,10 +833,6 @@ body,
   margin: 2px 0;
 }
 
-.em-jpeg-action {
-  margin-bottom: 2px;
-}
-
 .em-quality-row {
   display: grid;
   grid-template-columns: auto auto 1fr;
@@ -1012,33 +957,6 @@ body,
   color: var(--primary);
 }
 
-.hints {
-  position: absolute;
-  bottom: 16px;
-  right: 12px;
-  padding: 8px 16px;
-  font-size: 11px;
-  color: var(--text-4);
-  font-weight: 500;
-  z-index: 20;
-  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
-}
-
-.hints kbd {
-  display: inline-block;
-  padding: 2px 6px;
-  margin: 0 1px;
-  border-radius: 5px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  font-family: inherit;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-3);
-  line-height: 1.5;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
 .loading-screen {
   width: 100vw;
   height: 100vh;
@@ -1096,107 +1014,6 @@ body,
   letter-spacing: 0;
   position: relative;
   z-index: 1;
-}
-
-.kb-content h1 {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text);
-  margin: 0 0 16px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-}
-.kb-content h2 {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text);
-  margin: 24px 0 12px;
-}
-.kb-content h3 {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text);
-  margin: 20px 0 10px;
-}
-.kb-content p {
-  margin: 0 0 12px;
-}
-.kb-content ul,
-.kb-content ol {
-  margin: 0 0 12px;
-  padding-left: 24px;
-}
-.kb-content li {
-  margin-bottom: 4px;
-}
-.kb-content code {
-  font-family: 'SFMono-Regular', Consolas, monospace;
-  font-size: 13px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--primary-bg);
-  color: var(--primary);
-}
-.kb-content pre {
-  margin: 0 0 14px;
-  padding: 14px 16px;
-  border-radius: 10px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  overflow-x: auto;
-}
-.kb-content pre code {
-  padding: 0;
-  background: none;
-  color: var(--text);
-}
-.kb-content blockquote {
-  margin: 0 0 12px;
-  padding: 10px 16px;
-  border-left: 3px solid var(--primary);
-  background: var(--primary-bg);
-  border-radius: 0 8px 8px 0;
-  color: var(--text-2);
-}
-.kb-content blockquote p:last-child {
-  margin-bottom: 0;
-}
-.kb-content table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0 0 14px;
-}
-.kb-content th,
-.kb-content td {
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  text-align: left;
-  font-size: 13px;
-}
-.kb-content th {
-  background: var(--bg);
-  font-weight: 600;
-}
-.kb-content hr {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 20px 0;
-}
-.kb-content a {
-  color: var(--primary);
-  text-decoration: none;
-}
-.kb-content a:hover {
-  text-decoration: underline;
-}
-.kb-content strong {
-  font-weight: 700;
-  color: var(--text);
-}
-.kb-content img {
-  max-width: 100%;
-  border-radius: 8px;
-  margin: 8px 0;
 }
 
 /* Document sidebar */
@@ -1746,18 +1563,6 @@ body,
   animation: fadeIn 0.2s ease;
 }
 
-@keyframes loadingDot {
-  0%,
-  80%,
-  100% {
-    opacity: 0.3;
-    transform: scale(0.8);
-  }
-  40% {
-    opacity: 1;
-    transform: scale(1.2);
-  }
-}
 @keyframes toastIn {
   from {
     opacity: 0;
@@ -1864,10 +1669,6 @@ body,
     padding: 6px 10px;
     gap: 8px;
     font-size: 10px;
-  }
-
-  .hints {
-    display: none;
   }
 
   .pill-btn {
