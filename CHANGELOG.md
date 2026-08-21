@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Element add, update, remove, and clear operations now use tested plans and shared runtime-index synchronization
 - Element commits now share tested selection filtering, bounded undo history, and redo-clear decisions
 - Undo and redo element transitions now live in a pure, tested history-transition boundary; the history slice retains runtime synchronization, viewport focus, feedback, and save coordination
+- Document and folder record construction, schema normalization, ordering, duplication, and import transforms now live in a tested helper boundary; document management retains hydration, recovery, search-history, and persistence coordination
 
 ### Fixed
 
