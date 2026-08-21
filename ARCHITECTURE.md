@@ -54,6 +54,7 @@ Owns application state and persisted contracts.
 - `canvasElementLayerActions.ts` owns Zustand coordination for layer creation, naming, deletion, visibility, locking, reordering, and element reassignment; pure plans remain in `canvasElementLayers.ts`.
 - `canvasElementMutations.ts` owns add, update, remove, and clear plans plus their history payloads.
 - `canvasElementMutationActions.ts` owns Zustand coordination for element addition, replacement, removal, and clearing, including runtime-index synchronization; pure mutation plans remain in `canvasElementMutations.ts`.
+- `canvasElementSnapshotActions.ts` owns eraser-history commits and transient snapshot restoration, including runtime collection synchronization.
 - `canvasElementCommit.ts` owns selection filtering, undo-window updates, and redo-clear decisions for committed element changes.
 - `historyTransitions.ts` owns pure undo/redo element transitions and affected-ID extraction; the history slice retains toast, focus, persistence, and runtime coordination.
 - `slices/documentRecords.ts` owns pure document/folder record construction, schema normalization, ordering, duplication, and import-record transforms; `docManagement.ts` retains hydration, recovery, search-history, and persistence coordination.

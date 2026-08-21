@@ -6,7 +6,6 @@ import type {
   UndoAction,
 } from '../types'
 import { createDefaultLayer } from '../layers'
-import { shallowClone } from '../helpers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import type { SpatialIndex } from '../../eraser/SpatialIndex'
 import { getSelectableIds } from './canvasElementRules'
@@ -31,6 +30,7 @@ import {
   createCanvasElementGeometryActions,
   type MoveElementsOptions,
 } from './canvasElementGeometryActions'
+import { createCanvasElementSnapshotActions } from './canvasElementSnapshotActions'
 
 export type { CommitElementsOptions } from './canvasElementCommit'
 export type { MoveElementsOptions } from './canvasElementGeometryActions'
@@ -219,33 +219,13 @@ export function createCanvasElementsSlice(
       synchronizeElementGeometry: (elements, elementIds, state) =>
         synchronizeElementGeometry(collectionRuntime, elements, elementIds, state),
     }),
+    ...createCanvasElementSnapshotActions({
+      set,
+      get,
+      commitElements,
+      replaceElementCollection: setElementCollection,
+    }),
 
     commitElements,
-
-    batchErase: (beforeSnap, _added, baseUndoStack) => {
-      const st = get()
-      const action: UndoAction = {
-        type: 'erase',
-        before: beforeSnap.map(shallowClone),
-        after: st.elements.map(shallowClone),
-      }
-      commitElements(st.elements, {
-        action,
-        selectedIds: [],
-        undoStack: baseUndoStack,
-      })
-    },
-
-    restoreElementsSnapshot: (elements, selectedIds = get().selectedIds) => {
-      const nextElements = elements.map(shallowClone)
-      const nextIds = new Set(nextElements.map((element) => element.id))
-      incrementSaveGeneration()
-      set({
-        elements: nextElements,
-        selectedIds: selectedIds.filter((id) => nextIds.has(id)),
-      })
-      setElementCollection(nextElements, get())
-      scheduleSave()
-    },
   }
 }
