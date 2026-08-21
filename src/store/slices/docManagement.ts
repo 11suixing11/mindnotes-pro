@@ -19,14 +19,17 @@ import {
 } from './documentRecords'
 import { reconcileDocumentRecovery } from './documentRecovery'
 import {
+  loadRecentDocumentSearches,
+  persistRecentDocumentSearches,
+  prependRecentDocumentSearch,
+} from './documentSearchHistory'
+import {
   clearRecoveryDraft,
   clearRecoveryDraftForDocument,
   loadRecoveryDraft,
   loadRecoveryDrafts,
 } from '../recovery'
 
-const DOCUMENT_SEARCH_HISTORY_KEY = 'mn-sidebar-searches'
-const MAX_RECENT_DOCUMENT_SEARCHES = 5
 const LEGACY_DATABASE_MIGRATION_KEY = 'mindnotes-pro-v5.v4-imported'
 
 export interface DocManagementState {
@@ -48,31 +51,6 @@ export interface DocManagementActions {
   setDocumentSearchQuery: (query: string) => void
   addRecentDocumentSearch: (query: string) => void
   saveNow: () => Promise<void>
-}
-
-function loadRecentDocumentSearches(): string[] {
-  if (typeof localStorage === 'undefined') return []
-
-  try {
-    const parsed = JSON.parse(localStorage.getItem(DOCUMENT_SEARCH_HISTORY_KEY) ?? '[]')
-    return Array.isArray(parsed)
-      ? parsed
-          .filter((item): item is string => typeof item === 'string')
-          .slice(0, MAX_RECENT_DOCUMENT_SEARCHES)
-      : []
-  } catch {
-    return []
-  }
-}
-
-function persistRecentDocumentSearches(searches: string[]) {
-  if (typeof localStorage === 'undefined') return
-
-  try {
-    localStorage.setItem(DOCUMENT_SEARCH_HISTORY_KEY, JSON.stringify(searches))
-  } catch {
-    // Search remains usable even when persisted history is unavailable.
-  }
 }
 
 function loadRuntimeElementIndexes(
@@ -395,15 +373,11 @@ export function createDocManagementSlice(
     },
 
     addRecentDocumentSearch: (query) => {
-      const nextSearch = query.trim()
-      if (!nextSearch) return
-
-      const recentDocumentSearches = [
-        nextSearch,
-        ...get().recentDocumentSearches.filter(
-          (item: string) => item.toLowerCase() !== nextSearch.toLowerCase()
-        ),
-      ].slice(0, MAX_RECENT_DOCUMENT_SEARCHES)
+      const recentDocumentSearches = prependRecentDocumentSearch(
+        get().recentDocumentSearches,
+        query
+      )
+      if (!recentDocumentSearches) return
 
       persistRecentDocumentSearches(recentDocumentSearches)
       set({ recentDocumentSearches })

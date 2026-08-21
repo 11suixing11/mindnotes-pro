@@ -52,6 +52,7 @@ Owns application state and persisted contracts.
 - `historyTransitions.ts` owns pure undo/redo element transitions and affected-ID extraction; the history slice retains toast, focus, persistence, and runtime coordination.
 - `slices/documentRecords.ts` owns pure document/folder record construction, schema normalization, ordering, duplication, and import-record transforms; `docManagement.ts` retains hydration, recovery, search-history, and persistence coordination.
 - `slices/documentRecovery.ts` owns pure comparison and replacement decisions for persisted documents versus recovery drafts; localStorage draft deletion and user feedback remain in `docManagement.ts`.
+- `slices/documentSearchHistory.ts` owns recent-document-search parsing, persistence, and bounded deduplication; document management retains only the store action wiring.
 
 ### `src/core`
 

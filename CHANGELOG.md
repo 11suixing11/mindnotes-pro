@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Undo and redo element transitions now live in a pure, tested history-transition boundary; the history slice retains runtime synchronization, viewport focus, feedback, and save coordination
 - Document and folder record construction, schema normalization, ordering, duplication, and import transforms now live in a tested helper boundary; document management retains hydration, recovery, search-history, and persistence coordination
 - Recovery-draft reconciliation now lives in a tested pure boundary; document management retains localStorage cleanup and recovery feedback coordination
+- Recent document search parsing, persistence, and bounded deduplication now live in a tested helper boundary
 
 ### Fixed
 
