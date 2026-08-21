@@ -88,4 +88,17 @@ describe('canvas element collection runtime', () => {
     expect(runtime.idToIndex.get('a')).toBe(0)
     expect(runtime.spatialIndex.search({ x: 200, y: 0, w: 20, h: 20 })).toContain('a')
   })
+
+  it('repairs a stale position index while synchronizing geometry', () => {
+    const runtime = createCanvasElementCollectionRuntime()
+    const initial = [makeShape('a', 0), makeShape('b', 100)]
+    replaceElementCollection(runtime, initial)
+    const updated = [initial[1], { ...initial[0], x: 200 }]
+
+    synchronizeElementGeometry(runtime, updated, ['a'])
+
+    expect(runtime.idToElement.get('a')).toBe(updated[1])
+    expect(runtime.idToIndex.get('a')).toBe(1)
+    expect(runtime.spatialIndex.search({ x: 200, y: 0, w: 20, h: 20 })).toContain('a')
+  })
 })

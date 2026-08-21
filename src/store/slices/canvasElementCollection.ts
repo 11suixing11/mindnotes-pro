@@ -70,11 +70,25 @@ export function synchronizeElementGeometry(
   mirror: CanvasElementCollectionMirror = runtime
 ) {
   const affected = new Set(elementIds)
-  elements.forEach((element, index) => {
-    if (!affected.has(element.id)) return
+  const indexes = new Map<string, number>()
+
+  for (const id of affected) {
+    const index = runtime.idToIndex.get(id)
+    if (index !== undefined && elements[index]?.id === id) indexes.set(id, index)
+  }
+
+  if (indexes.size !== affected.size) {
+    elements.forEach((element, index) => {
+      if (affected.has(element.id) && !indexes.has(element.id)) indexes.set(element.id, index)
+    })
+  }
+
+  for (const [id, index] of indexes) {
+    const element = elements[index]
+    if (element.id !== id) continue
     setElementMaps(runtime, mirror, element, index)
     runtime.spatialIndex.update(element)
-  })
+  }
 }
 
 export function replaceElementCollection(
