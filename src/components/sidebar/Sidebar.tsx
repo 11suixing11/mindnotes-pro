@@ -4,24 +4,16 @@ import { useAppStore } from '../../store/appStore'
 import { useToastStore } from '../../store/toastStore'
 import type { CanvasDoc } from '../../store/types'
 import { useConfirm } from '../confirm-modal'
-import CanvasPreview from './CanvasPreview'
 import SidebarContextMenu from './SidebarContextMenu'
 import type { SidebarContextState } from './SidebarContextMenu'
+import SidebarDocumentList from './SidebarDocumentList'
+import {
+  DOCUMENT_SORT_OPTIONS,
+  getVisibleDocuments,
+  normalizeDocumentSearch,
+  type DocumentSortMode,
+} from './sidebarDocumentModel'
 import LayersPanel from '../layers/LayersPanel'
-
-type DocumentSortMode =
-  'updated-desc' | 'updated-asc' | 'created-desc' | 'created-asc' | 'title-asc' | 'title-desc'
-
-const DOCUMENT_SORT_OPTIONS: { value: DocumentSortMode; label: string }[] = [
-  { value: 'updated-desc', label: '最近修改' },
-  { value: 'updated-asc', label: '最早修改' },
-  { value: 'created-desc', label: '最近创建' },
-  { value: 'created-asc', label: '最早创建' },
-  { value: 'title-asc', label: '名称升序' },
-  { value: 'title-desc', label: '名称降序' },
-]
-
-const titleCollator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' })
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
@@ -33,89 +25,6 @@ function useIsMobile() {
   }, [])
 
   return isMobile
-}
-
-function formatTime(timestamp: number) {
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(timestamp)
-}
-
-function documentText(doc: CanvasDoc) {
-  return doc.elements
-    .filter((element) => element.type === 'text')
-    .map((element) => element.content)
-    .join('\n')
-}
-
-function makeContentSnippet(content: string, query: string) {
-  const normalizedContent = content.toLowerCase()
-  const index = normalizedContent.indexOf(query)
-  if (index === -1) return content.slice(0, 80)
-
-  const start = Math.max(0, index - 24)
-  const end = Math.min(content.length, index + query.length + 32)
-  const prefix = start > 0 ? '…' : ''
-  const suffix = end < content.length ? '…' : ''
-  return `${prefix}${content.slice(start, end)}${suffix}`
-}
-
-function getSearchMatch(doc: CanvasDoc, query: string) {
-  if (!query) return { type: 'none' as const, snippet: '' }
-
-  if (doc.title.toLowerCase().includes(query)) {
-    return { type: 'title' as const, snippet: doc.title }
-  }
-
-  const content = documentText(doc)
-  if (content.toLowerCase().includes(query)) {
-    return { type: 'content' as const, snippet: makeContentSnippet(content, query) }
-  }
-
-  return null
-}
-
-function highlightMatch(text: string, query: string) {
-  if (!query) return text
-
-  const index = text.toLowerCase().indexOf(query)
-  if (index === -1) return text
-
-  return (
-    <>
-      {text.slice(0, index)}
-      <mark className="sb-search-mark">{text.slice(index, index + query.length)}</mark>
-      {text.slice(index + query.length)}
-    </>
-  )
-}
-
-function compareByTitle(a: CanvasDoc, b: CanvasDoc) {
-  const byTitle = titleCollator.compare(a.title, b.title)
-  if (byTitle !== 0) return byTitle
-
-  return b.updatedAt - a.updatedAt || b.createdAt - a.createdAt || titleCollator.compare(a.id, b.id)
-}
-
-function compareDocs(a: CanvasDoc, b: CanvasDoc, sortMode: DocumentSortMode) {
-  switch (sortMode) {
-    case 'updated-asc':
-      return a.updatedAt - b.updatedAt || compareByTitle(a, b)
-    case 'created-desc':
-      return b.createdAt - a.createdAt || compareByTitle(a, b)
-    case 'created-asc':
-      return a.createdAt - b.createdAt || compareByTitle(a, b)
-    case 'title-asc':
-      return compareByTitle(a, b)
-    case 'title-desc':
-      return -compareByTitle(a, b)
-    case 'updated-desc':
-    default:
-      return b.updatedAt - a.updatedAt || compareByTitle(a, b)
-  }
 }
 
 export default function Sidebar() {
@@ -142,13 +51,9 @@ export default function Sidebar() {
   const cancellingRef = useRef(false)
   const confirmingRef = useRef(false)
 
-  const normalizedSearch = searchQuery.trim().toLowerCase()
+  const normalizedSearch = normalizeDocumentSearch(searchQuery)
   const visibleDocs = useMemo(
-    () =>
-      docs
-        .map((doc) => ({ doc, match: getSearchMatch(doc, normalizedSearch) }))
-        .filter((item) => !normalizedSearch || item.match)
-        .sort((a, b) => compareDocs(a.doc, b.doc, sortMode)),
+    () => getVisibleDocuments(docs, normalizedSearch, sortMode),
     [docs, normalizedSearch, sortMode]
   )
 
@@ -214,6 +119,13 @@ export default function Sidebar() {
       cancellingRef.current = false
     })
   }, [])
+
+  const blurRename = useCallback(
+    (doc: CanvasDoc) => {
+      if (!cancellingRef.current) void requestRename(doc)
+    },
+    [requestRename]
+  )
 
   const openDocument = useCallback(
     async (id: string) => {
@@ -345,76 +257,21 @@ export default function Sidebar() {
           )}
         </div>
 
-        <div role="list" aria-label="文档列表" className="sb-tree">
-          {visibleDocs.length === 0 && (
-            <div className="sb-empty-search" role="status">
-              未找到文档
-            </div>
-          )}
-          {visibleDocs.map(({ doc, match }) => {
-            const isActive = doc.id === currentDocId
-            const contentMatch = normalizedSearch && match?.type === 'content' ? match.snippet : ''
-            return (
-              <div
-                key={doc.id}
-                role="listitem"
-                aria-current={isActive ? 'page' : undefined}
-                className={`sb-doc-item${isActive ? ' sb-doc-item-active' : ''}`}
-                onClick={() => void openDocument(doc.id)}
-                onContextMenu={(event) => {
-                  event.preventDefault()
-                  setContext({ x: event.clientX, y: event.clientY, docId: doc.id })
-                }}
-              >
-                <CanvasPreview elements={doc.elements} layers={doc.layers} bgColor={doc.bgColor} />
-                {renamingId === doc.id ? (
-                  <input
-                    ref={renameInputRef}
-                    aria-label={`重命名 ${doc.title}`}
-                    className="sb-rename-input"
-                    value={renameValue}
-                    onChange={(event) => setRenameValue(event.target.value)}
-                    onClick={(event) => event.stopPropagation()}
-                    onDoubleClick={(event) => event.stopPropagation()}
-                    onBlur={() => {
-                      if (!cancellingRef.current) void requestRename(doc)
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault()
-                        void requestRename(doc)
-                      } else if (event.key === 'Escape') {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        cancelRename()
-                      }
-                    }}
-                  />
-                ) : (
-                  <div
-                    className="sb-doc-content"
-                    onDoubleClick={(event) => {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      startRename(doc)
-                    }}
-                  >
-                    <div className={`sb-doc-title${isActive ? ' sb-doc-title-active' : ''}`}>
-                      {highlightMatch(doc.title, normalizedSearch)}
-                    </div>
-                    <div className={`sb-doc-meta${contentMatch ? ' sb-doc-match' : ''}`}>
-                      {contentMatch ? (
-                        <>正文：{highlightMatch(contentMatch, normalizedSearch)}</>
-                      ) : (
-                        formatTime(doc.updatedAt)
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+        <SidebarDocumentList
+          documents={visibleDocs}
+          currentDocId={currentDocId}
+          normalizedSearch={normalizedSearch}
+          renamingId={renamingId}
+          renameValue={renameValue}
+          renameInputRef={renameInputRef}
+          onOpenDocument={(id) => void openDocument(id)}
+          onOpenContextMenu={setContext}
+          onRenameValueChange={setRenameValue}
+          onRenameBlur={blurRename}
+          onRenameConfirm={(doc) => void requestRename(doc)}
+          onRenameCancel={cancelRename}
+          onStartRename={startRename}
+        />
 
         <LayersPanel />
 
