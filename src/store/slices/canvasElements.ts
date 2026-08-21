@@ -21,7 +21,6 @@ import {
   synchronizeElementReplacement,
   synchronizeElementReferences,
 } from './canvasElementCollection'
-import { copySelectedElements, createOffsetCopyPlan } from './canvasElementClipboard'
 import { createElementLockPlan, createGroupPlan, createUngroupPlan } from './canvasElementMetadata'
 import { createAlignmentPlan, createDistributionPlan } from './canvasElementArrangement'
 import {
@@ -43,6 +42,7 @@ import {
   type CommitElementsOptions,
 } from './canvasElementCommit'
 import { createCanvasElementLayerActions } from './canvasElementLayerActions'
+import { createCanvasElementClipboardActions } from './canvasElementClipboardActions'
 
 export type { CommitElementsOptions } from './canvasElementCommit'
 
@@ -193,6 +193,12 @@ export function createCanvasElementsSlice(
       set,
       get,
       replaceElementCollection: setElementCollection,
+    }),
+    ...createCanvasElementClipboardActions({
+      set,
+      get,
+      appendElementCollection: (elements, startIndex, state) =>
+        appendElementCollection(collectionRuntime, elements, startIndex, state),
     }),
 
     addElement: (el) => {
@@ -458,60 +464,6 @@ export function createCanvasElementsSlice(
       setElementCollection(plan.elements, get())
       // 清空后索引干净，重置脏标记
       _indexDirty = false
-      scheduleSave()
-    },
-
-    copySelected: () => {
-      const { elements, selectedIds } = get()
-      if (selectedIds.length === 0) return
-      set({ clipboard: copySelectedElements(elements, selectedIds) })
-    },
-
-    paste: () => {
-      const st = get()
-      const { clipboard, elements } = st
-      if (clipboard.length === 0) return
-      const { elements: pasted, ids: newIds } = createOffsetCopyPlan(clipboard, st, Date.now())
-      const plan = createElementAdditionPlan(elements, pasted)
-      if (!plan) return
-      incrementSaveGeneration()
-      set({
-        elements: plan.elements,
-        selectedIds: newIds,
-        clipboard: pasted.map(shallowClone),
-        undoStack: appendUndoAction(get().undoStack, plan.action),
-        redoStack: [],
-      })
-      appendElementCollection(collectionRuntime, plan.addedElements, elements.length, st)
-      scheduleSave()
-    },
-
-    // Ctrl+D 快速复制
-    // 一键复制选中元素并偏移 20px，比 Ctrl+C/V 少一次按键操作
-    // 常见设计工具通常支持此快捷键
-    duplicateSelected: () => {
-      const st = get()
-      const { elements, selectedIds } = st
-      if (selectedIds.length === 0) return
-      const now = Date.now()
-      const editableIds = getEditableIds(selectedIds, st)
-      if (editableIds.length === 0) return
-      const selSet = new Set(editableIds)
-      const { elements: duplicated, ids: newIds } = createOffsetCopyPlan(
-        elements.filter((element: CanvasElement) => selSet.has(element.id)),
-        st,
-        now
-      )
-      const plan = createElementAdditionPlan(elements, duplicated)
-      if (!plan) return
-      incrementSaveGeneration()
-      set({
-        elements: plan.elements,
-        selectedIds: newIds,
-        undoStack: appendUndoAction(get().undoStack, plan.action),
-        redoStack: [],
-      })
-      appendElementCollection(collectionRuntime, plan.addedElements, elements.length, st)
       scheduleSave()
     },
 
