@@ -4,7 +4,7 @@ import { useViewStore } from '../useViewStore'
 import { migrateOld, removeMigratedData } from '../migration'
 import { migrateV4ToV5 } from '../v4Import'
 import { saveDocNow, clearSaveTimer } from '../saveManager'
-import { createDefaultLayer, normalizeCanvasDocLayers } from '../layers'
+import { normalizeCanvasDocLayers } from '../layers'
 import { CANVAS_SCHEMA_VERSION } from '../schema'
 import { useToastStore } from '../toastStore'
 import type { CanvasBackupDocument } from '../backup'
@@ -19,6 +19,7 @@ import {
 } from './documentRecords'
 import { reconcileDocumentRecovery } from './documentRecovery'
 import { rebuildDocumentRuntimeIndexes } from './documentRuntimeIndexes'
+import { createDocumentWorkspaceState } from './documentWorkspace'
 import {
   loadRecentDocumentSearches,
   persistRecentDocumentSearches,
@@ -125,14 +126,7 @@ export function createDocManagementSlice(
         set({
           docs,
           folders,
-          currentDocId: current?.id ?? null,
-          elements: current?.elements ?? [],
-          layers: current?.layers ?? [createDefaultLayer()],
-          activeLayerId: current?.activeLayerId ?? createDefaultLayer().id,
-          bgColor: current?.bgColor ?? '#ffffff',
-          backgroundStyle: current?.backgroundStyle ?? 'plain',
-          undoStack: current?.undoStack ?? [],
-          redoStack: current?.redoStack ?? [],
+          ...createDocumentWorkspaceState(current),
           loaded: true,
           saveStatus: 'idle',
         })
@@ -158,14 +152,7 @@ export function createDocManagementSlice(
         set({
           docs: [fallback],
           folders: [],
-          currentDocId: fallback.id,
-          elements: fallback.elements,
-          layers: fallback.layers,
-          activeLayerId: fallback.activeLayerId,
-          bgColor: fallback.bgColor,
-          backgroundStyle: fallback.backgroundStyle,
-          undoStack: fallback.undoStack ?? [],
-          redoStack: fallback.redoStack ?? [],
+          ...createDocumentWorkspaceState(fallback),
           loaded: true,
           saveStatus: 'error',
         })
@@ -190,20 +177,12 @@ export function createDocManagementSlice(
 
       const now = Date.now()
       const doc: CanvasDoc = { ...createBlankDocument(now), title, folderId }
-      const layers = doc.layers ?? [createDefaultLayer(now)]
       const repository = getDocumentRepository()
       await repository.saveDocument({ ...doc, schemaVersion: CANVAS_SCHEMA_VERSION })
       const docs = normalizeAndSortDocuments(await repository.listDocuments())
       set({
         docs,
-        currentDocId: doc.id,
-        elements: [],
-        layers,
-        activeLayerId: layers[0].id,
-        bgColor: '#ffffff',
-        backgroundStyle: 'plain',
-        undoStack: [],
-        redoStack: [],
+        ...createDocumentWorkspaceState(doc, { history: 'empty' }),
         selectedIds: [],
       })
       // 新文档，清空空间索引
@@ -221,14 +200,7 @@ export function createDocManagementSlice(
       if (doc) {
         const normalizedDoc = normalizeCanvasDocLayers(doc)
         set({
-          currentDocId: id,
-          elements: normalizedDoc.elements,
-          layers: normalizedDoc.layers,
-          activeLayerId: normalizedDoc.activeLayerId,
-          bgColor: normalizedDoc.bgColor,
-          backgroundStyle: normalizedDoc.backgroundStyle ?? 'plain',
-          undoStack: normalizedDoc.undoStack ?? [],
-          redoStack: normalizedDoc.redoStack ?? [],
+          ...createDocumentWorkspaceState(normalizedDoc),
           selectedIds: [],
         })
         // 加载新文档，重建空间索引
@@ -289,14 +261,7 @@ export function createDocManagementSlice(
         const first = docs[0] ? normalizeCanvasDocLayers(docs[0]) : undefined
         set({
           docs,
-          currentDocId: first?.id ?? null,
-          elements: first?.elements ?? [],
-          layers: first?.layers ?? [createDefaultLayer()],
-          activeLayerId: first?.activeLayerId ?? createDefaultLayer().id,
-          bgColor: first?.bgColor ?? '#ffffff',
-          backgroundStyle: first?.backgroundStyle ?? 'plain',
-          undoStack: [],
-          redoStack: [],
+          ...createDocumentWorkspaceState(first, { history: 'empty' }),
         })
         // 删除当前文档后加载第一个文档，重建空间索引
         rebuildDocumentRuntimeIndexes(get(), first?.elements ?? [])
@@ -335,14 +300,7 @@ export function createDocManagementSlice(
 
       set({
         docs,
-        currentDocId: imported.id,
-        elements: imported.elements,
-        layers: imported.layers,
-        activeLayerId: imported.activeLayerId,
-        bgColor: imported.bgColor,
-        backgroundStyle: imported.backgroundStyle,
-        undoStack: [],
-        redoStack: [],
+        ...createDocumentWorkspaceState(imported, { history: 'empty' }),
         selectedIds: [],
         saveStatus: 'saved',
       })

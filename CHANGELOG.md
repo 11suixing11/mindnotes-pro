@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recovery-draft reconciliation now lives in a tested pure boundary; document management retains localStorage cleanup and recovery feedback coordination
 - Recent document search parsing, persistence, and bounded deduplication now live in a tested helper boundary
 - Runtime element-map and spatial-index rebuilding now lives in a tested helper boundary
+- Current document workspace projection now lives in a tested helper boundary, keeping document management focused on workflow coordination
 
 ### Fixed
 
