@@ -49,6 +49,7 @@ Owns application state and persisted contracts.
 - `canvasElementLayers.ts` owns layer deletion, visibility, locking, reordering, and element reassignment plans.
 - `canvasElementMutations.ts` owns add, update, remove, and clear plans plus their history payloads.
 - `canvasElementCommit.ts` owns selection filtering, undo-window updates, and redo-clear decisions for committed element changes.
+- `historyTransitions.ts` owns pure undo/redo element transitions and affected-ID extraction; the history slice retains toast, focus, persistence, and runtime coordination.
 
 ### `src/core`
 
@@ -132,13 +133,17 @@ Owns desktop shell behavior only.
 
 The highest-risk files are large mixed-responsibility modules. Split them behind tests and in reviewable changes.
 
-1. `src/components/canvas/usePointerEngine.ts`
+1. `src/store/slices/docManagement.ts`
+   Separate document construction, hydration, search history, and persistence coordination while keeping repository and schema boundaries intact.
+2. `src/components/canvas/usePointerEngine.ts`
    Extracted coordinate, hit-testing, viewport, gesture-threshold, pinch, marquee, selection-transform, pointer-session, drawing-session, system-clipboard, auxiliary input-handler/binding, and Select-tool pointer-handler primitives; it now primarily coordinates drawing and erase sessions, event wiring, and draw-state exposure.
-2. `src/canvas/canvasDrawing.ts`
+3. `src/store/slices/history.ts`
+   Pure undo/redo transitions now live in `historyTransitions.ts`; remaining work is to keep runtime synchronization and user feedback boundaries explicit.
+4. `src/canvas/canvasDrawing.ts`
    Shared element dispatch and cache invalidation remain here; element, stroke, overlay, background, grid, and minimap rendering now live in focused canvas modules.
-3. `src/index.css`
+5. `src/index.css`
    Move touched component styles into clear sections or modules without broad formatting churn.
-4. `src/store/slices/canvasElements.ts`
+6. `src/store/slices/canvasElements.ts`
    Selection, collection, clipboard, metadata, arrangement, geometry, layer, mutation, and commit logic now live in focused modules; the slice remains the persistence and runtime-synchronization coordinator.
 
 ## Verification policy
