@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Export menu formatting and reusable format controls now live behind focused model and view boundaries while document rendering and file workflows remain coordinated in the menu
 - Template category projection, preview cards, and gallery sections now live behind focused boundaries while the picker retains modal focus and custom-template workflow coordination
 - Keyboard paste workflows and Store-backed shortcut commands now live behind focused boundaries while the keyboard hook retains dispatch priority and listener lifecycle
+- App bootstrap, save/install/shortcut lifecycle, and status-bar rendering now live behind focused component boundaries while `App.tsx` retains shell composition
 
 ### Fixed
 
