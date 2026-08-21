@@ -67,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keyboard paste workflows and Store-backed shortcut commands now live behind focused boundaries while the keyboard hook retains dispatch priority and listener lifecycle
 - App bootstrap, save/install/shortcut lifecycle, and status-bar rendering now live behind focused component boundaries while `App.tsx` retains shell composition
 - The shared stylesheet audit removed unreferenced legacy rules without changing active canvas, sidebar, export, template, modal, or responsive selectors
+- The v5 architecture audit now records the remaining large modules as intentional composition roots and removes the last malformed UTF-8 test label
 
 ### Fixed
 
