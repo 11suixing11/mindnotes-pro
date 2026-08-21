@@ -1,4 +1,4 @@
-import type { CanvasDoc, CanvasElement, CanvasFolder } from '../types'
+import type { CanvasDoc, CanvasElement } from '../types'
 import { getDocumentRepository, getLegacyDocumentSource } from '../documentRepository'
 import { useViewStore } from '../useViewStore'
 import { migrateOld, removeMigratedData } from '../migration'
@@ -8,6 +8,15 @@ import { createDefaultLayer, normalizeCanvasDocLayers } from '../layers'
 import { CANVAS_SCHEMA_VERSION } from '../schema'
 import { useToastStore } from '../toastStore'
 import type { CanvasBackupDocument } from '../backup'
+import {
+  DEFAULT_DOCUMENT_TITLE,
+  createBlankDocument,
+  createDefaultFolder,
+  createDuplicatedDocument,
+  createImportedDocument,
+  normalizeAndSortDocuments,
+  sortDocuments,
+} from './documentRecords'
 import {
   clearRecoveryDraft,
   clearRecoveryDraftForDocument,
@@ -83,30 +92,6 @@ function loadRuntimeElementIndexes(
   state.spatialIndex?.bulkLoad(elements)
 }
 
-function createBlankDocument(now = Date.now()): CanvasDoc {
-  const layers = [createDefaultLayer(now)]
-  return {
-    schemaVersion: CANVAS_SCHEMA_VERSION,
-    id: createDocumentId(now),
-    title: '未命名画布',
-    elements: [],
-    layers,
-    activeLayerId: layers[0].id,
-    bgColor: '#ffffff',
-    backgroundStyle: 'plain',
-    folderId: null,
-    createdAt: now,
-    updatedAt: now,
-  }
-}
-
-function createDocumentId(now = Date.now()): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return `doc-${crypto.randomUUID()}`
-  }
-  return `doc-${now}-${Math.random().toString(36).slice(2, 8)}`
-}
-
 export function createDocManagementSlice(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   set: any,
@@ -163,19 +148,12 @@ export function createDocManagementSlice(
         }
 
         if (folders.length === 0) {
-          const defaultFolder: CanvasFolder = {
-            id: 'folder-default',
-            name: '我的笔记',
-            parentId: null,
-            order: 0,
-            expanded: true,
-          }
+          const defaultFolder = createDefaultFolder()
           await repository.saveFolder(defaultFolder)
           folders = [defaultFolder]
         }
 
-        docs = docs.map((doc) => normalizeCanvasDocLayers(doc))
-        docs.sort((a, b) => b.updatedAt - a.updatedAt)
+        docs = normalizeAndSortDocuments(docs)
         const recoveredDocumentIds: string[] = []
         for (const recoveryDraft of loadRecoveryDrafts()) {
           const persistedRecovery = docs.find((doc) => doc.id === recoveryDraft.id)
@@ -192,7 +170,7 @@ export function createDocManagementSlice(
           docs = docs.map((doc) => (doc.id === recovered.id ? recovered : doc))
           recoveredDocumentIds.push(recovered.id)
         }
-        docs.sort((a, b) => b.updatedAt - a.updatedAt)
+        docs = normalizeAndSortDocuments(docs)
         const current = docs[0]
 
         set({
@@ -255,24 +233,21 @@ export function createDocManagementSlice(
       }
     },
 
-    createDoc: async (title = '未命名画布', folderId = null) => {
+    createDoc: async (title = DEFAULT_DOCUMENT_TITLE, folderId = null) => {
       clearSaveTimer()
       if (get().currentDocId && !(await saveDocNow())) {
         throw new Error('Current document could not be saved')
       }
 
       const now = Date.now()
-      const id = createDocumentId(now)
-      const doc: CanvasDoc = { ...createBlankDocument(now), id, title, folderId }
+      const doc: CanvasDoc = { ...createBlankDocument(now), title, folderId }
       const layers = doc.layers ?? [createDefaultLayer(now)]
       const repository = getDocumentRepository()
       await repository.saveDocument({ ...doc, schemaVersion: CANVAS_SCHEMA_VERSION })
-      const docs = (await repository.listDocuments())
-        .map((doc) => normalizeCanvasDocLayers(doc))
-        .sort((a, b) => b.updatedAt - a.updatedAt)
+      const docs = normalizeAndSortDocuments(await repository.listDocuments())
       set({
         docs,
-        currentDocId: id,
+        currentDocId: doc.id,
         elements: [],
         layers,
         activeLayerId: layers[0].id,
@@ -284,7 +259,7 @@ export function createDocManagementSlice(
       })
       // 新文档，清空空间索引
       loadRuntimeElementIndexes(get, [])
-      return id
+      return doc.id
     },
 
     openDoc: async (id) => {
@@ -360,7 +335,7 @@ export function createDocManagementSlice(
       const repository = getDocumentRepository()
       await repository.deleteDocument(id)
       const { currentDocId } = get()
-      const docs = (await repository.listDocuments()).sort((a, b) => b.updatedAt - a.updatedAt)
+      const docs = sortDocuments(await repository.listDocuments())
       if (currentDocId === id) {
         const first = docs[0] ? normalizeCanvasDocLayers(docs[0]) : undefined
         set({
@@ -389,18 +364,10 @@ export function createDocManagementSlice(
       const repository = getDocumentRepository()
       const doc = await repository.getDocument(id)
       if (!doc) return
-      const now = Date.now()
-      const dup: CanvasDoc = {
-        ...normalizeCanvasDocLayers(doc),
-        schemaVersion: CANVAS_SCHEMA_VERSION,
-        id: createDocumentId(now),
-        title: `${doc.title} (副本)`,
-        createdAt: now,
-        updatedAt: now,
-      }
+      const dup = createDuplicatedDocument(doc)
       await repository.saveDocument({ ...dup, schemaVersion: CANVAS_SCHEMA_VERSION })
       set({
-        docs: (await repository.listDocuments()).sort((a, b) => b.updatedAt - a.updatedAt),
+        docs: sortDocuments(await repository.listDocuments()),
       })
     },
 
@@ -411,27 +378,11 @@ export function createDocManagementSlice(
         throw new Error('Current document could not be saved')
       }
 
-      const now = Date.now()
-      const id = createDocumentId(now)
-      const imported = normalizeCanvasDocLayers({
-        schemaVersion: CANVAS_SCHEMA_VERSION,
-        id,
-        title: `${document.title.trim() || '导入的画布'}（导入）`,
-        elements: document.elements,
-        layers: document.layers,
-        activeLayerId: document.activeLayerId,
-        bgColor: document.bgColor,
-        backgroundStyle: document.backgroundStyle,
-        folderId: null,
-        createdAt: now,
-        updatedAt: now,
-      })
+      const imported = createImportedDocument(document)
 
       const repository = getDocumentRepository()
       await repository.saveDocument({ ...imported, schemaVersion: CANVAS_SCHEMA_VERSION })
-      const docs = (await repository.listDocuments())
-        .map((doc) => normalizeCanvasDocLayers(doc))
-        .sort((a, b) => b.updatedAt - a.updatedAt)
+      const docs = normalizeAndSortDocuments(await repository.listDocuments())
 
       set({
         docs,
