@@ -111,13 +111,14 @@ Owns React rendering, UI state wiring, and browser event orchestration.
 
 - Components consume domain helpers instead of duplicating geometry or persistence rules.
 - Context-menu capability and viewport-position decisions live in `context-menu/contextMenuModel.ts`; `ContextMenu.tsx` coordinates Store actions while reusable menu primitives render the surface.
-- Sidebar search matching, snippets, and document ordering live in `sidebar/sidebarDocumentList.ts`; the document-list view renders those projections while `Sidebar.tsx` retains document workflow coordination.
+- Sidebar search matching, snippets, and document ordering live in `sidebar/sidebarDocumentModel.ts`; the document-list view renders those projections while `Sidebar.tsx` retains document workflow coordination.
 - Export filename and size formatting live in `export-menu/exportMenuModel.ts`; reusable export-item views are separated from rendering, backup, import, and download coordination in `ExportMenu.tsx`.
 - Template category projection lives in `templates/templatePickerModel.ts`; preview cards and gallery sections are separate views while `TemplatePicker.tsx` retains modal focus and custom-template form coordination.
 - Large hooks may orchestrate behavior, but new per-tool rules should be extracted and tested.
 - Component and hook tests stay next to the code they cover.
 - Visible workflow changes need either a focused UI test or a Playwright journey.
 - `canvas/canvasAuxiliaryInput.ts`: handler construction for anchored wheel zoom, temporary Space-pan, context-menu suppression, and double-click text editing.
+- `canvas/keyboardPaste.ts` and `canvas/keyboardShortcutActions.ts`: browser clipboard insertion and Store-backed shortcut command coordination; `useKeyboardBindings.ts` retains shortcut priority and keydown listener lifecycle.
 - `canvas/useCanvasRendererLifecycle.ts`: RAF scheduling, resize observation, store invalidation subscriptions, image/canvas invalidation events, and incremental element-bounds cache synchronization.
 - `canvas/useDrawingPointerHandlers.ts`: pen sampling, shape drafting and endpoint binding, eraser hit processing, and one-gesture erase-history coordination; `usePointerEngine.ts` retains contact routing, pan/select orchestration, and lifecycle wiring.
 
