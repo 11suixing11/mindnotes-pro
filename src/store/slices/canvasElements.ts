@@ -5,12 +5,7 @@ import type {
   CanvasLayer,
   UndoAction,
 } from '../types'
-import {
-  createCanvasLayer,
-  createDefaultLayer,
-  isElementLayerEditable,
-  isLayerWritable,
-} from '../layers'
+import { createDefaultLayer, isElementLayerEditable } from '../layers'
 import { shallowClone } from '../helpers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import type { SpatialIndex } from '../../eraser/SpatialIndex'
@@ -37,13 +32,6 @@ import {
   createRotateElementsPlan,
 } from './canvasElementGeometry'
 import {
-  createLayerDeletionPlan,
-  createLayerLockPlan,
-  createLayerReorderPlan,
-  createLayerVisibilityPlan,
-  createMoveElementsToLayerPlan,
-} from './canvasElementLayers'
-import {
   createElementAdditionPlan,
   createElementClearPlan,
   createElementRemovalPlan,
@@ -54,6 +42,7 @@ import {
   createCanvasElementCommitPlan,
   type CommitElementsOptions,
 } from './canvasElementCommit'
+import { createCanvasElementLayerActions } from './canvasElementLayerActions'
 
 export type { CommitElementsOptions } from './canvasElementCommit'
 
@@ -200,112 +189,11 @@ export function createCanvasElementsSlice(
 
     // Actions
     setSelectedIds: (ids) => set({ selectedIds: getSelectableIds(ids, get()) }),
-
-    createLayer: (name) => {
-      const st = get()
-      const order =
-        st.layers.length === 0
-          ? 0
-          : Math.max(...st.layers.map((layer: CanvasLayer) => layer.order)) + 1
-      const layer = createCanvasLayer(name ?? `图层 ${order + 1}`, order)
-      incrementSaveGeneration()
-      set({
-        layers: [...st.layers, layer],
-        activeLayerId: layer.id,
-      })
-      scheduleSave()
-      return layer.id
-    },
-
-    renameLayer: (id, name) => {
-      const nextName = name.trim()
-      if (!nextName) return
-      const st = get()
-      const layer = st.layers.find((item: CanvasLayer) => item.id === id)
-      if (!layer || layer.name === nextName) return
-      incrementSaveGeneration()
-      set({
-        layers: st.layers.map((item: CanvasLayer) =>
-          item.id === id ? { ...item, name: nextName, updatedAt: Date.now() } : item
-        ),
-      })
-      scheduleSave()
-    },
-
-    deleteLayer: (id) => {
-      const st = get()
-      const plan = createLayerDeletionPlan(st, id)
-      if (!plan) return
-
-      incrementSaveGeneration()
-      set({
-        layers: plan.layers,
-        activeLayerId: plan.activeLayerId,
-        elements: plan.elements,
-        selectedIds: plan.selectedIds,
-      })
-      setElementCollection(plan.elements, get())
-      scheduleSave()
-    },
-
-    setActiveLayer: (id) => {
-      const st = get()
-      if (!isLayerWritable(st.layers, id) || st.activeLayerId === id) return
-      set({ activeLayerId: id })
-    },
-
-    setLayerVisibility: (id, visible) => {
-      const st = get()
-      const plan = createLayerVisibilityPlan(st, id, visible, Date.now())
-      if (!plan) return
-
-      incrementSaveGeneration()
-      set({
-        layers: plan.layers,
-        activeLayerId: plan.activeLayerId,
-        selectedIds: plan.selectedIds,
-      })
-      scheduleSave()
-    },
-
-    setLayerLocked: (id, locked) => {
-      const st = get()
-      const plan = createLayerLockPlan(st, id, locked, Date.now())
-      if (!plan) return
-
-      incrementSaveGeneration()
-      set({
-        layers: plan.layers,
-        activeLayerId: plan.activeLayerId,
-        selectedIds: plan.selectedIds,
-      })
-      scheduleSave()
-    },
-
-    moveLayer: (id, direction) => {
-      const st = get()
-      const plan = createLayerReorderPlan(st.layers, id, direction, Date.now())
-      if (!plan) return
-
-      incrementSaveGeneration()
-      set({ layers: plan })
-      scheduleSave()
-    },
-
-    moveElementsToLayer: (ids, layerId) => {
-      const st = get()
-      const plan = createMoveElementsToLayerPlan(st, ids, layerId)
-      if (!plan) return
-
-      incrementSaveGeneration()
-      set({ elements: plan.elements, selectedIds: plan.selectedIds })
-      setElementCollection(plan.elements, get())
-      scheduleSave()
-    },
-
-    moveSelectedToLayer: (layerId) => {
-      get().moveElementsToLayer(get().selectedIds, layerId)
-    },
+    ...createCanvasElementLayerActions({
+      set,
+      get,
+      replaceElementCollection: setElementCollection,
+    }),
 
     addElement: (el) => {
       const st = get()

@@ -47,6 +47,7 @@ Owns application state and persisted contracts.
 - `canvasElementArrangement.ts` owns alignment and distribution plans plus complete before/after history snapshots.
 - `canvasElementGeometry.ts` owns deterministic move, resize, and rotation plans, including bound-arrow updates and move-history payloads.
 - `canvasElementLayers.ts` owns layer deletion, visibility, locking, reordering, and element reassignment plans.
+- `canvasElementLayerActions.ts` owns Zustand coordination for layer creation, naming, deletion, visibility, locking, reordering, and element reassignment; pure plans remain in `canvasElementLayers.ts`.
 - `canvasElementMutations.ts` owns add, update, remove, and clear plans plus their history payloads.
 - `canvasElementCommit.ts` owns selection filtering, undo-window updates, and redo-clear decisions for committed element changes.
 - `historyTransitions.ts` owns pure undo/redo element transitions and affected-ID extraction; the history slice retains toast, focus, persistence, and runtime coordination.
