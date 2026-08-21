@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recent document search parsing, persistence, and bounded deduplication now live in a tested helper boundary
 - Runtime element-map and spatial-index rebuilding now lives in a tested helper boundary
 - Current document workspace projection now lives in a tested helper boundary, keeping document management focused on workflow coordination
+- Document persistence bootstrap, legacy migration, recovery reconciliation, and fallback preparation now share a tested initialization boundary
 
 ### Fixed
 
