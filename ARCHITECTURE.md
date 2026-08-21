@@ -45,6 +45,7 @@ Owns application state and persisted contracts.
 - `canvasElementClipboard.ts` owns deterministic copy, paste, and duplicate plans, including deep stroke samples, offsets, IDs, and writable-layer assignment.
 - `canvasElementClipboardActions.ts` owns Zustand coordination for copy, paste, and duplicate commands; pure copy plans remain in `canvasElementClipboard.ts`.
 - `canvasElementMetadata.ts` owns group, ungroup, lock, and unlock transforms plus their history payloads.
+- `canvasElementMetadataActions.ts` owns Zustand coordination for grouping, ungrouping, locking, and unlocking; pure metadata transforms remain in `canvasElementMetadata.ts`.
 - `canvasElementArrangement.ts` owns alignment and distribution plans plus complete before/after history snapshots.
 - `canvasElementGeometry.ts` owns deterministic move, resize, and rotation plans, including bound-arrow updates and move-history payloads.
 - `canvasElementLayers.ts` owns layer deletion, visibility, locking, reordering, and element reassignment plans.
