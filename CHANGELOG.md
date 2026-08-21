@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Grouping and element lock metadata now use tested pure transforms that produce explicit history payloads
 - Canvas metadata command coordination now lives behind a focused store boundary while pure transforms remain independently tested
 - Alignment and distribution now derive tested plans with complete before/after document snapshots
+- Canvas arrangement command coordination now lives behind a focused store boundary while pure plans remain independently tested
 - Move, resize, and rotation now derive tested element plans, including bound-arrow synchronization and snapshot-versus-delta move history
 - Layer deletion, visibility, locking, reordering, and element reassignment now derive tested plans outside the Zustand slice
 - Canvas layer action coordination now lives behind a focused store boundary while pure layer plans remain independently tested

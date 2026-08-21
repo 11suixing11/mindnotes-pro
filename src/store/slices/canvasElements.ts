@@ -21,7 +21,6 @@ import {
   synchronizeElementReplacement,
   synchronizeElementReferences,
 } from './canvasElementCollection'
-import { createAlignmentPlan, createDistributionPlan } from './canvasElementArrangement'
 import {
   createMoveElementPlan,
   createMoveElementsPlan,
@@ -43,6 +42,7 @@ import {
 import { createCanvasElementLayerActions } from './canvasElementLayerActions'
 import { createCanvasElementClipboardActions } from './canvasElementClipboardActions'
 import { createCanvasElementMetadataActions } from './canvasElementMetadataActions'
+import { createCanvasElementArrangementActions } from './canvasElementArrangementActions'
 
 export type { CommitElementsOptions } from './canvasElementCommit'
 
@@ -205,6 +205,12 @@ export function createCanvasElementsSlice(
       get,
       synchronizeElementReferences: (elements, state) =>
         synchronizeElementReferences(collectionRuntime, elements, state),
+    }),
+    ...createCanvasElementArrangementActions({
+      set,
+      get,
+      synchronizeElementGeometry: (elements, elementIds, state) =>
+        synchronizeElementGeometry(collectionRuntime, elements, elementIds, state),
     }),
 
     addElement: (el) => {
@@ -476,48 +482,6 @@ export function createCanvasElementsSlice(
     // Ctrl+G 元素分组
     // 将选中的多个元素组合成一个组，点击组内任意元素选中整个组
     // 常见设计工具通常支持此功能
-    alignSelected: (alignment) => {
-      const st = get()
-      const { elements, selectedIds } = st
-      if (selectedIds.length < 2) return
-      const editableIds = getEditableIds(selectedIds, st)
-      if (editableIds.length < 2) return
-
-      const plan = createAlignmentPlan(elements, editableIds, alignment)
-      if (!plan) return
-      synchronizeElementGeometry(collectionRuntime, plan.elements, editableIds, st)
-
-      incrementSaveGeneration()
-      set({
-        elements: plan.elements,
-        selectedIds: editableIds,
-        undoStack: appendUndoAction(get().undoStack, plan.action),
-        redoStack: [],
-      })
-      scheduleSave()
-    },
-
-    distributeSelected: (distribution) => {
-      const st = get()
-      const { elements, selectedIds } = st
-      if (selectedIds.length < 3) return
-      const editableIds = getEditableIds(selectedIds, st)
-      if (editableIds.length < 3) return
-
-      const plan = createDistributionPlan(elements, editableIds, distribution)
-      if (!plan) return
-      synchronizeElementGeometry(collectionRuntime, plan.elements, editableIds, st)
-
-      incrementSaveGeneration()
-      set({
-        elements: plan.elements,
-        selectedIds: editableIds,
-        undoStack: appendUndoAction(get().undoStack, plan.action),
-        redoStack: [],
-      })
-      scheduleSave()
-    },
-
     batchErase: (beforeSnap, _added, baseUndoStack) => {
       const st = get()
       const action: UndoAction = {
