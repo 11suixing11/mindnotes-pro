@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Context-menu selection capabilities and viewport positioning now live behind a tested model, with reusable menu primitives separated from Store coordination
 - Sidebar document search, snippets, and sorting now use a tested projection model, with list rendering separated from document workflow coordination
 - Export menu formatting and reusable format controls now live behind focused model and view boundaries while document rendering and file workflows remain coordinated in the menu
+- Template category projection, preview cards, and gallery sections now live behind focused boundaries while the picker retains modal focus and custom-template workflow coordination
 
 ### Fixed
 
