@@ -5,11 +5,11 @@ import type {
   CanvasLayer,
   UndoAction,
 } from '../types'
-import { createDefaultLayer, isElementLayerEditable } from '../layers'
+import { createDefaultLayer } from '../layers'
 import { shallowClone } from '../helpers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import type { SpatialIndex } from '../../eraser/SpatialIndex'
-import { getEditableIds, getSelectableIds } from './canvasElementRules'
+import { getSelectableIds } from './canvasElementRules'
 import {
   appendElementCollection,
   createCanvasElementCollectionRuntime,
@@ -21,25 +21,19 @@ import {
   synchronizeElementReplacement,
   synchronizeElementReferences,
 } from './canvasElementCollection'
-import {
-  createMoveElementPlan,
-  createMoveElementsPlan,
-  createResizeElementPlan,
-  createRotateElementPlan,
-  createRotateElementsPlan,
-} from './canvasElementGeometry'
-import {
-  appendUndoAction,
-  createCanvasElementCommitPlan,
-  type CommitElementsOptions,
-} from './canvasElementCommit'
+import { createCanvasElementCommitPlan, type CommitElementsOptions } from './canvasElementCommit'
 import { createCanvasElementLayerActions } from './canvasElementLayerActions'
 import { createCanvasElementClipboardActions } from './canvasElementClipboardActions'
 import { createCanvasElementMetadataActions } from './canvasElementMetadataActions'
 import { createCanvasElementArrangementActions } from './canvasElementArrangementActions'
 import { createCanvasElementMutationActions } from './canvasElementMutationActions'
+import {
+  createCanvasElementGeometryActions,
+  type MoveElementsOptions,
+} from './canvasElementGeometryActions'
 
 export type { CommitElementsOptions } from './canvasElementCommit'
+export type { MoveElementsOptions } from './canvasElementGeometryActions'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
@@ -58,10 +52,6 @@ export interface CanvasElementsState {
   // 删除元素时不立即更新后续索引，只标记为脏
   // 索引查询失败时才重建，大幅减少 O(n) 更新次数
   _indexDirty: boolean
-}
-
-export interface MoveElementsOptions {
-  recordHistory?: boolean
 }
 
 export interface CanvasElementsActions {
@@ -222,153 +212,15 @@ export function createCanvasElementsSlice(
         _indexDirty = true
       },
     }),
+    ...createCanvasElementGeometryActions({
+      set,
+      get,
+      rebuildIndexIfNeeded,
+      synchronizeElementGeometry: (elements, elementIds, state) =>
+        synchronizeElementGeometry(collectionRuntime, elements, elementIds, state),
+    }),
 
     commitElements,
-
-    moveElementById: (id, dx, dy) => {
-      // P0 性能优化: 跳过无意义的移动
-      if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return
-      incrementSaveGeneration()
-
-      const st = get()
-      // 懒索引重建 - 查询失败时先重建再重试
-      rebuildIndexIfNeeded()
-      // 使用 idToIndex O(1) 查找替代 findIndex O(n)
-      // fallback: 如果 idToIndex 中找不到，回退到 findIndex（兼容测试环境和历史数据）
-      let idx: number | undefined = idToIndex.get(id)
-      if (idx === undefined) {
-        idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
-      }
-      if (idx === undefined || idx < 0) return
-      // 跳过锁定或不可见/锁定图层中的元素，禁止移动
-      if (!isElementLayerEditable(st.elements[idx], st.layers)) return
-      const plan = createMoveElementPlan(st.elements, idx, dx, dy, idToElement, idToIndex)
-      synchronizeElementGeometry(
-        collectionRuntime,
-        plan.elements,
-        plan.updatedElements.map((element) => element.id),
-        st
-      )
-      set({ elements: plan.elements })
-      scheduleSave()
-    },
-
-    moveElementsById: (ids, dx, dy, options = {}) => {
-      // P0 性能优化: 跳过无意义的移动
-      if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return
-      if (ids.length === 0) return
-      incrementSaveGeneration()
-
-      const st = get()
-      // 过滤掉锁定或不可见/锁定图层中的元素，禁止移动
-      const unlockedIds = getEditableIds(ids, st)
-      if (unlockedIds.length === 0) return
-
-      const recordHistory = options.recordHistory !== false
-      const plan = createMoveElementsPlan(
-        st.elements,
-        unlockedIds,
-        dx,
-        dy,
-        idToElement,
-        idToIndex,
-        recordHistory
-      )
-      if (!plan) {
-        scheduleSave()
-        return
-      }
-
-      synchronizeElementGeometry(
-        collectionRuntime,
-        plan.elements,
-        plan.updatedElements.map((element) => element.id),
-        st
-      )
-      set({
-        elements: plan.elements,
-        ...(plan.action
-          ? {
-              undoStack: appendUndoAction(st.undoStack, plan.action),
-              redoStack: [],
-            }
-          : {}),
-      })
-      scheduleSave()
-    },
-
-    resizeElementById: (id, ax, ay, sx, sy) => {
-      // P0 性能优化: 跳过无意义的缩放
-      if (Math.abs(sx - 1) < 0.001 && Math.abs(sy - 1) < 0.001) return
-      incrementSaveGeneration()
-
-      const st = get()
-      // 懒索引重建 - 查询失败时先重建再重试
-      rebuildIndexIfNeeded()
-      // 使用 idToIndex O(1) 查找替代 findIndex O(n)
-      // fallback: 如果 idToIndex 中找不到，回退到 findIndex（兼容测试环境和历史数据）
-      let idx: number | undefined = idToIndex.get(id)
-      if (idx === undefined) {
-        idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
-      }
-      if (idx === undefined || idx < 0) return
-      // 跳过锁定或不可见/锁定图层中的元素，禁止缩放
-      if (!isElementLayerEditable(st.elements[idx], st.layers)) return
-      const plan = createResizeElementPlan(st.elements, idx, ax, ay, sx, sy)
-      synchronizeElementGeometry(collectionRuntime, plan.elements, [id], st)
-      set({ elements: plan.elements })
-      scheduleSave()
-    },
-
-    // 元素旋转
-    // 专业白板标准功能：绕中心点旋转元素
-    rotateElementById: (id, angle, cx, cy) => {
-      // P0 性能优化: 跳过无意义的旋转
-      if (Math.abs(angle) < 0.0001) return
-      incrementSaveGeneration()
-
-      const st = get()
-      // 懒索引重建 - 查询失败时先重建再重试
-      rebuildIndexIfNeeded()
-      // 使用 idToIndex O(1) 查找替代 findIndex O(n)
-      let idx: number | undefined = idToIndex.get(id)
-      if (idx === undefined) {
-        idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
-      }
-      if (idx === undefined || idx < 0) return
-      // 跳过锁定或不可见/锁定图层中的元素，禁止旋转
-      if (!isElementLayerEditable(st.elements[idx], st.layers)) return
-      const plan = createRotateElementPlan(st.elements, idx, angle, cx, cy)
-      synchronizeElementGeometry(collectionRuntime, plan.elements, [id], st)
-      set({ elements: plan.elements })
-      scheduleSave()
-    },
-    // 批量旋转多个元素
-    // 专业设计工具标准：选中多个元素，拖拽旋转手柄一起旋转
-    rotateElementsById: (ids, angleDelta, commonCenterX, commonCenterY) => {
-      if (Math.abs(angleDelta) < 0.0001) return
-      if (ids.length === 0) return
-      incrementSaveGeneration()
-      const st = get()
-      // 过滤掉锁定或不可见/锁定图层中的元素，禁止旋转
-      const unlockedIds = getEditableIds(ids, st)
-      if (unlockedIds.length === 0) return
-      const plan = createRotateElementsPlan(
-        st.elements,
-        unlockedIds,
-        angleDelta,
-        commonCenterX,
-        commonCenterY
-      )
-      if (!plan) {
-        scheduleSave()
-        return
-      }
-
-      synchronizeElementGeometry(collectionRuntime, plan.elements, unlockedIds, st)
-      set({ elements: plan.elements })
-      scheduleSave()
-    },
 
     batchErase: (beforeSnap, _added, baseUndoStack) => {
       const st = get()

@@ -49,6 +49,7 @@ Owns application state and persisted contracts.
 - `canvasElementArrangement.ts` owns alignment and distribution plans plus complete before/after history snapshots.
 - `canvasElementArrangementActions.ts` owns Zustand coordination for alignment and distribution commands; pure arrangement plans remain in `canvasElementArrangement.ts`.
 - `canvasElementGeometry.ts` owns deterministic move, resize, and rotation plans, including bound-arrow updates and move-history payloads.
+- `canvasElementGeometryActions.ts` owns Zustand coordination for move, resize, and rotation commands, including runtime geometry synchronization; deterministic plans remain in `canvasElementGeometry.ts`.
 - `canvasElementLayers.ts` owns layer deletion, visibility, locking, reordering, and element reassignment plans.
 - `canvasElementLayerActions.ts` owns Zustand coordination for layer creation, naming, deletion, visibility, locking, reordering, and element reassignment; pure plans remain in `canvasElementLayers.ts`.
 - `canvasElementMutations.ts` owns add, update, remove, and clear plans plus their history payloads.
