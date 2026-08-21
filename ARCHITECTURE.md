@@ -47,6 +47,7 @@ Owns application state and persisted contracts.
 - `canvasElementMetadata.ts` owns group, ungroup, lock, and unlock transforms plus their history payloads.
 - `canvasElementMetadataActions.ts` owns Zustand coordination for grouping, ungrouping, locking, and unlocking; pure metadata transforms remain in `canvasElementMetadata.ts`.
 - `canvasElementArrangement.ts` owns alignment and distribution plans plus complete before/after history snapshots.
+- `canvasElementArrangementActions.ts` owns Zustand coordination for alignment and distribution commands; pure arrangement plans remain in `canvasElementArrangement.ts`.
 - `canvasElementGeometry.ts` owns deterministic move, resize, and rotation plans, including bound-arrow updates and move-history payloads.
 - `canvasElementLayers.ts` owns layer deletion, visibility, locking, reordering, and element reassignment plans.
 - `canvasElementLayerActions.ts` owns Zustand coordination for layer creation, naming, deletion, visibility, locking, reordering, and element reassignment; pure plans remain in `canvasElementLayers.ts`.
