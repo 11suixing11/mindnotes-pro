@@ -3,14 +3,7 @@ import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useThemeStore } from '../../store/useThemeStore'
-import type {
-  CanvasElement,
-  ShapeElement,
-  TextElement,
-  ShapeKind,
-  UndoAction,
-} from '../../store/types'
-import { snapshot } from '../../store/helpers'
+import type { CanvasElement, TextElement } from '../../store/types'
 import { isTransparentImagePixel } from '../../canvas/canvasUtils'
 import { clientToWorld, snapPointIfEnabled } from '../../canvas/coordinates'
 import { RIGHT_CLICK_PAN_THRESHOLD, distanceSquared } from '../../canvas/gestureGeometry'
@@ -24,23 +17,12 @@ import {
   isElementLayerVisible,
 } from '../../store/layers'
 import {
-  getPenSampleUpdate,
-  resolveShapeBindings,
-  shouldCommitEraseSession,
-} from '../../canvas/drawingSession'
-import { createShapeElement, shouldCommitShape, updateShapeDraft } from '../../canvas/shapeElements'
-import { createStrokeElement } from '../../canvas/strokeElements'
-import {
-  DEFAULT_INPUT_PRESSURE,
   changedTouchesInclude,
   findAcceptedTouch,
   getAcceptedTouches,
   getEventInputContact,
   isTouchEvent,
 } from './touchInput'
-// P12 箭头绑定: 导入绑定工具函数
-import { tryBindToShape } from '../../store/bindingUtils'
-import { eraseElementsAtPoint, getEraserWorldRadius } from '../../eraser/simpleEraser'
 import {
   createCanvasAuxiliaryInputHandlers,
   type RightClickPanState,
@@ -52,6 +34,7 @@ import {
   type CanvasInputHandlers,
 } from './pointerEvents'
 import { bindCanvasPinchZoom } from './touchGestures'
+import { useDrawingPointerHandlers } from './useDrawingPointerHandlers'
 import { useSelectPointerHandlers } from './useSelectPointerHandlers'
 
 // 模块级常量，避免每次渲染重建
@@ -98,13 +81,6 @@ export function usePointerEngine(opts: {
     snapLinesRef,
   } = opts
 
-  // Store selectors
-  const { addElement, commitElements } = useAppStore(
-    useShallow((s) => ({
-      addElement: s.addElement,
-      commitElements: s.commitElements,
-    }))
-  )
   const { startPan, updatePan, endPan } = useViewStore(
     useShallow((s) => ({
       startPan: s.startPan,
@@ -116,42 +92,14 @@ export function usePointerEngine(opts: {
   // 移除独立 selector，改为在 handler 内用 getState() 读取
   // 避免任何 store 变化都触发整个 hook 重渲染
 
-  // Drawing state
-  const drawingRef = useRef(false)
-  const currentPtsRef = useRef<number[][]>([])
-  const currentPressuresRef = useRef<number[]>([])
   const activeTouchIdRef = useRef<number | null>(null)
   const isPinchingRef = useRef(false)
-  const shapeStartRef = useRef<{ x: number; y: number } | null>(null)
-  const currentShapeRef = useRef<ShapeElement | null>(null)
-  const eraseBeforeSnapshotRef = useRef<CanvasElement[] | null>(null)
-  const eraseUndoBaseStackRef = useRef<UndoAction[] | null>(null)
-  const eraserPartCounterRef = useRef(0)
-  const penVelocityRef = useRef(0)
 
   const snapPointIfGridEnabled = useCallback((point: { x: number; y: number }) => {
     const { snapToGrid, gridSize } = useViewStore.getState()
     return snapPointIfEnabled(point, snapToGrid, gridSize)
   }, [])
 
-  const finishEraseHistory = useCallback(() => {
-    const beforeSnap = eraseBeforeSnapshotRef.current
-    const baseUndoStack = eraseUndoBaseStackRef.current
-    eraseBeforeSnapshotRef.current = null
-    eraseUndoBaseStackRef.current = null
-    if (!beforeSnap || !baseUndoStack) return
-
-    const st = useAppStore.getState()
-    if (!shouldCommitEraseSession(beforeSnap, st.elements, baseUndoStack, st.undoStack)) return
-
-    useAppStore.getState().batchErase(beforeSnap, [], baseUndoStack)
-  }, [])
-
-  const beginEraseSession = useCallback(() => {
-    const state = useAppStore.getState()
-    eraseBeforeSnapshotRef.current = snapshot(state.elements)
-    eraseUndoBaseStackRef.current = state.undoStack
-  }, [])
   const rightClickPanRef = useRef<RightClickPanState>({
     enabled: true,
     isPanning: false,
@@ -196,6 +144,13 @@ export function usePointerEngine(opts: {
     els: [],
     map: new Map(),
   })
+
+  const { startDrawing, moveDrawing, finishDrawing, cancelDrawing, abortDrawing, getDrawingState } =
+    useDrawingPointerHandlers({
+      cachedBounds,
+      scheduleRedraw,
+      elementIndexCacheRef: idToIndexCacheRef,
+    })
 
   const hitTest = useCallback(
     (px: number, py: number): string | null => {
@@ -269,67 +224,6 @@ export function usePointerEngine(opts: {
     [cachedBounds]
   )
 
-  const eraseAt = useCallback(
-    (x: number, y: number, topOnly: boolean = false) => {
-      const state = useAppStore.getState()
-      const radius = getEraserWorldRadius(state.size, useViewStore.getState().viewBox.zoom)
-
-      const candidateIds = state.spatialIndex?.search({
-        x: x - radius,
-        y: y - radius,
-        w: radius * 2,
-        h: radius * 2,
-      })
-
-      const ids = [...(candidateIds ?? state.elements.map((e) => e.id))]
-      if (topOnly) {
-        const cache = idToIndexCacheRef.current
-        if (cache.els !== state.elements) {
-          const map = new Map<string, number>()
-          for (let i = 0; i < state.elements.length; i++) map.set(state.elements[i].id, i)
-          idToIndexCacheRef.current = { els: state.elements, map }
-        }
-        const idToIndex = idToIndexCacheRef.current.map
-        const layerOrder = getLayerOrderMap(state.layers)
-        ids.sort((a, b) => {
-          const aIndex = idToIndex.get(a)
-          const bIndex = idToIndex.get(b)
-          const aEl =
-            state.idToElement.get(a) ?? (aIndex === undefined ? undefined : state.elements[aIndex])
-          const bEl =
-            state.idToElement.get(b) ?? (bIndex === undefined ? undefined : state.elements[bIndex])
-          const layerDiff =
-            (bEl ? (layerOrder.get(getElementLayerId(bEl)) ?? 0) : 0) -
-            (aEl ? (layerOrder.get(getElementLayerId(aEl)) ?? 0) : 0)
-          return layerDiff || (idToIndex.get(b) ?? 0) - (idToIndex.get(a) ?? 0)
-        })
-      }
-
-      const candidates = ids
-        .map((id) => state.idToElement.get(id))
-        .filter((element): element is CanvasElement =>
-          Boolean(element && isElementLayerEditable(element, state.layers))
-        )
-      const patch = eraseElementsAtPoint({
-        elements: candidates,
-        point: { x, y },
-        radius,
-        topOnly,
-        getBounds: cachedBounds,
-        createId: (sourceId, partIndex) =>
-          `${sourceId}-part-${++eraserPartCounterRef.current}-${partIndex}`,
-      })
-
-      if (patch.removeIds.length === 0 && patch.additions.length === 0) return
-      const removeIds = new Set(patch.removeIds)
-      const nextElements = state.elements
-        .filter((element) => !removeIds.has(element.id))
-        .concat(patch.additions)
-      commitElements(nextElements, { clearRedo: true })
-    },
-    [commitElements, cachedBounds]
-  )
-
   const {
     handleSelectStart,
     handleSelectMove,
@@ -382,8 +276,6 @@ export function usePointerEngine(opts: {
 
       const curTool = st.tool,
         curColor = st.color,
-        curSize = st.size,
-        curFillColor = st.fillColor,
         curVB = useViewStore.getState().viewBox
 
       // 右键拖拽平移画布
@@ -443,30 +335,11 @@ export function usePointerEngine(opts: {
         }
         return
       }
-      drawingRef.current = true
-      if (curTool === 'pen') {
-        currentPtsRef.current = [[pos.x, pos.y]]
-        currentPressuresRef.current =
-          contact.pressure === undefined ? [] : [contact.pressure ?? DEFAULT_INPUT_PRESSURE]
-      } else if (curTool === 'eraser') {
-        currentPressuresRef.current = []
-        // 检测 Ctrl/Cmd 键，只擦除最顶层元素
-        const topOnly = e.metaKey || e.ctrlKey
-        beginEraseSession()
-        eraseAt(pos.x, pos.y, topOnly)
-      } else {
-        currentPressuresRef.current = []
-        const start = snapPointIfGridEnabled(pos)
-        shapeStartRef.current = start
-        currentShapeRef.current = createShapeElement({
-          id: `shape-${Date.now()}`,
-          kind: curTool as ShapeKind,
-          start,
-          color: curColor,
-          size: curSize,
-          fillColor: curFillColor,
-        })
-      }
+      startDrawing({
+        position: pos,
+        pressure: contact.pressure,
+        topOnly: e.metaKey || e.ctrlKey,
+      })
     },
     [
       getPosFromContact,
@@ -476,8 +349,7 @@ export function usePointerEngine(opts: {
       textRef,
       canvasRef,
       hitTest,
-      eraseAt,
-      beginEraseSession,
+      startDrawing,
       snapPointIfGridEnabled,
     ]
   )
@@ -578,53 +450,15 @@ export function usePointerEngine(opts: {
         scheduleRedraw()
         return
       }
-      if (curTool === 'eraser') {
-        // 检测 Ctrl/Cmd 键，只擦除最顶层元素
-        const topOnly = e.metaKey || e.ctrlKey
-        if (drawingRef.current) eraseAt(pos.x, pos.y, topOnly)
-        scheduleRedraw()
-        return
-      }
-      if (!drawingRef.current) return
-      if (curTool === 'pen') {
-        const update = getPenSampleUpdate(
-          currentPtsRef.current,
-          currentPressuresRef.current,
-          pos,
-          contact.pressure,
-          DEFAULT_INPUT_PRESSURE
-        )
-        penVelocityRef.current = update.velocity
-        currentPtsRef.current.push([pos.x, pos.y])
-        if (update.hasPressure) {
-          if (update.pressurePrefixLength > 0) {
-            currentPressuresRef.current = new Array(update.pressurePrefixLength).fill(
-              DEFAULT_INPUT_PRESSURE
-            )
-          }
-          currentPressuresRef.current.push(update.pressure)
-        }
-      } else if (shapeStartRef.current && currentShapeRef.current) {
-        const shift = 'shiftKey' in e && (e as MouseEvent).shiftKey
-        const draftPos = snapPointIfGridEnabled(pos)
-        currentShapeRef.current = updateShapeDraft(
-          currentShapeRef.current,
-          shapeStartRef.current,
-          draftPos,
-          shift
-        )
-      }
-      scheduleRedraw()
+      moveDrawing({
+        position: pos,
+        pressure: contact.pressure,
+        topOnly: e.metaKey || e.ctrlKey,
+        preserveSquare: 'shiftKey' in e && (e as MouseEvent).shiftKey,
+      })
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      getPosFromContact,
-      updatePan,
-      scheduleRedraw,
-      handleSelectMove,
-      eraseAt,
-      snapPointIfGridEnabled,
-    ]
+    [getPosFromContact, updatePan, scheduleRedraw, handleSelectMove, moveDrawing]
   )
 
   const handleEnd = useCallback(
@@ -657,48 +491,7 @@ export function usePointerEngine(opts: {
         return
       }
 
-      const curColor = useAppStore.getState().color,
-        curSize = useAppStore.getState().size,
-        curBrush = useAppStore.getState().brush
-      if (drawingRef.current) {
-        drawingRef.current = false
-        const curTool = useAppStore.getState().tool
-        if (curTool === 'pen') {
-          const el = createStrokeElement({
-            id: `stroke-${Date.now()}`,
-            points: currentPtsRef.current,
-            color: curColor,
-            size: curSize,
-            brush: curBrush,
-            pressures: currentPressuresRef.current,
-          })
-          if (el) {
-            addElement(el)
-          }
-          currentPtsRef.current = []
-          currentPressuresRef.current = []
-          penVelocityRef.current = 0
-        } else if (curTool === 'eraser') {
-          finishEraseHistory()
-          currentPtsRef.current = []
-          currentPressuresRef.current = []
-        } else if (currentShapeRef.current) {
-          if (shouldCommitShape(currentShapeRef.current)) {
-            const shape = currentShapeRef.current
-            if (shape.kind === 'arrow' || shape.kind === 'line') {
-              const st = useAppStore.getState()
-              const visibleElements = st.elements.filter((el) =>
-                isElementLayerVisible(el, st.layers)
-              )
-              addElement(resolveShapeBindings(shape, visibleElements, tryBindToShape))
-            } else {
-              addElement(shape)
-            }
-          }
-          currentShapeRef.current = null
-          shapeStartRef.current = null
-        }
-        scheduleRedraw()
+      if (finishDrawing()) {
         clearEndedTouch()
         return
       }
@@ -715,19 +508,14 @@ export function usePointerEngine(opts: {
       }
       clearEndedTouch()
     },
-    [addElement, endPan, finishEraseHistory, handleSelectEnd, scheduleRedraw]
+    [endPan, finishDrawing, handleSelectEnd]
   )
 
   const cancelActiveInput = useCallback(
     (e?: Event) => {
       e?.preventDefault()
 
-      drawingRef.current = false
-      currentPtsRef.current = []
-      currentPressuresRef.current = []
-      currentShapeRef.current = null
-      shapeStartRef.current = null
-      finishEraseHistory()
+      cancelDrawing()
       cancelSelectionInput()
 
       rightClickPanRef.current = {
@@ -737,7 +525,6 @@ export function usePointerEngine(opts: {
       }
       activeTouchIdRef.current = null
       isPinchingRef.current = false
-      penVelocityRef.current = 0
       if (useViewStore.getState().isPanning) endPan()
       if (spacePanRef.current.isActive) {
         const originalTool = spacePanRef.current.originalTool
@@ -748,7 +535,7 @@ export function usePointerEngine(opts: {
       }
       scheduleRedraw()
     },
-    [cancelSelectionInput, endPan, finishEraseHistory, scheduleRedraw]
+    [cancelDrawing, cancelSelectionInput, endPan, scheduleRedraw]
   )
 
   // Pointer events
@@ -812,12 +599,7 @@ export function usePointerEngine(opts: {
     if (!canvas) return
     return bindCanvasPinchZoom(canvas, {
       cancelDrawing: () => {
-        if (!drawingRef.current) return
-        drawingRef.current = false
-        currentPtsRef.current = []
-        currentPressuresRef.current = []
-        currentShapeRef.current = null
-        shapeStartRef.current = null
+        abortDrawing()
       },
       setPinching: (active) => {
         isPinchingRef.current = active
@@ -830,7 +612,7 @@ export function usePointerEngine(opts: {
       setViewBox: (viewBox) => useViewStore.getState().setViewBox(viewBox),
       scheduleRedraw,
     })
-  }, [canvasRef, scheduleRedraw])
+  }, [abortDrawing, canvasRef, scheduleRedraw])
 
   // Cursor (使用模块级常量，避免每次渲染重建)
   const cursorMap = CURSOR_MAP
@@ -887,12 +669,13 @@ export function usePointerEngine(opts: {
     const rotationAngle = getSelectionRotationAngle(mouseRef.current)
 
     const viewState = useViewStore.getState()
+    const drawingState = getDrawingState()
 
     return {
-      drawing: drawingRef.current,
-      currentPts: currentPtsRef.current,
-      currentPressures: currentPressuresRef.current,
-      currentShape: currentShapeRef.current,
+      drawing: drawingState.drawing,
+      currentPts: drawingState.currentPts,
+      currentPressures: drawingState.currentPressures,
+      currentShape: drawingState.currentShape,
       mousePos: mouseRef.current,
       marquee: marqueeRef.current,
       snapLines: snapLinesRef.current,
@@ -903,10 +686,10 @@ export function usePointerEngine(opts: {
       showGrid: viewState.showGrid ?? false,
       showRulers: false,
       gridSize: viewState.gridSize,
-      penVelocity: penVelocityRef.current,
+      penVelocity: drawingState.penVelocity,
       rotationAngle,
     }
-  }, [getSelectionRotationAngle, marqueeRef, snapLinesRef])
+  }, [getDrawingState, getSelectionRotationAngle, marqueeRef, snapLinesRef])
 
   return { getCursor, copySelectedToSystemClipboard, getDrawState, hoveredElementIdRef }
 }

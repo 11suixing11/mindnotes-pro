@@ -108,6 +108,7 @@ Owns React rendering, UI state wiring, and browser event orchestration.
 - Visible workflow changes need either a focused UI test or a Playwright journey.
 - `canvas/canvasAuxiliaryInput.ts`: handler construction for anchored wheel zoom, temporary Space-pan, context-menu suppression, and double-click text editing.
 - `canvas/useCanvasRendererLifecycle.ts`: RAF scheduling, resize observation, store invalidation subscriptions, image/canvas invalidation events, and incremental element-bounds cache synchronization.
+- `canvas/useDrawingPointerHandlers.ts`: pen sampling, shape drafting and endpoint binding, eraser hit processing, and one-gesture erase-history coordination; `usePointerEngine.ts` retains contact routing, pan/select orchestration, and lifecycle wiring.
 
 ### `src/eraser`
 
