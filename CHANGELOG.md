@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Alignment and distribution now derive tested plans with complete before/after document snapshots
 - Move, resize, and rotation now derive tested element plans, including bound-arrow synchronization and snapshot-versus-delta move history
 - Layer deletion, visibility, locking, reordering, and element reassignment now derive tested plans outside the Zustand slice
+- Canvas layer action coordination now lives behind a focused store boundary while pure layer plans remain independently tested
 - Element add, update, remove, and clear operations now use tested plans and shared runtime-index synchronization
 - Element commits now share tested selection filtering, bounded undo history, and redo-clear decisions
 - Undo and redo element transitions now live in a pure, tested history-transition boundary; the history slice retains runtime synchronization, viewport focus, feedback, and save coordination
