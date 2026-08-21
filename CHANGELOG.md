@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Copy, paste, and duplicate element planning now share a tested clipboard boundary with independent stroke samples
 - Grouping and element lock metadata now use tested pure transforms that produce explicit history payloads
 - Alignment and distribution now derive tested plans with complete before/after document snapshots
+- Move, resize, and rotation now derive tested element plans, including bound-arrow synchronization and snapshot-versus-delta move history
 
 ### Fixed
 

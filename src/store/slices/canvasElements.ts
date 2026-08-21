@@ -5,7 +5,6 @@ import type {
   CanvasLayer,
   UndoAction,
 } from '../types'
-import { moveElement, resizeElement, rotateElement } from '../types'
 import {
   createCanvasLayer,
   createDefaultLayer,
@@ -19,14 +18,7 @@ import { shallowClone, snapshot } from '../helpers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import { MAX_HISTORY } from './history'
 import type { SpatialIndex } from '../../eraser/SpatialIndex'
-// P12 箭头绑定: 导入绑定工具函数
-import { updateBoundArrows } from '../bindingUtils'
-import {
-  assignToWritableLayer,
-  getEditableIds,
-  getSelectableIds,
-  hasBoundArrowForAny,
-} from './canvasElementRules'
+import { assignToWritableLayer, getEditableIds, getSelectableIds } from './canvasElementRules'
 import {
   createCanvasElementCollectionRuntime,
   rebuildElementIndexes,
@@ -38,6 +30,13 @@ import {
 import { copySelectedElements, createOffsetCopyPlan } from './canvasElementClipboard'
 import { createElementLockPlan, createGroupPlan, createUngroupPlan } from './canvasElementMetadata'
 import { createAlignmentPlan, createDistributionPlan } from './canvasElementArrangement'
+import {
+  createMoveElementPlan,
+  createMoveElementsPlan,
+  createResizeElementPlan,
+  createRotateElementPlan,
+  createRotateElementsPlan,
+} from './canvasElementGeometry'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
@@ -116,11 +115,6 @@ export interface CanvasElementsActions {
   // 专业设计工具标配：锁定元素防止误操作
   lockSelected: () => void
   unlockSelected: () => void
-}
-
-interface CanvasMutationState extends CanvasElementsState {
-  undoStack: UndoAction[]
-  redoStack: UndoAction[]
 }
 
 export function createCanvasElementsSlice(
@@ -554,32 +548,14 @@ export function createCanvasElementsSlice(
       if (idx === undefined || idx < 0) return
       // 跳过锁定或不可见/锁定图层中的元素，禁止移动
       if (!isElementLayerEditable(st.elements[idx], st.layers)) return
-      const elementIndex = idx
-
-      set((s: CanvasMutationState) => {
-        const next = [...s.elements]
-        const newEl = moveElement(next[elementIndex], dx, dy)
-        next[elementIndex] = newEl
-
-        // 同步更新 ID 映射（闭包和 store 都更新）
-        idToElement.set(id, newEl)
-        s.idToElement.set(id, newEl)
-        spatialIndex.update(newEl)
-
-        // P12 箭头绑定: 移动形状时自动更新所有绑定的箭头
-        const arrowUpdates = updateBoundArrows(id, next, idToElement)
-        for (const update of arrowUpdates) {
-          const arrowIdx = idToIndex.get(update.id)
-          if (arrowIdx !== undefined && arrowIdx >= 0) {
-            next[arrowIdx] = update.newEl
-            idToElement.set(update.id, update.newEl)
-            s.idToElement.set(update.id, update.newEl)
-            spatialIndex.update(update.newEl)
-          }
-        }
-
-        return { elements: next }
-      })
+      const plan = createMoveElementPlan(st.elements, idx, dx, dy, idToElement, idToIndex)
+      synchronizeElementGeometry(
+        collectionRuntime,
+        plan.elements,
+        plan.updatedElements.map((element) => element.id),
+        st
+      )
+      set({ elements: plan.elements })
       scheduleSave()
     },
 
@@ -594,70 +570,35 @@ export function createCanvasElementsSlice(
       const unlockedIds = getEditableIds(ids, st)
       if (unlockedIds.length === 0) return
 
-      const idSet = new Set(unlockedIds)
       const recordHistory = options.recordHistory !== false
-      const needsSnapshotHistory = recordHistory && hasBoundArrowForAny(idSet, st.elements)
-      const beforeSnapshot = needsSnapshotHistory ? snapshot(st.elements) : null
-      set((s: CanvasMutationState) => {
-        // P0 性能优化: 快速检查是否有元素需要移动 - 使用 idToElement O(1) 检查
-        // 使用 index-based 替换替代全量 map
-        const next = [...s.elements]
-        let changed = false
-        const movedIds: string[] = []
-        const affectedIds = new Set<string>()
-        for (let i = 0; i < next.length; i++) {
-          const el = next[i]
-          if (idSet.has(el.id)) {
-            const newEl = moveElement(el, dx, dy)
-            next[i] = newEl
-            // 同步更新 ID 映射（闭包和 store 都更新）
-            idToElement.set(el.id, newEl)
-            s.idToElement.set(el.id, newEl)
-            spatialIndex.update(newEl)
-            movedIds.push(el.id)
-            affectedIds.add(el.id)
-            changed = true
-          }
-        }
-        if (!changed) return s
+      const plan = createMoveElementsPlan(
+        st.elements,
+        unlockedIds,
+        dx,
+        dy,
+        idToElement,
+        idToIndex,
+        recordHistory
+      )
+      if (!plan) {
+        scheduleSave()
+        return
+      }
 
-        // P12 箭头绑定: 批量移动形状时自动更新所有绑定的箭头
-        for (const movedId of movedIds) {
-          const arrowUpdates = updateBoundArrows(movedId, next, idToElement)
-          for (const update of arrowUpdates) {
-            const arrowIdx = idToIndex.get(update.id)
-            if (arrowIdx !== undefined && arrowIdx >= 0) {
-              next[arrowIdx] = update.newEl
-              idToElement.set(update.id, update.newEl)
-              s.idToElement.set(update.id, update.newEl)
-              spatialIndex.update(update.newEl)
-              affectedIds.add(update.id)
+      synchronizeElementGeometry(
+        collectionRuntime,
+        plan.elements,
+        plan.updatedElements.map((element) => element.id),
+        st
+      )
+      set({
+        elements: plan.elements,
+        ...(plan.action
+          ? {
+              undoStack: [...st.undoStack.slice(-MAX_HISTORY), plan.action],
+              redoStack: [],
             }
-          }
-        }
-
-        const nextState: { elements: CanvasElement[]; undoStack?: UndoAction[]; redoStack?: [] } = {
-          elements: next,
-        }
-        if (recordHistory) {
-          const action: UndoAction = beforeSnapshot
-            ? {
-                type: 'snapshot',
-                before: beforeSnapshot,
-                after: snapshot(next),
-                label:
-                  unlockedIds.length === 1 ? 'Move element' : `Move ${unlockedIds.length} elements`,
-                affectedIds: [...affectedIds],
-              }
-            : {
-                type: 'move',
-                deltas: movedIds.map((id) => ({ id, dx, dy })),
-              }
-          nextState.undoStack = [...s.undoStack.slice(-MAX_HISTORY), action]
-          nextState.redoStack = []
-        }
-
-        return nextState
+          : {}),
       })
       scheduleSave()
     },
@@ -679,20 +620,9 @@ export function createCanvasElementsSlice(
       if (idx === undefined || idx < 0) return
       // 跳过锁定或不可见/锁定图层中的元素，禁止缩放
       if (!isElementLayerEditable(st.elements[idx], st.layers)) return
-      const elementIndex = idx
-
-      set((s: CanvasMutationState) => {
-        const next = [...s.elements]
-        const newEl = resizeElement(next[elementIndex], ax, ay, sx, sy)
-        next[elementIndex] = newEl
-
-        // 同步更新 ID 映射（闭包和 store 都更新）
-        idToElement.set(id, newEl)
-        s.idToElement.set(id, newEl)
-        spatialIndex.update(newEl)
-
-        return { elements: next }
-      })
+      const plan = createResizeElementPlan(st.elements, idx, ax, ay, sx, sy)
+      synchronizeElementGeometry(collectionRuntime, plan.elements, [id], st)
+      set({ elements: plan.elements })
       scheduleSave()
     },
 
@@ -714,20 +644,9 @@ export function createCanvasElementsSlice(
       if (idx === undefined || idx < 0) return
       // 跳过锁定或不可见/锁定图层中的元素，禁止旋转
       if (!isElementLayerEditable(st.elements[idx], st.layers)) return
-      const elementIndex = idx
-
-      set((s: CanvasMutationState) => {
-        const next = [...s.elements]
-        const newEl = rotateElement(next[elementIndex], angle, cx, cy)
-        next[elementIndex] = newEl
-
-        // 同步更新 ID 映射（闭包和 store 都更新）
-        idToElement.set(id, newEl)
-        s.idToElement.set(id, newEl)
-        spatialIndex.update(newEl)
-
-        return { elements: next }
-      })
+      const plan = createRotateElementPlan(st.elements, idx, angle, cx, cy)
+      synchronizeElementGeometry(collectionRuntime, plan.elements, [id], st)
+      set({ elements: plan.elements })
       scheduleSave()
     },
     // 批量旋转多个元素
@@ -740,24 +659,20 @@ export function createCanvasElementsSlice(
       // 过滤掉锁定或不可见/锁定图层中的元素，禁止旋转
       const unlockedIds = getEditableIds(ids, st)
       if (unlockedIds.length === 0) return
-      const idSet = new Set(unlockedIds)
-      set((s: CanvasMutationState) => {
-        const next = [...s.elements]
-        let changed = false
-        for (let i = 0; i < next.length; i++) {
-          const el = next[i]
-          if (idSet.has(el.id)) {
-            const newEl = rotateElement(el, angleDelta, commonCenterX, commonCenterY)
-            next[i] = newEl
-            idToElement.set(el.id, newEl)
-            s.idToElement.set(el.id, newEl)
-            spatialIndex.update(newEl)
-            changed = true
-          }
-        }
-        if (!changed) return s
-        return { elements: next }
-      })
+      const plan = createRotateElementsPlan(
+        st.elements,
+        unlockedIds,
+        angleDelta,
+        commonCenterX,
+        commonCenterY
+      )
+      if (!plan) {
+        scheduleSave()
+        return
+      }
+
+      synchronizeElementGeometry(collectionRuntime, plan.elements, unlockedIds, st)
+      set({ elements: plan.elements })
       scheduleSave()
     },
 

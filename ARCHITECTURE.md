@@ -45,6 +45,7 @@ Owns application state and persisted contracts.
 - `canvasElementClipboard.ts` owns deterministic copy, paste, and duplicate plans, including deep stroke samples, offsets, IDs, and writable-layer assignment.
 - `canvasElementMetadata.ts` owns group, ungroup, lock, and unlock transforms plus their history payloads.
 - `canvasElementArrangement.ts` owns alignment and distribution plans plus complete before/after history snapshots.
+- `canvasElementGeometry.ts` owns deterministic move, resize, and rotation plans, including bound-arrow updates and move-history payloads.
 
 ### `src/core`
 
@@ -133,7 +134,7 @@ The highest-risk files are large mixed-responsibility modules. Split them behind
 3. `src/index.css`
    Move touched component styles into clear sections or modules without broad formatting churn.
 4. `src/store/slices/canvasElements.ts`
-   Selection, collection, clipboard, metadata, and arrangement logic now live in focused modules; continue separating geometry transforms, ordering, and persistence triggers behind tests.
+   Selection, collection, clipboard, metadata, arrangement, and geometry logic now live in focused modules; continue separating ordering and persistence triggers behind tests.
 
 ## Verification policy
 
