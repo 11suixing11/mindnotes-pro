@@ -212,7 +212,7 @@ describe('history slice', () => {
   })
 
   describe('undo/redo roundtrip', () => {
-    it('restores exact state after add �� undo �� redo', () => {
+    it('restores exact state after add, undo, and redo', () => {
       useAppStore.getState().addElement(makeShape('sh1', { x: 42, y: 99 }))
       useAppStore.getState().undo()
       expect(useAppStore.getState().elements).toHaveLength(0)

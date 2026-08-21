@@ -150,22 +150,18 @@ Owns desktop shell behavior only.
 - Open external URLs through the system browser and deny unexpected window creation.
 - Shared whiteboard behavior stays in `src`.
 
-## Refactor priorities
+## Refactor status
 
-The highest-risk files are large mixed-responsibility modules. Split them behind tests and in reviewable changes.
+The v5 structural refactor is complete for the current product scope. Remaining large modules are explicit composition roots and should not be split further based on line count alone.
 
-1. `src/store/slices/docManagement.ts`
-   Separate document construction, hydration, search history, and persistence coordination while keeping repository and schema boundaries intact.
-2. `src/components/canvas/usePointerEngine.ts`
-   Extracted coordinate, hit-testing, viewport, gesture-threshold, pinch, marquee, selection-transform, pointer-session, drawing-session, system-clipboard, auxiliary input-handler/binding, and Select-tool pointer-handler primitives; it now primarily coordinates drawing and erase sessions, event wiring, and draw-state exposure.
-3. `src/store/slices/history.ts`
-   Pure undo/redo transitions now live in `historyTransitions.ts`; remaining work is to keep runtime synchronization and user feedback boundaries explicit.
-4. `src/canvas/canvasDrawing.ts`
-   Shared element dispatch and cache invalidation remain here; element, stroke, overlay, background, grid, and minimap rendering now live in focused canvas modules.
-5. `src/index.css`
-   Move touched component styles into clear sections or modules without broad formatting churn.
-6. `src/store/slices/canvasElements.ts`
-   Selection, collection, clipboard, metadata, arrangement, geometry, layer, mutation, and commit logic now live in focused modules; the slice remains the persistence and runtime-synchronization coordinator.
+- `docManagement.ts` coordinates repository-backed document workflows; record construction, recovery decisions, search history, runtime indexes, workspace projection, and initialization live in focused modules.
+- `usePointerEngine.ts` coordinates input contacts, pan and eyedropper behavior, event bindings, and renderer state; geometry, hit testing, gesture rules, drawing sessions, selection sessions, clipboard rendering, and auxiliary handlers live behind focused boundaries.
+- `history.ts` coordinates runtime synchronization, viewport focus, feedback, and saves; deterministic undo/redo transitions live in `historyTransitions.ts`.
+- `canvasDrawing.ts` remains the shared element dispatcher and cache-invalidation facade; concrete renderers live in focused canvas modules.
+- `canvasElements.ts` remains the Store composition root for element actions, collection runtime, commit coordination, and selection state.
+- `index.css` remains a shared stylesheet with feature-labelled sections and responsive overrides; future moves should be scoped to components already being changed rather than triggering a broad rewrite.
+
+Further structural work should be driven by a measured performance issue, a new product boundary, or a repeated maintenance problem, with tests added before moving ownership again.
 
 ## Verification policy
 
