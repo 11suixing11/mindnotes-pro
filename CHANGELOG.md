@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Alt/Option-drag duplication now derives a pure copy-and-restore plan before applying Store mutations
 - Selected-element PNG rendering and system clipboard writes now live behind a tested canvas boundary
 - Canvas wheel, keyboard, context-menu, double-click, blur, and visibility bindings now share a tested lifecycle boundary
+- Auxiliary canvas wheel, Space-pan, context-menu, and double-click decisions now live behind a focused tested handler boundary
 - Select-tool drag, resize, rotate, marquee, duplication, cancellation, and undo orchestration now live behind a focused hook and tests
 - Shape, text, and image renderers now live behind a tested canvas renderer module, with a shared bounded LRU/TTL cache primitive
 - Selection-box handles and the zoom indicator now live behind a focused overlay renderer while retaining the existing canvas drawing exports

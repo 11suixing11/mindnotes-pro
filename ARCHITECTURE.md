@@ -86,6 +86,7 @@ Key shared modules include:
 - `strokeRenderer.ts`: brush-specific stroke rendering, perfect-freehand outlines, and calligraphy pooling; exports remain available through `canvasDrawing.ts`.
 - `drawingCaches.ts`: reusable bounded LRU/TTL cache primitive for rendering modules.
 - `pointerEvents.ts`: pointer capture plus auxiliary wheel, keyboard, context-menu, double-click, and cancellation bindings.
+- `canvasAuxiliaryInput.ts`: component-side handler construction for anchored wheel zoom, temporary Space-pan, context-menu suppression, and double-click text editing.
 - `hitTesting.ts`: pure element, z-order, image-alpha, and selection-handle hit testing with injected runtime services.
 - `strokeElements.ts` and `shapeElements.ts`: element creation and draft rules.
 - `resizeRules.ts`: pure resize and aspect-ratio behavior.
@@ -131,7 +132,7 @@ Owns desktop shell behavior only.
 The highest-risk files are large mixed-responsibility modules. Split them behind tests and in reviewable changes.
 
 1. `src/components/canvas/usePointerEngine.ts`
-   Extracted coordinate, hit-testing, viewport, gesture-threshold, pinch, marquee, selection-transform, pointer-session, drawing-session, system-clipboard, auxiliary input-binding, and Select-tool pointer-handler primitives; remaining work is limited to other input cleanup.
+   Extracted coordinate, hit-testing, viewport, gesture-threshold, pinch, marquee, selection-transform, pointer-session, drawing-session, system-clipboard, auxiliary input-handler/binding, and Select-tool pointer-handler primitives; it now primarily coordinates drawing and erase sessions, event wiring, and draw-state exposure.
 2. `src/canvas/canvasDrawing.ts`
    Shared element dispatch and cache invalidation remain here; element, stroke, overlay, background, grid, and minimap rendering now live in focused canvas modules.
 3. `src/index.css`

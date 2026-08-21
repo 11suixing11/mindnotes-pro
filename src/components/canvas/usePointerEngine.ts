@@ -8,17 +8,11 @@ import type {
   ShapeElement,
   TextElement,
   ShapeKind,
-  ToolType,
   UndoAction,
 } from '../../store/types'
 import { snapshot } from '../../store/helpers'
 import { isTransparentImagePixel } from '../../canvas/canvasUtils'
-import {
-  clientToWorld,
-  snapPointIfEnabled,
-  worldToClient,
-  zoomViewBoxAtScreenPoint,
-} from '../../canvas/coordinates'
+import { clientToWorld, snapPointIfEnabled } from '../../canvas/coordinates'
 import { RIGHT_CLICK_PAN_THRESHOLD, distanceSquared } from '../../canvas/gestureGeometry'
 import { findSelectionHandleAtPoint, findTopmostElementAtPoint } from '../../canvas/hitTesting'
 import { copyElementsToSystemClipboard } from '../../canvas/systemClipboard'
@@ -47,7 +41,16 @@ import {
 // P12 箭头绑定: 导入绑定工具函数
 import { tryBindToShape } from '../../store/bindingUtils'
 import { eraseElementsAtPoint, getEraserWorldRadius } from '../../eraser/simpleEraser'
-import { bindCanvasAuxiliaryEvents, bindCanvasInputEvents } from './pointerEvents'
+import {
+  createCanvasAuxiliaryInputHandlers,
+  type RightClickPanState,
+  type SpacePanState,
+} from './canvasAuxiliaryInput'
+import {
+  bindCanvasAuxiliaryEvents,
+  bindCanvasInputEvents,
+  type CanvasInputHandlers,
+} from './pointerEvents'
 import { bindCanvasPinchZoom } from './touchGestures'
 import { useSelectPointerHandlers } from './useSelectPointerHandlers'
 
@@ -149,13 +152,7 @@ export function usePointerEngine(opts: {
     eraseBeforeSnapshotRef.current = snapshot(state.elements)
     eraseUndoBaseStackRef.current = state.undoStack
   }, [])
-  const rightClickPanRef = useRef<{
-    enabled: boolean
-    isPanning: boolean
-    startScreenX: number
-    startScreenY: number
-    moved: boolean
-  }>({
+  const rightClickPanRef = useRef<RightClickPanState>({
     enabled: true,
     isPanning: false,
     startScreenX: 0,
@@ -164,12 +161,7 @@ export function usePointerEngine(opts: {
   })
   // 按住 Space 键临时切换 Pan 工具
   // 遵循常见设计工具交互：按住 Space 临时平移，松开恢复原工具
-  const spacePanRef = useRef<{
-    enabled: boolean
-    isActive: boolean
-    originalTool: string | null
-    wasPanning: boolean
-  }>({
+  const spacePanRef = useRef<SpacePanState>({
     enabled: true,
     isActive: false,
     originalTool: null,
@@ -749,7 +741,7 @@ export function usePointerEngine(opts: {
       if (useViewStore.getState().isPanning) endPan()
       if (spacePanRef.current.isActive) {
         const originalTool = spacePanRef.current.originalTool
-        if (originalTool) useAppStore.getState().setTool(originalTool as ToolType)
+        if (originalTool) useAppStore.getState().setTool(originalTool)
         spacePanRef.current.isActive = false
         spacePanRef.current.originalTool = null
         spacePanRef.current.wasPanning = false
@@ -760,142 +752,52 @@ export function usePointerEngine(opts: {
   )
 
   // Pointer events
-  const handleStartRef = useRef<(e: MouseEvent | TouchEvent) => void>(() => {})
-  const handleMoveRef = useRef<(e: MouseEvent | TouchEvent) => void>(() => {})
-  const handleEndRef = useRef<(e: MouseEvent | TouchEvent) => void>(() => {})
-  const handleCancelRef = useRef<(e: Event) => void>(() => {})
+  const inputHandlersRef = useRef<CanvasInputHandlers>({
+    onStart: () => {},
+    onMove: () => {},
+    onEnd: () => {},
+    onCancel: () => {},
+  })
   useEffect(() => {
-    handleStartRef.current = (e) => handleStart(e)
-  }, [handleStart])
-  useEffect(() => {
-    handleMoveRef.current = (e) => handleMove(e)
-  }, [handleMove])
-  useEffect(() => {
-    handleEndRef.current = (e) => handleEnd(e)
-  }, [handleEnd])
-  useEffect(() => {
-    handleCancelRef.current = (e) => cancelActiveInput(e)
-  }, [cancelActiveInput])
+    inputHandlersRef.current = {
+      onStart: handleStart,
+      onMove: handleMove,
+      onEnd: handleEnd,
+      onCancel: cancelActiveInput,
+    }
+  }, [cancelActiveInput, handleEnd, handleMove, handleStart])
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const unbindInputEvents = bindCanvasInputEvents(canvas, {
-      onStart: (event) => handleStartRef.current(event),
-      onMove: (event) => handleMoveRef.current(event),
-      onEnd: (event) => handleEndRef.current(event),
-      onCancel: (event) => handleCancelRef.current(event),
+      onStart: (event) => inputHandlersRef.current.onStart(event),
+      onMove: (event) => inputHandlersRef.current.onMove(event),
+      onEnd: (event) => inputHandlersRef.current.onEnd(event),
+      onCancel: (event) => inputHandlersRef.current.onCancel(event),
     })
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      const rect = canvas.getBoundingClientRect()
-      const mouseX = e.clientX - rect.left
-      const mouseY = e.clientY - rect.top
-      const vb = useViewStore.getState().viewBox
-      const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1
-      const newZoom = Math.max(0.2, Math.min(5, vb.zoom * zoomFactor))
-      useViewStore
-        .getState()
-        .setViewBox(zoomViewBoxAtScreenPoint(vb, { x: mouseX, y: mouseY }, newZoom))
-      scheduleRedraw()
-    }
-    // 按住 Space 键临时切换 Pan 工具
-    // 监听 Space 键按下/松开，临时切换到平移模式
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !e.repeat && spacePanRef.current.enabled) {
-        // 防止 Space 键触发滚动
-        e.preventDefault()
-        // 只在未激活时才切换，避免重复触发
-        if (!spacePanRef.current.isActive) {
-          const st = useAppStore.getState()
-          // 保存当前工具并切换到 pan
-          spacePanRef.current.originalTool = st.tool
-          spacePanRef.current.isActive = true
-          spacePanRef.current.wasPanning = false
-          st.setTool('pan' as ToolType)
-          scheduleRedraw()
-        }
-      }
-    }
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && spacePanRef.current.enabled) {
-        if (spacePanRef.current.isActive) {
-          // 如果正在平移，先结束平移
-          if (spacePanRef.current.wasPanning || useViewStore.getState().isPanning) {
-            endPan()
-          }
-          // 恢复原来的工具
-          const originalTool = spacePanRef.current.originalTool
-          if (originalTool) {
-            useAppStore.getState().setTool(originalTool as ToolType)
-          }
-          // 重置状态
-          spacePanRef.current.isActive = false
-          spacePanRef.current.originalTool = null
-          spacePanRef.current.wasPanning = false
-          scheduleRedraw()
-        }
-      }
-    }
-    // 使用 window 监听，确保焦点在 canvas 外也能工作
-    // 右键拖拽平移画布
-    // 当正在进行右键平移时，阻止默认右键菜单
-    const onContextMenu = (e: MouseEvent) => {
-      if (rightClickPanRef.current.isPanning || rightClickPanRef.current.moved) {
-        e.preventDefault()
-      }
-    }
-    // P12-双击交互体系
-    // 双击文本元素进入编辑模式
-    // 双击形状内部添加文本
-    // 遵循常见设计工具交互：双击直接操作，无需切换工具
-    const onDblClick = (e: MouseEvent) => {
-      if (useAppStore.getState().tool !== 'select') return
-      const pos = getPos(e)
-      if (!pos) return
-      const hitId = hitTest(pos.x, pos.y)
-      if (!hitId) return
-      const el = useAppStore.getState().idToElement.get(hitId)
-      if (!el) return
-
-      const canvas = canvasRef.current
-      if (!canvas) return
-      const rect = canvas.getBoundingClientRect()
-      const vb = useViewStore.getState().viewBox
-
-      // 双击文本元素进入编辑模式
-      if (el.type === 'text') {
-        const screen = worldToClient({ x: el.x, y: el.y }, rect, vb)
-        const screenX = screen.x
-        const screenY = screen.y
-        startEditText(el.x, el.y, screenX, screenY, el.color, el)
-        setTimeout(() => textRef.current?.focus(), 50)
-      }
-      // 双击形状内部添加文本
-      // 用户画完矩形/圆形后，直接双击即可添加标注文本，无需切换到文本工具
-      // 文本自动居中放置在形状中心，符合流程图/架构图的标准用法
-      else if (el.type === 'shape') {
-        const b = cachedBounds(el)
-        // 计算形状中心点（文本居中放置）
-        const textX = b.x + b.w / 2
-        const textY = b.y + b.h / 2
-        const screen = worldToClient({ x: textX, y: textY }, rect, vb)
-        const screenX = screen.x
-        const screenY = screen.y
-
-        // 使用形状的颜色作为文本颜色，保持视觉一致性
-        // 默认字号 16，与工具栏默认一致
-        startEditText(textX, textY, screenX, screenY, el.color)
-        setTimeout(() => textRef.current?.focus(), 50)
-      }
-    }
+    const auxiliaryHandlers = createCanvasAuxiliaryInputHandlers({
+      canvas,
+      rightClickPanRef,
+      spacePanRef,
+      getTool: () => useAppStore.getState().tool,
+      setTool: (tool) => useAppStore.getState().setTool(tool),
+      getElement: (id) => useAppStore.getState().idToElement.get(id),
+      getViewBox: () => useViewStore.getState().viewBox,
+      setViewBox: (viewBox) => useViewStore.getState().setViewBox(viewBox),
+      getIsPanning: () => useViewStore.getState().isPanning,
+      endPan,
+      getEditCanvasRect: () => canvasRef.current?.getBoundingClientRect() ?? null,
+      getPosition: getPos,
+      hitTest,
+      getBounds: cachedBounds,
+      startEditText,
+      focusTextEditor: () => textRef.current?.focus(),
+      scheduleRedraw,
+    })
     const unbindAuxiliaryEvents = bindCanvasAuxiliaryEvents(canvas, {
-      onCancel: (event) => handleCancelRef.current(event),
-      onWheel,
-      onKeyDown,
-      onKeyUp,
-      onContextMenu,
-      onDoubleClick: onDblClick,
+      onCancel: (event) => inputHandlersRef.current.onCancel(event),
+      ...auxiliaryHandlers,
     })
     return () => {
       unbindInputEvents()
