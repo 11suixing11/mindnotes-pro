@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document persistence bootstrap, legacy migration, recovery reconciliation, and fallback preparation now share a tested initialization boundary
 - Context-menu selection capabilities and viewport positioning now live behind a tested model, with reusable menu primitives separated from Store coordination
 - Sidebar document search, snippets, and sorting now use a tested projection model, with list rendering separated from document workflow coordination
+- Export menu formatting and reusable format controls now live behind focused model and view boundaries while document rendering and file workflows remain coordinated in the menu
 
 ### Fixed
 
