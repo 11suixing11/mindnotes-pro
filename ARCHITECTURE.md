@@ -51,6 +51,7 @@ Owns application state and persisted contracts.
 - `canvasElementCommit.ts` owns selection filtering, undo-window updates, and redo-clear decisions for committed element changes.
 - `historyTransitions.ts` owns pure undo/redo element transitions and affected-ID extraction; the history slice retains toast, focus, persistence, and runtime coordination.
 - `slices/documentRecords.ts` owns pure document/folder record construction, schema normalization, ordering, duplication, and import-record transforms; `docManagement.ts` retains hydration, recovery, search-history, and persistence coordination.
+- `slices/documentRecovery.ts` owns pure comparison and replacement decisions for persisted documents versus recovery drafts; localStorage draft deletion and user feedback remain in `docManagement.ts`.
 
 ### `src/core`
 
