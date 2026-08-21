@@ -8,9 +8,6 @@ import type {
 import {
   createCanvasLayer,
   createDefaultLayer,
-  getElementLayerId,
-  getSortedLayers,
-  getWritableLayerId,
   isElementLayerEditable,
   isLayerWritable,
 } from '../layers'
@@ -37,6 +34,13 @@ import {
   createRotateElementPlan,
   createRotateElementsPlan,
 } from './canvasElementGeometry'
+import {
+  createLayerDeletionPlan,
+  createLayerLockPlan,
+  createLayerReorderPlan,
+  createLayerVisibilityPlan,
+  createMoveElementsToLayerPlan,
+} from './canvasElementLayers'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
@@ -240,33 +244,17 @@ export function createCanvasElementsSlice(
 
     deleteLayer: (id) => {
       const st = get()
-      if (st.layers.length <= 1) return
-      const target = st.layers.find((layer: CanvasLayer) => layer.id === id)
-      if (!target) return
-
-      const remaining = getSortedLayers(
-        st.layers.filter((layer: CanvasLayer) => layer.id !== id)
-      ).map((layer: CanvasLayer, order: number) => ({ ...layer, order }))
-      const fallbackLayerId = getWritableLayerId(remaining, st.activeLayerId) ?? remaining[0].id
-      const nextElements = st.elements.map((el: CanvasElement) =>
-        getElementLayerId(el) === id ? { ...el, layerId: fallbackLayerId } : el
-      )
-      const selectedIds = st.selectedIds.filter((selectedId: string) => {
-        const el = st.idToElement.get(selectedId)
-        return el ? getElementLayerId(el) !== id : false
-      })
+      const plan = createLayerDeletionPlan(st, id)
+      if (!plan) return
 
       incrementSaveGeneration()
       set({
-        layers: remaining,
-        activeLayerId:
-          st.activeLayerId === id
-            ? fallbackLayerId
-            : (getWritableLayerId(remaining, st.activeLayerId) ?? fallbackLayerId),
-        elements: nextElements,
-        selectedIds,
+        layers: plan.layers,
+        activeLayerId: plan.activeLayerId,
+        elements: plan.elements,
+        selectedIds: plan.selectedIds,
       })
-      setElementCollection(nextElements, get())
+      setElementCollection(plan.elements, get())
       scheduleSave()
     },
 
@@ -278,98 +266,50 @@ export function createCanvasElementsSlice(
 
     setLayerVisibility: (id, visible) => {
       const st = get()
-      const layer = st.layers.find((item: CanvasLayer) => item.id === id)
-      if (!layer || layer.visible === visible) return
-      const visibleCount = st.layers.filter((item: CanvasLayer) => item.visible).length
-      if (!visible && visibleCount <= 1) return
-
-      const nextLayers = st.layers.map((item: CanvasLayer) =>
-        item.id === id ? { ...item, visible, updatedAt: Date.now() } : item
-      )
-      const nextActiveLayerId =
-        !visible && st.activeLayerId === id
-          ? (getWritableLayerId(nextLayers) ?? nextLayers[0].id)
-          : (getWritableLayerId(nextLayers, st.activeLayerId) ?? nextLayers[0].id)
-      const hiddenIds = new Set(
-        st.elements
-          .filter((el: CanvasElement) => getElementLayerId(el) === id)
-          .map((el: CanvasElement) => el.id)
-      )
+      const plan = createLayerVisibilityPlan(st, id, visible, Date.now())
+      if (!plan) return
 
       incrementSaveGeneration()
       set({
-        layers: nextLayers,
-        activeLayerId: nextActiveLayerId,
-        selectedIds: visible
-          ? st.selectedIds
-          : st.selectedIds.filter((selectedId: string) => !hiddenIds.has(selectedId)),
+        layers: plan.layers,
+        activeLayerId: plan.activeLayerId,
+        selectedIds: plan.selectedIds,
       })
       scheduleSave()
     },
 
     setLayerLocked: (id, locked) => {
       const st = get()
-      const layer = st.layers.find((item: CanvasLayer) => item.id === id)
-      if (!layer || layer.locked === locked) return
-
-      const nextLayers = st.layers.map((item: CanvasLayer) =>
-        item.id === id ? { ...item, locked, updatedAt: Date.now() } : item
-      )
-      const nextActiveLayerId =
-        locked && st.activeLayerId === id
-          ? (getWritableLayerId(nextLayers) ?? nextLayers[0].id)
-          : (getWritableLayerId(nextLayers, st.activeLayerId) ?? nextLayers[0].id)
-      const lockedIds = new Set(
-        st.elements
-          .filter((el: CanvasElement) => getElementLayerId(el) === id)
-          .map((el: CanvasElement) => el.id)
-      )
+      const plan = createLayerLockPlan(st, id, locked, Date.now())
+      if (!plan) return
 
       incrementSaveGeneration()
       set({
-        layers: nextLayers,
-        activeLayerId: nextActiveLayerId,
-        selectedIds: locked
-          ? st.selectedIds.filter((selectedId: string) => !lockedIds.has(selectedId))
-          : st.selectedIds,
+        layers: plan.layers,
+        activeLayerId: plan.activeLayerId,
+        selectedIds: plan.selectedIds,
       })
       scheduleSave()
     },
 
     moveLayer: (id, direction) => {
       const st = get()
-      const sorted = getSortedLayers(st.layers)
-      const index = sorted.findIndex((layer) => layer.id === id)
-      if (index < 0) return
-      const targetIndex = direction === 'up' ? index + 1 : index - 1
-      if (targetIndex < 0 || targetIndex >= sorted.length) return
-
-      const next = [...sorted]
-      ;[next[index], next[targetIndex]] = [next[targetIndex], next[index]]
-      const reordered = next.map((layer, order) => ({ ...layer, order, updatedAt: Date.now() }))
+      const plan = createLayerReorderPlan(st.layers, id, direction, Date.now())
+      if (!plan) return
 
       incrementSaveGeneration()
-      set({ layers: reordered })
+      set({ layers: plan })
       scheduleSave()
     },
 
     moveElementsToLayer: (ids, layerId) => {
       const st = get()
-      if (!isLayerWritable(st.layers, layerId)) return
-      const editableIds = getEditableIds(ids, st)
-      if (editableIds.length === 0) return
-      const idSet = new Set(editableIds)
-      let changed = false
-      const next = st.elements.map((el: CanvasElement) => {
-        if (!idSet.has(el.id) || getElementLayerId(el) === layerId) return el
-        changed = true
-        return { ...el, layerId }
-      })
-      if (!changed) return
+      const plan = createMoveElementsToLayerPlan(st, ids, layerId)
+      if (!plan) return
 
       incrementSaveGeneration()
-      set({ elements: next, selectedIds: editableIds })
-      setElementCollection(next, get())
+      set({ elements: plan.elements, selectedIds: plan.selectedIds })
+      setElementCollection(plan.elements, get())
       scheduleSave()
     },
 
