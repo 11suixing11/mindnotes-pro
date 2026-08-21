@@ -9,7 +9,7 @@ import { createDefaultLayer, isElementLayerEditable } from '../layers'
 import { shallowClone } from '../helpers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import type { SpatialIndex } from '../../eraser/SpatialIndex'
-import { assignToWritableLayer, getEditableIds, getSelectableIds } from './canvasElementRules'
+import { getEditableIds, getSelectableIds } from './canvasElementRules'
 import {
   appendElementCollection,
   createCanvasElementCollectionRuntime,
@@ -29,12 +29,6 @@ import {
   createRotateElementsPlan,
 } from './canvasElementGeometry'
 import {
-  createElementAdditionPlan,
-  createElementClearPlan,
-  createElementRemovalPlan,
-  createElementUpdatePlan,
-} from './canvasElementMutations'
-import {
   appendUndoAction,
   createCanvasElementCommitPlan,
   type CommitElementsOptions,
@@ -43,6 +37,7 @@ import { createCanvasElementLayerActions } from './canvasElementLayerActions'
 import { createCanvasElementClipboardActions } from './canvasElementClipboardActions'
 import { createCanvasElementMetadataActions } from './canvasElementMetadataActions'
 import { createCanvasElementArrangementActions } from './canvasElementArrangementActions'
+import { createCanvasElementMutationActions } from './canvasElementMutationActions'
 
 export type { CommitElementsOptions } from './canvasElementCommit'
 
@@ -212,111 +207,23 @@ export function createCanvasElementsSlice(
       synchronizeElementGeometry: (elements, elementIds, state) =>
         synchronizeElementGeometry(collectionRuntime, elements, elementIds, state),
     }),
-
-    addElement: (el) => {
-      const st = get()
-      const layeredEl = assignToWritableLayer(el, st)
-      if (!layeredEl) return
-      const plan = createElementAdditionPlan(st.elements, [layeredEl])
-      if (!plan) return
-      incrementSaveGeneration()
-      set({
-        elements: plan.elements,
-        undoStack: appendUndoAction(st.undoStack, plan.action),
-        redoStack: [],
-      })
-      appendElementCollection(collectionRuntime, plan.addedElements, st.elements.length, st)
-      scheduleSave()
-    },
-
-    addElements: (els) => {
-      const st = get()
-      const layeredEls = els
-        .map((el) => assignToWritableLayer(el, st))
-        .filter((el: CanvasElement | null): el is CanvasElement => !!el)
-      const plan = createElementAdditionPlan(st.elements, layeredEls)
-      if (!plan) return
-      incrementSaveGeneration()
-      set({
-        elements: plan.elements,
-        undoStack: appendUndoAction(st.undoStack, plan.action),
-        redoStack: [],
-      })
-      appendElementCollection(collectionRuntime, plan.addedElements, st.elements.length, st)
-      scheduleSave()
-    },
-
-    updateElement: (id, update) => {
-      incrementSaveGeneration()
-      // P0 性能优化: 使用 idToIndex O(1) 查找，替代 map O(n) 遍历
-      // 单元素更新性能提升 10-100x（元素越多提升越明显）
-      const st = get()
-      // 懒索引重建 - 查询失败时先重建再重试
-      rebuildIndexIfNeeded()
-      let idx: number | undefined = idToIndex.get(id)
-      if (idx === undefined) {
-        idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
-      }
-      if (idx === undefined || idx < 0) return
-      const oldEl = st.elements[idx]
-      if (!isElementLayerEditable(oldEl, st.layers)) return
-      const plan = createElementUpdatePlan(st.elements, idx, update)
-      synchronizeElementReplacement(collectionRuntime, plan.elements, idx, id, st)
-      set({ elements: plan.elements })
-      scheduleSave()
-    },
+    ...createCanvasElementMutationActions({
+      set,
+      get,
+      rebuildIndexIfNeeded,
+      appendElementCollection: (elements, startIndex, state) =>
+        appendElementCollection(collectionRuntime, elements, startIndex, state),
+      synchronizeElementReplacement: (elements, index, previousId, state) =>
+        synchronizeElementReplacement(collectionRuntime, elements, index, previousId, state),
+      removeElementCollection: (elementIds, state) =>
+        removeElementCollection(collectionRuntime, elementIds, state),
+      replaceElementCollection: setElementCollection,
+      markIndexDirty: () => {
+        _indexDirty = true
+      },
+    }),
 
     commitElements,
-
-    removeElement: (id) => {
-      incrementSaveGeneration()
-      const st = get()
-      // 懒索引重建 - 查询失败时先重建再重试
-      rebuildIndexIfNeeded()
-      // 使用 idToIndex O(1) 查找替代 findIndex O(n)
-      // fallback: 如果 idToIndex 中找不到，回退到 findIndex（兼容测试环境和历史数据）
-      let idx: number | undefined = idToIndex.get(id)
-      if (idx === undefined) {
-        idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
-      }
-      if (idx === undefined || idx < 0) return
-      // 跳过锁定或不可见/锁定图层中的元素，禁止删除
-      if (!isElementLayerEditable(st.elements[idx], st.layers)) return
-      const plan = createElementRemovalPlan(st.elements, [id], st.selectedIds)
-      if (!plan) return
-      set({
-        elements: plan.elements,
-        undoStack: appendUndoAction(st.undoStack, plan.action),
-        redoStack: [],
-        selectedIds: plan.selectedIds,
-      })
-      removeElementCollection(collectionRuntime, plan.removedIds, st)
-      // 懒更新策略 - 只标记脏，不立即更新后续所有元素的索引
-      // 性能提升: 删除操作从 O(n) → O(1)，大画布场景提升 100x+
-      _indexDirty = true
-      scheduleSave()
-    },
-
-    removeElements: (ids) => {
-      incrementSaveGeneration()
-      const st = get()
-      // 过滤掉锁定或不可见/锁定图层中的元素，禁止删除
-      const unlockedIds = getEditableIds(ids, st)
-      if (unlockedIds.length === 0) return
-      const plan = createElementRemovalPlan(st.elements, unlockedIds, st.selectedIds, true)
-      if (!plan) return
-      set({
-        elements: plan.elements,
-        undoStack: appendUndoAction(st.undoStack, plan.action),
-        redoStack: [],
-        selectedIds: plan.selectedIds,
-      })
-      removeElementCollection(collectionRuntime, plan.removedIds, st)
-      // 懒更新策略 - 只标记脏，不立即重建所有索引
-      // 性能提升: 批量删除从 O(n) → O(k)，k 为删除元素数量
-      _indexDirty = true
-      scheduleSave()
-    },
 
     moveElementById: (id, dx, dy) => {
       // P0 性能优化: 跳过无意义的移动
@@ -463,25 +370,6 @@ export function createCanvasElementsSlice(
       scheduleSave()
     },
 
-    clearAll: () => {
-      incrementSaveGeneration()
-      const st = get()
-      const plan = createElementClearPlan(st.elements)
-      set({
-        elements: plan.elements,
-        undoStack: appendUndoAction(st.undoStack, plan.action),
-        redoStack: [],
-        selectedIds: plan.selectedIds,
-      })
-      setElementCollection(plan.elements, get())
-      // 清空后索引干净，重置脏标记
-      _indexDirty = false
-      scheduleSave()
-    },
-
-    // Ctrl+G 元素分组
-    // 将选中的多个元素组合成一个组，点击组内任意元素选中整个组
-    // 常见设计工具通常支持此功能
     batchErase: (beforeSnap, _added, baseUndoStack) => {
       const st = get()
       const action: UndoAction = {
@@ -507,9 +395,5 @@ export function createCanvasElementsSlice(
       setElementCollection(nextElements, get())
       scheduleSave()
     },
-
-    // 锁定选中元素
-    // 专业设计工具标配：锁定元素防止误操作
-    // 用户痛点："背景元素经常被不小心移动/删除"
   }
 }
