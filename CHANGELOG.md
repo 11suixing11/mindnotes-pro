@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Alignment and distribution now derive tested plans with complete before/after document snapshots
 - Move, resize, and rotation now derive tested element plans, including bound-arrow synchronization and snapshot-versus-delta move history
 - Layer deletion, visibility, locking, reordering, and element reassignment now derive tested plans outside the Zustand slice
+- Element add, update, remove, and clear operations now use tested plans and shared runtime-index synchronization
 
 ### Fixed
 

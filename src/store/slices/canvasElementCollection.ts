@@ -91,6 +91,57 @@ export function synchronizeElementGeometry(
   }
 }
 
+export function synchronizeElementReplacement(
+  runtime: CanvasElementCollectionRuntime,
+  elements: CanvasElement[],
+  index: number,
+  previousId: string,
+  mirror: CanvasElementCollectionMirror = runtime
+) {
+  const element = elements[index]
+  if (!element) return
+
+  if (previousId !== element.id) {
+    runtime.idToElement.delete(previousId)
+    runtime.idToIndex.delete(previousId)
+    if (mirror.idToElement !== runtime.idToElement) mirror.idToElement.delete(previousId)
+    if (mirror.idToIndex !== runtime.idToIndex) mirror.idToIndex.delete(previousId)
+    runtime.spatialIndex.remove(previousId)
+    setElementMaps(runtime, mirror, element, index)
+    runtime.spatialIndex.insert(element)
+    return
+  }
+
+  setElementMaps(runtime, mirror, element, index)
+  runtime.spatialIndex.update(element)
+}
+
+export function appendElementCollection(
+  runtime: CanvasElementCollectionRuntime,
+  elements: CanvasElement[],
+  startIndex: number,
+  mirror: CanvasElementCollectionMirror = runtime
+) {
+  elements.forEach((element, offset) => {
+    setElementMaps(runtime, mirror, element, startIndex + offset)
+    runtime.spatialIndex.insert(element)
+  })
+}
+
+export function removeElementCollection(
+  runtime: CanvasElementCollectionRuntime,
+  elementIds: string[],
+  mirror: CanvasElementCollectionMirror = runtime
+) {
+  elementIds.forEach((id) => {
+    runtime.idToElement.delete(id)
+    runtime.idToIndex.delete(id)
+    if (mirror.idToElement !== runtime.idToElement) mirror.idToElement.delete(id)
+    if (mirror.idToIndex !== runtime.idToIndex) mirror.idToIndex.delete(id)
+    runtime.spatialIndex.remove(id)
+  })
+}
+
 export function replaceElementCollection(
   runtime: CanvasElementCollectionRuntime,
   elements: CanvasElement[],

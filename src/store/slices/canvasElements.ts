@@ -11,17 +11,20 @@ import {
   isElementLayerEditable,
   isLayerWritable,
 } from '../layers'
-import { shallowClone, snapshot } from '../helpers'
+import { shallowClone } from '../helpers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import { MAX_HISTORY } from './history'
 import type { SpatialIndex } from '../../eraser/SpatialIndex'
 import { assignToWritableLayer, getEditableIds, getSelectableIds } from './canvasElementRules'
 import {
+  appendElementCollection,
   createCanvasElementCollectionRuntime,
   rebuildElementIndexes,
+  removeElementCollection,
   replaceElementCollection,
   synchronizeElementCollection,
   synchronizeElementGeometry,
+  synchronizeElementReplacement,
   synchronizeElementReferences,
 } from './canvasElementCollection'
 import { copySelectedElements, createOffsetCopyPlan } from './canvasElementClipboard'
@@ -41,6 +44,12 @@ import {
   createLayerVisibilityPlan,
   createMoveElementsToLayerPlan,
 } from './canvasElementLayers'
+import {
+  createElementAdditionPlan,
+  createElementClearPlan,
+  createElementRemovalPlan,
+  createElementUpdatePlan,
+} from './canvasElementMutations'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
@@ -321,24 +330,15 @@ export function createCanvasElementsSlice(
       const st = get()
       const layeredEl = assignToWritableLayer(el, st)
       if (!layeredEl) return
+      const plan = createElementAdditionPlan(st.elements, [layeredEl])
+      if (!plan) return
       incrementSaveGeneration()
-      const action: UndoAction = {
-        type: 'add',
-        ids: [layeredEl.id],
-        els: [shallowClone(layeredEl)],
-      }
-      const newIndex = st.elements.length
       set({
-        elements: [...st.elements, layeredEl],
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
+        elements: plan.elements,
+        undoStack: [...st.undoStack.slice(-MAX_HISTORY), plan.action],
         redoStack: [],
       })
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      idToElement.set(layeredEl.id, layeredEl)
-      st.idToElement.set(layeredEl.id, layeredEl)
-      idToIndex.set(layeredEl.id, newIndex)
-      st.idToIndex.set(layeredEl.id, newIndex)
-      spatialIndex.insert(layeredEl)
+      appendElementCollection(collectionRuntime, plan.addedElements, st.elements.length, st)
       scheduleSave()
     },
 
@@ -347,27 +347,15 @@ export function createCanvasElementsSlice(
       const layeredEls = els
         .map((el) => assignToWritableLayer(el, st))
         .filter((el: CanvasElement | null): el is CanvasElement => !!el)
-      if (layeredEls.length === 0) return
+      const plan = createElementAdditionPlan(st.elements, layeredEls)
+      if (!plan) return
       incrementSaveGeneration()
-      const action: UndoAction = {
-        type: 'add',
-        ids: layeredEls.map((e) => e.id),
-        els: layeredEls.map(shallowClone),
-      }
-      const baseIndex = st.elements.length
       set({
-        elements: [...st.elements, ...layeredEls],
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
+        elements: plan.elements,
+        undoStack: [...st.undoStack.slice(-MAX_HISTORY), plan.action],
         redoStack: [],
       })
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      layeredEls.forEach((el, i) => {
-        idToElement.set(el.id, el)
-        st.idToElement.set(el.id, el)
-        idToIndex.set(el.id, baseIndex + i)
-        st.idToIndex.set(el.id, baseIndex + i)
-        spatialIndex.insert(el)
-      })
+      appendElementCollection(collectionRuntime, plan.addedElements, st.elements.length, st)
       scheduleSave()
     },
 
@@ -385,15 +373,9 @@ export function createCanvasElementsSlice(
       if (idx === undefined || idx < 0) return
       const oldEl = st.elements[idx]
       if (!isElementLayerEditable(oldEl, st.layers)) return
-      const newEl = update(oldEl)
-      // 原地修改数组副本，避免创建全新数组
-      const next = [...st.elements]
-      next[idx] = newEl
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      idToElement.set(id, newEl)
-      st.idToElement.set(id, newEl)
-      spatialIndex.update(newEl)
-      set({ elements: next })
+      const plan = createElementUpdatePlan(st.elements, idx, update)
+      synchronizeElementReplacement(collectionRuntime, plan.elements, idx, id, st)
+      set({ elements: plan.elements })
       scheduleSave()
     },
 
@@ -413,28 +395,18 @@ export function createCanvasElementsSlice(
       if (idx === undefined || idx < 0) return
       // 跳过锁定或不可见/锁定图层中的元素，禁止删除
       if (!isElementLayerEditable(st.elements[idx], st.layers)) return
-      const el = st.elements[idx]
-      const action: UndoAction = {
-        type: 'remove',
-        items: [{ el: shallowClone(el), index: idx }],
-      }
-      const next = [...st.elements]
-      next.splice(idx, 1)
+      const plan = createElementRemovalPlan(st.elements, [id], st.selectedIds)
+      if (!plan) return
       set({
-        elements: next,
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
+        elements: plan.elements,
+        undoStack: [...st.undoStack.slice(-MAX_HISTORY), plan.action],
         redoStack: [],
-        selectedIds: st.selectedIds.filter((i: string) => i !== id),
+        selectedIds: plan.selectedIds,
       })
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      idToElement.delete(id)
-      st.idToElement.delete(id)
-      idToIndex.delete(id)
-      st.idToIndex.delete(id)
+      removeElementCollection(collectionRuntime, plan.removedIds, st)
       // 懒更新策略 - 只标记脏，不立即更新后续所有元素的索引
       // 性能提升: 删除操作从 O(n) → O(1)，大画布场景提升 100x+
       _indexDirty = true
-      spatialIndex.remove(id)
       scheduleSave()
     },
 
@@ -444,27 +416,15 @@ export function createCanvasElementsSlice(
       // 过滤掉锁定或不可见/锁定图层中的元素，禁止删除
       const unlockedIds = getEditableIds(ids, st)
       if (unlockedIds.length === 0) return
-      const idSet = new Set(unlockedIds)
-      const items: { el: CanvasElement; index: number }[] = []
-      st.elements.forEach((el: CanvasElement, i: number) => {
-        if (idSet.has(el.id)) items.push({ el: shallowClone(el), index: i })
-      })
-      const action: UndoAction = { type: 'remove', items }
-      const newElements = st.elements.filter((e: CanvasElement) => !idSet.has(e.id))
+      const plan = createElementRemovalPlan(st.elements, unlockedIds, st.selectedIds, true)
+      if (!plan) return
       set({
-        elements: newElements,
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
+        elements: plan.elements,
+        undoStack: [...st.undoStack.slice(-MAX_HISTORY), plan.action],
         redoStack: [],
-        selectedIds: [],
+        selectedIds: plan.selectedIds,
       })
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      unlockedIds.forEach((id) => {
-        idToElement.delete(id)
-        st.idToElement.delete(id)
-        idToIndex.delete(id)
-        st.idToIndex.delete(id)
-        spatialIndex.remove(id)
-      })
+      removeElementCollection(collectionRuntime, plan.removedIds, st)
       // 懒更新策略 - 只标记脏，不立即重建所有索引
       // 性能提升: 批量删除从 O(n) → O(k)，k 为删除元素数量
       _indexDirty = true
@@ -619,19 +579,14 @@ export function createCanvasElementsSlice(
     clearAll: () => {
       incrementSaveGeneration()
       const st = get()
-      const action: UndoAction = { type: 'clear', snapshot: snapshot(st.elements) }
+      const plan = createElementClearPlan(st.elements)
       set({
-        elements: [],
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
+        elements: plan.elements,
+        undoStack: [...st.undoStack.slice(-MAX_HISTORY), plan.action],
         redoStack: [],
-        selectedIds: [],
+        selectedIds: plan.selectedIds,
       })
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      idToElement.clear()
-      st.idToElement.clear()
-      idToIndex.clear()
-      st.idToIndex.clear()
-      spatialIndex.clear()
+      setElementCollection(plan.elements, get())
       // 清空后索引干净，重置脏标记
       _indexDirty = false
       scheduleSave()
@@ -648,25 +603,17 @@ export function createCanvasElementsSlice(
       const { clipboard, elements } = st
       if (clipboard.length === 0) return
       const { elements: pasted, ids: newIds } = createOffsetCopyPlan(clipboard, st, Date.now())
-      if (pasted.length === 0) return
+      const plan = createElementAdditionPlan(elements, pasted)
+      if (!plan) return
       incrementSaveGeneration()
-      const action: UndoAction = { type: 'add', ids: newIds, els: pasted.map(shallowClone) }
-      const baseIndex = elements.length
       set({
-        elements: [...elements, ...pasted],
+        elements: plan.elements,
         selectedIds: newIds,
         clipboard: pasted.map(shallowClone),
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
         redoStack: [],
       })
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      pasted.forEach((el: CanvasElement, i: number) => {
-        idToElement.set(el.id, el)
-        st.idToElement.set(el.id, el)
-        idToIndex.set(el.id, baseIndex + i)
-        st.idToIndex.set(el.id, baseIndex + i)
-        spatialIndex.insert(el)
-      })
+      appendElementCollection(collectionRuntime, plan.addedElements, elements.length, st)
       scheduleSave()
     },
 
@@ -686,24 +633,16 @@ export function createCanvasElementsSlice(
         st,
         now
       )
-      if (duplicated.length === 0) return
+      const plan = createElementAdditionPlan(elements, duplicated)
+      if (!plan) return
       incrementSaveGeneration()
-      const action: UndoAction = { type: 'add', ids: newIds, els: duplicated.map(shallowClone) }
-      const baseIndex = elements.length
       set({
-        elements: [...elements, ...duplicated],
+        elements: plan.elements,
         selectedIds: newIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
+        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
         redoStack: [],
       })
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      duplicated.forEach((el: CanvasElement, i: number) => {
-        idToElement.set(el.id, el)
-        st.idToElement.set(el.id, el)
-        idToIndex.set(el.id, baseIndex + i)
-        st.idToIndex.set(el.id, baseIndex + i)
-        spatialIndex.insert(el)
-      })
+      appendElementCollection(collectionRuntime, plan.addedElements, elements.length, st)
       scheduleSave()
     },
 

@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { ShapeElement } from '../types'
 import {
+  appendElementCollection,
   createCanvasElementCollectionRuntime,
   rebuildElementIndexes,
+  removeElementCollection,
   replaceElementCollection,
   synchronizeElementCollection,
   synchronizeElementGeometry,
+  synchronizeElementReplacement,
   synchronizeElementReferences,
 } from './canvasElementCollection'
 
@@ -100,5 +103,37 @@ describe('canvas element collection runtime', () => {
     expect(runtime.idToElement.get('a')).toBe(updated[1])
     expect(runtime.idToIndex.get('a')).toBe(1)
     expect(runtime.spatialIndex.search({ x: 200, y: 0, w: 20, h: 20 })).toContain('a')
+  })
+
+  it('appends and removes collection entries through focused helpers', () => {
+    const runtime = createCanvasElementCollectionRuntime()
+    const initial = [makeShape('a', 0)]
+    replaceElementCollection(runtime, initial)
+    const appended = makeShape('b', 100)
+
+    appendElementCollection(runtime, [appended], initial.length)
+
+    expect(runtime.idToElement.get('b')).toBe(appended)
+    expect(runtime.idToIndex.get('b')).toBe(1)
+
+    removeElementCollection(runtime, ['a'])
+
+    expect(runtime.idToElement.has('a')).toBe(false)
+    expect(runtime.idToIndex.has('a')).toBe(false)
+  })
+
+  it('replaces an element id without leaving a stale reference', () => {
+    const runtime = createCanvasElementCollectionRuntime()
+    const initial = [makeShape('a', 0)]
+    replaceElementCollection(runtime, initial)
+    const updated = [{ ...initial[0], id: 'renamed', x: 40 }]
+
+    synchronizeElementReplacement(runtime, updated, 0, 'a')
+
+    expect(runtime.idToElement.has('a')).toBe(false)
+    expect(runtime.idToIndex.has('a')).toBe(false)
+    expect(runtime.idToElement.get('renamed')).toBe(updated[0])
+    expect(runtime.idToIndex.get('renamed')).toBe(0)
+    expect(runtime.spatialIndex.search({ x: 40, y: 0, w: 20, h: 20 })).toContain('renamed')
   })
 })

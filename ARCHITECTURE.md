@@ -47,6 +47,7 @@ Owns application state and persisted contracts.
 - `canvasElementArrangement.ts` owns alignment and distribution plans plus complete before/after history snapshots.
 - `canvasElementGeometry.ts` owns deterministic move, resize, and rotation plans, including bound-arrow updates and move-history payloads.
 - `canvasElementLayers.ts` owns layer deletion, visibility, locking, reordering, and element reassignment plans.
+- `canvasElementMutations.ts` owns add, update, remove, and clear plans plus their history payloads.
 
 ### `src/core`
 
@@ -135,7 +136,7 @@ The highest-risk files are large mixed-responsibility modules. Split them behind
 3. `src/index.css`
    Move touched component styles into clear sections or modules without broad formatting churn.
 4. `src/store/slices/canvasElements.ts`
-   Selection, collection, clipboard, metadata, arrangement, geometry, and layer mutation logic now live in focused modules; continue separating persistence triggers behind tests.
+   Selection, collection, clipboard, metadata, arrangement, geometry, layer, and collection-mutation logic now live in focused modules; continue separating persistence triggers behind tests.
 
 ## Verification policy
 
