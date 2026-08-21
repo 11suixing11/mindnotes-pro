@@ -13,7 +13,6 @@ import {
 } from '../layers'
 import { shallowClone } from '../helpers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
-import { MAX_HISTORY } from './history'
 import type { SpatialIndex } from '../../eraser/SpatialIndex'
 import { assignToWritableLayer, getEditableIds, getSelectableIds } from './canvasElementRules'
 import {
@@ -50,6 +49,13 @@ import {
   createElementRemovalPlan,
   createElementUpdatePlan,
 } from './canvasElementMutations'
+import {
+  appendUndoAction,
+  createCanvasElementCommitPlan,
+  type CommitElementsOptions,
+} from './canvasElementCommit'
+
+export type { CommitElementsOptions } from './canvasElementCommit'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
@@ -72,13 +78,6 @@ export interface CanvasElementsState {
 
 export interface MoveElementsOptions {
   recordHistory?: boolean
-}
-
-export interface CommitElementsOptions {
-  action?: UndoAction
-  selectedIds?: string[]
-  clearRedo?: boolean
-  undoStack?: UndoAction[]
 }
 
 export interface CanvasElementsActions {
@@ -171,35 +170,17 @@ export function createCanvasElementsSlice(
     options: CommitElementsOptions = {}
   ): void {
     const st = get()
-    const hasElementChanges =
-      st.elements.length !== nextElements.length ||
-      st.elements.some((element: CanvasElement, index: number) => element !== nextElements[index])
-    const nextIds = new Set(nextElements.map((element) => element.id))
-    const nextSelectedIds = (options.selectedIds ?? st.selectedIds).filter((id: string) =>
-      nextIds.has(id)
-    )
-    const selectionChanged =
-      nextSelectedIds.length !== st.selectedIds.length ||
-      nextSelectedIds.some((id: string, index: number) => id !== st.selectedIds[index])
-
-    if (!hasElementChanges && !selectionChanged && !options.action && !options.undoStack) return
+    const plan = createCanvasElementCommitPlan(st, nextElements, options)
+    if (!plan) return
 
     incrementSaveGeneration()
-    const nextUndoStack = options.undoStack
-      ? options.action
-        ? [...options.undoStack.slice(-MAX_HISTORY), options.action]
-        : options.undoStack
-      : options.action
-        ? [...st.undoStack.slice(-MAX_HISTORY), options.action]
-        : st.undoStack
-    const shouldClearRedo = options.clearRedo ?? Boolean(options.action || options.undoStack)
     set({
-      elements: nextElements,
-      selectedIds: nextSelectedIds,
-      undoStack: nextUndoStack,
-      ...(shouldClearRedo ? { redoStack: [] } : {}),
+      elements: plan.elements,
+      selectedIds: plan.selectedIds,
+      undoStack: plan.undoStack,
+      ...(plan.clearRedo ? { redoStack: [] } : {}),
     })
-    syncElementCollection(nextElements, get())
+    syncElementCollection(plan.elements, get())
     scheduleSave()
   }
 
@@ -335,7 +316,7 @@ export function createCanvasElementsSlice(
       incrementSaveGeneration()
       set({
         elements: plan.elements,
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), plan.action],
+        undoStack: appendUndoAction(st.undoStack, plan.action),
         redoStack: [],
       })
       appendElementCollection(collectionRuntime, plan.addedElements, st.elements.length, st)
@@ -352,7 +333,7 @@ export function createCanvasElementsSlice(
       incrementSaveGeneration()
       set({
         elements: plan.elements,
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), plan.action],
+        undoStack: appendUndoAction(st.undoStack, plan.action),
         redoStack: [],
       })
       appendElementCollection(collectionRuntime, plan.addedElements, st.elements.length, st)
@@ -399,7 +380,7 @@ export function createCanvasElementsSlice(
       if (!plan) return
       set({
         elements: plan.elements,
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), plan.action],
+        undoStack: appendUndoAction(st.undoStack, plan.action),
         redoStack: [],
         selectedIds: plan.selectedIds,
       })
@@ -420,7 +401,7 @@ export function createCanvasElementsSlice(
       if (!plan) return
       set({
         elements: plan.elements,
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), plan.action],
+        undoStack: appendUndoAction(st.undoStack, plan.action),
         redoStack: [],
         selectedIds: plan.selectedIds,
       })
@@ -495,7 +476,7 @@ export function createCanvasElementsSlice(
         elements: plan.elements,
         ...(plan.action
           ? {
-              undoStack: [...st.undoStack.slice(-MAX_HISTORY), plan.action],
+              undoStack: appendUndoAction(st.undoStack, plan.action),
               redoStack: [],
             }
           : {}),
@@ -582,7 +563,7 @@ export function createCanvasElementsSlice(
       const plan = createElementClearPlan(st.elements)
       set({
         elements: plan.elements,
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), plan.action],
+        undoStack: appendUndoAction(st.undoStack, plan.action),
         redoStack: [],
         selectedIds: plan.selectedIds,
       })
@@ -610,7 +591,7 @@ export function createCanvasElementsSlice(
         elements: plan.elements,
         selectedIds: newIds,
         clipboard: pasted.map(shallowClone),
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
+        undoStack: appendUndoAction(get().undoStack, plan.action),
         redoStack: [],
       })
       appendElementCollection(collectionRuntime, plan.addedElements, elements.length, st)
@@ -639,7 +620,7 @@ export function createCanvasElementsSlice(
       set({
         elements: plan.elements,
         selectedIds: newIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
+        undoStack: appendUndoAction(get().undoStack, plan.action),
         redoStack: [],
       })
       appendElementCollection(collectionRuntime, plan.addedElements, elements.length, st)
@@ -663,7 +644,7 @@ export function createCanvasElementsSlice(
       set({
         elements: plan.elements,
         selectedIds: editableIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
+        undoStack: appendUndoAction(get().undoStack, plan.action),
         redoStack: [],
       })
       scheduleSave()
@@ -684,7 +665,7 @@ export function createCanvasElementsSlice(
       set({
         elements: plan.elements,
         selectedIds: editableIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
+        undoStack: appendUndoAction(get().undoStack, plan.action),
         redoStack: [],
       })
       scheduleSave()
@@ -705,7 +686,7 @@ export function createCanvasElementsSlice(
       set({
         elements: plan.elements,
         selectedIds: editableIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
+        undoStack: appendUndoAction(get().undoStack, plan.action),
         redoStack: [],
       })
       scheduleSave()
@@ -726,7 +707,7 @@ export function createCanvasElementsSlice(
       set({
         elements: plan.elements,
         selectedIds: editableIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
+        undoStack: appendUndoAction(get().undoStack, plan.action),
         redoStack: [],
       })
       scheduleSave()
@@ -774,7 +755,7 @@ export function createCanvasElementsSlice(
       set({
         elements: plan.elements,
         selectedIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
+        undoStack: appendUndoAction(get().undoStack, plan.action),
         redoStack: [],
       })
       scheduleSave()
@@ -793,7 +774,7 @@ export function createCanvasElementsSlice(
       set({
         elements: plan.elements,
         selectedIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), plan.action],
+        undoStack: appendUndoAction(get().undoStack, plan.action),
         redoStack: [],
       })
       scheduleSave()
