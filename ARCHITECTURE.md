@@ -55,6 +55,7 @@ Owns application state and persisted contracts.
 - `slices/documentSearchHistory.ts` owns recent-document-search parsing, persistence, and bounded deduplication; document management retains only the store action wiring.
 - `slices/documentRuntimeIndexes.ts` owns rebuilding the runtime element maps and spatial index from a document; document management retains only when hydration or document switching requires the rebuild.
 - `slices/documentWorkspace.ts` owns projecting a persisted document into the live workspace state, including layers, background settings, and document-versus-empty history initialization; document management retains only the workflow coordination.
+- `slices/documentInitialization.ts` owns persistence bootstrap, legacy migration, default-folder creation, recovery reconciliation, and in-memory fallback preparation; document management retains state hydration, runtime-index rebuilds, and user feedback.
 
 ### `src/core`
 
