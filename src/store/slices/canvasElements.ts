@@ -21,7 +21,6 @@ import {
   synchronizeElementReplacement,
   synchronizeElementReferences,
 } from './canvasElementCollection'
-import { createElementLockPlan, createGroupPlan, createUngroupPlan } from './canvasElementMetadata'
 import { createAlignmentPlan, createDistributionPlan } from './canvasElementArrangement'
 import {
   createMoveElementPlan,
@@ -43,6 +42,7 @@ import {
 } from './canvasElementCommit'
 import { createCanvasElementLayerActions } from './canvasElementLayerActions'
 import { createCanvasElementClipboardActions } from './canvasElementClipboardActions'
+import { createCanvasElementMetadataActions } from './canvasElementMetadataActions'
 
 export type { CommitElementsOptions } from './canvasElementCommit'
 
@@ -199,6 +199,12 @@ export function createCanvasElementsSlice(
       get,
       appendElementCollection: (elements, startIndex, state) =>
         appendElementCollection(collectionRuntime, elements, startIndex, state),
+    }),
+    ...createCanvasElementMetadataActions({
+      set,
+      get,
+      synchronizeElementReferences: (elements, state) =>
+        synchronizeElementReferences(collectionRuntime, elements, state),
     }),
 
     addElement: (el) => {
@@ -470,47 +476,6 @@ export function createCanvasElementsSlice(
     // Ctrl+G 元素分组
     // 将选中的多个元素组合成一个组，点击组内任意元素选中整个组
     // 常见设计工具通常支持此功能
-    groupSelected: () => {
-      const st = get()
-      const { elements, selectedIds } = st
-      if (selectedIds.length < 2) return
-      const editableIds = getEditableIds(selectedIds, st)
-      if (editableIds.length < 2) return
-
-      const plan = createGroupPlan(elements, editableIds, `group-${Date.now()}`)
-      synchronizeElementReferences(collectionRuntime, plan.updatedElements, st)
-
-      incrementSaveGeneration()
-      set({
-        elements: plan.elements,
-        selectedIds: editableIds,
-        undoStack: appendUndoAction(get().undoStack, plan.action),
-        redoStack: [],
-      })
-      scheduleSave()
-    },
-
-    ungroupSelected: () => {
-      const st = get()
-      const { elements, selectedIds } = st
-      if (selectedIds.length === 0) return
-      const editableIds = getEditableIds(selectedIds, st)
-      if (editableIds.length === 0) return
-
-      const plan = createUngroupPlan(elements, editableIds)
-      if (!plan) return
-      synchronizeElementReferences(collectionRuntime, plan.updatedElements, st)
-
-      incrementSaveGeneration()
-      set({
-        elements: plan.elements,
-        selectedIds: editableIds,
-        undoStack: appendUndoAction(get().undoStack, plan.action),
-        redoStack: [],
-      })
-      scheduleSave()
-    },
-
     alignSelected: (alignment) => {
       const st = get()
       const { elements, selectedIds } = st
@@ -582,42 +547,5 @@ export function createCanvasElementsSlice(
     // 锁定选中元素
     // 专业设计工具标配：锁定元素防止误操作
     // 用户痛点："背景元素经常被不小心移动/删除"
-    lockSelected: () => {
-      incrementSaveGeneration()
-      const st = get()
-      const { elements, selectedIds } = st
-      if (selectedIds.length === 0) return
-
-      const plan = createElementLockPlan(elements, selectedIds, st.layers, true)
-      if (!plan) return
-      synchronizeElementReferences(collectionRuntime, plan.updatedElements, st)
-
-      set({
-        elements: plan.elements,
-        selectedIds,
-        undoStack: appendUndoAction(get().undoStack, plan.action),
-        redoStack: [],
-      })
-      scheduleSave()
-    },
-
-    unlockSelected: () => {
-      incrementSaveGeneration()
-      const st = get()
-      const { elements, selectedIds } = st
-      if (selectedIds.length === 0) return
-
-      const plan = createElementLockPlan(elements, selectedIds, st.layers, false)
-      if (!plan) return
-      synchronizeElementReferences(collectionRuntime, plan.updatedElements, st)
-
-      set({
-        elements: plan.elements,
-        selectedIds,
-        undoStack: appendUndoAction(get().undoStack, plan.action),
-        redoStack: [],
-      })
-      scheduleSave()
-    },
   }
 }
