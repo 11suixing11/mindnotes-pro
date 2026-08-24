@@ -4,7 +4,11 @@ import { migrateOld, removeMigratedData } from '../migration'
 import { migrateV4ToV5 } from '../v4Import'
 import { normalizeCanvasDocLayers } from '../layers'
 import { CANVAS_SCHEMA_VERSION } from '../schema'
-import { createBlankDocument, createDefaultFolder } from './documentRecords'
+import {
+  createBlankDocument,
+  createDefaultFolder,
+  selectCanonicalDocument,
+} from './documentRecords'
 import { reconcileDocumentRecovery, type DocumentRecoveryReconciliation } from './documentRecovery'
 import {
   clearRecoveryDraft,
@@ -80,8 +84,10 @@ export async function initializeDocuments(): Promise<DocumentInitializationResul
     clearRecoveryDraftForDocument(draft.documentId, draft.savedAt)
   }
 
+  const canonical = selectCanonicalDocument(recovery.docs)
+
   return {
-    docs: recovery.docs,
+    docs: canonical ? [canonical] : [],
     folders,
     recovery,
     migratedLocalStorage,

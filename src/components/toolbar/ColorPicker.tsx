@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, memo } from 'react'
+import { createPortal } from 'react-dom'
 import { useAppStore } from '../../store/appStore'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -78,6 +79,7 @@ const ColorPicker = memo(function ColorPicker() {
   const colorRef = useRef<HTMLInputElement>(null)
   const fillColorRef = useRef<HTMLInputElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
   const paletteTriggerRef = useRef<HTMLButtonElement>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
 
@@ -89,14 +91,17 @@ const ColorPicker = memo(function ColorPicker() {
   useEffect(() => {
     if (!paletteOpen) return
     const closeOnOutsideClick = (event: PointerEvent) => {
-      if (!pickerRef.current?.contains(event.target as Node)) setPaletteOpen(false)
+      const target = event.target as Node
+      if (!pickerRef.current?.contains(target) && !popoverRef.current?.contains(target)) {
+        setPaletteOpen(false)
+      }
     }
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
       event.preventDefault()
       closePalette(true)
     }
-    pickerRef.current?.querySelector<HTMLButtonElement>('.color-popover button')?.focus()
+    popoverRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
     window.addEventListener('pointerdown', closeOnOutsideClick)
     window.addEventListener('keydown', closeOnEscape)
     return () => {
@@ -120,41 +125,48 @@ const ColorPicker = memo(function ColorPicker() {
           <span className="color-trigger-swatch" style={{ backgroundColor: color }} />
         </button>
 
-        {paletteOpen && (
-          <div className="color-popover panel" role="dialog" aria-label="颜色面板">
-            {colorHistory.length > 0 && (
-              <div className="color-popover-section" aria-label="最近使用的颜色">
-                {colorHistory.map((hex) => (
+        {paletteOpen &&
+          createPortal(
+            <div
+              ref={popoverRef}
+              className="color-popover panel"
+              role="dialog"
+              aria-label="颜色面板"
+            >
+              {colorHistory.length > 0 && (
+                <div className="color-popover-section" aria-label="最近使用的颜色">
+                  {colorHistory.map((hex) => (
+                    <button
+                      key={`history-${hex}`}
+                      onClick={() => setColor(hex)}
+                      className={`cdot ${color === hex ? 'on' : ''}`}
+                      style={{ backgroundColor: hex }}
+                      aria-label={`最近颜色 ${hex}`}
+                    />
+                  ))}
+                </div>
+              )}
+              <div className="color-popover-grid">
+                {COLORS.map((hex) => (
                   <button
-                    key={`history-${hex}`}
+                    key={hex}
                     onClick={() => setColor(hex)}
                     className={`cdot ${color === hex ? 'on' : ''}`}
                     style={{ backgroundColor: hex }}
-                    aria-label={`最近颜色 ${hex}`}
+                    aria-label={COLOR_NAMES[hex] ?? hex}
                   />
                 ))}
-              </div>
-            )}
-            <div className="color-popover-grid">
-              {COLORS.map((hex) => (
                 <button
-                  key={hex}
-                  onClick={() => setColor(hex)}
-                  className={`cdot ${color === hex ? 'on' : ''}`}
-                  style={{ backgroundColor: hex }}
-                  aria-label={COLOR_NAMES[hex] ?? hex}
-                />
-              ))}
-              <button
-                onClick={() => colorRef.current?.click()}
-                className="cdot custom-color-button"
-                aria-label="自定义颜色"
-              >
-                +
-              </button>
-            </div>
-          </div>
-        )}
+                  onClick={() => colorRef.current?.click()}
+                  className="cdot custom-color-button"
+                  aria-label="自定义颜色"
+                >
+                  +
+                </button>
+              </div>
+            </div>,
+            document.body
+          )}
       </div>
 
       <div className="tb-sep" role="separator" />
@@ -182,6 +194,7 @@ const ColorPicker = memo(function ColorPicker() {
             }}
             className="abtn"
             data-tip={fillColor === 'transparent' ? '无填充' : '有填充'}
+            title={fillColor === 'transparent' ? '无填充' : '有填充'}
             aria-label={fillColor === 'transparent' ? '无填充' : '有填充'}
           >
             <span
@@ -197,6 +210,7 @@ const ColorPicker = memo(function ColorPicker() {
             onClick={() => fillColorRef.current?.click()}
             className="abtn"
             data-tip="填充色"
+            title="填充色"
             aria-label="填充色"
           >
             <span className="text-[10px] text-[var(--text-4)]">填</span>

@@ -406,10 +406,11 @@ describe('buildSVGString', () => {
       const svg = buildSVGString([el], { width: W, height: H })
       expect(svg).toContain('<text')
       expect(svg).toContain('x="100"')
-      expect(svg).toContain('y="216"')
+      expect(svg).toContain('y="200"')
       expect(svg).toContain('font-size="16"')
       expect(svg).toContain('Hello World')
-      expect(svg).toContain('font-family="sans-serif"')
+      expect(svg).toContain("font-family=\"-apple-system, BlinkMacSystemFont, 'Segoe UI'")
+      expect(svg).toContain('dominant-baseline="text-before-edge"')
     })
 
     it('should render multi-line text with tspan', () => {

@@ -213,6 +213,7 @@ describe('resizeElement', () => {
     expect(resized.y).toBe(30)
     expect(resized.width).toBe(100)
     expect(resized.height).toBe(15)
+    expect(resized.autoResize).toBe(false)
   })
 
   it('should resize a stroke element by scaling points', () => {

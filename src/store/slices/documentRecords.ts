@@ -50,6 +50,15 @@ export function normalizeAndSortDocuments(docs: CanvasDoc[]): CanvasDoc[] {
   return sortDocuments(docs.map((doc) => normalizeCanvasDocLayers(doc)))
 }
 
+/**
+ * The single-board workspace still reads legacy document collections during
+ * migration. Pick the most recently updated record as the canonical board
+ * without deleting older records from storage.
+ */
+export function selectCanonicalDocument(docs: CanvasDoc[]): CanvasDoc | undefined {
+  return normalizeAndSortDocuments(docs)[0]
+}
+
 export function createDuplicatedDocument(doc: CanvasDoc, now = Date.now()): CanvasDoc {
   return {
     ...normalizeCanvasDocLayers(doc),
@@ -76,6 +85,27 @@ export function createImportedDocument(
     backgroundStyle: document.backgroundStyle,
     folderId: null,
     createdAt: now,
+    updatedAt: now,
+  })
+}
+
+/** Replace the contents of the canonical board while preserving its identity. */
+export function createReplacedDocument(
+  document: CanvasBackupDocument,
+  existing: CanvasDoc | undefined,
+  now = Date.now()
+): CanvasDoc {
+  return normalizeCanvasDocLayers({
+    schemaVersion: CANVAS_SCHEMA_VERSION,
+    id: existing?.id ?? createDocumentId(now),
+    title: document.title.trim() || existing?.title || DEFAULT_DOCUMENT_TITLE,
+    elements: document.elements,
+    layers: document.layers,
+    activeLayerId: document.activeLayerId,
+    bgColor: document.bgColor,
+    backgroundStyle: document.backgroundStyle,
+    folderId: existing?.folderId ?? null,
+    createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   })
 }

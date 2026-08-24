@@ -50,19 +50,19 @@ describe('keyboard paste helpers', () => {
 
     pastePlainTextAtViewportCenter('hello\nworld')
 
-    expect(useAppStore.getState().elements).toEqual([
-      expect.objectContaining({
-        type: 'text',
-        id: 'text-123',
-        x: 350,
-        y: 219.5,
-        width: 100,
-        height: 61,
-        content: 'hello\nworld',
-        fontSize: 16,
-        color: '#1a1a1a',
-      }),
-    ])
+    const [element] = useAppStore.getState().elements
+    expect(element).toMatchObject({
+      type: 'text',
+      id: 'text-123',
+      content: 'hello\nworld',
+      originalContent: 'hello\nworld',
+      autoResize: true,
+      fontSize: 16,
+      color: '#1a1a1a',
+    })
+    if (element.type !== 'text') return
+    expect(element.x + element.width / 2).toBeCloseTo(400)
+    expect(element.y + element.height / 2).toBeCloseTo(250)
   })
 
   it('ignores empty plain-text clipboard content', () => {

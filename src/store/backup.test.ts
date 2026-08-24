@@ -27,6 +27,8 @@ function makeDocument(): CanvasDoc {
         width: 180,
         height: 32,
         content: '可编辑文本',
+        originalContent: '可编辑文本',
+        autoResize: true,
         fontSize: 18,
         color: '#111827',
         fontWeight: 'bold',
@@ -63,7 +65,12 @@ describe('canvas backup format', () => {
 
     expect(imported.title).toBe('项目画布')
     expect(imported.backgroundStyle).toBe('grid')
-    expect(imported.elements[0]).toMatchObject({ id: 'text-1', layerId: 'layer-default' })
+    expect(imported.elements[0]).toMatchObject({
+      id: 'text-1',
+      layerId: 'layer-default',
+      originalContent: '可编辑文本',
+      autoResize: true,
+    })
   })
 
   it('imports a v4 backup through the read-only compatibility boundary', () => {

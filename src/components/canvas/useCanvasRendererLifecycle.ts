@@ -4,6 +4,7 @@ import type { ViewBox } from '../../core/viewport'
 import { useAppStore } from '../../store/appStore'
 import type { CanvasElement } from '../../store/types'
 import { useViewStore } from '../../store/useViewStore'
+import { useThemeStore } from '../../store/useThemeStore'
 import { CANVAS_INVALIDATED_EVENT } from './renderEvents'
 
 export interface CanvasSize {
@@ -191,6 +192,15 @@ export function useCanvasRendererLifecycle(options: UseCanvasRendererLifecycleOp
       scheduleRedraw()
     })
 
+    let previousDarkMode = useThemeStore.getState().isDarkMode
+    const unsubscribeTheme = useThemeStore.subscribe((state) => {
+      if (state.isDarkMode === previousDarkMode) return
+      previousDarkMode = state.isDarkMode
+      elementsDirtyRef.current = true
+      invalidateDrawingCaches()
+      scheduleRedraw()
+    })
+
     const invalidateCanvas = () => {
       elementsDirtyRef.current = true
       redrawRef.current()
@@ -203,6 +213,7 @@ export function useCanvasRendererLifecycle(options: UseCanvasRendererLifecycleOp
       unsubscribeElements()
       unsubscribeSelection()
       unsubscribeView()
+      unsubscribeTheme()
       window.removeEventListener('image-loaded', invalidateCanvas)
       window.removeEventListener(CANVAS_INVALIDATED_EVENT, invalidateCanvas)
       if (rafRef.current) cancelAnimationFrame(rafRef.current)

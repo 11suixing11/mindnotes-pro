@@ -81,6 +81,10 @@ export interface TextElement {
   width: number
   height: number
   content: string
+  /** Raw user input before soft wrapping. */
+  originalContent?: string
+  /** When true, width follows the text until the editor width cap is reached. */
+  autoResize?: boolean
   fontSize: number
   color: string
   fontWeight?: TextFontWeight

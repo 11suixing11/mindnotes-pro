@@ -85,7 +85,7 @@ describe('TemplateMenu', () => {
     expect(state.tool).toBe('select')
     expect(state.selectedIds).toEqual(state.elements.map((element) => element.id))
     expect(state.elements.every((element) => !element.locked)).toBe(true)
-    expect(new Set(state.elements.map((element) => element.groupId)).size).toBe(1)
+    expect(state.elements.every((element) => element.groupId === undefined)).toBe(true)
     expect(state.elements.some((element) => element.type === 'text')).toBe(true)
     expect(state.undoStack[state.undoStack.length - 1]?.type).toBe('add')
     expect(useViewStore.getState().viewBox.zoom).not.toBe(2)

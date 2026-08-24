@@ -132,6 +132,7 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
         onClick={toggleBackgroundMenu}
         className="abtn"
         data-tip="背景设置"
+        title="背景设置"
         aria-label="背景设置"
         aria-haspopup="menu"
         aria-expanded={showBackground}
@@ -201,12 +202,19 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
         onClick={() => imgRef.current?.click()}
         className="abtn"
         data-tip="插入图片"
+        title="插入图片"
         aria-label="插入图片"
       >
         {icons.image}
       </button>
 
-      <button onClick={toggleFullscreen} className="abtn" data-tip="全屏" aria-label="全屏">
+      <button
+        onClick={toggleFullscreen}
+        className="abtn"
+        data-tip="全屏"
+        title="全屏"
+        aria-label="全屏"
+      >
         {icons.fullscreen}
       </button>
 

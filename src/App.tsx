@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { Canvas } from './components/canvas'
 import { Toolbar } from './components/toolbar'
-import { Sidebar } from './components/sidebar'
+import LayersPanel from './components/layers/LayersPanel'
 import { ToastContainer } from './components/toast'
 import { ConfirmModal } from './components/confirm-modal'
 import { useAppStore } from './store/appStore'
@@ -10,7 +10,6 @@ import {
   KeyboardShortcutSettings,
 } from './components/keyboard-shortcuts-help'
 import { LoadingScreen } from './components/loading-screen'
-import { Download } from 'lucide-react'
 import { AppStatusBar } from './components/app/AppStatusBar'
 import { useAppLifecycle } from './components/app/useAppLifecycle'
 
@@ -52,10 +51,12 @@ export default function App() {
         role="application"
         aria-label="MindNotes Pro 白板"
       >
-        <Sidebar />
         <div ref={mainContentRef} tabIndex={-1} className="workspace-main">
           <Canvas />
-          <Toolbar />
+          <Toolbar canInstall={canInstall} onInstall={() => void installApp()} />
+          <div className="layers-dock">
+            <LayersPanel />
+          </div>
           <ToastContainer />
           <ConfirmModal />
           <AppStatusBar onOpenShortcuts={() => setShortcutsOpen(true)} />
@@ -72,17 +73,6 @@ export default function App() {
             open={shortcutSettingsOpen}
             onClose={() => setShortcutSettingsOpen(false)}
           />
-
-          {canInstall && (
-            <button
-              onClick={() => void installApp()}
-              className="install-btn"
-              aria-label="安装 MindNotes Pro"
-            >
-              <Download size={16} aria-hidden="true" />
-              安装应用
-            </button>
-          )}
         </div>
       </div>
     </>

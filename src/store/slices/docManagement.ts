@@ -10,17 +10,13 @@ import {
   DEFAULT_DOCUMENT_TITLE,
   createBlankDocument,
   createDuplicatedDocument,
-  createImportedDocument,
+  createReplacedDocument,
   normalizeAndSortDocuments,
+  selectCanonicalDocument,
   sortDocuments,
 } from './documentRecords'
 import { rebuildDocumentRuntimeIndexes } from './documentRuntimeIndexes'
 import { createDocumentWorkspaceState } from './documentWorkspace'
-import {
-  loadRecentDocumentSearches,
-  persistRecentDocumentSearches,
-  prependRecentDocumentSearch,
-} from './documentSearchHistory'
 import {
   createDocumentInitializationFallback,
   initializeDocuments,
@@ -31,20 +27,24 @@ export interface DocManagementState {
   docs: CanvasDoc[]
   currentDocId: string | null
   loaded: boolean
-  documentSearchQuery: string
-  recentDocumentSearches: string[]
 }
 
 export interface DocManagementActions {
   init: () => Promise<void>
+  /** Legacy command retained for non-UI migration/test compatibility. */
   createDoc: (title?: string, folderId?: string | null) => Promise<string>
+  /** Legacy command retained for non-UI migration/test compatibility. */
   openDoc: (id: string) => Promise<void>
+  /** Legacy command retained for non-UI migration/test compatibility. */
   renameDoc: (id: string, title: string) => Promise<void>
+  /** Legacy command retained for non-UI migration/test compatibility. */
   deleteDoc: (id: string) => Promise<void>
+  /** Legacy command retained for non-UI migration/test compatibility. */
   duplicateDoc: (id: string) => Promise<void>
+  /** Import into the one canonical board without creating another document. */
+  replaceCurrentDoc: (document: CanvasBackupDocument) => Promise<string>
+  /** Compatibility alias; import still replaces the single board. */
   importDoc: (document: CanvasBackupDocument) => Promise<string>
-  setDocumentSearchQuery: (query: string) => void
-  addRecentDocumentSearch: (query: string) => void
   saveNow: () => Promise<void>
 }
 
@@ -59,19 +59,16 @@ export function createDocManagementSlice(
     docs: [],
     currentDocId: null,
     loaded: false,
-    documentSearchQuery: '',
-    recentDocumentSearches: loadRecentDocumentSearches(),
 
     // Actions
     init: async () => {
       try {
         const initialization = await initializeDocuments()
-        const { docs, folders, recovery } = initialization
-        const current = docs[0]
+        const { docs, recovery } = initialization
+        const current = selectCanonicalDocument(docs)
 
         set({
           docs,
-          folders,
           ...createDocumentWorkspaceState(current),
           loaded: true,
           saveStatus: 'idle',
@@ -87,7 +84,6 @@ export function createDocManagementSlice(
         const { document: fallback, recoveredFromDraft } = createDocumentInitializationFallback()
         set({
           docs: [fallback],
-          folders: [],
           ...createDocumentWorkspaceState(fallback),
           loaded: true,
           saveStatus: 'error',
@@ -105,6 +101,8 @@ export function createDocManagementSlice(
       }
     },
 
+    // Legacy multi-document commands remain internal compatibility APIs. The
+    // application shell no longer mounts a document sidebar or exposes them.
     createDoc: async (title = DEFAULT_DOCUMENT_TITLE, folderId = null) => {
       clearSaveTimer()
       if (get().currentDocId && !(await saveDocNow())) {
@@ -121,7 +119,6 @@ export function createDocManagementSlice(
         ...createDocumentWorkspaceState(doc, { history: 'empty' }),
         selectedIds: [],
       })
-      // 新文档，清空空间索引
       rebuildDocumentRuntimeIndexes(get(), [])
       return doc.id
     },
@@ -139,7 +136,6 @@ export function createDocManagementSlice(
           ...createDocumentWorkspaceState(normalizedDoc),
           selectedIds: [],
         })
-        // 加载新文档，重建空间索引
         rebuildDocumentRuntimeIndexes(get(), normalizedDoc.elements)
         useViewStore.getState().resetView()
       }
@@ -178,10 +174,7 @@ export function createDocManagementSlice(
               }
             : undefined
         )
-        if (!storedDoc) {
-          rollback()
-          return
-        }
+        if (!storedDoc) rollback()
       } catch (error) {
         rollback()
         throw error
@@ -199,7 +192,6 @@ export function createDocManagementSlice(
           docs,
           ...createDocumentWorkspaceState(first, { history: 'empty' }),
         })
-        // 删除当前文档后加载第一个文档，重建空间索引
         rebuildDocumentRuntimeIndexes(get(), first?.elements ?? [])
       } else {
         set({ docs })
@@ -216,49 +208,38 @@ export function createDocManagementSlice(
       if (!doc) return
       const dup = createDuplicatedDocument(doc)
       await repository.saveDocument({ ...dup, schemaVersion: CANVAS_SCHEMA_VERSION })
-      set({
-        docs: sortDocuments(await repository.listDocuments()),
-      })
+      set({ docs: sortDocuments(await repository.listDocuments()) })
     },
 
-    importDoc: async (document) => {
+    replaceCurrentDoc: async (document) => {
       clearSaveTimer()
       const state = get()
       if (state.currentDocId && !(await saveDocNow())) {
         throw new Error('Current document could not be saved')
       }
 
-      const imported = createImportedDocument(document)
+      const existing =
+        state.docs.find((item: CanvasDoc) => item.id === state.currentDocId) ??
+        selectCanonicalDocument(state.docs)
+      const replaced = createReplacedDocument(document, existing)
 
       const repository = getDocumentRepository()
-      await repository.saveDocument({ ...imported, schemaVersion: CANVAS_SCHEMA_VERSION })
-      const docs = normalizeAndSortDocuments(await repository.listDocuments())
+      await repository.saveDocument({ ...replaced, schemaVersion: CANVAS_SCHEMA_VERSION })
 
       set({
-        docs,
-        ...createDocumentWorkspaceState(imported, { history: 'empty' }),
+        docs: [replaced],
+        ...createDocumentWorkspaceState(replaced, { history: 'empty' }),
         selectedIds: [],
         saveStatus: 'saved',
       })
-      rebuildDocumentRuntimeIndexes(get(), imported.elements)
+      rebuildDocumentRuntimeIndexes(get(), replaced.elements)
       useViewStore.getState().resetView()
-      return imported.id
+      return replaced.id
     },
 
-    setDocumentSearchQuery: (query) => {
-      set({ documentSearchQuery: query })
-    },
-
-    addRecentDocumentSearch: (query) => {
-      const recentDocumentSearches = prependRecentDocumentSearch(
-        get().recentDocumentSearches,
-        query
-      )
-      if (!recentDocumentSearches) return
-
-      persistRecentDocumentSearches(recentDocumentSearches)
-      set({ recentDocumentSearches })
-    },
+    // Importing always replaces the current single board rather than
+    // appending a document.
+    importDoc: async (document) => get().replaceCurrentDoc(document),
 
     saveNow: async () => {
       await saveDocNow()

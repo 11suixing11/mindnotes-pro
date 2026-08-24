@@ -23,7 +23,7 @@ function Keys({ parts }: { parts: string[] }) {
     <div className="flex items-center gap-[3px]">
       {parts.map((key, index) => (
         <span key={`${key}-${index}`}>
-          <kbd className="inline-block px-[6px] py-[2px] text-[11px] font-semibold text-[var(--text)] bg-[var(--bg)] border border-[var(--border)] rounded-[5px] shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+          <kbd className="inline-block px-[6px] py-[2px] text-[11px] font-medium text-[var(--text)] bg-[var(--bg)] border border-[var(--border)] rounded-[5px] shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
             {key}
           </kbd>
           {index < parts.length - 1 && (
@@ -103,7 +103,7 @@ export default memo(function KeyboardShortcutsHelp({
         style={{ animation: 'popIn 0.2s cubic-bezier(0.16,1,0.3,1)' }}
       >
         <div className="flex items-center justify-between gap-[12px] mb-[16px]">
-          <div className="text-[16px] font-bold text-[var(--text)]">键盘快捷键</div>
+          <div className="text-[16px] font-medium text-[var(--text)]">键盘快捷键</div>
           <div className="flex items-center gap-[8px]">
             {onCustomize && (
               <button
@@ -128,7 +128,7 @@ export default memo(function KeyboardShortcutsHelp({
         <div className="grid grid-cols-1 gap-[10px] max-h-[56vh] overflow-y-auto pr-[4px]">
           {groupedShortcuts.map((group) => (
             <section key={group.category}>
-              <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-4)] mb-[4px]">
+              <div className="text-[12px] font-medium text-[var(--text-4)] mb-[4px]">
                 {getShortcutCategoryLabel(group.category)}
               </div>
               <div className="grid grid-cols-1 gap-[2px]">
@@ -137,7 +137,7 @@ export default memo(function KeyboardShortcutsHelp({
                     key={shortcut.id}
                     className="flex items-center justify-between gap-[12px] py-[6px] px-[8px] rounded-[8px] hover:bg-[var(--primary-bg)] transition-colors"
                   >
-                    <span className="text-[13px] text-[var(--text-2)]">{shortcut.label}</span>
+                    <span className="text-[14px] text-[var(--text-2)]">{shortcut.label}</span>
                     <Keys parts={shortcut.keyParts} />
                   </div>
                 ))}

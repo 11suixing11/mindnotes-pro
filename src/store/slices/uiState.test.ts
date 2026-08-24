@@ -17,7 +17,7 @@ describe('uiState slice', () => {
 
   function createSlice(width = 1024) {
     setViewportWidth(width)
-    state = { saveStatus: 'idle', sidebarOpen: true }
+    state = { saveStatus: 'idle' }
     set = vi.fn((update: any) => {
       if (typeof update === 'function') {
         Object.assign(state, update(state))
@@ -36,13 +36,6 @@ describe('uiState slice', () => {
   describe('initial state', () => {
     it('starts with saveStatus idle', () => {
       expect(slice.saveStatus).toBe('idle')
-    })
-
-    it('starts with the document sidebar closed on every viewport', () => {
-      expect(slice.sidebarOpen).toBe(false)
-
-      createSlice(390)
-      expect(slice.sidebarOpen).toBe(false)
     })
   })
 
@@ -75,13 +68,6 @@ describe('uiState slice', () => {
         slice.setSaveStatus(status)
         expect(set).toHaveBeenCalledWith({ saveStatus: status })
       }
-    })
-  })
-
-  describe('setSidebarOpen', () => {
-    it('updates sidebar visibility', () => {
-      slice.setSidebarOpen(false)
-      expect(set).toHaveBeenCalledWith({ sidebarOpen: false })
     })
   })
 })

@@ -1,6 +1,5 @@
 import type { CanvasElement } from '../store/types'
 import { resetCanvasBackgroundCaches } from './canvasBackground'
-import { resetCanvasMinimapCaches } from './canvasMinimap'
 import { drawStrokeEl, resetStrokeRendererPools } from './strokeRenderer'
 import {
   drawImageEl,
@@ -12,7 +11,6 @@ import {
 export { drawImageEl, drawShapeEl, drawTextEl } from './elementRenderers'
 export { drawSelBox, drawZoomLevel } from './canvasOverlays'
 export { drawCanvasBackground, drawGrid, drawMonetGrid } from './canvasBackground'
-export { drawElementMinimap, drawMinimap } from './canvasMinimap'
 export { drawStrokeEl, drawStrokeRaw } from './strokeRenderer'
 
 // Shape, text, and image rotation remains centralized in the shared dispatcher.
@@ -67,7 +65,6 @@ export function drawElement(
 }
 
 export function invalidateDrawingCaches() {
-  resetCanvasMinimapCaches()
   resetCanvasBackgroundCaches()
   // 清除形状 Path2D 缓存 - 元素移动/调整大小时需要重建
   invalidateElementRendererCaches()

@@ -57,12 +57,12 @@ Owns application state and persisted contracts.
 - `canvasElementSnapshotActions.ts` owns eraser-history commits and transient snapshot restoration, including runtime collection synchronization.
 - `canvasElementCommit.ts` owns selection filtering, undo-window updates, and redo-clear decisions for committed element changes.
 - `historyTransitions.ts` owns pure undo/redo element transitions and affected-ID extraction; the history slice retains toast, focus, persistence, and runtime coordination.
-- `slices/documentRecords.ts` owns pure document/folder record construction, schema normalization, ordering, duplication, and import-record transforms; `docManagement.ts` retains hydration, recovery, search-history, and persistence coordination.
+- `slices/documentRecords.ts` owns pure document/folder record construction, schema normalization, canonical-board selection, and replacement transforms; legacy multi-document helpers remain only as non-UI compatibility surfaces. `docManagement.ts` retains canonical-board hydration, recovery, persistence coordination, and those legacy command shims.
 - `slices/documentRecovery.ts` owns pure comparison and replacement decisions for persisted documents versus recovery drafts; localStorage draft deletion and user feedback remain in `docManagement.ts`.
-- `slices/documentSearchHistory.ts` owns recent-document-search parsing, persistence, and bounded deduplication; document management retains only the store action wiring.
+- The single-board UI does not expose document search; legacy document collection search state is no longer part of the runtime store.
 - `slices/documentRuntimeIndexes.ts` owns rebuilding the runtime element maps and spatial index from a document; document management retains only when hydration or document switching requires the rebuild.
 - `slices/documentWorkspace.ts` owns projecting a persisted document into the live workspace state, including layers, background settings, and document-versus-empty history initialization; document management retains only the workflow coordination.
-- `slices/documentInitialization.ts` owns persistence bootstrap, legacy migration, default-folder creation, recovery reconciliation, and in-memory fallback preparation; document management retains state hydration, runtime-index rebuilds, and user feedback.
+- `slices/documentInitialization.ts` owns persistence bootstrap, legacy migration, canonical-board selection, default-folder compatibility, recovery reconciliation, and in-memory fallback preparation; document management retains state hydration, runtime-index rebuilds, and user feedback.
 
 ### `src/core`
 
@@ -96,7 +96,6 @@ Key shared modules include:
 - `elementRenderers.ts`: shape, text, and image rendering plus their local path/wrap caches; `canvasDrawing.ts` keeps the shared dispatch contract.
 - `canvasOverlays.ts`: selection-box handles and zoom indicator overlays; exports remain available through `canvasDrawing.ts`.
 - `canvasBackground.ts`: canvas backgrounds plus decorative and snap-grid rendering with explicit cache invalidation; exports remain available through `canvasDrawing.ts`.
-- `canvasMinimap.ts`: lightweight element-bound and viewport minimap rendering with an explicit aggregate-bounds cache; exports remain available through `canvasDrawing.ts`.
 - `strokeRenderer.ts`: brush-specific stroke rendering, perfect-freehand outlines, and calligraphy pooling; exports remain available through `canvasDrawing.ts`.
 - `drawingCaches.ts`: reusable bounded LRU/TTL cache primitive for rendering modules.
 - `pointerEvents.ts`: pointer capture plus auxiliary wheel, keyboard, context-menu, double-click, and cancellation bindings.
@@ -111,7 +110,7 @@ Owns React rendering, UI state wiring, and browser event orchestration.
 
 - Components consume domain helpers instead of duplicating geometry or persistence rules.
 - Context-menu capability and viewport-position decisions live in `context-menu/contextMenuModel.ts`; `ContextMenu.tsx` coordinates Store actions while reusable menu primitives render the surface.
-- Sidebar search matching, snippets, and document ordering live in `sidebar/sidebarDocumentModel.ts`; the document-list view renders those projections while `Sidebar.tsx` retains document workflow coordination.
+- The document Sidebar and its search/list workflow are removed from the application shell. Legacy document records and command shims remain isolated to persistence/migration and non-UI compatibility layers; the runtime UI exposes only the canonical board.
 - Export filename and size formatting live in `export-menu/exportMenuModel.ts`; reusable export-item views are separated from rendering, backup, import, and download coordination in `ExportMenu.tsx`.
 - Template category projection lives in `templates/templatePickerModel.ts`; preview cards and gallery sections are separate views while `TemplatePicker.tsx` retains modal focus and custom-template form coordination.
 - `app/useAppLifecycle.ts` owns theme/document bootstrap, before-unload saves, shortcut-help dispatch, and install-prompt lifecycle; `app/AppStatusBar.tsx` owns the status projection and content-fit affordance while `App.tsx` composes the shell.
@@ -154,7 +153,7 @@ Owns desktop shell behavior only.
 
 The v5 structural refactor is complete for the current product scope. Remaining large modules are explicit composition roots and should not be split further based on line count alone.
 
-- `docManagement.ts` coordinates repository-backed document workflows; record construction, recovery decisions, search history, runtime indexes, workspace projection, and initialization live in focused modules.
+- `docManagement.ts` coordinates the repository-backed canonical board; record construction, recovery decisions, runtime indexes, workspace projection, and initialization live in focused modules.
 - `usePointerEngine.ts` coordinates input contacts, pan and eyedropper behavior, event bindings, and renderer state; geometry, hit testing, gesture rules, drawing sessions, selection sessions, clipboard rendering, and auxiliary handlers live behind focused boundaries.
 - `history.ts` coordinates runtime synchronization, viewport focus, feedback, and saves; deterministic undo/redo transitions live in `historyTransitions.ts`.
 - `canvasDrawing.ts` remains the shared element dispatcher and cache-invalidation facade; concrete renderers live in focused canvas modules.

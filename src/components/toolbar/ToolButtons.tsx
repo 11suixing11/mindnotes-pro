@@ -1,9 +1,5 @@
 import { memo, type ReactNode } from 'react'
-import {
-  TOOL_SHORTCUT_ACTIONS,
-  formatShortcutBadge,
-  formatShortcutBinding,
-} from '../../keyboard/shortcuts'
+import { TOOL_SHORTCUT_ACTIONS, formatShortcutBinding } from '../../keyboard/shortcuts'
 import { useShortcutStore } from '../../store/useShortcutStore'
 import type { ToolType } from '../../store/types'
 import { icons } from './icons'
@@ -45,7 +41,6 @@ const ToolButtons = memo(function ToolButtons({ tool, setTool }: ToolButtonsProp
   const renderToolButton = (t: ToolButtonDefinition) => {
     const binding = bindings[TOOL_SHORTCUT_ACTIONS[t.id]]
     const shortcut = formatShortcutBinding(binding)
-    const badge = formatShortcutBadge(binding)
 
     return (
       <Tooltip key={t.id} content={t.tip} shortcut={shortcut}>
@@ -56,11 +51,6 @@ const ToolButtons = memo(function ToolButtons({ tool, setTool }: ToolButtonsProp
           aria-pressed={tool === t.id}
         >
           {t.icon}
-          {badge && (
-            <span className="k" aria-hidden="true">
-              {badge}
-            </span>
-          )}
         </button>
       </Tooltip>
     )

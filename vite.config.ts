@@ -1,6 +1,5 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-// import { visualizer } from 'rollup-plugin-visualizer'
 
 const CSP_PLACEHOLDER = '__MINDNOTES_CSP__'
 const DEV_PORT = 3000
@@ -29,7 +28,7 @@ function contentSecurityPolicyPlugin(isDevServer: boolean): Plugin {
   }
 }
 
-export default defineConfig(({ command, mode }) => ({
+export default defineConfig(({ command }) => ({
   plugins: [
     contentSecurityPolicyPlugin(command === 'serve'),
     react({
@@ -37,13 +36,6 @@ export default defineConfig(({ command, mode }) => ({
         plugins: [],
       },
     }),
-    mode === 'analyze' &&
-      visualizer({
-        open: true,
-        filename: 'stats.html',
-        gzipSize: true,
-        brotliSize: true,
-      }),
   ].filter(Boolean),
   base: process.env.VITE_APP_BASE || '/',
   server: {

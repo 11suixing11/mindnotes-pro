@@ -53,11 +53,9 @@ describe('ToolButtons', () => {
     expect(setTool).toHaveBeenCalledWith('rectangle')
   })
 
-  it('renders keyboard shortcut hints', () => {
-    render(<ToolButtons tool="pen" setTool={setTool} />)
-    expect(screen.getByText('1')).toBeTruthy()
-    expect(screen.getByText('2')).toBeTruthy()
-    expect(screen.getByText('3')).toBeTruthy()
+  it('does not render shortcut badges in the sidebar', () => {
+    const { container } = render(<ToolButtons tool="pen" setTool={setTool} />)
+    expect(container.querySelectorAll('.tbtn .k')).toHaveLength(0)
   })
 
   it('renders customized shortcut hints', () => {
@@ -66,7 +64,7 @@ describe('ToolButtons', () => {
     render(<ToolButtons tool="pen" setTool={setTool} />)
 
     expect(screen.getByLabelText('画笔工具（P）')).toBeTruthy()
-    expect(screen.getByText('P')).toBeTruthy()
+    expect(screen.queryByText('P')).toBeNull()
   })
 
   it('renders separators', () => {

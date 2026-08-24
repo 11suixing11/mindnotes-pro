@@ -56,6 +56,7 @@ interface CanvasAuxiliaryInputOptions {
     existing?: TextElement
   ) => void
   focusTextEditor: () => void
+  scheduleFocusTextEditor?: () => void
   scheduleRedraw: () => void
 }
 
@@ -80,6 +81,7 @@ export function createCanvasAuxiliaryInputHandlers(
     getBounds,
     startEditText,
     focusTextEditor,
+    scheduleFocusTextEditor,
     scheduleRedraw,
   } = options
 
@@ -126,7 +128,17 @@ export function createCanvasAuxiliaryInputHandlers(
 
   const onContextMenu = (event: MouseEvent) => {
     const state = rightClickPanRef.current
-    if (state.isPanning || state.moved) event.preventDefault()
+    if (state.isPanning || state.moved) {
+      event.preventDefault()
+      if (getIsPanning()) endPan()
+      state.isPanning = false
+      state.moved = false
+    }
+  }
+
+  const focusAfterStartingEdit = () => {
+    if (scheduleFocusTextEditor) scheduleFocusTextEditor()
+    else setTimeout(focusTextEditor, 50)
   }
 
   const onDoubleClick = (event: MouseEvent) => {
@@ -146,7 +158,7 @@ export function createCanvasAuxiliaryInputHandlers(
     if (element.type === 'text') {
       const screen = worldToClient({ x: element.x, y: element.y }, rect, viewBox)
       startEditText(element.x, element.y, screen.x, screen.y, element.color, element)
-      setTimeout(focusTextEditor, 50)
+      focusAfterStartingEdit()
     } else if (element.type === 'shape') {
       const bounds = getBounds(element)
       const textPosition = {
@@ -155,7 +167,7 @@ export function createCanvasAuxiliaryInputHandlers(
       }
       const screen = worldToClient(textPosition, rect, viewBox)
       startEditText(textPosition.x, textPosition.y, screen.x, screen.y, element.color)
-      setTimeout(focusTextEditor, 50)
+      focusAfterStartingEdit()
     }
   }
 

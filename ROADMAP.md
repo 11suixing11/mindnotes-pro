@@ -5,7 +5,7 @@ MindNotes Pro is maintained as a small, local-first whiteboard. Reliability work
 ## Current priorities
 
 1. Reduce the size and responsibility of pointer, rendering, and canvas-mutation modules without changing user behavior.
-2. Improve keyboard-only and screen-reader workflows across canvas editing, menus, dialogs, layers, and document management.
+2. Improve keyboard-only and screen-reader workflows across canvas editing, menus, dialogs, layers, and board recovery.
 3. Establish repeatable large-document performance measurements for rendering, hit testing, autosave, and export.
 4. Expand malformed-import, migration, and recovery coverage so document failures are explicit and reversible.
 5. Publish reproducible web and desktop releases, then add platform signing only when credentials and ownership are clear.
