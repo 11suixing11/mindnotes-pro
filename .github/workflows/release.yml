@@ -159,7 +159,7 @@ jobs:
 
             **Before upgrading**
 
-            Export a JSON backup before clearing browser site data or changing devices. Browser documents remain local to the current origin. The previous `mindnotes-drawing-data` document is migrated only during the first v4 startup when the v4 document store is empty and migration succeeds, before a new v4 document is created. If automatic migration cannot occur, export the old data as JSON when possible and use the supported import path; imports create a separate editable document.
+            Export a JSON backup before clearing browser site data or changing devices. Browser documents remain local to the current origin. The previous v4 document store is imported read-only on first v5 startup when available; the original database is never deleted. If automatic migration cannot occur, export the old data as JSON when possible and use the supported import path; imports replace the current board after validation.
 
             **[Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)** · **[Report Issues](https://github.com/${{ github.repository }}/issues)**
           files: |

@@ -1,4 +1,4 @@
-import { useState, useEffect, memo, useMemo } from 'react'
+import { useState, useEffect, memo, useMemo, useCallback } from 'react'
 import {
   FIXED_SHORTCUT_HELP,
   SHORTCUT_DEFINITIONS,
@@ -9,6 +9,7 @@ import {
   type ShortcutCategory,
 } from '../../keyboard/shortcuts'
 import { useShortcutStore } from '../../store/useShortcutStore'
+import { useDialogFocus } from '../useDialogFocus'
 
 interface KeyboardShortcutsHelpProps {
   open: boolean
@@ -71,20 +72,29 @@ export default memo(function KeyboardShortcutsHelp({
     setVisible(open)
   }, [open])
 
+  const closeHelp = useCallback(() => {
+    setVisible(false)
+    onClose()
+  }, [onClose])
+
+  const dialogRef = useDialogFocus<HTMLDivElement>({
+    open: visible,
+    onClose: closeHelp,
+  })
+
   useEffect(() => {
     if (!visible) return
     const handler = (e: KeyboardEvent) => {
       if (isEditableShortcutTarget(e.target)) return
       const action = findShortcutAction(e, useShortcutStore.getState().bindings)
-      if (e.key === 'Escape' || action === 'help.shortcuts') {
+      if (action === 'help.shortcuts') {
         e.preventDefault()
-        setVisible(false)
-        onClose()
+        closeHelp()
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [visible, onClose])
+  }, [closeHelp, visible])
 
   if (!visible) return null
 
@@ -92,18 +102,25 @@ export default memo(function KeyboardShortcutsHelp({
     <div
       className="fixed inset-0 z-[500] bg-[rgba(0,0,0,0.35)] backdrop-blur-[3px] flex items-center justify-center"
       style={{ animation: 'fadeIn 0.15s ease' }}
-      onClick={() => {
-        setVisible(false)
-        onClose()
-      }}
+      onClick={closeHelp}
     >
       <div
+        ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
         className="bg-[var(--card-solid)] rounded-[16px] py-[24px] px-[28px] max-w-[520px] w-[90vw] shadow-[0_8px_40px_rgba(0,0,0,0.2)] border border-[var(--border)]"
         style={{ animation: 'popIn 0.2s cubic-bezier(0.16,1,0.3,1)' }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="keyboard-shortcuts-help-title"
+        tabIndex={-1}
       >
         <div className="flex items-center justify-between gap-[12px] mb-[16px]">
-          <div className="text-[16px] font-medium text-[var(--text)]">键盘快捷键</div>
+          <h2
+            id="keyboard-shortcuts-help-title"
+            className="text-[16px] font-medium text-[var(--text)]"
+          >
+            键盘快捷键
+          </h2>
           <div className="flex items-center gap-[8px]">
             {onCustomize && (
               <button
@@ -114,10 +131,7 @@ export default memo(function KeyboardShortcutsHelp({
               </button>
             )}
             <button
-              onClick={() => {
-                setVisible(false)
-                onClose()
-              }}
+              onClick={closeHelp}
               className="w-[28px] h-[28px] rounded-[8px] flex items-center justify-center text-[var(--text-3)] hover:bg-[var(--primary-bg)] transition-colors text-[16px]"
               aria-label="关闭"
             >

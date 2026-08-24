@@ -2,6 +2,7 @@ import type { CanvasElement } from '../types'
 import { moveElement } from '../types'
 import { shallowClone } from '../helpers'
 import { assignToWritableLayer, type CanvasElementRuleContext } from './canvasElementRules'
+import { createRuntimeId } from '../runtimeId'
 
 export interface OffsetCopyPlan {
   elements: CanvasElement[]
@@ -19,14 +20,14 @@ export function copySelectedElements(
 export function createOffsetCopyPlan(
   sourceElements: CanvasElement[],
   context: CanvasElementRuleContext,
-  timestamp: number,
+  _timestamp: number,
   offset = 20
 ): OffsetCopyPlan {
   const elements: CanvasElement[] = []
   const ids: string[] = []
 
-  sourceElements.forEach((element, index) => {
-    const id = `${element.type}-${timestamp}-${index}`
+  sourceElements.forEach((element) => {
+    const id = createRuntimeId(element.type)
     const copy = assignToWritableLayer(
       moveElement({ ...shallowClone(element), id }, offset, offset),
       context

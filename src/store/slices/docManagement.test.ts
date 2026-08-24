@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from '../appStore'
 import { useToastStore } from '../toastStore'
-import { clearSaveTimer, resetSaveCache } from '../saveManager'
-import { saveRecoveryDraft } from '../recovery'
+import { clearSaveTimer, resetSaveCache, saveDocNow } from '../saveManager'
+import { loadRecoveryDraft, saveRecoveryDraft } from '../recovery'
 import { CANVAS_SCHEMA_VERSION } from '../schema'
 import type { AppStore } from '../sliceTypes'
 import type * as StorageModule from '../storage'
@@ -424,6 +424,53 @@ describe('docManagement slice', () => {
       expect(useAppStore.getState().currentDocId).toBe(id2)
       await useAppStore.getState().deleteDoc(id1)
       expect(useAppStore.getState().currentDocId).toBe(id2)
+    })
+
+    it('waits for an in-flight save before deleting and does not recreate the document', async () => {
+      const id = await useAppStore.getState().createDoc('Race')
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'pending-delete-shape',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 20,
+        h: 20,
+        color: '#000000',
+        size: 2,
+      })
+
+      let releaseSave: (() => void) | undefined
+      const saveGate = new Promise<void>((resolve) => {
+        releaseSave = resolve
+      })
+      const defaultUpdate = vi.mocked(storageMock.update).getMockImplementation()
+      if (!defaultUpdate) throw new Error('Expected an update mock implementation')
+      vi.mocked(storageMock.update).mockImplementationOnce(async (...args) => {
+        await saveGate
+        return defaultUpdate(...args)
+      })
+
+      const savePromise = saveDocNow()
+      await vi.waitFor(() => expect(storageMock.update).toHaveBeenCalledTimes(1))
+      const deletePromise = useAppStore.getState().deleteDoc(id)
+
+      releaseSave?.()
+      await Promise.all([savePromise, deletePromise])
+
+      expect(storageMock.__store.docs[id]).toBeUndefined()
+      expect(useAppStore.getState().docs.some((doc) => doc.id === id)).toBe(false)
+    })
+
+    it('clears a deleted document recovery draft', async () => {
+      const id = await useAppStore.getState().createDoc('Draft to delete')
+      const current = useAppStore.getState().docs.find((doc) => doc.id === id)
+      if (!current) throw new Error('Expected current document')
+      saveRecoveryDraft(current, 100)
+
+      await useAppStore.getState().deleteDoc(id)
+
+      expect(loadRecoveryDraft(id)).toBeNull()
     })
   })
 

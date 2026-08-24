@@ -88,7 +88,7 @@ The v5 JSON backup contract is intentionally explicit:
 ```json
 {
   "format": "mindnotes-pro-backup",
-  "version": 4,
+  "version": 5,
   "exportedAt": "2026-07-31T00:00:00.000Z",
   "document": {
     "title": "Project board",

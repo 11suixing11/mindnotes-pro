@@ -1,4 +1,4 @@
-import { sanitizeSvgDataUrl } from '../../canvas/svgSanitizer'
+import { sanitizeImageDataUrl } from '../../canvas/svgSanitizer'
 import {
   DEFAULT_TEXT_FONT_SIZE,
   getTextLayout,
@@ -6,6 +6,7 @@ import {
 } from '../../canvas/textFormatting'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
+import { createRuntimeId } from '../../store/runtimeId'
 
 export function getViewportCenter(): { x: number; y: number } {
   const viewBox = useViewStore.getState().viewBox
@@ -25,7 +26,7 @@ export function pastePlainTextAtViewportCenter(text: string): void {
 
   store.addElement({
     type: 'text',
-    id: `text-${Date.now()}`,
+    id: createRuntimeId('text'),
     x: center.x - layout.width / 2,
     y: center.y - layout.height / 2,
     width: layout.width,
@@ -39,7 +40,8 @@ export function pastePlainTextAtViewportCenter(text: string): void {
 }
 
 export function pasteImageAtViewportCenter(dataUrl: string): void {
-  const safeDataUrl = sanitizeSvgDataUrl(dataUrl)
+  const safeDataUrl = sanitizeImageDataUrl(dataUrl)
+  if (!safeDataUrl) return
   const image = new Image()
   image.onload = () => {
     const store = useAppStore.getState()
@@ -50,7 +52,7 @@ export function pasteImageAtViewportCenter(dataUrl: string): void {
     const height = Math.round(image.height * scale)
     store.addElement({
       type: 'image',
-      id: `img-${Date.now()}`,
+      id: createRuntimeId('img'),
       x: center.x - width / 2,
       y: center.y - height / 2,
       width,

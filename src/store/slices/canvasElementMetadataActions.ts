@@ -1,5 +1,6 @@
 import type { CanvasElement, CanvasLayer, UndoAction } from '../types'
 import { incrementSaveGeneration, scheduleSave } from '../saveManager'
+import { createRuntimeId } from '../runtimeId'
 import { getEditableIds } from './canvasElementRules'
 import { createElementLockPlan, createGroupPlan, createUngroupPlan } from './canvasElementMetadata'
 import { appendUndoAction } from './canvasElementCommit'
@@ -64,7 +65,7 @@ export function createCanvasElementMetadataActions(
       const editableIds = getEditableIds(state.selectedIds, state)
       if (editableIds.length < 2) return
 
-      const plan = createGroupPlan(state.elements, editableIds, `group-${Date.now()}`)
+      const plan = createGroupPlan(state.elements, editableIds, createRuntimeId('group'))
       commitMetadataPlan(state, plan, editableIds)
     },
 

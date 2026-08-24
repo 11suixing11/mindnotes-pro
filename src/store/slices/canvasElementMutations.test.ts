@@ -47,6 +47,15 @@ describe('canvas element mutation plans', () => {
     expect(recorded.points).not.toBe(stroke.points)
   })
 
+  it('rejects duplicate element ids against existing and incoming elements', () => {
+    const existing = makeShape('existing')
+
+    expect(createElementAdditionPlan([existing], [makeShape('existing')])).toBeNull()
+    expect(
+      createElementAdditionPlan([], [makeShape('duplicate'), makeShape('duplicate')])
+    ).toBeNull()
+  })
+
   it('updates one element without mutating the source array', () => {
     const elements = [makeShape('a'), makeShape('b', 100)]
 

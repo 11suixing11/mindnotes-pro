@@ -86,7 +86,9 @@ describe('canvas element metadata actions', () => {
 
     actions.groupSelected()
 
-    expect(state.elements.every((element) => element.groupId === 'group-1000')).toBe(true)
+    const groupId = state.elements[0].groupId
+    expect(groupId).toMatch(/^group-/)
+    expect(state.elements.every((element) => element.groupId === groupId)).toBe(true)
     expect(state.selectedIds).toEqual([first.id, second.id])
     expect(state.undoStack[state.undoStack.length - 1]?.type).toBe('group')
     expect(synchronizeElementReferences).toHaveBeenCalledOnce()

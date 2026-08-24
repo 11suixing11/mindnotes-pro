@@ -6,6 +6,7 @@ import { useThemeStore } from '../../store/useThemeStore'
 import { useToastStore } from '../../store/toastStore'
 import type { CanvasDoc } from '../../store/types'
 import { createCanvasBackup, parseCanvasImportJSON } from '../../store/backup'
+import { CANVAS_IMPORT_MAX_JSON_BYTES } from '../../store/importLimits'
 import { getRenderableElements } from '../../store/layers'
 import {
   canvasToBlob,
@@ -221,6 +222,9 @@ const ExportMenu = memo(function ExportMenu() {
     if (!file) return
 
     try {
+      if (file.size > CANVAS_IMPORT_MAX_JSON_BYTES) {
+        throw new Error('JSON 文件过大，无法导入')
+      }
       const imported = parseCanvasImportJSON(await file.text())
       await useAppStore.getState().replaceCurrentDoc(imported)
       showToast('已导入并替换当前画板', 'success')

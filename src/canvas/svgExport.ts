@@ -7,7 +7,7 @@ import type {
   ImageElement,
 } from '../store/types'
 import { getSvgBrushStyle } from './brushPresets'
-import { sanitizeSvgDataUrl } from './svgSanitizer'
+import { sanitizeImageDataUrl } from './svgSanitizer'
 import {
   createTextWidthMeasurer,
   getOriginalTextContent,
@@ -131,10 +131,9 @@ function textToSVG(el: TextElement): string {
 }
 
 function imageToSVG(el: ImageElement): string {
-  // SVG 安全过滤 - 导出时二次清理，防止 XSS 攻击
-  // 参考: 通用编辑器安全处理做法
-  const safeDataUrl = sanitizeSvgDataUrl(el.dataUrl)
-  return `<image x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" href="${safeDataUrl}" preserveAspectRatio="none"/>\n`
+  const safeDataUrl = sanitizeImageDataUrl(el.dataUrl)
+  if (!safeDataUrl) return ''
+  return `<image x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" href="${esc(safeDataUrl)}" preserveAspectRatio="none"/>\n`
 }
 
 function elementToSVGContent(el: CanvasElement): string {

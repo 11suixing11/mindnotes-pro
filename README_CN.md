@@ -88,7 +88,7 @@ v5 JSON 备份协议是明确且可验证的：
 ```json
 {
   "format": "mindnotes-pro-backup",
-  "version": 4,
+  "version": 5,
   "exportedAt": "2026-07-31T00:00:00.000Z",
   "document": {
     "title": "项目画布",

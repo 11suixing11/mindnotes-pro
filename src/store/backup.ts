@@ -1,5 +1,16 @@
 import { normalizeElementLayers, normalizeLayers } from './layers'
-import { sanitizeSvgDataUrl } from '../canvas/svgSanitizer'
+import { sanitizeImageDataUrl } from '../canvas/svgSanitizer'
+import {
+  CANVAS_IMPORT_MAX_ELEMENTS,
+  CANVAS_IMPORT_MAX_IMAGE_DATA_URL_LENGTH,
+  CANVAS_IMPORT_MAX_JSON_BYTES,
+  CANVAS_IMPORT_MAX_LAYERS,
+  CANVAS_IMPORT_MAX_STRING_LENGTH,
+  CANVAS_IMPORT_MAX_STROKE_POINTS,
+  CANVAS_IMPORT_MAX_TOTAL_STROKE_POINTS,
+  CANVAS_IMPORT_MAX_TEXT_LENGTH,
+  getUtf8ByteLength,
+} from './importLimits'
 import { CANVAS_SCHEMA_VERSION, LEGACY_CANVAS_SCHEMA_VERSION } from './schema'
 import type {
   Binding,
@@ -74,17 +85,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function requiredString(record: Record<string, unknown>, key: string): string {
+function requiredString(
+  record: Record<string, unknown>,
+  key: string,
+  maxLength = CANVAS_IMPORT_MAX_STRING_LENGTH
+): string {
   const value = record[key]
   if (typeof value !== 'string' || !value.trim()) {
     throw new CanvasImportError(`字段 ${key} 必须是非空字符串`)
   }
+  if (value.length > maxLength) {
+    throw new CanvasImportError(`字段 ${key} 超过长度限制`)
+  }
   return value
 }
 
-function optionalString(record: Record<string, unknown>, key: string): string | undefined {
+function optionalString(
+  record: Record<string, unknown>,
+  key: string,
+  maxLength = CANVAS_IMPORT_MAX_STRING_LENGTH
+): string | undefined {
   const value = record[key]
-  return typeof value === 'string' && value ? value : undefined
+  if (typeof value !== 'string' || !value) return undefined
+  if (value.length > maxLength) {
+    throw new CanvasImportError(`字段 ${key} 超过长度限制`)
+  }
+  return value
 }
 
 function requiredNumber(record: Record<string, unknown>, key: string): number {
@@ -123,6 +149,9 @@ function parseStroke(record: Record<string, unknown>): StrokeElement {
   if (!Array.isArray(record.points) || record.points.length === 0) {
     throw new CanvasImportError('笔迹 points 必须是非空数组')
   }
+  if (record.points.length > CANVAS_IMPORT_MAX_STROKE_POINTS) {
+    throw new CanvasImportError(`单条笔迹不能超过 ${CANVAS_IMPORT_MAX_STROKE_POINTS} 个坐标点`)
+  }
   const points = record.points.map((point) => {
     if (
       !Array.isArray(point) ||
@@ -140,12 +169,19 @@ function parseStroke(record: Record<string, unknown>): StrokeElement {
   if (!BRUSH_TYPES.has(brush as BrushType)) throw new CanvasImportError('画笔类型无效')
 
   const pressures = Array.isArray(record.pressures)
-    ? record.pressures.map((pressure) => {
-        if (typeof pressure !== 'number' || !Number.isFinite(pressure)) {
-          throw new CanvasImportError('笔压数据格式无效')
+    ? (() => {
+        if (record.pressures.length > CANVAS_IMPORT_MAX_STROKE_POINTS) {
+          throw new CanvasImportError(
+            `单条笔迹不能超过 ${CANVAS_IMPORT_MAX_STROKE_POINTS} 个笔压样本`
+          )
         }
-        return pressure
-      })
+        return record.pressures.map((pressure) => {
+          if (typeof pressure !== 'number' || !Number.isFinite(pressure)) {
+            throw new CanvasImportError('笔压数据格式无效')
+          }
+          return pressure
+        })
+      })()
     : undefined
 
   if (pressures && pressures.length < points.length) {
@@ -191,6 +227,10 @@ function parseText(record: Record<string, unknown>): TextElement {
   const textDecoration = record.textDecoration === 'underline' ? 'underline' : 'none'
   const textAlign =
     record.textAlign === 'center' || record.textAlign === 'right' ? record.textAlign : 'left'
+  const content = typeof record.content === 'string' ? record.content : ''
+  if (content.length > CANVAS_IMPORT_MAX_TEXT_LENGTH) {
+    throw new CanvasImportError(`文本内容不能超过 ${CANVAS_IMPORT_MAX_TEXT_LENGTH} 个字符`)
+  }
   return {
     type: 'text',
     id: requiredString(record, 'id'),
@@ -198,8 +238,8 @@ function parseText(record: Record<string, unknown>): TextElement {
     y: requiredNumber(record, 'y'),
     width: requiredNumber(record, 'width'),
     height: requiredNumber(record, 'height'),
-    content: typeof record.content === 'string' ? record.content : '',
-    originalContent: optionalString(record, 'originalContent'),
+    content,
+    originalContent: optionalString(record, 'originalContent', CANVAS_IMPORT_MAX_TEXT_LENGTH),
     autoResize: typeof record.autoResize === 'boolean' ? record.autoResize : undefined,
     fontSize: requiredNumber(record, 'fontSize'),
     color: requiredString(record, 'color'),
@@ -213,9 +253,13 @@ function parseText(record: Record<string, unknown>): TextElement {
 }
 
 function parseImage(record: Record<string, unknown>): ImageElement {
-  const dataUrl = requiredString(record, 'dataUrl')
-  if (!dataUrl.startsWith('data:image/')) {
-    throw new CanvasImportError('图片必须使用 data:image URL')
+  const dataUrl = requiredString(record, 'dataUrl', CANVAS_IMPORT_MAX_IMAGE_DATA_URL_LENGTH)
+  const safeDataUrl = sanitizeImageDataUrl(dataUrl)
+  if (!safeDataUrl) {
+    throw new CanvasImportError('图片必须使用受支持的 data:image URL')
+  }
+  if (safeDataUrl.length > CANVAS_IMPORT_MAX_IMAGE_DATA_URL_LENGTH) {
+    throw new CanvasImportError('图片清理后超过大小限制')
   }
   return {
     type: 'image',
@@ -224,7 +268,7 @@ function parseImage(record: Record<string, unknown>): ImageElement {
     y: requiredNumber(record, 'y'),
     width: requiredNumber(record, 'width'),
     height: requiredNumber(record, 'height'),
-    dataUrl: sanitizeSvgDataUrl(dataUrl),
+    dataUrl: safeDataUrl,
     opacity: optionalNumber(record, 'opacity'),
     ...elementMetadata(record),
   }
@@ -262,7 +306,29 @@ function parseLayer(value: unknown, index: number): CanvasLayer {
 
 function normalizeImportedDocument(value: Record<string, unknown>): CanvasBackupDocument {
   if (!Array.isArray(value.elements)) throw new CanvasImportError('缺少 elements 数组')
+  if (value.elements.length > CANVAS_IMPORT_MAX_ELEMENTS) {
+    throw new CanvasImportError(`画布不能超过 ${CANVAS_IMPORT_MAX_ELEMENTS} 个元素`)
+  }
+  if (Array.isArray(value.layers) && value.layers.length > CANVAS_IMPORT_MAX_LAYERS) {
+    throw new CanvasImportError(`画布不能超过 ${CANVAS_IMPORT_MAX_LAYERS} 个图层`)
+  }
   const elements = value.elements.map(parseElement)
+  const totalStrokePoints = elements.reduce(
+    (total, element) => (element.type === 'stroke' ? total + element.points.length : total),
+    0
+  )
+  if (totalStrokePoints > CANVAS_IMPORT_MAX_TOTAL_STROKE_POINTS) {
+    throw new CanvasImportError(
+      `画布笔迹坐标总数不能超过 ${CANVAS_IMPORT_MAX_TOTAL_STROKE_POINTS} 个坐标点`
+    )
+  }
+  const elementIds = new Set<string>()
+  for (const element of elements) {
+    if (elementIds.has(element.id)) {
+      throw new CanvasImportError('画布元素 ID 必须唯一')
+    }
+    elementIds.add(element.id)
+  }
   const rawLayers = Array.isArray(value.layers)
     ? value.layers.map((layer, index) => parseLayer(layer, index))
     : undefined
@@ -285,8 +351,13 @@ function normalizeImportedDocument(value: Record<string, unknown>): CanvasBackup
 
 function legacyElements(value: Record<string, unknown>): CanvasElement[] {
   const elements: CanvasElement[] = []
+  const strokes = Array.isArray(value.strokes) ? value.strokes : []
+  const shapes = Array.isArray(value.shapes) ? value.shapes : []
+  if (strokes.length + shapes.length > CANVAS_IMPORT_MAX_ELEMENTS) {
+    throw new CanvasImportError(`画布不能超过 ${CANVAS_IMPORT_MAX_ELEMENTS} 个元素`)
+  }
 
-  for (const item of Array.isArray(value.strokes) ? value.strokes : []) {
+  for (const item of strokes) {
     if (!isRecord(item) || !Array.isArray(item.points) || item.points.length === 0) continue
     const firstPoint = item.points[0]
     if (!Array.isArray(firstPoint) || firstPoint.length < 2) continue
@@ -340,7 +411,7 @@ function legacyElements(value: Record<string, unknown>): CanvasElement[] {
     }
   }
 
-  for (const item of Array.isArray(value.shapes) ? value.shapes : []) {
+  for (const item of shapes) {
     if (!isRecord(item) || !SHAPE_KINDS.has(item.type as ShapeKind)) continue
     const x = optionalNumber(item, 'startX') ?? optionalNumber(item, 'x')
     const y = optionalNumber(item, 'startY') ?? optionalNumber(item, 'y')
@@ -440,6 +511,9 @@ export function parseCanvasImport(value: unknown): CanvasBackupDocument {
 
 export function parseCanvasImportJSON(serialized: string): CanvasBackupDocument {
   try {
+    if (getUtf8ByteLength(serialized) > CANVAS_IMPORT_MAX_JSON_BYTES) {
+      throw new CanvasImportError('JSON 文件过大，无法导入')
+    }
     return parseCanvasImport(JSON.parse(serialized) as unknown)
   } catch (error) {
     if (error instanceof CanvasImportError) throw error

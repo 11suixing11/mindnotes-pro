@@ -8,6 +8,15 @@ import {
 } from './backup'
 import { createDefaultLayer } from './layers'
 import { CANVAS_SCHEMA_VERSION } from './schema'
+import {
+  CANVAS_IMPORT_MAX_ELEMENTS,
+  CANVAS_IMPORT_MAX_IMAGE_DATA_URL_LENGTH,
+  CANVAS_IMPORT_MAX_JSON_BYTES,
+  CANVAS_IMPORT_MAX_LAYERS,
+  CANVAS_IMPORT_MAX_STROKE_POINTS,
+  CANVAS_IMPORT_MAX_TOTAL_STROKE_POINTS,
+  CANVAS_IMPORT_MAX_TEXT_LENGTH,
+} from './importLimits'
 import type { CanvasDoc } from './types'
 
 function makeDocument(): CanvasDoc {
@@ -208,7 +217,138 @@ describe('canvas backup format', () => {
     expect(sanitized).not.toContain('onload')
   })
 
+  it('rejects forged and oversized image data URLs', () => {
+    const image = {
+      type: 'image',
+      id: 'unsafe-image',
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+    }
+
+    expect(() =>
+      parseCanvasImport({
+        version: 3,
+        elements: [{ ...image, dataUrl: 'data:image/png;base64,abc" onerror="alert(1)' }],
+      })
+    ).toThrow('图片必须使用受支持的 data:image URL')
+    expect(() =>
+      parseCanvasImport({
+        version: 3,
+        elements: [
+          {
+            ...image,
+            dataUrl: `data:image/png;base64,${'a'.repeat(CANVAS_IMPORT_MAX_IMAGE_DATA_URL_LENGTH)}`,
+          },
+        ],
+      })
+    ).toThrow('字段 dataUrl 超过长度限制')
+  })
+
+  it('rejects documents that exceed element or layer limits before mapping entries', () => {
+    expect(() =>
+      parseCanvasImport({
+        version: 3,
+        elements: new Array(CANVAS_IMPORT_MAX_ELEMENTS + 1).fill(null),
+      })
+    ).toThrow(`画布不能超过 ${CANVAS_IMPORT_MAX_ELEMENTS} 个元素`)
+    expect(() =>
+      parseCanvasImport({
+        version: 3,
+        elements: [],
+        layers: new Array(CANVAS_IMPORT_MAX_LAYERS + 1).fill(null),
+      })
+    ).toThrow(`画布不能超过 ${CANVAS_IMPORT_MAX_LAYERS} 个图层`)
+  })
+
+  it('rejects oversized stroke and text payloads', () => {
+    expect(() =>
+      parseCanvasImport({
+        version: 3,
+        elements: [
+          {
+            type: 'stroke',
+            id: 'large-stroke',
+            points: new Array(CANVAS_IMPORT_MAX_STROKE_POINTS + 1).fill([0, 0]),
+          },
+        ],
+      })
+    ).toThrow(`单条笔迹不能超过 ${CANVAS_IMPORT_MAX_STROKE_POINTS} 个坐标点`)
+    expect(() =>
+      parseCanvasImport({
+        version: 3,
+        elements: [
+          {
+            type: 'text',
+            id: 'large-text',
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+            content: 'a'.repeat(CANVAS_IMPORT_MAX_TEXT_LENGTH + 1),
+            fontSize: 16,
+            color: '#000000',
+          },
+        ],
+      })
+    ).toThrow(`文本内容不能超过 ${CANVAS_IMPORT_MAX_TEXT_LENGTH} 个字符`)
+  })
+
+  it('rejects documents that exceed the aggregate stroke point budget', () => {
+    const strokePoints = new Array(100_000).fill([0, 0])
+    const strokes = new Array(Math.floor(CANVAS_IMPORT_MAX_TOTAL_STROKE_POINTS / 100_000))
+      .fill(null)
+      .map((_, index) => ({
+        type: 'stroke',
+        id: `stroke-${index}`,
+        points: strokePoints,
+        color: '#000000',
+        size: 2,
+        brush: 'pen',
+      }))
+    strokes.push({
+      type: 'stroke',
+      id: 'stroke-over-budget',
+      points: [[0, 0]],
+      color: '#000000',
+      size: 2,
+      brush: 'pen',
+    })
+
+    expect(() => parseCanvasImport({ version: 3, elements: strokes })).toThrow(
+      `画布笔迹坐标总数不能超过 ${CANVAS_IMPORT_MAX_TOTAL_STROKE_POINTS} 个坐标点`
+    )
+  })
+
+  it('rejects JSON strings that exceed the byte budget before parsing', () => {
+    expect(() => parseCanvasImportJSON(' '.repeat(CANVAS_IMPORT_MAX_JSON_BYTES + 1))).toThrow(
+      'JSON 文件过大，无法导入'
+    )
+  })
+
   it('reports invalid JSON with a user-facing import error', () => {
     expect(() => parseCanvasImportJSON('{not-json')).toThrow('JSON 文件格式无效')
+  })
+
+  it('rejects duplicate element ids in an import', () => {
+    const stroke = {
+      type: 'stroke',
+      id: 'duplicate',
+      points: [
+        [0, 0],
+        [1, 1],
+      ],
+      color: '#000000',
+      size: 2,
+      brush: 'pen',
+    }
+    expect(() =>
+      parseCanvasImport({
+        format: 'mindnotes-pro-backup',
+        version: 5,
+        document: { elements: [stroke, stroke] },
+      })
+    ).toThrow('元素 ID 必须唯一')
   })
 })

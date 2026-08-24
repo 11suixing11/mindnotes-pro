@@ -9,6 +9,7 @@ import { createStrokeElement } from '../../canvas/strokeElements'
 import { snapPointIfEnabled } from '../../canvas/coordinates'
 import { eraseElementsAtPoint, getEraserWorldRadius } from '../../eraser/simpleEraser'
 import { useAppStore } from '../../store/appStore'
+import { createRuntimeId } from '../../store/runtimeId'
 import { tryBindToShape } from '../../store/bindingUtils'
 import { snapshot } from '../../store/helpers'
 import {
@@ -184,7 +185,7 @@ export function useDrawingPointerHandlers(options: UseDrawingPointerHandlersOpti
         const start = snapPointIfGridEnabled(position)
         shapeStartRef.current = start
         currentShapeRef.current = createShapeElement({
-          id: `shape-${Date.now()}`,
+          id: createRuntimeId('shape'),
           kind: tool,
           start,
           color: state.color,
@@ -247,7 +248,7 @@ export function useDrawingPointerHandlers(options: UseDrawingPointerHandlersOpti
     const tool = state.tool
     if (tool === 'pen') {
       const element = createStrokeElement({
-        id: `stroke-${Date.now()}`,
+        id: createRuntimeId('stroke'),
         points: currentPtsRef.current,
         color: state.color,
         size: state.size,

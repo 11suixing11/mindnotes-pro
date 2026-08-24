@@ -1,7 +1,13 @@
 import type { CanvasDoc } from '../types'
 import { getDocumentRepository } from '../documentRepository'
 import { useViewStore } from '../useViewStore'
-import { saveDocNow, clearSaveTimer } from '../saveManager'
+import {
+  saveDocNow,
+  clearSaveTimer,
+  markDocumentDeleted,
+  unmarkDocumentDeleted,
+} from '../saveManager'
+import { clearRecoveryDraftForDocument } from '../recovery'
 import { normalizeCanvasDocLayers } from '../layers'
 import { CANVAS_SCHEMA_VERSION } from '../schema'
 import { useToastStore } from '../toastStore'
@@ -182,8 +188,17 @@ export function createDocManagementSlice(
     },
 
     deleteDoc: async (id) => {
+      clearSaveTimer()
+      if (get().currentDocId === id) await saveDocNow()
+      markDocumentDeleted(id)
       const repository = getDocumentRepository()
-      await repository.deleteDocument(id)
+      try {
+        await repository.deleteDocument(id)
+        clearRecoveryDraftForDocument(id, Number.POSITIVE_INFINITY)
+      } catch (error) {
+        unmarkDocumentDeleted(id)
+        throw error
+      }
       const { currentDocId } = get()
       const docs = sortDocuments(await repository.listDocuments())
       if (currentDocId === id) {

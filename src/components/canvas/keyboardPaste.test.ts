@@ -46,14 +46,12 @@ describe('keyboard paste helpers', () => {
   })
 
   it('adds non-empty plain text at the viewport center', () => {
-    vi.spyOn(Date, 'now').mockReturnValue(123)
-
     pastePlainTextAtViewportCenter('hello\nworld')
 
     const [element] = useAppStore.getState().elements
     expect(element).toMatchObject({
       type: 'text',
-      id: 'text-123',
+      id: expect.stringMatching(/^text-/),
       content: 'hello\nworld',
       originalContent: 'hello\nworld',
       autoResize: true,
@@ -72,8 +70,6 @@ describe('keyboard paste helpers', () => {
   })
 
   it('sanitizes and scales pasted images to a 400px maximum dimension', () => {
-    vi.spyOn(Date, 'now').mockReturnValue(456)
-
     class MockImage {
       width = 800
       height = 200
@@ -100,7 +96,7 @@ describe('keyboard paste helpers', () => {
     const [element] = useAppStore.getState().elements
     expect(element).toMatchObject({
       type: 'image',
-      id: 'img-456',
+      id: expect.stringMatching(/^img-/),
       x: 200,
       y: 200,
       width: 400,
@@ -108,6 +104,16 @@ describe('keyboard paste helpers', () => {
     })
     if (element.type !== 'image') return
     expect(decodeURIComponent(element.dataUrl)).not.toContain('<script')
+  })
+
+  it('does not create an image for a forged data URL', () => {
+    const imageConstructor = vi.fn()
+    vi.stubGlobal('Image', imageConstructor)
+
+    pasteImageAtViewportCenter('data:image/png;base64,abc" onerror="alert(1)')
+
+    expect(imageConstructor).not.toHaveBeenCalled()
+    expect(useAppStore.getState().elements).toEqual([])
   })
 
   it('falls back to the canvas clipboard when browser clipboard reading is unavailable', async () => {

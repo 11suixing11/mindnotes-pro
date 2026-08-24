@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as DocumentExportModule from '../../canvas/documentExport'
+import { CANVAS_IMPORT_MAX_JSON_BYTES } from '../../store/importLimits'
 import ExportMenu from './ExportMenu'
 
 const {
@@ -251,5 +252,24 @@ describe('ExportMenu', () => {
     await waitFor(() => expect(replaceCurrentDocMock).toHaveBeenCalledTimes(1))
     expect(replaceCurrentDocMock.mock.calls[0][0]).toMatchObject({ title: '导入测试' })
     expect(showToastMock).toHaveBeenCalledWith('已导入并替换当前画板', 'success')
+  })
+
+  it('rejects oversized JSON files before reading them', async () => {
+    render(<ExportMenu />)
+    const input = screen.getByLabelText('选择 JSON 文件') as HTMLInputElement
+    const file = new File(['{}'], 'large-backup.json', { type: 'application/json' })
+    const text = vi.fn(async () => '{}')
+    Object.defineProperties(file, {
+      size: { configurable: true, value: CANVAS_IMPORT_MAX_JSON_BYTES + 1 },
+      text: { configurable: true, value: text },
+    })
+
+    fireEvent.change(input, { target: { files: [file] } })
+
+    await waitFor(() =>
+      expect(showToastMock).toHaveBeenCalledWith('导入失败：JSON 文件过大，无法导入', 'error')
+    )
+    expect(text).not.toHaveBeenCalled()
+    expect(replaceCurrentDocMock).not.toHaveBeenCalled()
   })
 })

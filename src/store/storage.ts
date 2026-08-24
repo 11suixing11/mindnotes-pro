@@ -246,6 +246,12 @@ async function legacyDatabaseExists(databaseName: string): Promise<boolean> {
   }
 }
 
+function legacyRecordId(value: unknown): string | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const id = (value as { id?: unknown }).id
+  return typeof id === 'string' && id.length > 0 ? id : null
+}
+
 export async function readLegacyDatabase<TDoc, TFolder>(): Promise<LegacyDatabaseSnapshot<
   TDoc,
   TFolder
@@ -254,12 +260,37 @@ export async function readLegacyDatabase<TDoc, TFolder>(): Promise<LegacyDatabas
 
   // v4 is the explicit import source. The older name remains a fallback for
   // users who skipped the v4 release entirely.
+  const docs: TDoc[] = []
+  const folders: TFolder[] = []
+  const folderIds = new Set<string>()
+
   for (const databaseName of [LEGACY_STORAGE_DB_NAME, OLDEST_LEGACY_STORAGE_DB_NAME]) {
     if (!(await legacyDatabaseExists(databaseName))) continue
     const snapshot = await readLegacyDatabaseByName<TDoc, TFolder>(databaseName)
-    if (snapshot && (snapshot.docs.length > 0 || snapshot.folders.length > 0)) return snapshot
+    if (!snapshot) continue
+
+    // v4 is the preferred source. Keep its folder metadata when the same ID
+    // also exists in the older database, while retaining folders unique to
+    // either source during the fallback scan.
+    for (const folder of snapshot.folders) {
+      const id = legacyRecordId(folder)
+      if (id !== null) {
+        if (folderIds.has(id)) continue
+        folderIds.add(id)
+      }
+      folders.push(folder)
+    }
+
+    // The older database is only needed when the preferred v4 source has no
+    // documents. Once a source provides documents, stop to avoid combining
+    // two potentially divergent document histories.
+    if (snapshot.docs.length > 0) {
+      docs.push(...snapshot.docs)
+      break
+    }
   }
-  return null
+
+  return docs.length > 0 || folders.length > 0 ? { docs, folders } : null
 }
 
 function decodeLegacyStorageValue(serialized: string): unknown {

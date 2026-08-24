@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sanitizeSvg, sanitizeSvgDataUrl } from './svgSanitizer'
+import { sanitizeImageDataUrl, sanitizeSvg, sanitizeSvgDataUrl } from './svgSanitizer'
 
 describe('SVG sanitizer', () => {
   it('preserves safe mixed-case SVG tags and attributes', () => {
@@ -35,5 +35,34 @@ describe('SVG sanitizer', () => {
     expect(sanitized).toContain('<circle')
     expect(sanitized).not.toContain('<script')
     expect(sanitized).not.toContain('onload')
+  })
+
+  it('accepts supported raster data URLs and rejects forged image URLs', () => {
+    expect(sanitizeImageDataUrl('data:image/png;base64,abc123')).toBe(
+      'data:image/png;base64,abc123'
+    )
+    expect(sanitizeImageDataUrl('data:image/png;base64,abc123" onerror="alert(1)')).toBeNull()
+    expect(sanitizeImageDataUrl('data:image/svg+xmlx;base64,abc123')).toBeNull()
+    expect(sanitizeImageDataUrl('https://example.com/image.png')).toBeNull()
+  })
+
+  it('removes nested SVG, remote, and inline CSS execution paths', () => {
+    const source = `
+      <svg xmlns="http://www.w3.org/2000/svg">
+        <style>* { background: url(javascript:alert(1)); }</style>
+        <image href="data:image/svg+xml,%3Csvg%3E%3Cscript%3Ealert(1)%3C/script%3E%3C/svg%3E" />
+        <use href="https://attacker.example/payload.svg#x" />
+        <rect style="fill: url(https://attacker.example/track)" fill="url(https://attacker.example/track)" />
+        <circle fill="url(#safe-gradient)" />
+      </svg>
+    `
+
+    const sanitized = sanitizeSvg(source)
+
+    expect(sanitized).not.toContain('<style')
+    expect(sanitized).not.toContain('data:image/svg+xml')
+    expect(sanitized).not.toContain('attacker.example')
+    expect(sanitized).not.toContain('style=')
+    expect(sanitized).toContain('fill="url(#safe-gradient)"')
   })
 })

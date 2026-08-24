@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { setupServiceWorkerUpdates, shouldRegisterServiceWorker } from './serviceWorkerRegistration'
+import {
+  resolveServiceWorkerUrl,
+  setupServiceWorkerUpdates,
+  shouldRegisterServiceWorker,
+} from './serviceWorkerRegistration'
 
 function makeServiceWorker() {
   const registration = { update: vi.fn() }
@@ -26,6 +30,15 @@ async function flushMicrotasks() {
 
 describe('service worker registration', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  it('resolves the worker below the configured base path', () => {
+    expect(
+      resolveServiceWorkerUrl('/mindnotes-pro/', 'https://example.test/mindnotes-pro/board')
+    ).toBe('https://example.test/mindnotes-pro/sw.js')
+    expect(resolveServiceWorkerUrl('/', 'https://example.test/mindnotes-pro/board')).toBe(
+      'https://example.test/sw.js'
+    )
+  })
 
   it('only registers in production on supported HTTP protocols', () => {
     const serviceWorker = makeServiceWorker().serviceWorker
@@ -76,6 +89,22 @@ describe('service worker registration', () => {
     const updateCallback = setInterval.mock.calls[0][0] as () => void
     updateCallback()
     expect(registration.update).toHaveBeenCalledOnce()
+  })
+
+  it('uses the configured base path when no explicit worker URL is provided', async () => {
+    const { serviceWorker } = makeServiceWorker()
+    const testWindow = makeWindow()
+
+    setupServiceWorkerUpdates({
+      isProd: true,
+      serviceWorker,
+      baseUrl: '/mindnotes-pro/',
+      window: testWindow,
+    })
+    testWindow.dispatchEvent(new Event('load'))
+    await flushMicrotasks()
+
+    expect(serviceWorker.register).toHaveBeenCalledWith('https://example.test/mindnotes-pro/sw.js')
   })
 
   it('does not add UI or throw when registration fails', async () => {

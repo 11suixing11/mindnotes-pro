@@ -518,6 +518,24 @@ describe('buildSVGString', () => {
       expect(svg).toContain('href="data:image/png;base64,abc123"')
       expect(svg).toContain('preserveAspectRatio="none"')
     })
+
+    it('omits forged image URLs instead of emitting injectable attributes', () => {
+      const el: ImageElement = {
+        type: 'image',
+        id: 'img-malicious',
+        x: 10,
+        y: 20,
+        width: 200,
+        height: 150,
+        dataUrl: 'data:image/png;base64,abc123" onerror="alert(1)',
+      }
+
+      const svg = buildSVGString([el], { width: W, height: H })
+
+      expect(svg).not.toContain('<image')
+      expect(svg).not.toContain('onerror')
+      expect(svg).not.toContain('alert(1)')
+    })
   })
 
   // ── mixed elements ──────────────────────────────────────────────────────

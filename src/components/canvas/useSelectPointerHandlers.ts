@@ -35,6 +35,7 @@ import {
   radiansToNormalizedDegrees,
 } from '../../canvas/selectionTransforms'
 import { useAppStore } from '../../store/appStore'
+import { createRuntimeId } from '../../store/runtimeId'
 import { shallowClone, snapshot } from '../../store/helpers'
 import { isElementLayerEditable } from '../../store/layers'
 import type { CanvasElement } from '../../store/types'
@@ -354,8 +355,7 @@ export function useSelectPointerHandlers(options: UseSelectPointerHandlersOption
           getElement: (id) => state.idToElement.get(id),
           cloneElement: shallowClone,
           getAnchorPosition: getElementAnchorPosition,
-          createId: (element) =>
-            `${element.type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          createId: (element) => createRuntimeId(element.type),
         })
 
         for (const copy of plan.copies) addElement(copy)

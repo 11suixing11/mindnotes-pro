@@ -51,6 +51,7 @@ let _lastSavedGenerations = new Map<string, number>()
 let _lastSaveTimes = new Map<string, number>()
 let _saveInFlight: Promise<boolean> | null = null
 let _activeTextRecoveryDraft: TrackedActiveTextRecoveryDraft | null = null
+const _deletedDocumentIds = new Set<string>()
 // P0 性能优化: 使用 Map 进行 O(1) 文档查找，替代 O(n) 的 findIndex
 let _docsIndexMap: Map<string, number> | null = null
 /**
@@ -86,6 +87,24 @@ export function clearSaveTimer(): void {
     clearTimeout(_saveTimer)
     _saveTimer = null
   }
+}
+
+/** Prevent delayed or in-flight saves from recreating a deleted document. */
+export function markDocumentDeleted(documentId: string): void {
+  _deletedDocumentIds.add(documentId)
+  if (_activeTextRecoveryDraft?.documentId === documentId) {
+    _activeTextRecoveryDraft = null
+  }
+  if (_storeRef?.getState().currentDocId === documentId) clearSaveTimer()
+}
+
+/** Allow a failed delete operation to make the document writable again. */
+export function unmarkDocumentDeleted(documentId: string): void {
+  _deletedDocumentIds.delete(documentId)
+}
+
+function isDocumentDeleted(documentId: string): boolean {
+  return _deletedDocumentIds.has(documentId)
 }
 
 function clearSaveStatusTimer(): void {
@@ -246,6 +265,7 @@ async function persistCurrentDocument(): Promise<boolean> {
     redoStack,
   } = state
   if (!currentDocId) return true
+  if (isDocumentDeleted(currentDocId)) return true
   // 使用 generation 计数器检测变化
   // 彻底解决中间元素修改无法被检测的数据丢失bug
   const generationAtStart = _saveGenerations.get(currentDocId) ?? 0
@@ -258,6 +278,7 @@ async function persistCurrentDocument(): Promise<boolean> {
   try {
     const now = Date.now()
     const updatedDoc = await getDocumentRepository().updateDocument(currentDocId, (existing) => {
+      if (isDocumentDeleted(currentDocId)) return undefined
       const currentStateDoc = _storeRef?.getState().docs.find((doc) => doc.id === currentDocId)
       if (!existing && !currentStateDoc) return undefined
 
@@ -277,6 +298,7 @@ async function persistCurrentDocument(): Promise<boolean> {
         redoStack,
       }
     })
+    if (isDocumentDeleted(currentDocId)) return true
     // 更新缓存
     _lastSavedGenerations.set(currentDocId, generationAtStart)
     _lastSaveTimes.set(currentDocId, now)
@@ -333,6 +355,7 @@ async function persistCurrentDocument(): Promise<boolean> {
     }
     return true
   } catch (error) {
+    if (isDocumentDeleted(currentDocId)) return true
     console.error('[save] Failed to persist the current document', error)
     // Re-read the store after the failed async write. Typing or another
     // mutation may have advanced while IndexedDB was pending, so the snapshot
@@ -403,6 +426,7 @@ export function resetSaveCache(): void {
   _saveGenerations = new Map()
   _lastSavedGenerations = new Map()
   _lastSaveTimes = new Map()
+  _deletedDocumentIds.clear()
   _docsIndexMap = null
   _activeTextRecoveryDraft = null
   clearSaveStatusTimer()

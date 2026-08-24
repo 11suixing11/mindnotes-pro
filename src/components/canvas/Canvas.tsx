@@ -1,7 +1,10 @@
 import { useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { sanitizeImageDataUrl } from '../../canvas/svgSanitizer'
 import { useAppStore } from '../../store/appStore'
+import { createRuntimeId } from '../../store/runtimeId'
 import { DEFAULT_GRID_SIZE, useViewStore } from '../../store/useViewStore'
+import { useToastStore } from '../../store/toastStore'
 import { clientToWorld, worldToClient } from '../../canvas/coordinates'
 import { getTextLineHeight, TEXT_FONT_FAMILY } from '../../canvas/textFormatting'
 import { ContextMenu } from '../context-menu'
@@ -23,6 +26,7 @@ const TEXT_RECOVERY_CHECKPOINT_DELAY = 350
 const TEXT_RECOVERY_CHECKPOINT_MAX_WAIT = 1250
 
 export default function Canvas() {
+  const toast = useToastStore((state) => state.show)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const textToolbarRef = useRef<HTMLDivElement | null>(null)
@@ -230,45 +234,54 @@ export default function Canvas() {
   }, [])
 
   // Drag-and-drop image support
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const files = e.dataTransfer.files
-    if (!files || files.length === 0) return
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const rect = canvas.getBoundingClientRect()
-    const vb = useViewStore.getState().viewBox
-    for (const file of Array.from(files)) {
-      if (!file.type.startsWith('image/')) continue
-      const reader = new FileReader()
-      reader.onload = () => {
-        const dataUrl = reader.result as string
-        const img = new Image()
-        img.onload = () => {
-          const maxDim = 500
-          const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
-          const w = Math.round(img.width * scale)
-          const h = Math.round(img.height * scale)
-          // Position at drop location in canvas coordinates
-          const dropPoint = clientToWorld({ x: e.clientX, y: e.clientY }, rect, vb)
-          const cx = dropPoint.x
-          const cy = dropPoint.y
-          useAppStore.getState().addElement({
-            type: 'image',
-            id: `img-${Date.now()}`,
-            x: cx - w / 2,
-            y: cy - h / 2,
-            width: w,
-            height: h,
-            dataUrl,
-          })
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const files = e.dataTransfer.files
+      if (!files || files.length === 0) return
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const rect = canvas.getBoundingClientRect()
+      const vb = useViewStore.getState().viewBox
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) continue
+        const reader = new FileReader()
+        reader.onload = () => {
+          const dataUrl = reader.result as string
+          const safeDataUrl = sanitizeImageDataUrl(dataUrl)
+          if (!safeDataUrl) {
+            toast('图片格式不受支持', 'error')
+            return
+          }
+          const img = new Image()
+          img.onload = () => {
+            const maxDim = 500
+            const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
+            const w = Math.round(img.width * scale)
+            const h = Math.round(img.height * scale)
+            // Position at drop location in canvas coordinates
+            const dropPoint = clientToWorld({ x: e.clientX, y: e.clientY }, rect, vb)
+            const cx = dropPoint.x
+            const cy = dropPoint.y
+            useAppStore.getState().addElement({
+              type: 'image',
+              id: createRuntimeId('img'),
+              x: cx - w / 2,
+              y: cy - h / 2,
+              width: w,
+              height: h,
+              dataUrl: safeDataUrl,
+            })
+          }
+          img.onerror = () => toast('Image failed to load', 'error')
+          img.src = safeDataUrl
         }
-        img.src = dataUrl
+        reader.readAsDataURL(file)
       }
-      reader.readAsDataURL(file)
-    }
-  }, [])
+    },
+    [toast]
+  )
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()

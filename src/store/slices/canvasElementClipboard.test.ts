@@ -32,7 +32,7 @@ describe('canvas element clipboard plans', () => {
     expect((copied[0] as StrokeElement).pressures).not.toBe(source.pressures)
   })
 
-  it('creates deterministic ids, offsets, and writable layer assignments', () => {
+  it('creates unique typed ids, offsets, and writable layer assignments', () => {
     const source = makeStroke('stroke-1')
     const context = {
       elements: [source],
@@ -43,10 +43,12 @@ describe('canvas element clipboard plans', () => {
 
     const plan = createOffsetCopyPlan([source], context, 1234)
 
-    expect(plan.ids).toEqual(['stroke-1234-0'])
+    expect(plan.ids).toHaveLength(1)
+    expect(plan.ids[0]).toMatch(/^stroke-/)
+    expect(plan.ids[0]).not.toBe(source.id)
     expect(plan.elements[0]).toEqual(
       expect.objectContaining({
-        id: 'stroke-1234-0',
+        id: plan.ids[0],
         points: [
           [20, 20],
           [30, 30],

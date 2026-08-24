@@ -30,6 +30,12 @@ export function createElementAdditionPlan(
   addedElements: CanvasElement[]
 ): CanvasElementAdditionPlan | null {
   if (addedElements.length === 0) return null
+  const existingIds = new Set(elements.map((element) => element.id))
+  const batchIds = new Set<string>()
+  for (const element of addedElements) {
+    if (existingIds.has(element.id) || batchIds.has(element.id)) return null
+    batchIds.add(element.id)
+  }
   return {
     elements: [...elements, ...addedElements],
     addedElements,
