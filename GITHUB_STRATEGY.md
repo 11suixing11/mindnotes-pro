@@ -1,120 +1,67 @@
-# MindNotes Pro GitHub Growth Strategy
+# MindNotes Pro GitHub Maintenance Runbook
 
-## Current Status (2026-06-16)
+This file is an operational runbook for maintainers. It replaces the former growth plan and intentionally does not record live star, fork, issue, or response-time counts. Check GitHub directly when a current metric is needed.
 
-- **Stars:** 8
-- **Forks:** 1
-- **Open Issues:** 23
-- **Language:** TypeScript
-- **License:** MIT
-- **Last Updated:** 2026-06-16
+## Operating principles
 
-## Goal: 3,000+ GitHub Stars
+- Keep the project local-first: board data, backups, and recovery artifacts stay local unless a user explicitly exports them.
+- Keep `main` releasable. Changes land through reviewed pull requests with passing required checks.
+- Prefer small, reversible maintenance changes over broad refactors. Record compatibility and recovery behavior for persisted-data changes.
+- Treat public issue and pull request content as public. Never request credentials, private board content, or full user backups.
 
-### Phase 1: Foundation Optimization (Week 1-2)
+## Weekly maintenance
 
-**Objective:** Optimize repository for discoverability and first impressions
+1. Check the default branch, open pull requests, failed workflow runs, Pages deployments, and pending Dependabot updates.
+2. Review dependency changes by risk: security fixes first, production major upgrades separately, then development-tool updates.
+3. Triage new issues. Reproduce bugs when possible, request a minimal sanitized backup only when needed, and move vulnerability reports to `SECURITY.md`.
+4. Check stale automation output. Keep milestone work and issues labeled `pinned`, `security`, `data-loss`, `long-term`, or `roadmap` out of automatic closure.
+5. Remove merged feature branches after confirming that no active work still depends on them.
 
-1. **README Enhancement**
-   - Add compelling hero image/GIF
-   - Clear value proposition in first 3 lines
-   - Feature comparison table (vs Miro, Excalidraw, etc.)
-   - Quick start guide (3 steps or less)
-   - Badges: CI, stars, version, license
+## Pull request gate
 
-2. **Repository Settings**
-   - Add comprehensive topics (20+ relevant tags)
-   - Optimize description (keywords: "whiteboard", "drawing", "local-first")
-   - Enable GitHub Pages for demo
-   - Set up branch protection
+Reviewers should expect these checks before merging changes to `main`:
 
-3. **Documentation**
-   - CONTRIBUTING.md with clear guidelines
-   - CODE_OF_CONDUCT.md
-   - Issue templates (bug report, feature request)
-   - PR templates
+- `Lint`
+- `Type Check`
+- `Test`
+- `Build`
+- `E2E` for user-facing workflows
+- `Lighthouse Audit` for web-facing changes
 
-### Phase 2: Community Building (Week 3-6)
+Use the checklist in [CONTRIBUTING.md](CONTRIBUTING.md) and `.github/PULL_REQUEST_TEMPLATE.md`. A failing or skipped assertion is not release evidence.
 
-**Objective:** Build active community and contributor base
+## Issue and label conventions
 
-1. **Issue Management**
-   - Label system (good first issue, help wanted, bug, enhancement)
-   - Milestone planning (v4.0, v4.1, etc.)
-   - Project boards for roadmap visibility
+The issue forms use the labels `bug` and `enhancement`, which are maintained repository labels. The stale workflow expects these operational labels to exist when the workflow is enabled or updated:
 
-2. **Contributor Experience**
-   - Good first issues for new contributors
-   - Detailed CONTRIBUTING.md
-   - Responsive issue/PR reviews (within 24h)
-   - Recognition system (contributor spotlight)
+- `stale`: temporary automation marker
+- `pinned`: manually maintained, never stale
+- `security`: vulnerability or security follow-up
+- `data-loss`: possible loss or failed recovery
+- `long-term`: intentionally deferred work
+- `roadmap`: milestone or planning work
+- `release-blocker`: pull request required for a release
 
-3. **Community Channels**
-   - GitHub Discussions for Q&A
-   - Discord server for real-time chat
-   - Regular community updates
+Labels are metadata only; their descriptions should explain the maintainer action they trigger. Do not use a label as a substitute for a written issue or review decision.
 
-### Phase 3: Growth & Promotion (Week 7-12)
+## Dependency and security review
 
-**Objective:** Increase visibility and attract users
+- Keep Dependabot updates grouped only when the group has one coherent risk profile. Verify production major upgrades independently.
+- Run the repository checks and inspect migration/import behavior for changes touching Zustand, storage, backup schemas, or Electron boundaries.
+- Keep secret scanning and push protection enabled. Report vulnerabilities privately through [SECURITY.md](SECURITY.md).
+- Treat audit warnings as follow-up work unless the affected package is reachable in the shipped application; document the decision in the pull request.
 
-1. **Content Marketing**
-   - Blog posts on Dev.to, Medium, Hashnode
-   - YouTube tutorials/demos
-   - Twitter/X technical threads
-   - Reddit posts (r/webdev, r/reactjs, r/opensource)
+## Release checklist
 
-2. **Technical SEO**
-   - GitHub Topics optimization
-   - README keywords optimization
-   - GitHub Pages SEO
+1. Confirm `package.json`, `package-lock.json`, `CHANGELOG.md`, and the intended release commit contain the same version.
+2. Run `npm run check`, relevant Playwright journeys, and the desktop build when the release includes shell changes.
+3. Create the `vX.Y.Z` tag from verified `main`; use `-rc`, `-beta`, or `-alpha` suffixes for pre-releases.
+4. Let `.github/workflows/release.yml` produce the web archive, Linux AppImage, and `SHA256SUMS` file.
+5. Verify the GitHub Release assets, release notes, tag, Pages deployment, and backup/migration warnings before announcing the release.
 
-3. **Partnerships**
-   - Collaborate with similar projects
-   - Guest posts on popular blogs
-   - Conference talks/meetups
+## Monthly review
 
-### Phase 4: Scale & Sustain (Week 13+)
-
-**Objective:** Maintain growth and community engagement
-
-1. **Regular Releases**
-   - Semantic versioning
-   - Changelog automation
-   - Release notes with highlights
-
-2. **Metrics Monitoring**
-   - Star growth tracking
-   - Issue/PR response times
-   - Contributor activity
-   - Download/usage statistics
-
-3. **Ecosystem Development**
-   - Plugin system
-   - API documentation
-   - Integration guides
-
-## Key Performance Indicators (KPIs)
-
-- **Primary:** GitHub Stars (target: 3,000)
-- **Secondary:**
-  - Forks (target: 300+)
-  - Contributors (target: 50+)
-  - Open Issues (maintain < 50)
-  - PR Merge Time (target: < 48h)
-
-## Action Items (Immediate)
-
-1. [ ] Optimize README with compelling content
-2. [ ] Add comprehensive topics
-3. [ ] Create issue templates
-4. [ ] Set up project boards
-5. [ ] Write first blog post
-6. [ ] Submit to Hacker News, Reddit, Dev.to
-
-## Resources
-
-- GitHub SEO Guide: https://github.com/11suixing11/mindnotes-pro
-- Similar projects: Excalidraw, tldraw, Miro
-- Content platforms: Dev.to, Medium, Hashnode
-- Social media: Twitter/X, Reddit, LinkedIn
+- Re-check branch rules, CODEOWNERS, workflow permissions, and repository security settings.
+- Close or archive obsolete pull requests and stale planning documents.
+- Compare the roadmap with actual maintenance capacity; do not promise features that lack a testable failure and recovery plan.
+- Review this runbook whenever the release process, branch policy, issue forms, or workflow names change.

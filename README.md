@@ -19,7 +19,7 @@
 </div>
 
 <p align="center">
-  <img src=".github/mindnotes-pro-v4.png" width="900" alt="MindNotes Pro v5 with an editable flowchart selected on the canvas" />
+  <img src=".github/mindnotes-pro-v5.png" width="900" alt="MindNotes Pro v5 with an editable flowchart selected on the canvas" />
 </p>
 
 ## What v5 delivers
