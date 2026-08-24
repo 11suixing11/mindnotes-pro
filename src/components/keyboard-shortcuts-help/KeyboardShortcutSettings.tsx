@@ -1,4 +1,11 @@
-import { memo, useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react'
 import {
   SHORTCUT_DEFINITIONS,
   formatShortcutBinding,
@@ -10,6 +17,7 @@ import {
   type ShortcutCategory,
 } from '../../keyboard/shortcuts'
 import { useShortcutStore } from '../../store/useShortcutStore'
+import { useDialogFocus } from '../useDialogFocus'
 
 interface KeyboardShortcutSettingsProps {
   open: boolean
@@ -26,7 +34,7 @@ function ShortcutKeys({ actionId }: { actionId: ShortcutActionId }) {
     <div className="flex items-center gap-[3px]">
       {getShortcutKeyParts(binding).map((part, index, parts) => (
         <span key={`${part}-${index}`}>
-          <kbd className="inline-block px-[6px] py-[2px] text-[11px] font-semibold text-[var(--text)] bg-[var(--bg)] border border-[var(--border)] rounded-[5px] shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+          <kbd className="inline-block px-[6px] py-[2px] text-[11px] font-medium text-[var(--text)] bg-[var(--bg)] border border-[var(--border)] rounded-[5px] shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
             {part}
           </kbd>
           {index < parts.length - 1 && (
@@ -69,6 +77,16 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
     setImportText('')
     setExportText('')
   }, [open])
+
+  const closeSettings = useCallback(() => {
+    setEditingAction(null)
+    onClose()
+  }, [onClose])
+
+  const dialogRef = useDialogFocus<HTMLDivElement>({
+    open,
+    onClose: closeSettings,
+  })
 
   if (!open) return null
 
@@ -126,19 +144,29 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
   return (
     <div
       className="fixed inset-0 z-[520] bg-[rgba(0,0,0,0.35)] backdrop-blur-[3px] flex items-center justify-center"
-      onClick={onClose}
+      onClick={closeSettings}
     >
       <div
+        ref={dialogRef}
         className="bg-[var(--card-solid)] rounded-[16px] py-[22px] px-[24px] w-[min(760px,94vw)] max-h-[86vh] shadow-[0_8px_40px_rgba(0,0,0,0.2)] border border-[var(--border)] flex flex-col"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="keyboard-shortcut-settings-title"
+        tabIndex={-1}
       >
         <div className="flex items-start justify-between gap-[16px] mb-[16px]">
           <div>
-            <div className="text-[16px] font-bold text-[var(--text)]">自定义键盘快捷键</div>
+            <h2
+              id="keyboard-shortcut-settings-title"
+              className="text-[16px] font-medium text-[var(--text)]"
+            >
+              自定义键盘快捷键
+            </h2>
             <div className="text-[12px] text-[var(--text-4)] mt-[4px]">更改仅保存在当前设备。</div>
           </div>
           <button
-            onClick={onClose}
+            onClick={closeSettings}
             className="w-[28px] h-[28px] rounded-[8px] flex items-center justify-center text-[var(--text-3)] hover:bg-[var(--primary-bg)] transition-colors text-[16px]"
             aria-label="关闭快捷键设置"
           >
@@ -163,7 +191,7 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
         <div className="overflow-y-auto pr-[4px] flex-1">
           {definitionsByCategory.map(({ category, items }) => (
             <section key={category} className="mb-[16px]">
-              <div className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--text-4)] mb-[6px]">
+              <div className="text-[12px] font-medium text-[var(--text-4)] mb-[6px]">
                 {getShortcutCategoryLabel(category)}
               </div>
               <div className="grid grid-cols-1 gap-[4px]">
@@ -178,7 +206,7 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
                       className="grid grid-cols-[minmax(130px,1fr)_minmax(130px,180px)_auto] max-[640px]:grid-cols-1 gap-[8px] items-center py-[8px] px-[10px] rounded-[8px] hover:bg-[var(--primary-bg)]"
                     >
                       <div>
-                        <div className="text-[13px] font-medium text-[var(--text)]">
+                        <div className="text-[14px] font-normal text-[var(--text)]">
                           {definition.label}
                         </div>
                         {fixedLabels.length > 0 && (
@@ -197,7 +225,7 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
                         aria-label={`设置${definition.label}快捷键`}
                       >
                         {isEditing ? (
-                          <span className="font-semibold text-[var(--primary)]">请按快捷键</span>
+                          <span className="font-medium text-[var(--primary)]">请按快捷键</span>
                         ) : (
                           <ShortcutKeys actionId={definition.id} />
                         )}

@@ -1,8 +1,9 @@
 import { memo, useCallback, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
-import { sanitizeSvgDataUrl } from '../../canvas/svgSanitizer'
+import { sanitizeImageDataUrl } from '../../canvas/svgSanitizer'
 import { useAppStore } from '../../store/appStore'
+import { createRuntimeId } from '../../store/runtimeId'
 import type { CanvasBackgroundStyle } from '../../store/types'
 import { useToastStore } from '../../store/toastStore'
 import { getMainCanvas, getVisibleCanvasViewport } from '../canvas/viewport'
@@ -88,7 +89,11 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
       const r = new FileReader()
       r.onload = () => {
         const dataUrl = r.result as string
-        const safeDataUrl = sanitizeSvgDataUrl(dataUrl)
+        const safeDataUrl = sanitizeImageDataUrl(dataUrl)
+        if (!safeDataUrl) {
+          toast('图片格式不受支持', 'error')
+          return
+        }
         const img = new Image()
         img.onload = () => {
           const c = getMainCanvas()
@@ -101,7 +106,7 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
           const h = img.height * scale
           addElement({
             type: 'image',
-            id: `img-${Date.now()}`,
+            id: createRuntimeId('img'),
             x: viewport.centerX - w / 2,
             y: viewport.centerY - h / 2,
             width: w,
@@ -132,6 +137,7 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
         onClick={toggleBackgroundMenu}
         className="abtn"
         data-tip="背景设置"
+        title="背景设置"
         aria-label="背景设置"
         aria-haspopup="menu"
         aria-expanded={showBackground}
@@ -201,12 +207,19 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
         onClick={() => imgRef.current?.click()}
         className="abtn"
         data-tip="插入图片"
+        title="插入图片"
         aria-label="插入图片"
       >
         {icons.image}
       </button>
 
-      <button onClick={toggleFullscreen} className="abtn" data-tip="全屏" aria-label="全屏">
+      <button
+        onClick={toggleFullscreen}
+        className="abtn"
+        data-tip="全屏"
+        title="全屏"
+        aria-label="全屏"
+      >
         {icons.fullscreen}
       </button>
 

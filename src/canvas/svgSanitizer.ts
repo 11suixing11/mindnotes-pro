@@ -50,7 +50,6 @@ const SAFE_SVG_TAGS = new Set([
   'title',
   'desc',
   'marker',
-  'style',
 ])
 
 // 安全的 SVG 属性白名单
@@ -127,12 +126,37 @@ const SAFE_SVG_ATTRS = new Set([
 
 // 危险的属性前缀（事件处理器）
 const DANGEROUS_ATTR_PREFIXES = ['on', 'onclick', 'onload', 'onerror', 'onmouseover']
+const EMPTY_SVG_DATA_URL =
+  'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3C%2Fsvg%3E'
+const SVG_DATA_URL_PATTERN =
+  /^data:image\/svg\+xml(?:;charset=(?:utf-8|us-ascii))?(;base64)?,([\s\S]*)$/i
+const RASTER_IMAGE_DATA_URL_PATTERN =
+  /^data:image\/(?:apng|avif|bmp|gif|jpeg|jpg|png|webp|x-icon|vnd\.microsoft\.icon);base64,[a-z0-9+/]+={0,2}$/i
+const LOCAL_SVG_REFERENCE_PATTERN = /^#[a-z_][\w:.-]*$/i
+const URL_FUNCTION_PATTERN = /url\(([^)]*)\)/gi
+
+function isSafeSvgUrlReference(value: string): boolean {
+  const reference = value.trim()
+  return (
+    LOCAL_SVG_REFERENCE_PATTERN.test(reference) || RASTER_IMAGE_DATA_URL_PATTERN.test(reference)
+  )
+}
+
+function hasUnsafeUrlFunction(value: string): boolean {
+  let match: RegExpExecArray | null
+  while ((match = URL_FUNCTION_PATTERN.exec(value)) !== null) {
+    const reference = match[1].trim().replace(/^['"]|['"]$/g, '')
+    if (!isSafeSvgUrlReference(reference)) return true
+  }
+  URL_FUNCTION_PATTERN.lastIndex = 0
+  return false
+}
 
 /**
  * 检测 data URL 是否是 SVG
  */
 export function isSvgDataUrl(dataUrl: string): boolean {
-  return dataUrl.startsWith('data:image/svg+xml')
+  return SVG_DATA_URL_PATTERN.test(dataUrl)
 }
 
 /**
@@ -140,17 +164,13 @@ export function isSvgDataUrl(dataUrl: string): boolean {
  */
 function extractSvgFromDataUrl(dataUrl: string): string | null {
   try {
-    // data:image/svg+xml;base64,...
-    const base64Match = dataUrl.match(/^data:image\/svg\+xml;base64,(.+)$/)
-    if (base64Match) {
-      return atob(base64Match[1])
+    const match = dataUrl.match(SVG_DATA_URL_PATTERN)
+    if (!match || !match[2]) return null
+    if (match[1]) {
+      if (!/^[a-z0-9+/]+={0,2}$/i.test(match[2])) return null
+      return atob(match[2])
     }
-    // data:image/svg+xml,... (URL encoded)
-    const plainMatch = dataUrl.match(/^data:image\/svg\+xml,(.+)$/)
-    if (plainMatch) {
-      return decodeURIComponent(plainMatch[1])
-    }
-    return null
+    return decodeURIComponent(match[2])
   } catch {
     return null
   }
@@ -187,6 +207,34 @@ function sanitizeNode(node: Element, doc: Document): void {
 
     // 移除不在白名单中的属性
     if (!SAFE_SVG_ATTRS.has(name)) {
+      node.removeAttribute(attr.name)
+      continue
+    }
+
+    // Inline CSS and remote/nested SVG references can reintroduce executable content.
+    if (name === 'style') {
+      node.removeAttribute(attr.name)
+      continue
+    }
+
+    if ((name === 'href' || name === 'xlink:href') && !isSafeSvgUrlReference(attr.value)) {
+      node.removeAttribute(attr.name)
+      continue
+    }
+
+    if (
+      [
+        'fill',
+        'stroke',
+        'filter',
+        'mask',
+        'clip-path',
+        'marker-start',
+        'marker-mid',
+        'marker-end',
+      ].includes(name) &&
+      hasUnsafeUrlFunction(attr.value)
+    ) {
       node.removeAttribute(attr.name)
       continue
     }
@@ -258,23 +306,31 @@ export function sanitizeSvg(svgString: string): string {
  * @returns 安全的 data URL（如果是 SVG 则清理，否则原样返回）
  */
 export function sanitizeSvgDataUrl(dataUrl: string): string {
-  // 非 SVG 直接返回
+  if (!isSvgDataUrl(dataUrl)) return dataUrl
+  return sanitizeImageDataUrl(dataUrl) ?? EMPTY_SVG_DATA_URL
+}
+
+/**
+ * 验证并清理可嵌入画布或导出文件的图片 data URL。
+ * 非 SVG 图片必须是受支持 MIME 类型的 base64 data URL。
+ */
+export function sanitizeImageDataUrl(dataUrl: string): string | null {
   if (!isSvgDataUrl(dataUrl)) {
-    return dataUrl
+    return RASTER_IMAGE_DATA_URL_PATTERN.test(dataUrl) ? dataUrl : null
   }
 
   try {
     const svgContent = extractSvgFromDataUrl(dataUrl)
     if (!svgContent) {
       console.warn('[SVG Sanitizer] Could not extract SVG content')
-      return 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3C%2Fsvg%3E'
+      return null
     }
 
     const safeSvg = sanitizeSvg(svgContent)
     return svgToSafeDataUrl(safeSvg)
   } catch (e) {
     console.warn('[SVG Sanitizer] Data URL sanitization failed:', e)
-    return 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3C%2Fsvg%3E'
+    return null
   }
 }
 

@@ -12,37 +12,38 @@
   </p>
   <p>
     <a href="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml"><img src="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml/badge.svg" alt="CI 状态" /></a>
-    <img src="https://img.shields.io/badge/version-4.0.0-0f766e" alt="版本 4.0.0" />
+    <img src="https://img.shields.io/badge/version-5.0.0-0f766e" alt="版本 5.0.0" />
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2563eb" alt="MIT 许可证" /></a>
     <img src="https://img.shields.io/badge/storage-local--first-16a34a" alt="本地优先存储" />
   </p>
 </div>
 
 <p align="center">
-  <img src=".github/mindnotes-pro-v4.png" width="900" alt="MindNotes Pro v4 画布中选中的可编辑流程图" />
+  <img src=".github/mindnotes-pro-v4.png" width="900" alt="MindNotes Pro v5 画布中选中的可编辑流程图" />
 </p>
 
-## v4 现在能可靠完成什么
+## v5 现在能可靠完成什么
 
-MindNotes Pro 首次打开就是一张可以直接使用的空白画布。v4 的目标不是继续堆演示功能，而是把少量核心流程做完整。
+MindNotes Pro 首次打开就是一张可以直接使用的空白画布。v5 的目标不是继续堆演示功能，而是把少量核心流程做完整。
 
 | 范围     | 当前行为                                                                           |
 | -------- | ---------------------------------------------------------------------------------- |
 | 绘制     | 多种画笔预设、笔压笔迹、矩形、圆形、直线、箭头、文字和图片                         |
 | 编辑     | 选择、移动、缩放、旋转、组合、锁定、复制粘贴、撤销重做，以及行为可预测的局部擦除   |
-| 工作区   | 多文档、标题与正文搜索、排序、图层、背景、网格、吸附、缩放和小地图                 |
+| 工作区   | 单画板、图层、背景、网格、吸附和缩放                                               |
 | 模板     | 5 个内置可编辑模板，也可以把当前内容保存为自定义模板                               |
-| 持久化   | 文档自动保存到 IndexedDB；偏好与自定义模板保存在本地                               |
-| 导入导出 | 按完整内容导出 PNG、JPEG、PDF、SVG；严格 v4 JSON 备份；兼容导入 v4、v3 和旧版 JSON |
+| 持久化   | 当前画板自动保存到 IndexedDB；偏好与自定义模板保存在本地                           |
+| 导入导出 | 按完整内容导出 PNG、JPEG、PDF、SVG；严格 v5 JSON 备份；兼容导入 v4、v3 和旧版 JSON |
 | 运行方式 | 响应式 Web 应用、可离线安装的 PWA，以及启用沙箱的 Electron 桌面壳                  |
 
 ## “本地优先”的实际含义
 
-- 文档保存在当前浏览器来源的 IndexedDB 数据库 `mindnotes-pro-v4` 中。
+- 当前画板保存在当前浏览器来源的 IndexedDB 数据库 `mindnotes-pro-v5` 中。
+- 首次启动会只读导入可用的 v4 数据；原 `mindnotes-pro-v4` 数据库不会被删除。
 - 项目不提供账号、托管同步或多人实时协作。
-- 清除浏览器站点数据可能删除本地文档。重要内容应定期导出 JSON 备份。
-- 导入 JSON 时会创建一个独立的可编辑文档，不会覆盖当前文档。
-- v4 首次启动且数据库为空时，会尽量迁移旧的 `mindnotes-drawing-data` 本地文档。
+- 清除浏览器站点数据可能删除本地画板。重要内容应定期导出 JSON 备份。
+- 导入 JSON 时会替换当前画板，不会打开第二张画板。
+- v5 首次启动且数据库为空时，会尽量迁移旧的 `mindnotes-drawing-data` 本地文档。
 
 ## 快速开始
 
@@ -80,14 +81,14 @@ npx playwright install chromium
 
 ## 导出与恢复
 
-图片与文档导出使用完整可见内容的边界，不受当前平移和缩放影响。PNG 保留透明背景；JPEG 与 PDF 使用文档背景；SVG 尽量保留矢量内容。
+图片与画板导出使用完整可见内容的边界，不受当前平移和缩放影响。PNG 保留透明背景；JPEG 与 PDF 使用画板背景；SVG 尽量保留矢量内容。
 
-v4 JSON 备份协议是明确且可验证的：
+v5 JSON 备份协议是明确且可验证的：
 
 ```json
 {
   "format": "mindnotes-pro-backup",
-  "version": 4,
+  "version": 5,
   "exportedAt": "2026-07-31T00:00:00.000Z",
   "document": {
     "title": "项目画布",

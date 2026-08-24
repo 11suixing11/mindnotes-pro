@@ -29,7 +29,9 @@ export async function openApp(page: Page) {
   await page.goto('/')
   await expect(page.getByRole('application', { name: 'MindNotes Pro 白板' })).toBeVisible()
   await expect(page.locator('#main-canvas')).toBeVisible()
-  await expect(appStatus(page)).toContainText('1 个文档')
+  await expect(appStatus(page)).toContainText('单画板')
+  await expect(appStatus(page)).not.toContainText('个文档')
+  await expect(page.getByRole('button', { name: '打开文档面板' })).toHaveCount(0)
 }
 
 export async function drawStroke(

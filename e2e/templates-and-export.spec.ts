@@ -33,7 +33,7 @@ test.describe('模板与导入导出', () => {
     const editor = page.locator('textarea')
     await expect(editor).toHaveValue('处理')
     await editor.fill('已编辑节点')
-    await editor.press('Enter')
+    await editor.press('Control+Enter')
     await expect(appStatus(page)).toContainText('13 个元素')
 
     await page.getByRole('button', { name: '导出' }).click()
@@ -45,7 +45,7 @@ test.describe('模板与导入导出', () => {
     )
   })
 
-  test('JSON 导出遵循 v4 备份协议', async ({ page }) => {
+  test('JSON 导出遵循 v5 备份协议', async ({ page }) => {
     await openApp(page)
     await insertFlowchart(page)
 
@@ -58,7 +58,7 @@ test.describe('模板与导入导出', () => {
     expect(download.suggestedFilename()).toMatch(/^未命名画布-.*\.json$/)
     expect(backup).toMatchObject({
       format: 'mindnotes-pro-backup',
-      version: 4,
+      version: 5,
       document: { title: '未命名画布' },
     })
     expect(backup.document.elements).toHaveLength(13)
@@ -83,7 +83,7 @@ test.describe('模板与导入导出', () => {
     expect(height).toBeLessThan(750)
   })
 
-  test('JSON 导入会创建独立的可编辑文档', async ({ page }) => {
+  test('JSON 导入会替换当前唯一画板', async ({ page }) => {
     await openApp(page)
     const backup = {
       format: 'mindnotes-pro-backup',
@@ -130,10 +130,32 @@ test.describe('模板与导入导出', () => {
     })
 
     await expect(appStatus(page)).toContainText('1 个元素')
-    await expect(appStatus(page)).toContainText('2 个文档')
-    await page.getByRole('button', { name: '打开文档面板' }).click()
-    await expect(page.locator('.sb-doc-item[aria-current="page"]')).toContainText(
-      '导入验收（导入）'
+    await expect(appStatus(page)).toContainText('单画板')
+    await expect(appStatus(page)).not.toContainText('个文档')
+    await expect(page.getByText('已导入并替换当前画板')).toBeVisible()
+  })
+
+  test('模板元素可以独立选择和删除', async ({ page }) => {
+    await openApp(page)
+    await insertFlowchart(page)
+
+    const canvas = page.locator('#main-canvas')
+    const box = await canvas.boundingBox()
+    expect(box).not.toBeNull()
+    const zoomLabel = await page
+      .getByRole('button', { name: /重置缩放，当前/ })
+      .getAttribute('aria-label')
+    const zoom = Number(zoomLabel?.match(/(\d+)%/)?.[1] ?? 100) / 100
+
+    // Clear the insertion selection before targeting a single template node.
+    await page.mouse.click(box!.x + 120, box!.y + 120)
+    await page.mouse.click(
+      box!.x + box!.width / 2 + (280 - 322) * zoom,
+      box!.y + box!.height / 2 + (163 - 251) * zoom
     )
+    await expect(page.getByRole('region', { name: '图层' })).toContainText('已选 1 个元素')
+
+    await page.keyboard.press('Delete')
+    await expect(appStatus(page)).toContainText('12 个元素')
   })
 })

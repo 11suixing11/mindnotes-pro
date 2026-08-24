@@ -1,13 +1,17 @@
-const CACHE_VERSION = 'v4.0.0'
+const CACHE_VERSION = 'v5.0.0'
 const STATIC_CACHE = `mindnotes-static-${CACHE_VERSION}`
 const RUNTIME_CACHE = `mindnotes-runtime-${CACHE_VERSION}`
+const BUILD_PRECACHE = /* __MINDNOTES_PRECACHE__ */ []
 
 const PRECACHE_URLS = [
   './',
   './index.html',
   './manifest.json',
+  './icons/icon-192.svg',
+  './icons/icon-512.svg',
   './icons/icon-192x192.png',
   './icons/icon-512x512.png',
+  ...BUILD_PRECACHE,
 ]
 
 const STATIC_EXTENSIONS = [
@@ -38,7 +42,16 @@ function isStaticAsset(url) {
 }
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE_URLS)))
+  event.waitUntil(
+    caches
+      .open(STATIC_CACHE)
+      .then((cache) => cache.addAll([...new Set(PRECACHE_URLS)]))
+      .then(() => self.skipWaiting())
+  )
+})
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') void self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
@@ -72,7 +85,9 @@ self.addEventListener('fetch', (event) => {
           return response
         })
         .catch(async () => {
-          const cached = (await caches.match(request)) || (await caches.match('./index.html'))
+          const cached =
+            (await caches.match(request, { ignoreVary: true })) ||
+            (await caches.match('./index.html', { ignoreVary: true }))
           return cached || new Response('MindNotes Pro 当前处于离线状态', { status: 503 })
         })
     )
@@ -81,7 +96,7 @@ self.addEventListener('fetch', (event) => {
 
   if (isStaticAsset(url)) {
     event.respondWith(
-      caches.match(request).then((cached) => {
+      caches.match(request, { ignoreVary: true }).then((cached) => {
         const fresh = fetch(request).then((response) => {
           if (response.ok) {
             const copy = response.clone()
@@ -94,7 +109,7 @@ self.addEventListener('fetch', (event) => {
           return cached
         }
         return fresh.catch(async () => {
-          const fallback = await caches.match(request)
+          const fallback = await caches.match(request, { ignoreVary: true })
           return fallback || new Response('资源暂时不可用', { status: 503 })
         })
       })
@@ -112,7 +127,8 @@ self.addEventListener('fetch', (event) => {
         return response
       })
       .catch(async () =>
-        (await caches.match(request)) || new Response('资源暂时不可用', { status: 503 })
+        (await caches.match(request, { ignoreVary: true })) ||
+        new Response('资源暂时不可用', { status: 503 })
       )
   )
 })

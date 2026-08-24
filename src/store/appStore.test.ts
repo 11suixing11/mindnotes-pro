@@ -1,9 +1,16 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from './appStore'
-import { clearSaveTimer, resetSaveCache, saveDocNow } from './saveManager'
+import {
+  clearActiveTextRecoveryDraft,
+  clearSaveTimer,
+  resetSaveCache,
+  saveActiveTextRecoveryDraftNow,
+  saveDocNow,
+  saveRecoveryDraftNow,
+} from './saveManager'
 import { useToastStore } from './toastStore'
 import type * as StorageModule from './storage'
-import { RECOVERY_DRAFT_STORAGE_KEY } from './recovery'
+import { loadRecoveryDraft, RECOVERY_DRAFT_STORAGE_KEY } from './recovery'
 
 vi.mock('./storage', () => {
   const store: Record<string, Record<string, unknown>> = {}
@@ -293,6 +300,177 @@ describe('useAppStore', () => {
       // Wait for saved->idle transition
       await vi.advanceTimersByTimeAsync(2000)
       expect(useAppStore.getState().saveStatus).toBe('idle')
+    })
+
+    it('writes an exit recovery draft only while persistence is pending or failed', async () => {
+      await useAppStore.getState().createDoc('Recovery guard')
+      useAppStore.setState({ saveStatus: 'idle' })
+
+      expect(saveRecoveryDraftNow()).toBe(false)
+      expect(localStorage.getItem(RECOVERY_DRAFT_STORAGE_KEY)).toBeNull()
+
+      useAppStore.getState().addElement({
+        type: 'stroke',
+        id: 'pending-recovery',
+        points: [[0, 0]],
+        color: '#000',
+        size: 2,
+        brush: 'pen',
+      })
+
+      expect(useAppStore.getState().saveStatus).toBe('saving')
+      expect(saveRecoveryDraftNow()).toBe(true)
+      expect(localStorage.getItem(RECOVERY_DRAFT_STORAGE_KEY)).not.toBeNull()
+
+      await vi.advanceTimersByTimeAsync(1500)
+      expect(useAppStore.getState().saveStatus).toBe('saved')
+      expect(localStorage.getItem(RECOVERY_DRAFT_STORAGE_KEY)).toBe('[]')
+      expect(saveRecoveryDraftNow()).toBe(false)
+    })
+
+    it('keeps an active text checkpoint when an unrelated store save completes', async () => {
+      const documentId = await useAppStore.getState().createDoc('Active text recovery')
+      const state = useAppStore.getState()
+      const layerId = state.activeLayerId
+
+      state.addElement({
+        type: 'stroke',
+        id: 'store-change',
+        points: [[0, 0]],
+        color: '#000',
+        size: 2,
+        brush: 'pen',
+      })
+      expect(
+        saveActiveTextRecoveryDraftNow({
+          elementId: 'new-live-session',
+          element: {
+            type: 'text',
+            id: 'text-live-session',
+            layerId,
+            x: 10,
+            y: 20,
+            width: 120,
+            height: 26,
+            content: 'still editing',
+            originalContent: 'still editing',
+            autoResize: true,
+            fontSize: 16,
+            color: '#222222',
+          },
+        })
+      ).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(1500)
+
+      expect(loadRecoveryDraft(documentId)?.elements).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'store-change' }),
+          expect.objectContaining({ id: 'text-live-session', originalContent: 'still editing' }),
+        ])
+      )
+
+      clearActiveTextRecoveryDraft()
+      expect(loadRecoveryDraft(documentId)).toBeNull()
+    })
+
+    it('rebases an older active text checkpoint onto newer live-store text', async () => {
+      const documentId = await useAppStore.getState().createDoc('Rebase active text')
+      const layerId = useAppStore.getState().activeLayerId
+      const makeText = (content: string) => ({
+        type: 'text' as const,
+        id: 'text-rebase',
+        layerId,
+        x: 10,
+        y: 20,
+        width: 120,
+        height: 26,
+        content,
+        originalContent: content,
+        autoResize: true,
+        fontSize: 16,
+        color: '#222222',
+      })
+
+      expect(
+        saveActiveTextRecoveryDraftNow({
+          elementId: 'text-rebase',
+          element: makeText('older checkpoint'),
+        })
+      ).toBe(true)
+
+      useAppStore.getState().commitElements([makeText('newer live text')])
+      expect(saveRecoveryDraftNow()).toBe(true)
+
+      expect(loadRecoveryDraft(documentId)?.elements).toEqual([
+        expect.objectContaining({
+          id: 'text-rebase',
+          originalContent: 'newer live text',
+        }),
+      ])
+    })
+
+    it('schedules one save delay and shows saving when editing shortly after a save', async () => {
+      await useAppStore.getState().createDoc('Test Doc')
+
+      useAppStore.getState().addElement({
+        type: 'stroke',
+        id: 'first',
+        points: [[0, 0]],
+        color: '#000',
+        size: 2,
+        brush: 'pen',
+      })
+      await vi.advanceTimersByTimeAsync(1500)
+      expect(storageMock.update).toHaveBeenCalledTimes(1)
+      expect(useAppStore.getState().saveStatus).toBe('saved')
+
+      useAppStore.getState().addElement({
+        type: 'stroke',
+        id: 'second',
+        points: [[10, 10]],
+        color: '#000',
+        size: 2,
+        brush: 'pen',
+      })
+
+      expect(useAppStore.getState().saveStatus).toBe('saving')
+      await vi.advanceTimersByTimeAsync(1500)
+      expect(storageMock.update).toHaveBeenCalledTimes(2)
+      expect(useAppStore.getState().saveStatus).toBe('saved')
+    })
+
+    it('persists the latest elements after undo and redo', async () => {
+      const documentId = await useAppStore.getState().createDoc('History persistence')
+      const element = {
+        type: 'shape' as const,
+        id: 'history-shape',
+        kind: 'rectangle' as const,
+        x: 0,
+        y: 0,
+        w: 40,
+        h: 40,
+        color: '#000000',
+        size: 2,
+      }
+      const persistedElementIds = () =>
+        (
+          storageMock.__store.docs[documentId] as {
+            elements: Array<{ id: string }>
+          }
+        ).elements.map(({ id }) => id)
+
+      useAppStore.getState().addElement(element)
+      await vi.advanceTimersByTimeAsync(1500)
+      expect(persistedElementIds()).toEqual(['history-shape'])
+
+      useAppStore.getState().undo()
+      await vi.advanceTimersByTimeAsync(1500)
+      expect(persistedElementIds()).toEqual([])
+
+      useAppStore.getState().redo()
+      await vi.advanceTimersByTimeAsync(1500)
+      expect(persistedElementIds()).toEqual(['history-shape'])
     })
 
     it('reports a failed write instead of claiming the document was saved', async () => {

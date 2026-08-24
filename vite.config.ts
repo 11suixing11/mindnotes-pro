@@ -1,8 +1,10 @@
-import { defineConfig, type Plugin } from 'vite'
+import { readFile, writeFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import { defineConfig, normalizePath, type Plugin, type ResolvedConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-// import { visualizer } from 'rollup-plugin-visualizer'
 
 const CSP_PLACEHOLDER = '__MINDNOTES_CSP__'
+const PRECACHE_PLACEHOLDER = '__MINDNOTES_PRECACHE__'
 const DEV_PORT = 3000
 
 function buildContentSecurityPolicy(isDevServer: boolean): string {
@@ -29,21 +31,43 @@ function contentSecurityPolicyPlugin(isDevServer: boolean): Plugin {
   }
 }
 
-export default defineConfig(({ command, mode }) => ({
+function serviceWorkerPrecachePlugin(): Plugin {
+  let config: ResolvedConfig
+
+  return {
+    name: 'mindnotes-service-worker-precache',
+    apply: 'build',
+    configResolved(resolvedConfig) {
+      config = resolvedConfig
+    },
+    async writeBundle(_options, bundle) {
+      const outputDir = resolve(config.root, config.build.outDir)
+      const serviceWorkerPath = resolve(outputDir, 'sw.js')
+      const generatedFiles = Object.values(bundle)
+        .map((item) => normalizePath(item.fileName))
+        .filter((fileName) => /^(?:js|css|fonts)\//.test(fileName))
+        .sort()
+        .map((fileName) => `./${fileName}`)
+      const source = await readFile(serviceWorkerPath, 'utf8')
+      const precacheLiteral = JSON.stringify(generatedFiles)
+      const updatedSource = source.replace(
+        new RegExp(`/\\*\\s*${PRECACHE_PLACEHOLDER}\\s*\\*/\\s*\\[\\]`),
+        precacheLiteral
+      )
+      await writeFile(serviceWorkerPath, updatedSource, 'utf8')
+    },
+  }
+}
+
+export default defineConfig(({ command }) => ({
   plugins: [
     contentSecurityPolicyPlugin(command === 'serve'),
+    serviceWorkerPrecachePlugin(),
     react({
       babel: {
         plugins: [],
       },
     }),
-    mode === 'analyze' &&
-      visualizer({
-        open: true,
-        filename: 'stats.html',
-        gzipSize: true,
-        brotliSize: true,
-      }),
   ].filter(Boolean),
   base: process.env.VITE_APP_BASE || '/',
   server: {

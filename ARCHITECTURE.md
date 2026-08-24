@@ -8,7 +8,8 @@ MindNotes Pro is a local-first React whiteboard with a PWA runtime and a minimal
 
 ```text
 src/
-├── canvas/        Rendering, geometry, brushes, image loading, and export helpers
+├── core/          Pure document models, geometry, and arrangement algorithms
+├── canvas/        Rendering-specific geometry, brushes, image loading, and export helpers
 ├── components/    React UI and browser interaction orchestration
 ├── eraser/        Geometry eraser and spatial index
 ├── keyboard/      Shortcut definitions, matching, and serialization
@@ -31,9 +32,47 @@ Owns application state and persisted contracts.
 
 - Store slices must not import React components.
 - Persisted document changes require schema or migration tests.
-- The active document schema is v4 and lives in `src/store/types.ts` and `src/store/schema.ts`.
+- The active document schema is v5; document contracts live in `src/core/model.ts` and the schema version constant lives in `src/store/schema.ts`.
+- v5 documents live in the `mindnotes-pro-v5` IndexedDB database. The `mindnotes-pro-v4` database is a read-only migration source and is never deleted.
+- Application code talks to persistence through `src/application/ports/documentRepository.ts`; the IndexedDB implementation lives in `src/store/indexedDbDocumentRepository.ts`.
 - JSON backup validation belongs in `src/store/backup.ts`; UI code must not parse backup data ad hoc.
 - Document records live in IndexedDB. Small preferences and custom-template metadata may use local storage.
+- `src/store/types.ts` is a compatibility barrel; canonical document models and pure transforms live in `src/core`.
+- View state and theme state must not import `appStore` directly. Cross-store coordination uses explicit application ports or data passed by the caller.
+- Element mutations that affect the document should go through a slice action such as `commitElements`; direct `setState({ elements: ... })` is reserved for test setup and hydration.
+- `canvasElementRules.ts` owns dependency-free selection eligibility, writable-layer assignment, and bound-arrow snapshot decisions used by the canvas element slice.
+- `canvasElementCollection.ts` owns synchronization of element/id/index maps with the spatial index, including full replacement, incremental synchronization, and lazy position-index rebuilds.
+- `canvasElementClipboard.ts` owns deterministic copy, paste, and duplicate plans, including deep stroke samples, offsets, IDs, and writable-layer assignment.
+- `canvasElementClipboardActions.ts` owns Zustand coordination for copy, paste, and duplicate commands; pure copy plans remain in `canvasElementClipboard.ts`.
+- `canvasElementMetadata.ts` owns group, ungroup, lock, and unlock transforms plus their history payloads.
+- `canvasElementMetadataActions.ts` owns Zustand coordination for grouping, ungrouping, locking, and unlocking; pure metadata transforms remain in `canvasElementMetadata.ts`.
+- `canvasElementArrangement.ts` owns alignment and distribution plans plus complete before/after history snapshots.
+- `canvasElementArrangementActions.ts` owns Zustand coordination for alignment and distribution commands; pure arrangement plans remain in `canvasElementArrangement.ts`.
+- `canvasElementGeometry.ts` owns deterministic move, resize, and rotation plans, including bound-arrow updates and move-history payloads.
+- `canvasElementGeometryActions.ts` owns Zustand coordination for move, resize, and rotation commands, including runtime geometry synchronization; deterministic plans remain in `canvasElementGeometry.ts`.
+- `canvasElementLayers.ts` owns layer deletion, visibility, locking, reordering, and element reassignment plans.
+- `canvasElementLayerActions.ts` owns Zustand coordination for layer creation, naming, deletion, visibility, locking, reordering, and element reassignment; pure plans remain in `canvasElementLayers.ts`.
+- `canvasElementMutations.ts` owns add, update, remove, and clear plans plus their history payloads.
+- `canvasElementMutationActions.ts` owns Zustand coordination for element addition, replacement, removal, and clearing, including runtime-index synchronization; pure mutation plans remain in `canvasElementMutations.ts`.
+- `canvasElementSnapshotActions.ts` owns eraser-history commits and transient snapshot restoration, including runtime collection synchronization.
+- `canvasElementCommit.ts` owns selection filtering, undo-window updates, and redo-clear decisions for committed element changes.
+- `historyTransitions.ts` owns pure undo/redo element transitions and affected-ID extraction; the history slice retains toast, focus, persistence, and runtime coordination.
+- `slices/documentRecords.ts` owns pure document/folder record construction, schema normalization, canonical-board selection, and replacement transforms; legacy multi-document helpers remain only as non-UI compatibility surfaces. `docManagement.ts` retains canonical-board hydration, recovery, persistence coordination, and those legacy command shims.
+- `slices/documentRecovery.ts` owns pure comparison and replacement decisions for persisted documents versus recovery drafts; localStorage draft deletion and user feedback remain in `docManagement.ts`.
+- The single-board UI does not expose document search; legacy document collection search state is no longer part of the runtime store.
+- `slices/documentRuntimeIndexes.ts` owns rebuilding the runtime element maps and spatial index from a document; document management retains only when hydration or document switching requires the rebuild.
+- `slices/documentWorkspace.ts` owns projecting a persisted document into the live workspace state, including layers, background settings, and document-versus-empty history initialization; document management retains only the workflow coordination.
+- `slices/documentInitialization.ts` owns persistence bootstrap, legacy migration, canonical-board selection, default-folder compatibility, recovery reconciliation, and in-memory fallback preparation; document management retains state hydration, runtime-index rebuilds, and user feedback.
+
+### `src/core`
+
+Owns dependency-free document concepts and deterministic transforms.
+
+- `model.ts` contains persisted element, layer, document, folder, and history contracts.
+- `geometry.ts` contains bounds, element transforms, and dependency-free distance primitives.
+- `arrangement.ts` contains alignment and distribution algorithms.
+- `viewport.ts` contains dependency-free screen-pan transforms consumed by view state.
+- Core modules must not import Zustand, React, browser APIs, persistence, or rendering code.
 
 ### `src/canvas`
 
@@ -42,11 +81,25 @@ Owns rendering and export behavior that can be tested without React.
 - Keep Canvas rendering pure against explicit context and state inputs where practical.
 - Visual exports use document content bounds, not viewport screenshots.
 - Canvas and SVG output should share domain defaults unless a format requires a documented difference.
-- Brush metadata, geometry rules, and image caching belong here rather than in toolbar components.
+- Brush metadata, rendering geometry rules, and image caching belong here rather than in toolbar components.
 
 Key shared modules include:
 
 - `brushPresets.ts`: brush labels and rendering metadata.
+- `coordinates.ts`: pure screen/client/world conversion, anchored wheel/pinch zoom, touch geometry, and grid-snap helpers.
+- `gestureGeometry.ts`: pointer thresholds and snapshot geometry-change detection.
+- `marquee.ts`: normalized selection rectangles, intersection tests, and modifier-selection merging.
+- `selectionTransforms.ts`: pure selection resize, drag-snap, rotation, and anchor-position calculations.
+- `pointerSession.ts`: pointer-session contracts plus pure selection-start, bounds, duplication, cancellation, and undo decisions.
+- `drawingSession.ts`: pure pen sampling, shape endpoint binding, and eraser-session commit decisions.
+- `systemClipboard.ts`: selected-element PNG rendering and browser clipboard writes behind injectable runtime services.
+- `elementRenderers.ts`: shape, text, and image rendering plus their local path/wrap caches; `canvasDrawing.ts` keeps the shared dispatch contract.
+- `canvasOverlays.ts`: selection-box handles and zoom indicator overlays; exports remain available through `canvasDrawing.ts`.
+- `canvasBackground.ts`: canvas backgrounds plus decorative and snap-grid rendering with explicit cache invalidation; exports remain available through `canvasDrawing.ts`.
+- `strokeRenderer.ts`: brush-specific stroke rendering, perfect-freehand outlines, and calligraphy pooling; exports remain available through `canvasDrawing.ts`.
+- `drawingCaches.ts`: reusable bounded LRU/TTL cache primitive for rendering modules.
+- `pointerEvents.ts`: pointer capture plus auxiliary wheel, keyboard, context-menu, double-click, and cancellation bindings.
+- `hitTesting.ts`: pure element, z-order, image-alpha, and selection-handle hit testing with injected runtime services.
 - `strokeElements.ts` and `shapeElements.ts`: element creation and draft rules.
 - `resizeRules.ts`: pure resize and aspect-ratio behavior.
 - `documentExport.ts` and `svgExport.ts`: full-document export behavior.
@@ -56,9 +109,19 @@ Key shared modules include:
 Owns React rendering, UI state wiring, and browser event orchestration.
 
 - Components consume domain helpers instead of duplicating geometry or persistence rules.
+- Context-menu capability and viewport-position decisions live in `context-menu/contextMenuModel.ts`; `ContextMenu.tsx` coordinates Store actions while reusable menu primitives render the surface.
+- The document Sidebar and its search/list workflow are removed from the application shell. Legacy document records and command shims remain isolated to persistence/migration and non-UI compatibility layers; the runtime UI exposes only the canonical board.
+- Export filename and size formatting live in `export-menu/exportMenuModel.ts`; reusable export-item views are separated from rendering, backup, import, and download coordination in `ExportMenu.tsx`.
+- Template category projection lives in `templates/templatePickerModel.ts`; preview cards and gallery sections are separate views while `TemplatePicker.tsx` retains modal focus and custom-template form coordination.
+- `app/useAppLifecycle.ts` owns theme/document bootstrap, before-unload saves, shortcut-help dispatch, and install-prompt lifecycle; `app/AppStatusBar.tsx` owns the status projection and content-fit affordance while `App.tsx` composes the shell.
+- `src/index.css` remains the shared visual contract for the canvas shell and feature surfaces; the audit removes only unreferenced legacy animation and markdown/JPEG helper rules, preserving active class names and responsive overrides.
 - Large hooks may orchestrate behavior, but new per-tool rules should be extracted and tested.
 - Component and hook tests stay next to the code they cover.
 - Visible workflow changes need either a focused UI test or a Playwright journey.
+- `canvas/canvasAuxiliaryInput.ts`: handler construction for anchored wheel zoom, temporary Space-pan, context-menu suppression, and double-click text editing.
+- `canvas/keyboardPaste.ts` and `canvas/keyboardShortcutActions.ts`: browser clipboard insertion and Store-backed shortcut command coordination; `useKeyboardBindings.ts` retains shortcut priority and keydown listener lifecycle.
+- `canvas/useCanvasRendererLifecycle.ts`: RAF scheduling, resize observation, store invalidation subscriptions, image/canvas invalidation events, and incremental element-bounds cache synchronization.
+- `canvas/useDrawingPointerHandlers.ts`: pen sampling, shape drafting and endpoint binding, eraser hit processing, and one-gesture erase-history coordination; `usePointerEngine.ts` retains contact routing, pan/select orchestration, and lifecycle wiring.
 
 ### `src/eraser`
 
@@ -86,18 +149,18 @@ Owns desktop shell behavior only.
 - Open external URLs through the system browser and deny unexpected window creation.
 - Shared whiteboard behavior stays in `src`.
 
-## Refactor priorities
+## Refactor status
 
-The highest-risk files are large mixed-responsibility modules. Split them behind tests and in reviewable changes.
+The v5 structural refactor is complete for the current product scope. Remaining large modules are explicit composition roots and should not be split further based on line count alone.
 
-1. `src/components/canvas/usePointerEngine.ts`
-   Extract per-tool pointer handlers and shared gesture lifecycle code.
-2. `src/canvas/canvasDrawing.ts`
-   Separate element renderers while retaining one shared rendering contract.
-3. `src/index.css`
-   Move touched component styles into clear sections or modules without broad formatting churn.
-4. `src/store/slices/canvasElements.ts`
-   Keep geometry transforms, ordering, selection, and persistence triggers independently testable.
+- `docManagement.ts` coordinates the repository-backed canonical board; record construction, recovery decisions, runtime indexes, workspace projection, and initialization live in focused modules.
+- `usePointerEngine.ts` coordinates input contacts, pan and eyedropper behavior, event bindings, and renderer state; geometry, hit testing, gesture rules, drawing sessions, selection sessions, clipboard rendering, and auxiliary handlers live behind focused boundaries.
+- `history.ts` coordinates runtime synchronization, viewport focus, feedback, and saves; deterministic undo/redo transitions live in `historyTransitions.ts`.
+- `canvasDrawing.ts` remains the shared element dispatcher and cache-invalidation facade; concrete renderers live in focused canvas modules.
+- `canvasElements.ts` remains the Store composition root for element actions, collection runtime, commit coordination, and selection state.
+- `index.css` remains a shared stylesheet with feature-labelled sections and responsive overrides; future moves should be scoped to components already being changed rather than triggering a broad rewrite.
+
+Further structural work should be driven by a measured performance issue, a new product boundary, or a repeated maintenance problem, with tests added before moving ownership again.
 
 ## Verification policy
 

@@ -58,6 +58,17 @@ describe('ColorPicker', () => {
     expect(screen.getByLabelText('自定义颜色')).toBeTruthy()
   })
 
+  it('mounts the palette outside the clipped toolbar and keeps color clicks interactive', () => {
+    render(<ColorPicker />)
+    fireEvent.click(screen.getByLabelText('颜色'))
+
+    const dialog = screen.getByRole('dialog', { name: '颜色面板' })
+    expect(dialog.parentElement).toBe(document.body)
+
+    fireEvent.click(screen.getByLabelText('红色'))
+    expect(useAppStore.getState().color).toBe('#E03131')
+  })
+
   it('closes the palette with Escape and restores focus to its trigger', async () => {
     render(<ColorPicker />)
     const trigger = screen.getByLabelText('颜色')

@@ -7,12 +7,16 @@ import type {
   ImageElement,
 } from '../store/types'
 import { getSvgBrushStyle } from './brushPresets'
-import { sanitizeSvgDataUrl } from './svgSanitizer'
+import { sanitizeImageDataUrl } from './svgSanitizer'
 import {
+  createTextWidthMeasurer,
+  getOriginalTextContent,
   getTextAnchorX,
   getTextLineHeight,
   isVisibleTextBackground,
   normalizeTextFormat,
+  TEXT_FONT_FAMILY,
+  wrapTextLines,
 } from './textFormatting'
 import getStroke from 'perfect-freehand'
 
@@ -100,8 +104,8 @@ function shapeToSVG(el: ShapeElement): string {
 }
 
 function textToSVG(el: TextElement): string {
-  const lines = el.content.split('\n')
   const format = normalizeTextFormat(el)
+  const lines = wrapTextLines(getOriginalTextContent(el), el.width, createTextWidthMeasurer(format))
   const lineHeight = getTextLineHeight(format.fontSize)
   const textX = getTextAnchorX(el.x, el.width, format.textAlign)
   const anchor =
@@ -109,7 +113,7 @@ function textToSVG(el: TextElement): string {
   const fontWeight = format.fontWeight === 'bold' ? ' font-weight="700"' : ''
   const fontStyle = format.fontStyle === 'italic' ? ' font-style="italic"' : ''
   const textDecoration = format.textDecoration === 'underline' ? ' text-decoration="underline"' : ''
-  const textAttrs = `x="${textX}" y="${el.y + format.fontSize}" fill="${esc(format.color)}" font-size="${format.fontSize}" font-family="sans-serif" text-anchor="${anchor}"${fontWeight}${fontStyle}${textDecoration}`
+  const textAttrs = `x="${textX}" y="${el.y}" fill="${esc(format.color)}" font-size="${format.fontSize}" font-family="${esc(TEXT_FONT_FAMILY)}" text-anchor="${anchor}" dominant-baseline="text-before-edge" style="white-space: pre;"${fontWeight}${fontStyle}${textDecoration}`
   const background = isVisibleTextBackground(format.backgroundColor)
     ? `<rect x="${el.x}" y="${el.y}" width="${el.width}" height="${Math.max(el.height, lines.length * lineHeight)}" fill="${esc(format.backgroundColor)}"/>\n`
     : ''
@@ -127,10 +131,9 @@ function textToSVG(el: TextElement): string {
 }
 
 function imageToSVG(el: ImageElement): string {
-  // SVG 安全过滤 - 导出时二次清理，防止 XSS 攻击
-  // 参考: 通用编辑器安全处理做法
-  const safeDataUrl = sanitizeSvgDataUrl(el.dataUrl)
-  return `<image x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" href="${safeDataUrl}" preserveAspectRatio="none"/>\n`
+  const safeDataUrl = sanitizeImageDataUrl(el.dataUrl)
+  if (!safeDataUrl) return ''
+  return `<image x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" href="${esc(safeDataUrl)}" preserveAspectRatio="none"/>\n`
 }
 
 function elementToSVGContent(el: CanvasElement): string {

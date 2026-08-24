@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useAppStore } from '../appStore'
 import { useToastStore } from '../toastStore'
-import { clearSaveTimer, resetSaveCache } from '../saveManager'
-import { saveRecoveryDraft } from '../recovery'
+import { clearSaveTimer, resetSaveCache, saveDocNow } from '../saveManager'
+import { loadRecoveryDraft, saveRecoveryDraft } from '../recovery'
+import { CANVAS_SCHEMA_VERSION } from '../schema'
 import type { AppStore } from '../sliceTypes'
 import type * as StorageModule from '../storage'
 
@@ -74,8 +75,6 @@ describe('docManagement slice', () => {
       docs: [],
       currentDocId: null,
       loaded: false,
-      documentSearchQuery: '',
-      recentDocumentSearches: [],
       elements: [],
       bgColor: '#ffffff',
       backgroundStyle: 'plain',
@@ -102,7 +101,7 @@ describe('docManagement slice', () => {
       expect(state.elements).toEqual([])
     })
 
-    it('imports documents and folders from the previous IndexedDB database once', async () => {
+    it('imports the canonical document from the previous IndexedDB database once', async () => {
       vi.mocked(storageMock.readLegacyDatabase).mockResolvedValueOnce({
         docs: [
           {
@@ -134,17 +133,16 @@ describe('docManagement slice', () => {
       expect(state.docs[0]).toMatchObject({
         id: 'legacy-doc',
         title: '旧版项目',
-        schemaVersion: 4,
+        schemaVersion: CANVAS_SCHEMA_VERSION,
       })
       expect(state.docs[0].layers?.[0].name).toBe('图层 1')
-      expect(state.folders).toEqual([expect.objectContaining({ id: 'legacy-folder' })])
-      expect(localStorage.getItem('mindnotes-pro-v4.legacy-database-migrated')).toBe('1')
+      expect(localStorage.getItem('mindnotes-pro-v5.v4-imported')).toBe('1')
     })
 
-    it('does not inspect or overwrite legacy data when v4 documents already exist', async () => {
+    it('does not inspect the legacy source when v5 documents already exist', async () => {
       storageMock.__store.docs = {
         current: {
-          schemaVersion: 4,
+          schemaVersion: CANVAS_SCHEMA_VERSION,
           id: 'current',
           title: '当前项目',
           elements: [],
@@ -159,6 +157,33 @@ describe('docManagement slice', () => {
 
       expect(vi.mocked(storageMock.readLegacyDatabase)).not.toHaveBeenCalled()
       expect(useAppStore.getState().docs.map((doc) => doc.id)).toEqual(['current'])
+    })
+
+    it('keeps v4 migration retryable when the v5 write fails', async () => {
+      vi.mocked(storageMock.readLegacyDatabase).mockResolvedValueOnce({
+        docs: [
+          {
+            schemaVersion: 4,
+            id: 'legacy-doc',
+            title: 'Legacy',
+            elements: [],
+            bgColor: '#ffffff',
+            folderId: null,
+            createdAt: 1,
+            updatedAt: 2,
+          },
+        ],
+        folders: [],
+      })
+      vi.mocked(storageMock.put).mockRejectedValueOnce(new Error('quota exceeded'))
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      await useAppStore.getState().init()
+
+      expect(useAppStore.getState().saveStatus).toBe('error')
+      expect(localStorage.getItem('mindnotes-pro-v5.v4-imported')).toBeNull()
+      expect(storageMock.__store.docs).toBeUndefined()
+      consoleSpy.mockRestore()
     })
 
     it('falls back to an editable in-memory canvas when storage cannot initialize', async () => {
@@ -229,7 +254,7 @@ describe('docManagement slice', () => {
 
     it('restores a newer recovery draft over the persisted document', async () => {
       const persisted = {
-        schemaVersion: 4 as const,
+        schemaVersion: CANVAS_SCHEMA_VERSION,
         id: 'recoverable-doc',
         title: '旧版本',
         elements: [],
@@ -400,6 +425,53 @@ describe('docManagement slice', () => {
       await useAppStore.getState().deleteDoc(id1)
       expect(useAppStore.getState().currentDocId).toBe(id2)
     })
+
+    it('waits for an in-flight save before deleting and does not recreate the document', async () => {
+      const id = await useAppStore.getState().createDoc('Race')
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'pending-delete-shape',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 20,
+        h: 20,
+        color: '#000000',
+        size: 2,
+      })
+
+      let releaseSave: (() => void) | undefined
+      const saveGate = new Promise<void>((resolve) => {
+        releaseSave = resolve
+      })
+      const defaultUpdate = vi.mocked(storageMock.update).getMockImplementation()
+      if (!defaultUpdate) throw new Error('Expected an update mock implementation')
+      vi.mocked(storageMock.update).mockImplementationOnce(async (...args) => {
+        await saveGate
+        return defaultUpdate(...args)
+      })
+
+      const savePromise = saveDocNow()
+      await vi.waitFor(() => expect(storageMock.update).toHaveBeenCalledTimes(1))
+      const deletePromise = useAppStore.getState().deleteDoc(id)
+
+      releaseSave?.()
+      await Promise.all([savePromise, deletePromise])
+
+      expect(storageMock.__store.docs[id]).toBeUndefined()
+      expect(useAppStore.getState().docs.some((doc) => doc.id === id)).toBe(false)
+    })
+
+    it('clears a deleted document recovery draft', async () => {
+      const id = await useAppStore.getState().createDoc('Draft to delete')
+      const current = useAppStore.getState().docs.find((doc) => doc.id === id)
+      if (!current) throw new Error('Expected current document')
+      saveRecoveryDraft(current, 100)
+
+      await useAppStore.getState().deleteDoc(id)
+
+      expect(loadRecoveryDraft(id)).toBeNull()
+    })
   })
 
   describe('renameDoc', () => {
@@ -496,7 +568,7 @@ describe('docManagement slice', () => {
   })
 
   describe('importDoc', () => {
-    it('persists an imported canvas as a separate current document', async () => {
+    it('replaces the current canonical document in place', async () => {
       const existingId = await useAppStore.getState().createDoc('Existing')
       const layer = {
         id: 'layer-imported',
@@ -530,11 +602,11 @@ describe('docManagement slice', () => {
         backgroundStyle: 'plain',
       })
 
-      expect(importedId).not.toBe(existingId)
+      expect(importedId).toBe(existingId)
       expect(useAppStore.getState().currentDocId).toBe(importedId)
-      expect(useAppStore.getState().docs).toHaveLength(2)
+      expect(useAppStore.getState().docs).toHaveLength(1)
       expect(useAppStore.getState().docs.find((doc) => doc.id === importedId)?.title).toBe(
-        '项目草图（导入）'
+        '项目草图'
       )
       expect(useAppStore.getState().elements[0]).toMatchObject({
         id: 'text-imported',
@@ -619,44 +691,6 @@ describe('docManagement slice', () => {
       useAppStore.setState({ currentDocId: null } as any)
       await useAppStore.getState().openDoc(id)
       expect(useAppStore.getState().selectedIds).toEqual([])
-    })
-  })
-
-  describe('document search state', () => {
-    it('updates the document search query', () => {
-      useAppStore.getState().setDocumentSearchQuery('roadmap')
-
-      expect(useAppStore.getState().documentSearchQuery).toBe('roadmap')
-    })
-
-    it('stores recent document searches with deduplication and persistence', () => {
-      const state = useAppStore.getState()
-
-      state.addRecentDocumentSearch('alpha')
-      state.addRecentDocumentSearch('beta')
-      state.addRecentDocumentSearch(' Alpha ')
-
-      expect(useAppStore.getState().recentDocumentSearches).toEqual(['Alpha', 'beta'])
-      expect(JSON.parse(localStorage.getItem('mn-sidebar-searches') ?? '[]')).toEqual([
-        'Alpha',
-        'beta',
-      ])
-    })
-
-    it('keeps only the five most recent document searches', () => {
-      const state = useAppStore.getState()
-
-      for (const query of ['one', 'two', 'three', 'four', 'five', 'six']) {
-        state.addRecentDocumentSearch(query)
-      }
-
-      expect(useAppStore.getState().recentDocumentSearches).toEqual([
-        'six',
-        'five',
-        'four',
-        'three',
-        'two',
-      ])
     })
   })
 })

@@ -1,5 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
-import { bindCanvasInputEvents } from './pointerEvents'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { bindCanvasAuxiliaryEvents, bindCanvasInputEvents } from './pointerEvents'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 function createPointerEvent(type: string, pointerId: number, pointerType = 'mouse') {
   const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent
@@ -110,5 +114,91 @@ describe('bindCanvasInputEvents', () => {
     expect(handlers.onStart).toHaveBeenCalledTimes(1)
     expect(handlers.onStart).toHaveBeenCalledWith(touchStart)
     unbind()
+  })
+})
+
+describe('bindCanvasAuxiliaryEvents', () => {
+  it('forwards wheel, keyboard, context-menu, and double-click events', () => {
+    const canvas = document.createElement('canvas')
+    const handlers = {
+      onCancel: vi.fn(),
+      onWheel: vi.fn(),
+      onKeyDown: vi.fn(),
+      onKeyUp: vi.fn(),
+      onContextMenu: vi.fn(),
+      onDoubleClick: vi.fn(),
+    }
+    const unbind = bindCanvasAuxiliaryEvents(canvas, handlers)
+    const wheel = new WheelEvent('wheel', { cancelable: true })
+    const keyDown = new KeyboardEvent('keydown', { key: ' ' })
+    const keyUp = new KeyboardEvent('keyup', { key: ' ' })
+    const contextMenu = new MouseEvent('contextmenu', { cancelable: true })
+    const doubleClick = new MouseEvent('dblclick')
+
+    canvas.dispatchEvent(wheel)
+    window.dispatchEvent(keyDown)
+    window.dispatchEvent(keyUp)
+    canvas.dispatchEvent(contextMenu)
+    canvas.dispatchEvent(doubleClick)
+
+    expect(handlers.onWheel).toHaveBeenCalledWith(wheel)
+    expect(handlers.onKeyDown).toHaveBeenCalledWith(keyDown)
+    expect(handlers.onKeyUp).toHaveBeenCalledWith(keyUp)
+    expect(handlers.onContextMenu).toHaveBeenCalledWith(contextMenu)
+    expect(handlers.onDoubleClick).toHaveBeenCalledWith(doubleClick)
+    expect(handlers.onCancel).not.toHaveBeenCalled()
+
+    unbind()
+  })
+
+  it('cancels active input on blur and when the document becomes hidden', () => {
+    const canvas = document.createElement('canvas')
+    const handlers = {
+      onCancel: vi.fn(),
+      onWheel: vi.fn(),
+      onKeyDown: vi.fn(),
+      onKeyUp: vi.fn(),
+      onContextMenu: vi.fn(),
+      onDoubleClick: vi.fn(),
+    }
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    const unbind = bindCanvasAuxiliaryEvents(canvas, handlers)
+
+    window.dispatchEvent(new Event('blur'))
+    document.dispatchEvent(new Event('visibilitychange'))
+
+    expect(handlers.onCancel).toHaveBeenCalledTimes(2)
+    expect(handlers.onCancel.mock.calls[0][0].type).toBe('blur')
+    expect(handlers.onCancel.mock.calls[1][0].type).toBe('visibilitychange')
+
+    unbind()
+  })
+
+  it('removes every auxiliary listener during cleanup', () => {
+    const canvas = document.createElement('canvas')
+    const handlers = {
+      onCancel: vi.fn(),
+      onWheel: vi.fn(),
+      onKeyDown: vi.fn(),
+      onKeyUp: vi.fn(),
+      onContextMenu: vi.fn(),
+      onDoubleClick: vi.fn(),
+    }
+    const unbind = bindCanvasAuxiliaryEvents(canvas, handlers)
+    unbind()
+
+    canvas.dispatchEvent(new WheelEvent('wheel'))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ' }))
+    window.dispatchEvent(new Event('blur'))
+    canvas.dispatchEvent(new MouseEvent('contextmenu'))
+    canvas.dispatchEvent(new MouseEvent('dblclick'))
+
+    expect(handlers.onWheel).not.toHaveBeenCalled()
+    expect(handlers.onKeyDown).not.toHaveBeenCalled()
+    expect(handlers.onKeyUp).not.toHaveBeenCalled()
+    expect(handlers.onCancel).not.toHaveBeenCalled()
+    expect(handlers.onContextMenu).not.toHaveBeenCalled()
+    expect(handlers.onDoubleClick).not.toHaveBeenCalled()
   })
 })

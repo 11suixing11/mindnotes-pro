@@ -6,6 +6,8 @@ import type { EditingText } from './useTextEditor'
 function makeEditingText(overrides: Partial<EditingText> = {}): EditingText {
   return {
     id: 'text-1',
+    isNew: false,
+    layerId: 'layer-default',
     x: 0,
     y: 0,
     screenX: 0,
@@ -13,6 +15,8 @@ function makeEditingText(overrides: Partial<EditingText> = {}): EditingText {
     width: 240,
     height: 30,
     content: 'Hello',
+    autoResize: true,
+    wraps: false,
     fontSize: 16,
     color: '#1a1a1a',
     fontWeight: 'normal',
@@ -32,7 +36,6 @@ describe('TextFormatToolbar', () => {
         textAreaRef={{ current: null }}
         left={10}
         top={20}
-        alignRight={false}
         onChange={vi.fn()}
         onBlurOutside={vi.fn()}
       />
@@ -57,7 +60,6 @@ describe('TextFormatToolbar', () => {
         textAreaRef={{ current: null }}
         left={10}
         top={20}
-        alignRight={false}
         onChange={onChange}
         onBlurOutside={vi.fn()}
       />
@@ -81,7 +83,6 @@ describe('TextFormatToolbar', () => {
         textAreaRef={{ current: null }}
         left={10}
         top={20}
-        alignRight={false}
         onChange={onChange}
         onBlurOutside={vi.fn()}
       />
@@ -100,5 +101,41 @@ describe('TextFormatToolbar', () => {
     expect(onChange).toHaveBeenNthCalledWith(3, { color: '#1971c2' })
     expect(onChange).toHaveBeenNthCalledWith(4, { backgroundColor: '#ffe066' })
     expect(onChange).toHaveBeenNthCalledWith(5, { backgroundColor: undefined })
+  })
+
+  it('shows a none indicator instead of implying a background color', () => {
+    const { rerender } = render(
+      <TextFormatToolbar
+        editingText={makeEditingText()}
+        toolbarRef={{ current: null }}
+        textAreaRef={{ current: null }}
+        left={10}
+        top={20}
+        onChange={vi.fn()}
+        onBlurOutside={vi.fn()}
+      />
+    )
+
+    expect(screen.getByTestId('text-background-none-indicator')).toBeTruthy()
+    expect(screen.getByLabelText('Text background color').getAttribute('title')).toBe(
+      'Text background color (none)'
+    )
+
+    rerender(
+      <TextFormatToolbar
+        editingText={makeEditingText({ backgroundColor: '#ffe066' })}
+        toolbarRef={{ current: null }}
+        textAreaRef={{ current: null }}
+        left={10}
+        top={20}
+        onChange={vi.fn()}
+        onBlurOutside={vi.fn()}
+      />
+    )
+
+    expect(screen.queryByTestId('text-background-none-indicator')).toBeNull()
+    expect((screen.getByLabelText('Text background color') as HTMLInputElement).value).toBe(
+      '#ffe066'
+    )
   })
 })

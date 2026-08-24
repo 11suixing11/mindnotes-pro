@@ -1,27 +1,33 @@
 # MindNotes Pro
 
-Local-first whiteboard drawing app. React 18 + TypeScript + Zustand + perfect-freehand + Tailwind CSS + Vite + jsPDF.
+Local-first whiteboard drawing app. React 19 + TypeScript + Zustand + perfect-freehand + Tailwind CSS + Vite + jsPDF.
 
 ## Project Structure
 
 ```
 src/
-├── canvas/              # Canvas drawing utilities
+├── core/                # Pure models, geometry, and arrangement algorithms
+├── canvas/              # Canvas rendering, brushes, and export helpers
 ├── components/
+│   ├── app/             # App lifecycle and status UI
 │   ├── canvas/          # Canvas component + hooks (renderer, pointer, selection, keyboard, text editor)
 │   ├── confirm-modal/   # Confirmation dialogs
-│   ├── export-menu/     # PDF/PNG export
-│   ├── first-run-guide/ # First-time user guide
-│   ├── sidebar/         # Document/folder sidebar
+│   ├── context-menu/    # Selection and canvas context menus
+│   ├── export-menu/     # Visual and JSON import/export
+│   ├── layers/          # Layer management panel
+│   ├── templates/       # Built-in and custom template UI
 │   ├── toast/           # Toast notifications
 │   └── toolbar/         # Tool selection, color picker, brush selector
+├── eraser/              # Geometric erasing and spatial index
+├── keyboard/            # Shortcut definitions and matching
 ├── store/
-│   ├── slices/          # Zustand slices (canvasElements, docManagement, folderManagement, history, toolSettings, uiState)
+│   ├── slices/          # Zustand slices and pure state transforms
 │   ├── appStore.ts      # Main store combining all slices
 │   ├── saveManager.ts   # Auto-save logic
-│   ├── storage.ts       # LocalStorage persistence
+│   ├── storage.ts       # IndexedDB storage and legacy decoding
 │   ├── migration.ts     # Data migration
 │   └── types.ts         # TypeScript types
+├── templates/           # Template definitions and transforms
 └── App.tsx / AppWrapper.tsx / main.tsx
 ```
 
@@ -37,7 +43,7 @@ npm run lint         # eslint src --ext .ts,.tsx
 
 ## Architecture
 
-- **State**: Zustand store with 6 slices, auto-persisted to localStorage via saveManager
+- **State**: Zustand store with 5 slices; the canonical board is auto-persisted to IndexedDB via saveManager
 - **Drawing**: perfect-freehand for strokes, custom canvas rendering
 - **Styling**: Tailwind CSS with custom Monet-inspired color palette
 - **Export**: jsPDF for PDF export (dynamically imported)
