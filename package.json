@@ -76,7 +76,7 @@
     "perfect-freehand": "^1.2.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "zustand": "^4.5.5"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
