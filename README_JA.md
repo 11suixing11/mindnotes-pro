@@ -19,7 +19,7 @@
 </div>
 
 <p align="center">
-  <img src=".github/mindnotes-pro-v4.png" width="900" alt="編集可能なフローチャートを選択した MindNotes Pro v5" />
+  <img src=".github/mindnotes-pro-v5.png" width="900" alt="編集可能なフローチャートを選択した MindNotes Pro v5" />
 </p>
 
 ## v5 でできること

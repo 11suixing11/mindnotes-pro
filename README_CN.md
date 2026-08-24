@@ -19,7 +19,7 @@
 </div>
 
 <p align="center">
-  <img src=".github/mindnotes-pro-v4.png" width="900" alt="MindNotes Pro v5 画布中选中的可编辑流程图" />
+  <img src=".github/mindnotes-pro-v5.png" width="900" alt="MindNotes Pro v5 画布中选中的可编辑流程图" />
 </p>
 
 ## v5 现在能可靠完成什么
