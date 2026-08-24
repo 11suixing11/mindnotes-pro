@@ -7,18 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
+No unreleased changes.
 
-- The primary workspace now exposes one board instead of a user-visible document collection.
-- JSON import replaces the current board in place; legacy document collections remain readable only for migration compatibility.
-- The minimap is removed from the focused single-board workspace.
-
-### Fixed
-
-- Built-in and custom template instances now unlock and expose each element as an independently editable object.
-- Generated bundle-analysis output containing build-machine paths is no longer tracked.
-
-## [5.0.0] - 2026-08-19
+## [5.0.0] - 2026-08-24
 
 ### Added
 
@@ -28,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The primary workspace now exposes one board instead of a user-visible document collection.
+- JSON import replaces the current board in place; legacy document collections remain readable only for migration compatibility.
+- The minimap is removed from the focused single-board workspace.
 - Documents now persist in the isolated `mindnotes-pro-v5` database
 - v5 JSON backups remain compatible with v4, v3, and supported legacy imports
 - Recovery drafts and custom templates migrate forward without deleting the v4 database
@@ -84,6 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Built-in and custom template instances now unlock and expose each element as an independently editable object.
+- Generated bundle-analysis output containing build-machine paths is no longer tracked.
 - Alignment and distribution undo now restore exact document snapshots
 - View and theme stores no longer depend cyclically on the application store
 
