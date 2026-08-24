@@ -70,12 +70,34 @@ interface TextEditBaseline {
   element: TextElement | null
 }
 
-function createSessionId(prefix: string): string {
-  const uuid =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  return `${prefix}${uuid}`
+let fallbackSessionCounter = 0
+
+function createFallbackSessionId(prefix: string, isTaken: (id: string) => boolean): string {
+  let candidate: string
+  do {
+    fallbackSessionCounter += 1
+    candidate = `${prefix}${Date.now()}-${fallbackSessionCounter}`
+  } while (isTaken(candidate))
+  return candidate
+}
+
+export function createSessionId(
+  prefix: string,
+  isTaken: (id: string) => boolean = () => false
+): string {
+  const webCrypto = globalThis.crypto
+  if (webCrypto && typeof webCrypto.randomUUID === 'function') {
+    const candidate = `${prefix}${webCrypto.randomUUID()}`
+    return isTaken(candidate) ? createFallbackSessionId(prefix, isTaken) : candidate
+  }
+
+  if (webCrypto && typeof webCrypto.getRandomValues === 'function') {
+    const values = webCrypto.getRandomValues(new Uint32Array(2))
+    const candidate = `${prefix}${Date.now()}-${values[0].toString(36)}-${values[1].toString(36)}`
+    return isTaken(candidate) ? createFallbackSessionId(prefix, isTaken) : candidate
+  }
+
+  return createFallbackSessionId(prefix, isTaken)
 }
 
 function matchesExistingText(
@@ -452,7 +474,8 @@ export function useTextEditor(canvasRef: React.RefObject<HTMLCanvasElement | nul
           ...format,
         })
       } else {
-        const id = createSessionId('text-')
+        const existingIds = new Set(state.elements.map((element) => element.id))
+        const id = createSessionId('text-', (candidate) => existingIds.has(candidate))
         const layerId = getWritableLayerId(state.layers, state.activeLayerId) ?? state.activeLayerId
         const format = normalizeTextFormat({ color, fontSize: DEFAULT_TEXT_FONT_SIZE })
         const layout = measureLayout('', format, true)
