@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v5.0.0'
+const CACHE_VERSION = 'v5.0.1'
 const STATIC_CACHE = `mindnotes-static-${CACHE_VERSION}`
 const RUNTIME_CACHE = `mindnotes-runtime-${CACHE_VERSION}`
 const BUILD_PRECACHE = /* __MINDNOTES_PRECACHE__ */ []
