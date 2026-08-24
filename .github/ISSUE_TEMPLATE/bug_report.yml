@@ -1,12 +1,13 @@
 name: Bug Report
 description: Report a bug to help us improve
 title: '[Bug] '
-labels: ['bug', 'triage']
+labels: ['bug']
 body:
   - type: markdown
     attributes:
       value: |
         Thank you for reporting a bug! Please fill in the information below to help us locate the issue.
+        Do not include private board content, credentials, or exploit details. Use [SECURITY.md](../../SECURITY.md) for vulnerability reports.
 
   - type: textarea
     id: description
@@ -71,10 +72,33 @@ body:
     id: version
     attributes:
       label: MindNotes Pro Version
-      description: Version you are using
-      placeholder: '3.2.0'
+      description: Version, release tag, or commit you are using
+      placeholder: '5.0.0 (or an exact commit/tag)'
     validations:
       required: true
+
+  - type: dropdown
+    id: data_impact
+    attributes:
+      label: Data loss or recovery impact
+      description: Did this issue remove, overwrite, or make local board data unrecoverable?
+      options:
+        - No known data loss
+        - Data may be missing or unrecoverable
+        - Import, export, or recovery failed but data may remain
+        - Unsure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: privacy_check
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed private board content, personal information, credentials, and tokens from this report.
+          required: true
+        - label: This is not a vulnerability report; security issues are reported privately through SECURITY.md.
+          required: true
 
   - type: textarea
     id: screenshots
