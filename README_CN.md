@@ -12,7 +12,7 @@
   </p>
   <p>
     <a href="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml"><img src="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml/badge.svg" alt="CI 状态" /></a>
-    <img src="https://img.shields.io/badge/version-5.0.0-0f766e" alt="版本 5.0.0" />
+    <img src="https://img.shields.io/badge/version-5.0.1-0f766e" alt="版本 5.0.1" />
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2563eb" alt="MIT 许可证" /></a>
     <img src="https://img.shields.io/badge/storage-local--first-16a34a" alt="本地优先存储" />
   </p>

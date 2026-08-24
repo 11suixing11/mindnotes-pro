@@ -73,7 +73,7 @@ body:
     attributes:
       label: MindNotes Pro Version
       description: Version, release tag, or commit you are using
-      placeholder: '5.0.0 (or an exact commit/tag)'
+      placeholder: '5.0.1 (or an exact commit/tag)'
     validations:
       required: true
 
