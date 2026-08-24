@@ -101,6 +101,17 @@ export function resizeElement(
     return { ...el, x, y, w: el.w * sx, h: el.h * sy }
   }
 
+  if (el.type === 'text') {
+    return {
+      ...el,
+      x: ax + (el.x - ax) * sx,
+      y: ay + (el.y - ay) * sy,
+      width: el.width * sx,
+      height: el.height * sy,
+      autoResize: false,
+    }
+  }
+
   return {
     ...el,
     x: ax + (el.x - ax) * sx,

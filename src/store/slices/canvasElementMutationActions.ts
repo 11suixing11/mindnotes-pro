@@ -9,14 +9,23 @@ import {
   createElementUpdatePlan,
 } from './canvasElementMutations'
 import { appendUndoAction } from './canvasElementCommit'
+import { snapshot } from '../helpers'
+
+export interface UpdateElementOptions {
+  historyLabel?: string
+}
 
 export interface CanvasElementMutationActions {
-  addElement: (element: CanvasElement) => void
-  addElements: (elements: CanvasElement[]) => void
-  updateElement: (id: string, update: (element: CanvasElement) => CanvasElement) => void
-  removeElement: (id: string) => void
-  removeElements: (ids: string[]) => void
-  clearAll: () => void
+  addElement: (element: CanvasElement) => boolean
+  addElements: (elements: CanvasElement[]) => boolean
+  updateElement: (
+    id: string,
+    update: (element: CanvasElement) => CanvasElement,
+    options?: UpdateElementOptions
+  ) => boolean
+  removeElement: (id: string) => boolean
+  removeElements: (ids: string[]) => boolean
+  clearAll: () => boolean
 }
 
 interface CanvasElementMutationActionState {
@@ -68,14 +77,14 @@ export function createCanvasElementMutationActions(
     markIndexDirty,
   } = context
 
-  const addElements = (elements: CanvasElement[]) => {
+  const addElements = (elements: CanvasElement[]): boolean => {
     const state = get()
     const startIndex = state.elements.length
     const layeredElements = elements
       .map((element) => assignToWritableLayer(element, state))
       .filter((element: CanvasElement | null): element is CanvasElement => !!element)
     const plan = createElementAdditionPlan(state.elements, layeredElements)
-    if (!plan) return
+    if (!plan) return false
 
     incrementSaveGeneration()
     set({
@@ -85,42 +94,72 @@ export function createCanvasElementMutationActions(
     })
     appendElementCollection(plan.addedElements, startIndex, state)
     scheduleSave()
+    return true
   }
 
   return {
     addElement: (element) => addElements([element]),
     addElements,
 
-    updateElement: (id, update) => {
-      incrementSaveGeneration()
+    updateElement: (id, update, options) => {
       const state = get()
       rebuildIndexIfNeeded()
       let index = state.idToIndex.get(id)
-      if (index === undefined) {
+      if (
+        index === undefined ||
+        index < 0 ||
+        index >= state.elements.length ||
+        state.elements[index]?.id !== id
+      ) {
         index = state.elements.findIndex((element) => element.id === id)
       }
-      if (index < 0) return
-      if (!isElementLayerEditable(state.elements[index], state.layers)) return
+      if (index < 0) return false
+      if (!isElementLayerEditable(state.elements[index], state.layers)) return false
 
       const plan = createElementUpdatePlan(state.elements, index, update)
+      if (plan.updatedElement === state.elements[index]) return false
+      const action: UndoAction | undefined = options?.historyLabel
+        ? {
+            type: 'snapshot',
+            before: snapshot(state.elements),
+            after: snapshot(plan.elements),
+            label: options.historyLabel,
+            affectedIds: [id],
+          }
+        : undefined
+      incrementSaveGeneration()
       synchronizeElementReplacement(plan.elements, index, id, state)
-      set({ elements: plan.elements })
+      set({
+        elements: plan.elements,
+        ...(action
+          ? {
+              undoStack: appendUndoAction(state.undoStack, action),
+              redoStack: [],
+            }
+          : {}),
+      })
       scheduleSave()
+      return true
     },
 
     removeElement: (id) => {
-      incrementSaveGeneration()
       const state = get()
       rebuildIndexIfNeeded()
       let index = state.idToIndex.get(id)
-      if (index === undefined) {
+      if (
+        index === undefined ||
+        index < 0 ||
+        index >= state.elements.length ||
+        state.elements[index]?.id !== id
+      ) {
         index = state.elements.findIndex((element) => element.id === id)
       }
-      if (index < 0) return
-      if (!isElementLayerEditable(state.elements[index], state.layers)) return
+      if (index < 0) return false
+      if (!isElementLayerEditable(state.elements[index], state.layers)) return false
 
       const plan = createElementRemovalPlan(state.elements, [id], state.selectedIds)
-      if (!plan) return
+      if (!plan) return false
+      incrementSaveGeneration()
       set({
         elements: plan.elements,
         undoStack: appendUndoAction(state.undoStack, plan.action),
@@ -130,16 +169,17 @@ export function createCanvasElementMutationActions(
       removeElementCollection(plan.removedIds, state)
       markIndexDirty()
       scheduleSave()
+      return true
     },
 
     removeElements: (ids) => {
-      incrementSaveGeneration()
       const state = get()
       const editableIds = getEditableIds(ids, state)
-      if (editableIds.length === 0) return
+      if (editableIds.length === 0) return false
       const plan = createElementRemovalPlan(state.elements, editableIds, state.selectedIds, true)
-      if (!plan) return
+      if (!plan) return false
 
+      incrementSaveGeneration()
       set({
         elements: plan.elements,
         undoStack: appendUndoAction(state.undoStack, plan.action),
@@ -149,12 +189,14 @@ export function createCanvasElementMutationActions(
       removeElementCollection(plan.removedIds, state)
       markIndexDirty()
       scheduleSave()
+      return true
     },
 
     clearAll: () => {
-      incrementSaveGeneration()
       const state = get()
+      if (state.elements.length === 0) return false
       const plan = createElementClearPlan(state.elements)
+      incrementSaveGeneration()
       set({
         elements: plan.elements,
         undoStack: appendUndoAction(state.undoStack, plan.action),
@@ -163,6 +205,7 @@ export function createCanvasElementMutationActions(
       })
       replaceElementCollection(plan.elements, get())
       scheduleSave()
+      return true
     },
   }
 }

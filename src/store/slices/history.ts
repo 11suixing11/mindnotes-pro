@@ -1,5 +1,5 @@
 import type { CanvasElement, UndoAction } from '../types'
-import { scheduleSave } from '../saveManager'
+import { incrementSaveGeneration, scheduleSave } from '../saveManager'
 import { getContentBounds } from '../../canvas/canvasUtils'
 import { useViewStore } from '../useViewStore'
 import { useToastStore } from '../toastStore'
@@ -172,6 +172,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
       focusAffectedElements(getAffectedElementIds(action), transition.elements, set)
       synchronizeHistoryRuntime(get(), transition.elements)
       showHistoryFeedback('Undo', action, undoStack.length - 1)
+      incrementSaveGeneration()
       scheduleSave()
     },
 
@@ -190,6 +191,7 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
       focusAffectedElements(getAffectedElementIds(action), transition.elements, set)
       synchronizeHistoryRuntime(get(), transition.elements)
       showHistoryFeedback('Redo', action, redoStack.length - 1)
+      incrementSaveGeneration()
       scheduleSave()
     },
   }

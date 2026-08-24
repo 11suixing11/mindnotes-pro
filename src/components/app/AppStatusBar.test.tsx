@@ -15,7 +15,7 @@ describe('AppStatusBar', () => {
     useViewStore.setState({ viewBox: { x: 0, y: 0, zoom: 1 } })
   })
 
-  it('projects tool, document, element, zoom, save, feedback, and help state', () => {
+  it('projects single-board, element, zoom, save, feedback, and help state', () => {
     useAppStore.setState({
       elements: [
         {
@@ -52,14 +52,30 @@ describe('AppStatusBar', () => {
     expect(screen.getByRole('status', { name: '应用状态' })).toBeTruthy()
     expect(screen.getByText('矩形')).toBeTruthy()
     expect(screen.getByText('1 个元素')).toBeTruthy()
-    expect(screen.getByText('1 个文档')).toBeTruthy()
+    expect(screen.getByText('单画板')).toBeTruthy()
     expect(screen.getByText('125%')).toBeTruthy()
     expect(screen.getByLabelText('正在保存')).toBeTruthy()
+    expect(screen.getByText('保存中')).toBeTruthy()
     expect(screen.getByRole('link', { name: '提交反馈' }).getAttribute('target')).toBe('_blank')
     expect(screen.getByRole('button', { name: '键盘快捷键' })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '键盘快捷键' }))
     expect(onOpenShortcuts).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['idle', '自动保存', '自动保存已开启'],
+    ['saving', '保存中', '正在保存'],
+    ['saved', '已保存', '已保存'],
+    ['error', '保存失败', '保存失败'],
+  ] as const)('shows a visible %s save state', (saveStatus, label, ariaLabel) => {
+    useAppStore.setState({ saveStatus })
+
+    render(<AppStatusBar onOpenShortcuts={vi.fn()} />)
+
+    const feedback = screen.getByLabelText(ariaLabel)
+    expect(feedback.textContent).toBe(label)
+    expect(feedback.classList.contains(`status-save-${saveStatus}`)).toBe(true)
   })
 
   it('fits the current content from click and keyboard activation', () => {

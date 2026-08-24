@@ -8,7 +8,7 @@ const {
   baseElement,
   baseLayer,
   canvasToBlobMock,
-  importDocMock,
+  replaceCurrentDocMock,
   renderDocumentMock,
   showToastMock,
 } = vi.hoisted(() => {
@@ -33,7 +33,7 @@ const {
     color: '#111827',
     size: 2,
   }
-  const importDoc = vi.fn(async (_document: unknown) => 'imported-doc')
+  const replaceCurrentDoc = vi.fn(async (_document: unknown) => 'replaced-doc')
 
   return {
     appState: {
@@ -58,12 +58,12 @@ const {
       activeLayerId: layer.id,
       bgColor: '#ffffff',
       backgroundStyle: 'plain' as const,
-      importDoc,
+      replaceCurrentDoc,
     },
     baseElement: element,
     baseLayer: layer,
     canvasToBlobMock: vi.fn(async () => new Blob(['jpeg'], { type: 'image/jpeg' })),
-    importDocMock: importDoc,
+    replaceCurrentDocMock: replaceCurrentDoc,
     renderDocumentMock: vi.fn(async () => ({
       canvas: document.createElement('canvas'),
       bounds: { x: 0, y: 0, w: 100, h: 100 },
@@ -119,7 +119,7 @@ describe('ExportMenu', () => {
     appState.bgColor = '#ffffff'
     appState.backgroundStyle = 'plain'
     showToastMock.mockReset()
-    importDocMock.mockClear()
+    replaceCurrentDocMock.mockClear()
     renderDocumentMock.mockClear()
     canvasToBlobMock.mockClear()
     Object.defineProperty(URL, 'createObjectURL', {
@@ -227,7 +227,7 @@ describe('ExportMenu', () => {
     expect(canvasToBlobMock).not.toHaveBeenCalled()
   })
 
-  it('imports a backup as a separate editable document', async () => {
+  it('imports a backup into the current single board', async () => {
     render(<ExportMenu />)
     const input = screen.getByLabelText('选择 JSON 文件') as HTMLInputElement
     const serialized = JSON.stringify({
@@ -248,8 +248,8 @@ describe('ExportMenu', () => {
 
     fireEvent.change(input, { target: { files: [file] } })
 
-    await waitFor(() => expect(importDocMock).toHaveBeenCalledTimes(1))
-    expect(importDocMock.mock.calls[0][0]).toMatchObject({ title: '导入测试' })
-    expect(showToastMock).toHaveBeenCalledWith('已导入为新的可编辑画布', 'success')
+    await waitFor(() => expect(replaceCurrentDocMock).toHaveBeenCalledTimes(1))
+    expect(replaceCurrentDocMock.mock.calls[0][0]).toMatchObject({ title: '导入测试' })
+    expect(showToastMock).toHaveBeenCalledWith('已导入并替换当前画板', 'success')
   })
 })

@@ -102,6 +102,25 @@ describe('document initialization boundary', () => {
     expect(result.folders).toHaveLength(1)
   })
 
+  it('exposes only the most recently updated document as the canonical board', async () => {
+    const older = createBlankDocument(10)
+    older.id = 'older'
+    older.title = 'Older board'
+    older.updatedAt = 10
+    const newer = createBlankDocument(20)
+    newer.id = 'newer'
+    newer.title = 'Newer board'
+    newer.updatedAt = 20
+    const memory = createMemoryRepository([older, newer], [])
+    restoreRepository = bindDocumentRepository(memory.repository, emptyLegacySource())
+
+    const result = await initializeDocuments()
+
+    expect(result.docs).toHaveLength(1)
+    expect(result.docs[0]).toMatchObject({ id: 'newer', title: 'Newer board' })
+    expect(memory.docs).toHaveLength(2)
+  })
+
   it('normalizes a recovery draft for the in-memory fallback', () => {
     const document = createBlankDocument(10)
     document.schemaVersion = 4

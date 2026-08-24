@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from 'react'
+import { useRef, useCallback, useEffect, useState } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useThemeStore } from '../../store/useThemeStore'
@@ -11,7 +11,6 @@ import {
   drawSelBox,
   drawMonetGrid,
   drawCanvasBackground,
-  drawMinimap,
   drawZoomLevel,
   drawGrid,
 } from '../../canvas/canvasDrawing'
@@ -71,7 +70,8 @@ export function mergeSelectionBounds<T extends { id: string }>(
 export function useCanvasRenderer(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   containerRef: React.RefObject<HTMLDivElement | null>,
-  getDrawState: () => DrawState
+  getDrawState: () => DrawState,
+  editingTextId?: string
 ) {
   const elementsCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const elementsDirtyRef = useRef(true)
@@ -233,7 +233,8 @@ export function useCanvasRenderer(
       const visibleSet = new Set(visibleIds)
       for (const el of renderableElements) {
         if (!visibleSet.has(el.id)) continue
-        drawElement(ctx, el, dark)
+        if (el.id === editingTextId) continue
+        drawElement(ctx, el, dark, editingTextId)
         // 锁定元素视觉指示器（小锁图标）
         if (el.locked || isLayerLocked(st.layers, getElementLayerId(el)))
           drawLockIcon(ctx, cachedBounds(el), dark)
@@ -243,7 +244,8 @@ export function useCanvasRenderer(
       // 降级: 空间索引不可用时使用原有 O(n) 遍历
       for (const el of renderableElements) {
         if (!isVisibleInView(el, vl, vt, vw, vh)) continue
-        drawElement(ctx, el, dark)
+        if (el.id === editingTextId) continue
+        drawElement(ctx, el, dark, editingTextId)
         // 锁定元素视觉指示器（小锁图标）
         if (el.locked || isLayerLocked(st.layers, getElementLayerId(el)))
           drawLockIcon(ctx, cachedBounds(el), dark)
@@ -263,7 +265,7 @@ export function useCanvasRenderer(
 
     ctx.restore()
     elementsDirtyRef.current = false
-  }, [dpr, canvasSize, getOrCreateEC])
+  }, [dpr, canvasSize, editingTextId, getOrCreateEC])
   const redraw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -408,15 +410,6 @@ export function useCanvasRenderer(
       ctx.restore()
     }
 
-    drawMinimap(
-      ctx,
-      getRenderableElements(st.elements, st.layers),
-      cachedBounds,
-      vb,
-      canvasSize,
-      dark,
-      st.bgColor
-    )
     drawZoomLevel(ctx, vb, canvasSize, dark, dpr)
   }, [dpr, canvasSize, getOrCreateEC, renderElementsToCache, canvasRef, getDrawState])
   const scheduleRedraw = useCanvasRendererLifecycle({
@@ -429,6 +422,13 @@ export function useCanvasRenderer(
     elementsDirtyRef,
     boundsCacheRef,
   })
+
+  useEffect(() => {
+    // The element cache includes the editing id: redraw once when text editing
+    // starts/ends so the active text and its selection chrome disappear/reappear.
+    elementsDirtyRef.current = true
+    scheduleRedraw()
+  }, [editingTextId, elementsDirtyRef, scheduleRedraw])
 
   return { redraw, scheduleRedraw, elementsDirtyRef, boundsCacheRef, cachedBounds, canvasSize, dpr }
 }

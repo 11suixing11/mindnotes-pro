@@ -25,7 +25,10 @@ import { createCanvasElementLayerActions } from './canvasElementLayerActions'
 import { createCanvasElementClipboardActions } from './canvasElementClipboardActions'
 import { createCanvasElementMetadataActions } from './canvasElementMetadataActions'
 import { createCanvasElementArrangementActions } from './canvasElementArrangementActions'
-import { createCanvasElementMutationActions } from './canvasElementMutationActions'
+import {
+  createCanvasElementMutationActions,
+  type UpdateElementOptions,
+} from './canvasElementMutationActions'
 import {
   createCanvasElementGeometryActions,
   type MoveElementsOptions,
@@ -55,8 +58,8 @@ export interface CanvasElementsState {
 }
 
 export interface CanvasElementsActions {
-  addElement: (el: CanvasElement) => void
-  addElements: (els: CanvasElement[]) => void
+  addElement: (el: CanvasElement) => boolean
+  addElements: (els: CanvasElement[]) => boolean
   createLayer: (name?: string) => string
   renameLayer: (id: string, name: string) => void
   deleteLayer: (id: string) => void
@@ -66,10 +69,14 @@ export interface CanvasElementsActions {
   moveLayer: (id: string, direction: 'up' | 'down') => void
   moveElementsToLayer: (ids: string[], layerId: string) => void
   moveSelectedToLayer: (layerId: string) => void
-  updateElement: (id: string, update: (el: CanvasElement) => CanvasElement) => void
+  updateElement: (
+    id: string,
+    update: (el: CanvasElement) => CanvasElement,
+    options?: UpdateElementOptions
+  ) => boolean
   commitElements: (elements: CanvasElement[], options?: CommitElementsOptions) => void
-  removeElement: (id: string) => void
-  removeElements: (ids: string[]) => void
+  removeElement: (id: string) => boolean
+  removeElements: (ids: string[]) => boolean
   moveElementById: (id: string, dx: number, dy: number) => void
   moveElementsById: (ids: string[], dx: number, dy: number, options?: MoveElementsOptions) => void
   resizeElementById: (id: string, ax: number, ay: number, sx: number, sy: number) => void
@@ -82,7 +89,7 @@ export interface CanvasElementsActions {
     commonCenterX?: number,
     commonCenterY?: number
   ) => void
-  clearAll: () => void
+  clearAll: () => boolean
   setSelectedIds: (ids: string[]) => void
   copySelected: () => void
   paste: () => void

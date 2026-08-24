@@ -3,6 +3,7 @@ import { findShortcutAction, isEditableShortcutTarget } from '../../keyboard/sho
 import { useAppStore } from '../../store/appStore'
 import { useShortcutStore } from '../../store/useShortcutStore'
 import { useThemeStore } from '../../store/useThemeStore'
+import { saveRecoveryDraftNow } from '../../store/saveManager'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
@@ -25,11 +26,18 @@ export function useAppLifecycle(onToggleShortcuts: () => void): AppLifecycleStat
   }, [initTheme, init])
 
   useEffect(() => {
-    const handleBeforeUnload = () => {
+    const handleExit = () => {
+      // localStorage is synchronous and survives a page termination; it gives
+      // the next boot a recovery draft even when IndexedDB cannot finish.
+      saveRecoveryDraftNow()
       useAppStore.getState().saveNow()
     }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('beforeunload', handleExit)
+    window.addEventListener('pagehide', handleExit)
+    return () => {
+      window.removeEventListener('beforeunload', handleExit)
+      window.removeEventListener('pagehide', handleExit)
+    }
   }, [])
 
   useEffect(() => {

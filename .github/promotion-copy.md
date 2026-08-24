@@ -27,7 +27,7 @@ What it does today:
 - opens without signup
 - stores drawings in your browser
 - works as a PWA after first load
-- supports pens, shapes, text, images, multiple documents, undo/redo, and PNG/PDF export
+- supports pens, shapes, text, images, layers, undo/redo, and portable PNG/JPEG/PDF/SVG/JSON export
 - is MIT licensed and self-hostable
 
 What it is not:
@@ -66,7 +66,7 @@ The current direction:
 - no server-side storage
 - drawings stay in local browser storage
 - offline-capable PWA
-- pens, shapes, text, images, multi-document workspace, and export
+- pens, shapes, text, images, layers, a focused single-board workspace, and export
 
 I am not sure yet whether the product is actually useful, so I am looking for direct feedback rather than stars.
 

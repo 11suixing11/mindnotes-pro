@@ -40,7 +40,7 @@ function download(blob: Blob, filename: string) {
 
 function getExportContext(): ExportContext {
   const state = useAppStore.getState()
-  const storedDoc = state.docs.find((doc) => doc.id === state.currentDocId)
+  const storedDoc = state.docs.find((doc) => doc.id === state.currentDocId) ?? state.docs[0]
   if (!storedDoc) throw new Error('当前文档未就绪')
 
   const doc: CanvasDoc = {
@@ -222,8 +222,8 @@ const ExportMenu = memo(function ExportMenu() {
 
     try {
       const imported = parseCanvasImportJSON(await file.text())
-      await useAppStore.getState().importDoc(imported)
-      showToast('已导入为新的可编辑画布', 'success')
+      await useAppStore.getState().replaceCurrentDoc(imported)
+      showToast('已导入并替换当前画板', 'success')
     } catch (error) {
       const message = error instanceof Error ? error.message : '无法解析文件'
       showToast(`导入失败：${message}`, 'error')
@@ -332,7 +332,7 @@ const ExportMenu = memo(function ExportMenu() {
                 </span>
                 <span className="em-labels">
                   <span className="dl">导入 JSON</span>
-                  <span className="dd">作为新画布导入 v4、v3 或旧版文件</span>
+                  <span className="dd">导入 v4、v3 或旧版文件，替换当前画板</span>
                 </span>
               </button>
             </div>

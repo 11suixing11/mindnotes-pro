@@ -83,8 +83,12 @@ describe('canvas element mutation actions', () => {
   it('adds elements to the writable layer with one history action', () => {
     const { state, context, actions } = createHarness()
 
-    actions.addElements([makeShape('first', { layerId: undefined }), makeShape('second')])
+    const added = actions.addElements([
+      makeShape('first', { layerId: undefined }),
+      makeShape('second'),
+    ])
 
+    expect(added).toBe(true)
     expect(state.elements.map((element) => element.layerId)).toEqual(['layer-1', 'layer-1'])
     expect(state.undoStack[state.undoStack.length - 1]?.type).toBe('add')
     expect(context.appendElementCollection).toHaveBeenCalledWith(
@@ -95,12 +99,25 @@ describe('canvas element mutation actions', () => {
     expect(scheduleSave).toHaveBeenCalledOnce()
   })
 
+  it('returns false without dirtying when no layer can accept an element', () => {
+    const { state, context, actions } = createHarness()
+    state.layers[0] = { ...state.layers[0], locked: true }
+
+    const added = actions.addElement(makeShape('blocked'))
+
+    expect(added).toBe(false)
+    expect(context.set).not.toHaveBeenCalled()
+    expect(incrementSaveGeneration).not.toHaveBeenCalled()
+    expect(scheduleSave).not.toHaveBeenCalled()
+  })
+
   it('updates an editable element and synchronizes its runtime replacement', () => {
     const shape = makeShape('shape-1')
     const { state, context, actions } = createHarness({ elements: [shape] })
 
-    actions.updateElement(shape.id, (element) => ({ ...element, locked: true }))
+    const updated = actions.updateElement(shape.id, (element) => ({ ...element, locked: true }))
 
+    expect(updated).toBe(true)
     expect(state.elements[0].locked).toBe(true)
     expect(context.rebuildIndexIfNeeded).toHaveBeenCalledOnce()
     expect(context.synchronizeElementReplacement).toHaveBeenCalledWith(
@@ -109,6 +126,102 @@ describe('canvas element mutation actions', () => {
       shape.id,
       expect.anything()
     )
+  })
+
+  it('records one snapshot history action when an update requests history', () => {
+    const shape = makeShape('shape-1')
+    const redoAction: UndoAction = { type: 'clear', snapshot: [] }
+    const { state, actions } = createHarness({ elements: [shape], redoStack: [redoAction] })
+
+    const updated = actions.updateElement(shape.id, (element) => ({ ...element, x: 42 }), {
+      historyLabel: 'Edit element',
+    })
+
+    expect(updated).toBe(true)
+    expect(state.undoStack).toHaveLength(1)
+    expect(state.undoStack[0]).toEqual({
+      type: 'snapshot',
+      before: [shape],
+      after: [{ ...shape, x: 42 }],
+      label: 'Edit element',
+      affectedIds: [shape.id],
+    })
+    expect(state.redoStack).toEqual([])
+  })
+
+  it('returns false without dirtying when an update keeps the same element', () => {
+    const shape = makeShape('shape-1')
+    const { context, actions } = createHarness({ elements: [shape] })
+
+    const updated = actions.updateElement(shape.id, (element) => element, {
+      historyLabel: 'Edit element',
+    })
+
+    expect(updated).toBe(false)
+    expect(context.set).not.toHaveBeenCalled()
+    expect(incrementSaveGeneration).not.toHaveBeenCalled()
+    expect(scheduleSave).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the element array when an update index points to another element', () => {
+    const first = makeShape('first')
+    const target = makeShape('target')
+    const { state, context, actions } = createHarness({ elements: [first, target] })
+    state.idToIndex.set(target.id, 0)
+
+    actions.updateElement(target.id, (element) => ({ ...element, locked: true }))
+
+    expect(state.elements[0]).toBe(first)
+    expect(state.elements[1]).toEqual(expect.objectContaining({ id: target.id, locked: true }))
+    expect(context.synchronizeElementReplacement).toHaveBeenCalledWith(
+      state.elements,
+      1,
+      target.id,
+      expect.anything()
+    )
+    expect(incrementSaveGeneration).toHaveBeenCalledOnce()
+    expect(scheduleSave).toHaveBeenCalledOnce()
+  })
+
+  it('falls back to the element array when a removal index is out of bounds', () => {
+    const first = makeShape('first')
+    const target = makeShape('target')
+    const { state, context, actions } = createHarness({ elements: [first, target] })
+    state.idToIndex.set(target.id, 99)
+
+    actions.removeElement(target.id)
+
+    expect(state.elements).toEqual([first])
+    expect(context.removeElementCollection).toHaveBeenCalledWith([target.id], expect.anything())
+    expect(incrementSaveGeneration).toHaveBeenCalledOnce()
+    expect(scheduleSave).toHaveBeenCalledOnce()
+  })
+
+  it('does not dirty or save the document when an update target is missing', () => {
+    const update = vi.fn((element: CanvasElement) => element)
+    const { context, actions } = createHarness({ elements: [makeShape('existing')] })
+
+    const updated = actions.updateElement('missing', update)
+
+    expect(updated).toBe(false)
+    expect(update).not.toHaveBeenCalled()
+    expect(context.set).not.toHaveBeenCalled()
+    expect(context.synchronizeElementReplacement).not.toHaveBeenCalled()
+    expect(incrementSaveGeneration).not.toHaveBeenCalled()
+    expect(scheduleSave).not.toHaveBeenCalled()
+  })
+
+  it('does not dirty or save the document when a removal target is missing', () => {
+    const { context, actions } = createHarness({ elements: [makeShape('existing')] })
+
+    const removed = actions.removeElement('missing')
+
+    expect(removed).toBe(false)
+    expect(context.set).not.toHaveBeenCalled()
+    expect(context.removeElementCollection).not.toHaveBeenCalled()
+    expect(context.markIndexDirty).not.toHaveBeenCalled()
+    expect(incrementSaveGeneration).not.toHaveBeenCalled()
+    expect(scheduleSave).not.toHaveBeenCalled()
   })
 
   it('removes only editable elements and marks indexes dirty', () => {

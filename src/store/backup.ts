@@ -199,6 +199,8 @@ function parseText(record: Record<string, unknown>): TextElement {
     width: requiredNumber(record, 'width'),
     height: requiredNumber(record, 'height'),
     content: typeof record.content === 'string' ? record.content : '',
+    originalContent: optionalString(record, 'originalContent'),
+    autoResize: typeof record.autoResize === 'boolean' ? record.autoResize : undefined,
     fontSize: requiredNumber(record, 'fontSize'),
     color: requiredString(record, 'color'),
     fontWeight,

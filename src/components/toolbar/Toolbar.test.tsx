@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import Toolbar from './Toolbar'
 import { useAppStore } from '../../store/appStore'
@@ -60,5 +60,23 @@ describe('Toolbar', () => {
 
     window.removeEventListener('app-confirm', onConfirm)
     expect(details[0]?.message).toBe('确定清空当前画布吗？')
+  })
+
+  it('shows install as a secondary toolbar action when it is available', () => {
+    const onInstall = vi.fn()
+
+    render(<Toolbar canInstall onInstall={onInstall} />)
+    fireEvent.click(screen.getByRole('button', { name: '安装 MindNotes Pro' }))
+
+    expect(onInstall).toHaveBeenCalledOnce()
+  })
+
+  it('keeps topbar action hints available through native titles', () => {
+    render(<Toolbar />)
+
+    expect(screen.getByRole('button', { name: '显示网格' }).getAttribute('title')).toContain(
+      '显示网格'
+    )
+    expect(screen.getByRole('button', { name: '放大' }).getAttribute('title')).toBe('放大')
   })
 })

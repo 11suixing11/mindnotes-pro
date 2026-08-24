@@ -1,4 +1,9 @@
 import { sanitizeSvgDataUrl } from '../../canvas/svgSanitizer'
+import {
+  DEFAULT_TEXT_FONT_SIZE,
+  getTextLayout,
+  normalizeTextFormat,
+} from '../../canvas/textFormatting'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 
@@ -15,24 +20,21 @@ export function pastePlainTextAtViewportCenter(text: string): void {
 
   const store = useAppStore.getState()
   const center = getViewportCenter()
-  const fontSize = 16
-  const avgCharWidth = fontSize * 0.6
-  const lineHeight = fontSize * 1.4
-  const lines = text.split('\n')
-  const maxLineLength = Math.max(...lines.map((line) => line.length))
-  const width = Math.max(100, Math.min(600, Math.round(maxLineLength * avgCharWidth)))
-  const height = Math.round(lines.length * lineHeight + 16)
+  const format = normalizeTextFormat({ color: '#1a1a1a', fontSize: DEFAULT_TEXT_FONT_SIZE })
+  const layout = getTextLayout(text, format, { autoResize: true, maxWidth: 600 })
 
   store.addElement({
     type: 'text',
     id: `text-${Date.now()}`,
-    x: center.x - width / 2,
-    y: center.y - height / 2,
-    width,
-    height,
-    content: text,
-    fontSize,
-    color: '#1a1a1a',
+    x: center.x - layout.width / 2,
+    y: center.y - layout.height / 2,
+    width: layout.width,
+    height: layout.height,
+    content: layout.renderedContent,
+    originalContent: layout.originalContent,
+    autoResize: true,
+    fontSize: format.fontSize,
+    color: format.color,
   })
 }
 

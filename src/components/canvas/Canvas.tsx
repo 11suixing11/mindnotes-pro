@@ -1,9 +1,9 @@
-import { useRef, useCallback, useState } from 'react'
+import { useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAppStore } from '../../store/appStore'
 import { DEFAULT_GRID_SIZE, useViewStore } from '../../store/useViewStore'
-import { useThemeStore } from '../../store/useThemeStore'
 import { clientToWorld, worldToClient } from '../../canvas/coordinates'
-import { getTextLineHeight, type TextFormatState } from '../../canvas/textFormatting'
+import { getTextLineHeight, TEXT_FONT_FAMILY } from '../../canvas/textFormatting'
 import { ContextMenu } from '../context-menu'
 import type { DrawState } from './useCanvasRenderer'
 import { useTextEditor } from './useTextEditor'
@@ -12,11 +12,35 @@ import { useSelectionEngine } from './useSelectionEngine'
 import { useCanvasRenderer } from './useCanvasRenderer'
 import { usePointerEngine } from './usePointerEngine'
 import TextFormatToolbar from './TextFormatToolbar'
+import { applyTextIndentation, getTextEditKeyAction } from './textEditorKeyboard'
+import { getTextToolbarPosition } from './textToolbarPosition'
+import {
+  clearActiveTextRecoveryDraft,
+  saveActiveTextRecoveryDraftNow,
+} from '../../store/saveManager'
+
+const TEXT_RECOVERY_CHECKPOINT_DELAY = 350
+const TEXT_RECOVERY_CHECKPOINT_MAX_WAIT = 1250
 
 export default function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const textToolbarRef = useRef<HTMLDivElement | null>(null)
+  const editingTextRef = useRef<ReturnType<typeof useTextEditor>['editingText']>(null)
+  const commitTextEditRef = useRef<ReturnType<typeof useTextEditor>['commitTextEdit']>(() => false)
+  const textEditSessionRef = useRef(0)
+  const textInteractionRef = useRef<'toolbar' | 'color-picker' | null>(null)
+  const windowBlurredRef = useRef(false)
+  const pendingCommitFramesRef = useRef(new Set<number>())
+  const textRecoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const textRecoveryDirtyRef = useRef(false)
+  const textRecoveryFirstDirtyAtRef = useRef<number | null>(null)
+  const [textEditSession, setTextEditSession] = useState(0)
+  const [textToolbarMetrics, setTextToolbarMetrics] = useState({ width: 420, height: 56 })
+  const [viewportSize, setViewportSize] = useState(() => ({
+    width: typeof window === 'undefined' ? 1280 : window.innerWidth,
+    height: typeof window === 'undefined' ? 720 : window.innerHeight,
+  }))
   // 右键上下文菜单状态
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
 
@@ -40,13 +64,139 @@ export default function Canvas() {
   }))
 
   // a) useTextEditor
-  const { editingText, setEditingText, textRef, commitTextEdit, startEditText } =
-    useTextEditor(canvasRef)
+  const {
+    editingText,
+    textRef,
+    updateEditingTextContent,
+    updateEditingTextFormat,
+    createTextRecoveryDraft,
+    commitTextEdit,
+    startEditText,
+  } = useTextEditor(canvasRef)
+  const editingTextId = editingText?.id
+  editingTextRef.current = editingText
+  commitTextEditRef.current = commitTextEdit
+
+  const clearTextRecoveryTimer = useCallback(() => {
+    if (textRecoveryTimerRef.current) {
+      clearTimeout(textRecoveryTimerRef.current)
+      textRecoveryTimerRef.current = null
+    }
+  }, [])
+
+  const checkpointCurrentTextEdit = useCallback(() => {
+    const current = editingTextRef.current
+    if (!current) return false
+    const content = textRef.current?.value ?? current.content
+    const draft = createTextRecoveryDraft(content)
+    return draft ? saveActiveTextRecoveryDraftNow(draft) : false
+  }, [createTextRecoveryDraft, textRef])
+
+  const flushTextRecoveryCheckpoint = useCallback(
+    (force = false) => {
+      if (!force && !textRecoveryDirtyRef.current) return false
+      clearTextRecoveryTimer()
+      const saved = checkpointCurrentTextEdit()
+      if (saved) {
+        textRecoveryDirtyRef.current = false
+        textRecoveryFirstDirtyAtRef.current = null
+      }
+      return saved
+    },
+    [checkpointCurrentTextEdit, clearTextRecoveryTimer]
+  )
+
+  const scheduleTextRecoveryCheckpoint = useCallback(() => {
+    const session = textEditSessionRef.current
+    const now = Date.now()
+    textRecoveryDirtyRef.current = true
+    textRecoveryFirstDirtyAtRef.current ??= now
+    clearTextRecoveryTimer()
+    const maxWaitRemaining = Math.max(
+      0,
+      TEXT_RECOVERY_CHECKPOINT_MAX_WAIT - (now - textRecoveryFirstDirtyAtRef.current)
+    )
+    textRecoveryTimerRef.current = setTimeout(
+      () => {
+        textRecoveryTimerRef.current = null
+        if (session !== textEditSessionRef.current) return
+        const saved = checkpointCurrentTextEdit()
+        if (saved) {
+          textRecoveryDirtyRef.current = false
+          textRecoveryFirstDirtyAtRef.current = null
+        }
+      },
+      Math.min(TEXT_RECOVERY_CHECKPOINT_DELAY, maxWaitRemaining)
+    )
+  }, [checkpointCurrentTextEdit, clearTextRecoveryTimer])
+
+  const commitCurrentTextEdit = useCallback(() => {
+    const current = editingTextRef.current
+    if (!current) return false
+    // Read from the DOM first. React state can lag behind the final input
+    // event when blur/keyboard submission happens in the same tick.
+    const content = textRef.current?.value ?? current.content
+    // Always checkpoint on exit, even if a previous timer already ran. The
+    // DOM may contain a final IME/composition character that React has not
+    // mirrored yet.
+    flushTextRecoveryCheckpoint(true)
+    const committed = commitTextEditRef.current(content, current.id)
+    if (committed) {
+      textRecoveryDirtyRef.current = false
+      clearActiveTextRecoveryDraft()
+      editingTextRef.current = null
+    }
+    return committed
+  }, [flushTextRecoveryCheckpoint, textRef])
+
+  const scheduleTextEditCommit = useCallback(
+    (session: number, force = false) => {
+      const frame = requestAnimationFrame(() => {
+        pendingCommitFramesRef.current.delete(frame)
+        if (session !== textEditSessionRef.current || windowBlurredRef.current) return
+        if (!force) {
+          if (textInteractionRef.current) return
+          const activeElement = document.activeElement
+          if (
+            activeElement === textRef.current ||
+            (activeElement && textToolbarRef.current?.contains(activeElement))
+          ) {
+            return
+          }
+        }
+        if (!commitCurrentTextEdit()) textRef.current?.focus()
+      })
+      pendingCommitFramesRef.current.add(frame)
+    },
+    [commitCurrentTextEdit, textRef]
+  )
+
+  const beginTextEdit = useCallback(
+    (...args: Parameters<typeof startEditText>) => {
+      if (editingTextRef.current && !commitCurrentTextEdit()) return
+      textInteractionRef.current = null
+      const nextSession = textEditSessionRef.current + 1
+      textEditSessionRef.current = nextSession
+      setTextEditSession(nextSession)
+      const existing = args[5]
+      if (existing) {
+        const latest = useAppStore.getState().idToElement.get(existing.id)
+        if (latest?.type === 'text') {
+          startEditText(args[0], args[1], args[2], args[3], args[4], latest)
+          return
+        }
+      }
+      startEditText(...args)
+    },
+    [commitCurrentTextEdit, startEditText]
+  )
+
   // d) useCanvasRenderer (needs getDrawStateRef before pointer engine)
   const { scheduleRedraw, cachedBounds, canvasSize, dpr } = useCanvasRenderer(
     canvasRef,
     containerRef,
-    () => getDrawStateRef.current()
+    () => getDrawStateRef.current(),
+    editingTextId
   )
   // c) useSelectionEngine
   const { findSnaps, snapLinesRef } = useSelectionEngine(cachedBounds)
@@ -56,7 +206,7 @@ export default function Canvas() {
       canvasRef,
       cachedBounds,
       scheduleRedraw,
-      startEditText,
+      startEditText: beginTextEdit,
       textRef,
       findSnaps,
       snapLinesRef,
@@ -70,6 +220,7 @@ export default function Canvas() {
 
   // 右键上下文菜单处理
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    if (e.defaultPrevented) return
     e.preventDefault()
     setContextMenu({ x: e.clientX, y: e.clientY })
   }, [])
@@ -124,25 +275,97 @@ export default function Canvas() {
     e.stopPropagation()
   }, [])
 
-  const updateEditingTextFormat = useCallback(
-    (patch: Partial<TextFormatState>) => {
-      setEditingText((current) => {
-        if (!current) return current
-        const fontSize = patch.fontSize ?? current.fontSize
-        const lineHeight = getTextLineHeight(fontSize)
-        const lineCount = Math.max(1, current.content.split('\n').length)
-        return {
-          ...current,
-          ...patch,
-          fontSize,
-          height: Math.max(current.height, lineHeight * lineCount),
-        }
-      })
-    },
-    [setEditingText]
-  )
+  useAppStore((state) => state.tool)
+  useAppStore((state) => state.styleEyedropperActive)
+  useViewStore((state) => state.isPanning)
+  const editingViewBox = useViewStore((state) => (editingText ? state.viewBox : null))
 
-  const { isDarkMode } = useThemeStore()
+  useLayoutEffect(() => {
+    if (!editingTextId) return
+
+    const toolbar = textToolbarRef.current
+    if (!toolbar) return
+
+    const measure = () => {
+      const { width, height } = toolbar.getBoundingClientRect()
+      if (width <= 0 || height <= 0) return
+      setTextToolbarMetrics((current) =>
+        current.width === width && current.height === height ? current : { width, height }
+      )
+    }
+
+    const syncViewport = () => {
+      setViewportSize((current) => {
+        const next = { width: window.innerWidth, height: window.innerHeight }
+        return current.width === next.width && current.height === next.height ? current : next
+      })
+      measure()
+    }
+
+    syncViewport()
+    window.addEventListener('resize', syncViewport)
+    const observer =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => measure())
+    observer?.observe(toolbar)
+
+    return () => {
+      window.removeEventListener('resize', syncViewport)
+      observer?.disconnect()
+    }
+  }, [editingTextId])
+
+  useEffect(() => {
+    if (!editingTextId) return
+
+    const handleWindowBlur = () => {
+      windowBlurredRef.current = true
+    }
+    const handleWindowFocus = () => {
+      windowBlurredRef.current = false
+      textInteractionRef.current = null
+    }
+    const handleExit = () => {
+      // Capture runs before the app lifecycle exit handler so the journal and
+      // IndexedDB save both see the textarea's final DOM value.
+      commitCurrentTextEdit()
+    }
+
+    window.addEventListener('blur', handleWindowBlur)
+    window.addEventListener('focus', handleWindowFocus)
+    window.addEventListener('beforeunload', handleExit, true)
+    window.addEventListener('pagehide', handleExit, true)
+
+    return () => {
+      window.removeEventListener('blur', handleWindowBlur)
+      window.removeEventListener('focus', handleWindowFocus)
+      window.removeEventListener('beforeunload', handleExit, true)
+      window.removeEventListener('pagehide', handleExit, true)
+    }
+  }, [commitCurrentTextEdit, editingTextId, textRef])
+
+  useEffect(() => {
+    if (!editingTextId) return
+    const session = textEditSession
+    const pendingCommitFrames = pendingCommitFramesRef.current
+    const frame = requestAnimationFrame(() => {
+      pendingCommitFrames.delete(frame)
+      if (session === textEditSessionRef.current) textRef.current?.focus()
+    })
+    pendingCommitFrames.add(frame)
+    return () => {
+      pendingCommitFrames.delete(frame)
+      cancelAnimationFrame(frame)
+    }
+  }, [editingTextId, textEditSession, textRef])
+
+  useEffect(() => {
+    const pendingCommitFrames = pendingCommitFramesRef.current
+    return () => {
+      for (const frame of pendingCommitFrames) cancelAnimationFrame(frame)
+      pendingCommitFrames.clear()
+      clearTextRecoveryTimer()
+    }
+  }, [clearTextRecoveryTimer])
 
   // P1-1/P1-2 性能优化: 移除不必要的订阅
   // - bgColor: 已由 drawCanvasBackground() 绘制，CSS 重复
@@ -166,6 +389,12 @@ export default function Canvas() {
           aria-label="绘图画布"
           tabIndex={0}
           className="main-canvas"
+          onPointerDownCapture={(event) => {
+            if (!editingTextRef.current || commitCurrentTextEdit()) return
+            event.preventDefault()
+            event.stopPropagation()
+            textRef.current?.focus()
+          }}
           style={{
             touchAction: 'none',
             cursor: getCursor(),
@@ -178,79 +407,144 @@ export default function Canvas() {
             const rect = canvasRef.current?.getBoundingClientRect()
             if (!rect) return null
             // P1-1 性能优化: 仅在需要时读取 viewBox，避免订阅导致的频繁重渲染
-            const viewBox = useViewStore.getState().viewBox
+            const viewBox = editingViewBox ?? useViewStore.getState().viewBox
             const screen = worldToClient({ x: editingText.x, y: editingText.y }, rect, viewBox)
             const screenX = screen.x
             const screenY = screen.y
             const lineHeight = getTextLineHeight(editingText.fontSize)
-            const lineCount = Math.max(1, editingText.content.split('\n').length)
-            const editorHeight = Math.max(editingText.height, lineHeight * lineCount)
-            const toolbarLeft = Math.max(8, Math.min(screenX - 2, window.innerWidth - 8))
-            const toolbarTop = Math.max(8, screenY - 44)
-            const alignToolbarRight = toolbarLeft > window.innerWidth - 360
-            return (
+            const editorHeight = editingText.height
+            const isEmptyText = editingText.content.length === 0
+            // A newly-created text element is intentionally transparent and
+            // borderless once it has content, but that same WYSIWYG treatment
+            // makes the empty editor indistinguishable from the canvas. Keep
+            // the affordance local to the transient editor and never persist
+            // it to the element/store.
+            const emptyEditorWidth = Math.max(editingText.width, 116)
+            const emptyEditorHeight = Math.max(editorHeight, lineHeight + 10)
+            const toolbarPosition = getTextToolbarPosition({
+              anchorX: screenX,
+              anchorY: screenY,
+              editorHeight: editorHeight * viewBox.zoom,
+              toolbarWidth: textToolbarMetrics.width,
+              toolbarHeight: textToolbarMetrics.height,
+              gap: 24,
+              viewportWidth: viewportSize.width,
+              viewportHeight: viewportSize.height,
+            })
+            const overlay = (
               <>
                 <TextFormatToolbar
                   editingText={editingText}
                   toolbarRef={textToolbarRef}
                   textAreaRef={textRef}
-                  left={toolbarLeft}
-                  top={toolbarTop}
-                  alignRight={alignToolbarRight}
-                  onChange={updateEditingTextFormat}
-                  onBlurOutside={() => commitTextEdit(editingText.content)}
+                  left={toolbarPosition.left}
+                  top={toolbarPosition.top}
+                  onChange={(patch) => {
+                    updateEditingTextFormat(patch)
+                    scheduleTextRecoveryCheckpoint()
+                  }}
+                  onInteractionStart={(kind) => {
+                    textInteractionRef.current = kind
+                  }}
+                  onInteractionEnd={() => {
+                    textInteractionRef.current = null
+                    if (document.hasFocus()) requestAnimationFrame(() => textRef.current?.focus())
+                  }}
+                  onBlurOutside={() => {
+                    textInteractionRef.current = null
+                    scheduleTextEditCommit(textEditSession)
+                  }}
                 />
                 <textarea
                   ref={textRef}
                   autoFocus
+                  className={
+                    isEmptyText
+                      ? 'canvas-text-editor canvas-text-editor-empty'
+                      : 'canvas-text-editor'
+                  }
+                  data-testid="canvas-text-editor"
+                  data-empty={isEmptyText ? 'true' : 'false'}
+                  placeholder={isEmptyText ? '输入文字…' : undefined}
+                  dir="auto"
+                  wrap="off"
+                  spellCheck={false}
+                  aria-label="Edit text"
                   value={editingText.content}
-                  onChange={(e) => {
-                    const content = e.target.value
-                    const nextLineCount = Math.max(1, content.split('\n').length)
-                    setEditingText({
-                      ...editingText,
-                      content,
-                      height: Math.max(editingText.height, lineHeight * nextLineCount),
-                    })
+                  onChange={(event) => {
+                    updateEditingTextContent(event.currentTarget.value)
+                    scheduleTextRecoveryCheckpoint()
+                  }}
+                  onCompositionEnd={(event) => {
+                    updateEditingTextContent(event.currentTarget.value)
+                    scheduleTextRecoveryCheckpoint()
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                    const action = getTextEditKeyAction({
+                      key: e.key,
+                      ctrlKey: e.ctrlKey,
+                      metaKey: e.metaKey,
+                      shiftKey: e.shiftKey,
+                      isComposing: e.nativeEvent.isComposing,
+                      keyCode: e.keyCode,
+                    })
+                    if (action === 'commit') {
                       e.preventDefault()
-                      commitTextEdit(editingText.content)
+                      commitCurrentTextEdit()
+                    } else if (action === 'indent' || action === 'outdent') {
+                      e.preventDefault()
+                      const textarea = e.currentTarget
+                      const result = applyTextIndentation(
+                        textarea.value,
+                        textarea.selectionStart ?? textarea.value.length,
+                        textarea.selectionEnd ?? textarea.selectionStart ?? textarea.value.length,
+                        action
+                      )
+                      updateEditingTextContent(result.value)
+                      scheduleTextRecoveryCheckpoint()
+                      requestAnimationFrame(() => {
+                        if (textRef.current !== textarea) return
+                        textarea.setSelectionRange(result.selectionStart, result.selectionEnd)
+                      })
                     }
-                    if (e.key === 'Escape') setEditingText(null)
                   }}
                   onBlur={(e) => {
                     const relatedTarget = e.relatedTarget as Node | null
                     if (relatedTarget && textToolbarRef.current?.contains(relatedTarget)) return
-                    commitTextEdit(editingText.content)
+                    scheduleTextEditCommit(textEditSession)
                   }}
                   style={{
                     position: 'fixed',
-                    left: screenX - 2,
+                    left: screenX,
                     top: screenY,
-                    width: editingText.width,
-                    maxWidth: 800,
-                    height: editorHeight,
+                    width: isEmptyText ? emptyEditorWidth : editingText.width,
+                    height: isEmptyText ? emptyEditorHeight : editorHeight,
                     minHeight: lineHeight,
-                    padding: '2px 4px',
-                    boxSizing: 'border-box',
-                    fontSize: editingText.fontSize,
+                    margin: 0,
+                    padding: isEmptyText ? '4px 8px' : 0,
+                    boxSizing: isEmptyText ? 'border-box' : 'content-box',
+                    fontFamily: TEXT_FONT_FAMILY,
+                    fontSize: `${editingText.fontSize}px`,
                     fontWeight: editingText.fontWeight,
                     fontStyle: editingText.fontStyle,
                     textDecoration: editingText.textDecoration,
                     textAlign: editingText.textAlign,
-                    lineHeight: 1.6,
+                    lineHeight: `${lineHeight}px`,
                     color: editingText.color,
-                    background: editingText.backgroundColor ?? 'transparent',
-                    border: 'none',
-                    borderLeft: `2px solid ${isDarkMode ? 'rgba(200,160,176,0.6)' : 'rgba(176,125,110,0.6)'}`,
-                    outline: 'none',
+                    background:
+                      editingText.backgroundColor ??
+                      (isEmptyText ? 'var(--primary-bg)' : 'transparent'),
+                    border: isEmptyText ? '1px solid var(--primary)' : 'none',
+                    borderRadius: isEmptyText ? 4 : undefined,
+                    outline: isEmptyText ? '2px solid var(--primary-light)' : 'none',
+                    outlineOffset: isEmptyText ? 2 : undefined,
                     zIndex: 100,
-                    boxShadow: 'none',
-                    fontFamily: "'Noto Sans SC', 'PingFang SC', sans-serif",
+                    boxShadow: isEmptyText ? '0 2px 10px rgba(20, 125, 120, 0.14)' : 'none',
                     resize: 'none',
                     overflow: 'hidden',
+                    whiteSpace: editingText.wraps ? 'pre-wrap' : 'pre',
+                    wordBreak: editingText.wraps ? 'break-word' : 'normal',
+                    overflowWrap: 'break-word',
                     caretColor: editingText.color,
                     transform: `scale(${viewBox.zoom})`,
                     transformOrigin: 'top left',
@@ -258,6 +552,9 @@ export default function Canvas() {
                 />
               </>
             )
+            return typeof document !== 'undefined' && document.body
+              ? createPortal(overlay, document.body)
+              : overlay
           })()}
       </div>
       {/* 右键上下文菜单 */}

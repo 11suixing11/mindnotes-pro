@@ -24,10 +24,17 @@ interface AppStatusBarProps {
 export function AppStatusBar({ onOpenShortcuts }: AppStatusBarProps) {
   const tool = useAppStore((state) => state.tool)
   const elementCount = useAppStore((state) => state.elements.length)
-  const docCount = useAppStore((state) => state.docs.length)
   const saveStatus = useAppStore((state) => state.saveStatus)
   const zoom = useViewStore((state) => state.viewBox.zoom)
   const zoomToFit = useViewStore((state) => state.zoomToFit)
+  const saveFeedback =
+    saveStatus === 'saving'
+      ? { label: '保存中', ariaLabel: '正在保存' }
+      : saveStatus === 'saved'
+        ? { label: '已保存', ariaLabel: '已保存' }
+        : saveStatus === 'error'
+          ? { label: '保存失败', ariaLabel: '保存失败' }
+          : { label: '自动保存', ariaLabel: '自动保存已开启' }
 
   const fitContent = () => {
     const bounds = getContentBounds(useAppStore.getState().elements)
@@ -42,12 +49,12 @@ export function AppStatusBar({ onOpenShortcuts }: AppStatusBarProps) {
 
   return (
     <div className="status panel" role="status" aria-label="应用状态">
-      <span className="dot" aria-hidden="true" />
-      <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{TOOL_LABELS[tool]}</span>
+      <span className={`dot status-dot-${saveStatus}`} aria-hidden="true" />
+      <span style={{ color: 'var(--primary)', fontWeight: 500 }}>{TOOL_LABELS[tool]}</span>
       <span className="vl" aria-hidden="true" />
       <span>{elementCount} 个元素</span>
       <span className="vl" aria-hidden="true" />
-      <span>{docCount} 个文档</span>
+      <span>单画板</span>
       <span className="vl" aria-hidden="true" />
       <span
         style={{ cursor: 'pointer' }}
@@ -61,34 +68,11 @@ export function AppStatusBar({ onOpenShortcuts }: AppStatusBarProps) {
       </span>
       <span className="vl" aria-hidden="true" />
       <span
-        style={{
-          fontSize: '10px',
-          color:
-            saveStatus === 'error'
-              ? 'var(--danger)'
-              : saveStatus === 'saving'
-                ? 'var(--text-4)'
-                : 'var(--success)',
-          transition: 'color 0.3s',
-        }}
+        className={`status-save status-save-${saveStatus}`}
         aria-live="polite"
-        aria-label={
-          saveStatus === 'saving'
-            ? '正在保存'
-            : saveStatus === 'saved'
-              ? '已保存'
-              : saveStatus === 'error'
-                ? '保存失败'
-                : ''
-        }
+        aria-label={saveFeedback.ariaLabel}
       >
-        {saveStatus === 'saving'
-          ? '\u00b7\u00b7\u00b7'
-          : saveStatus === 'saved'
-            ? '\u2713'
-            : saveStatus === 'error'
-              ? '保存失败'
-              : ''}
+        {saveFeedback.label}
       </span>
       <span className="vl" aria-hidden="true" />
       <a

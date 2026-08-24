@@ -94,6 +94,7 @@ export function usePointerEngine(opts: {
 
   const activeTouchIdRef = useRef<number | null>(null)
   const isPinchingRef = useRef(false)
+  const cursorRef = useRef(CURSOR_MAP.pen)
 
   const snapPointIfGridEnabled = useCallback((point: { x: number; y: number }) => {
     const { snapToGrid, gridSize } = useViewStore.getState()
@@ -318,9 +319,12 @@ export function usePointerEngine(opts: {
           const screenX = (textPos.x - curVB.x) * curVB.zoom + rect.left
           const screenY = (textPos.y - curVB.y) * curVB.zoom + rect.top
           const hitEl = hitTest(pos.x, pos.y)
-          const existing = hitEl
-            ? (useAppStore.getState().idToElement.get(hitEl) as TextElement | undefined)
-            : undefined
+          const hitElement = hitEl ? useAppStore.getState().idToElement.get(hitEl) : undefined
+          // The text tool can be used on top of shapes to create a new label.
+          // Only an actual text element is an existing editor session; casting
+          // every hit element to TextElement makes shape.content undefined and
+          // crashes the editor while normalizing the text format.
+          const existing = hitElement?.type === 'text' ? (hitElement as TextElement) : undefined
           if (existing)
             startEditText(
               existing.x,
@@ -331,7 +335,7 @@ export function usePointerEngine(opts: {
               existing
             )
           else startEditText(textPos.x, textPos.y, screenX, screenY, curColor)
-          setTimeout(() => textRef.current?.focus(), 50)
+          requestAnimationFrame(() => textRef.current?.focus())
         }
         return
       }
@@ -441,6 +445,12 @@ export function usePointerEngine(opts: {
       }
 
       const curTool = useAppStore.getState().tool
+      const nextCursor = getCursor()
+      if (nextCursor !== cursorRef.current) {
+        cursorRef.current = nextCursor
+        const canvas = canvasRef.current
+        if (canvas) canvas.style.cursor = nextCursor
+      }
       if (curTool === 'select') {
         handleSelectMove(e, pos)
         return
@@ -477,15 +487,10 @@ export function usePointerEngine(opts: {
       // 右键拖拽平移画布
       // 处理右键释放
       if ('button' in e && (e as MouseEvent).button === 2 && rightClickPanRef.current.enabled) {
-        if (rightClickPanRef.current.isPanning) {
-          // 如果进行了平移，结束平移模式
-          endPan()
-        }
-        // 重置右键平移状态
+        if (useViewStore.getState().isPanning) endPan()
         rightClickPanRef.current = {
           ...rightClickPanRef.current,
           isPanning: false,
-          moved: false,
         }
         clearEndedTouch()
         return
@@ -580,6 +585,9 @@ export function usePointerEngine(opts: {
       getBounds: cachedBounds,
       startEditText,
       focusTextEditor: () => textRef.current?.focus(),
+      scheduleFocusTextEditor: () => {
+        requestAnimationFrame(() => textRef.current?.focus())
+      },
       scheduleRedraw,
     })
     const unbindAuxiliaryEvents = bindCanvasAuxiliaryEvents(canvas, {

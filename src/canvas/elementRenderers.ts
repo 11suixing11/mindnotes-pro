@@ -2,11 +2,14 @@ import type { ImageElement, ShapeElement, TextElement } from '../store/types'
 import { getImage } from './canvasUtils'
 import { LRUCache } from './drawingCaches'
 import {
+  createTextWidthMeasurer,
+  getOriginalTextContent,
   getTextAnchorX,
   getTextFont,
   getTextLineHeight,
   isVisibleTextBackground,
   normalizeTextFormat,
+  wrapTextLines,
 } from './textFormatting'
 
 const TEXT_CACHE_MAX_SIZE = 100
@@ -14,11 +17,12 @@ const TEXT_CACHE_TTL = 30000
 const textWrapCache = new LRUCache<string, string[]>(TEXT_CACHE_MAX_SIZE, TEXT_CACHE_TTL)
 
 function getTextCacheKey(el: TextElement): string {
+  const originalContent = getOriginalTextContent(el)
   return [
     el.id,
-    el.content.slice(0, 32),
-    el.content.length,
+    originalContent,
     el.width,
+    el.autoResize ? 'auto' : 'fixed',
     el.fontSize,
     el.fontWeight ?? '',
     el.fontStyle ?? '',
@@ -30,25 +34,10 @@ function getCachedTextWrap(el: TextElement, ctx: CanvasRenderingContext2D): stri
   const cached = textWrapCache.get(key)
   if (cached) return cached
 
-  const rawLines = el.content.split('\n')
-  const wrappedLines: string[] = []
-  for (const line of rawLines) {
-    if (line === '') {
-      wrappedLines.push('')
-      continue
-    }
-    let current = ''
-    for (const char of line) {
-      const test = current + char
-      if (ctx.measureText(test).width > el.width && current.length > 0) {
-        wrappedLines.push(current)
-        current = char
-      } else {
-        current = test
-      }
-    }
-    wrappedLines.push(current)
-  }
+  const format = normalizeTextFormat(el)
+  ctx.font = getTextFont(format)
+  const measureText = createTextWidthMeasurer(format, ctx)
+  const wrappedLines = wrapTextLines(getOriginalTextContent(el), el.width, measureText)
 
   textWrapCache.set(key, wrappedLines)
   return wrappedLines

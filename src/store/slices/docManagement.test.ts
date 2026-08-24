@@ -75,8 +75,6 @@ describe('docManagement slice', () => {
       docs: [],
       currentDocId: null,
       loaded: false,
-      documentSearchQuery: '',
-      recentDocumentSearches: [],
       elements: [],
       bgColor: '#ffffff',
       backgroundStyle: 'plain',
@@ -103,7 +101,7 @@ describe('docManagement slice', () => {
       expect(state.elements).toEqual([])
     })
 
-    it('imports documents and folders from the previous IndexedDB database once', async () => {
+    it('imports the canonical document from the previous IndexedDB database once', async () => {
       vi.mocked(storageMock.readLegacyDatabase).mockResolvedValueOnce({
         docs: [
           {
@@ -138,7 +136,6 @@ describe('docManagement slice', () => {
         schemaVersion: CANVAS_SCHEMA_VERSION,
       })
       expect(state.docs[0].layers?.[0].name).toBe('图层 1')
-      expect(state.folders).toEqual([expect.objectContaining({ id: 'legacy-folder' })])
       expect(localStorage.getItem('mindnotes-pro-v5.v4-imported')).toBe('1')
     })
 
@@ -524,7 +521,7 @@ describe('docManagement slice', () => {
   })
 
   describe('importDoc', () => {
-    it('persists an imported canvas as a separate current document', async () => {
+    it('replaces the current canonical document in place', async () => {
       const existingId = await useAppStore.getState().createDoc('Existing')
       const layer = {
         id: 'layer-imported',
@@ -558,11 +555,11 @@ describe('docManagement slice', () => {
         backgroundStyle: 'plain',
       })
 
-      expect(importedId).not.toBe(existingId)
+      expect(importedId).toBe(existingId)
       expect(useAppStore.getState().currentDocId).toBe(importedId)
-      expect(useAppStore.getState().docs).toHaveLength(2)
+      expect(useAppStore.getState().docs).toHaveLength(1)
       expect(useAppStore.getState().docs.find((doc) => doc.id === importedId)?.title).toBe(
-        '项目草图（导入）'
+        '项目草图'
       )
       expect(useAppStore.getState().elements[0]).toMatchObject({
         id: 'text-imported',
@@ -647,44 +644,6 @@ describe('docManagement slice', () => {
       useAppStore.setState({ currentDocId: null } as any)
       await useAppStore.getState().openDoc(id)
       expect(useAppStore.getState().selectedIds).toEqual([])
-    })
-  })
-
-  describe('document search state', () => {
-    it('updates the document search query', () => {
-      useAppStore.getState().setDocumentSearchQuery('roadmap')
-
-      expect(useAppStore.getState().documentSearchQuery).toBe('roadmap')
-    })
-
-    it('stores recent document searches with deduplication and persistence', () => {
-      const state = useAppStore.getState()
-
-      state.addRecentDocumentSearch('alpha')
-      state.addRecentDocumentSearch('beta')
-      state.addRecentDocumentSearch(' Alpha ')
-
-      expect(useAppStore.getState().recentDocumentSearches).toEqual(['Alpha', 'beta'])
-      expect(JSON.parse(localStorage.getItem('mn-sidebar-searches') ?? '[]')).toEqual([
-        'Alpha',
-        'beta',
-      ])
-    })
-
-    it('keeps only the five most recent document searches', () => {
-      const state = useAppStore.getState()
-
-      for (const query of ['one', 'two', 'three', 'four', 'five', 'six']) {
-        state.addRecentDocumentSearch(query)
-      }
-
-      expect(useAppStore.getState().recentDocumentSearches).toEqual([
-        'six',
-        'five',
-        'four',
-        'three',
-        'two',
-      ])
     })
   })
 })

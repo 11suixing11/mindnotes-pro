@@ -51,7 +51,7 @@ export default memo(function ToastContainer() {
             >
               {icons[t.type]}
             </span>
-            <span className="text-[13px] font-medium text-[var(--text)] leading-[1.4]">
+            <span className="text-[14px] font-normal text-[var(--text)] leading-[1.4]">
               {t.message}
             </span>
           </div>

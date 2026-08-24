@@ -2,6 +2,8 @@
 
 _A deep dive into building MindNotes Pro — a local-first, privacy-respecting whiteboard app that runs entirely in your browser with just three runtime dependencies._
 
+> **Historical architecture note:** This article describes the earlier v4 multi-document implementation. MindNotes Pro v5 now presents one canonical board and no document sidebar; see `README.md` and `ARCHITECTURE.md` for the current product and code boundaries.
+
 ---
 
 ## 1. Why Build a Local-Cloud Whiteboard?

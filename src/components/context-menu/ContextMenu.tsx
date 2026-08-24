@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore } from '../../store/appStore'
 import type { AlignmentType, DistributionType } from '../../store/types'
@@ -21,6 +21,9 @@ interface ContextMenuProps {
 export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const submenuRef = useRef<HTMLDivElement>(null)
+  const alignTriggerRef = useRef<HTMLButtonElement>(null)
+  const distributeTriggerRef = useRef<HTMLButtonElement>(null)
+  const [openSubmenu, setOpenSubmenu] = useState<'align' | 'distribute' | null>(null)
 
   const selectedIds = useAppStore((s) => s.selectedIds)
   const elements = useAppStore((s) => s.elements)
@@ -196,13 +199,23 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
       {hasMultipleSelection && (
         <>
           <MenuSeparator />
-          <AlignSubmenu
-            ref={submenuRef}
-            menuX={pos.x}
-            menuY={pos.y}
-            menuWidth={pos.menuWidth}
-            onAlign={handleAlign}
+          <MenuItem
+            ref={alignTriggerRef}
+            onClick={() => setOpenSubmenu((current) => (current === 'align' ? null : 'align'))}
+            label="对齐"
+            hasSubmenu
+            ariaExpanded={openSubmenu === 'align'}
           />
+          {openSubmenu === 'align' && (
+            <AlignSubmenu
+              ref={submenuRef}
+              anchorRef={alignTriggerRef}
+              menuX={pos.x}
+              menuY={pos.y}
+              menuWidth={pos.menuWidth}
+              onAlign={handleAlign}
+            />
+          )}
         </>
       )}
 
@@ -210,12 +223,25 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
       {hasDistributableSelection && (
         <>
           <MenuSeparator />
-          <DistributeSubmenu
-            menuX={pos.x}
-            menuY={pos.y}
-            menuWidth={pos.menuWidth}
-            onDistribute={handleDistribute}
+          <MenuItem
+            ref={distributeTriggerRef}
+            onClick={() =>
+              setOpenSubmenu((current) => (current === 'distribute' ? null : 'distribute'))
+            }
+            label="分布"
+            hasSubmenu
+            ariaExpanded={openSubmenu === 'distribute'}
           />
+          {openSubmenu === 'distribute' && (
+            <DistributeSubmenu
+              ref={submenuRef}
+              anchorRef={distributeTriggerRef}
+              menuX={pos.x}
+              menuY={pos.y}
+              menuWidth={pos.menuWidth}
+              onDistribute={handleDistribute}
+            />
+          )}
         </>
       )}
 

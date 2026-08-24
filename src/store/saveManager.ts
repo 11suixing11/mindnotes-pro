@@ -25,6 +25,18 @@ interface StoreRef {
     docs: CanvasDoc[]
   }
 }
+
+type StoreState = ReturnType<StoreRef['getState']>
+
+export interface ActiveTextRecoveryDraft {
+  elementId: string
+  element: CanvasElement | null
+}
+
+interface TrackedActiveTextRecoveryDraft extends ActiveTextRecoveryDraft {
+  documentId: string
+  generation: number
+}
 /**
  * Save manager encapsulates the save timer and save logic.
  * This keeps the timer state private and provides a clean API.
@@ -38,6 +50,7 @@ let _saveGenerations = new Map<string, number>()
 let _lastSavedGenerations = new Map<string, number>()
 let _lastSaveTimes = new Map<string, number>()
 let _saveInFlight: Promise<boolean> | null = null
+let _activeTextRecoveryDraft: TrackedActiveTextRecoveryDraft | null = null
 // P0 性能优化: 使用 Map 进行 O(1) 文档查找，替代 O(n) 的 findIndex
 let _docsIndexMap: Map<string, number> | null = null
 /**
@@ -94,12 +107,113 @@ function markDocumentSaved(documentId: string): void {
     _saveStatusTimer = null
   }, 2000)
 }
+
+function createRecoveryDocument(state: StoreState): CanvasDoc | null {
+  const { currentDocId } = state
+  if (!currentDocId) return null
+
+  const currentStateDoc = state.docs.find((doc) => doc.id === currentDocId)
+  return {
+    schemaVersion: CANVAS_SCHEMA_VERSION,
+    id: currentDocId,
+    title: currentStateDoc?.title ?? '未命名画布',
+    elements: state.elements,
+    layers: state.layers,
+    activeLayerId: state.activeLayerId,
+    bgColor: state.bgColor,
+    backgroundStyle: state.backgroundStyle,
+    folderId: currentStateDoc?.folderId ?? null,
+    createdAt: currentStateDoc?.createdAt ?? Date.now(),
+    updatedAt: Date.now(),
+  }
+}
+
+function rebaseActiveTextRecoveryDraft(
+  state: StoreState,
+  draft: TrackedActiveTextRecoveryDraft
+): ActiveTextRecoveryDraft {
+  const currentGeneration = _saveGenerations.get(draft.documentId) ?? 0
+  if (draft.generation >= currentGeneration) return draft
+
+  return {
+    elementId: draft.elementId,
+    element: state.elements.find((element) => element.id === draft.elementId) ?? null,
+  }
+}
+
+/**
+ * Synchronously write the current in-memory board to the recovery journal.
+ * This is intentionally separate from IndexedDB persistence so pagehide/
+ * beforeunload still has a durable last line of defence when the browser
+ * terminates pending async transactions.
+ */
+export function saveRecoveryDraftNow(): boolean {
+  if (!_storeRef) return false
+  const state = _storeRef.getState()
+  if (_activeTextRecoveryDraft?.documentId === state.currentDocId) {
+    return saveActiveTextRecoveryDraftNow(
+      rebaseActiveTextRecoveryDraft(state, _activeTextRecoveryDraft)
+    )
+  }
+  if (state.saveStatus !== 'saving' && state.saveStatus !== 'error') return false
+  const document = createRecoveryDocument(state)
+  return document ? saveRecoveryDraft(document) : false
+}
+
+/**
+ * Write the latest active textarea value into the recovery journal. Text is
+ * already mirrored into the live store; this checkpoint protects the final
+ * DOM value as an independent last line of defence against a tab/process crash.
+ */
+export function saveActiveTextRecoveryDraftNow(draft: ActiveTextRecoveryDraft): boolean {
+  if (!_storeRef) return false
+
+  const state = _storeRef.getState()
+  const document = createRecoveryDocument(state)
+  if (!document) return false
+
+  _activeTextRecoveryDraft = {
+    ...draft,
+    documentId: document.id,
+    generation: _saveGenerations.get(document.id) ?? 0,
+  }
+
+  const elementIndex = document.elements.findIndex((element) => element.id === draft.elementId)
+  const elements = [...document.elements]
+  if (draft.element) {
+    if (elementIndex >= 0) elements[elementIndex] = draft.element
+    else elements.push(draft.element)
+  } else if (elementIndex >= 0) {
+    elements.splice(elementIndex, 1)
+  }
+
+  return saveRecoveryDraft({
+    ...document,
+    elements,
+    updatedAt: Date.now(),
+  })
+}
+
+/** Stop rebasing recovery checkpoints after the textarea session has ended. */
+export function clearActiveTextRecoveryDraft(): void {
+  const activeDraft = _activeTextRecoveryDraft
+  _activeTextRecoveryDraft = null
+  if (!activeDraft || !_storeRef) return
+
+  const state = _storeRef.getState()
+  if (
+    state.currentDocId === activeDraft.documentId &&
+    state.saveStatus !== 'saving' &&
+    state.saveStatus !== 'error'
+  ) {
+    clearRecoveryDraftForDocument(activeDraft.documentId, Number.POSITIVE_INFINITY)
+  }
+}
 /**
  * Schedule a save after the configured delay.
  */
 export function scheduleSave(): void {
   if (!_storeRef) return
-  // P0 性能优化: 节流 - 最小保存间隔 500ms
   const now = Date.now()
   const documentId = _storeRef.getState().currentDocId
   if (!documentId) {
@@ -107,19 +221,13 @@ export function scheduleSave(): void {
     return
   }
   const lastSaveTime = _lastSaveTimes.get(documentId) ?? 0
-  if (now - lastSaveTime < 500) {
-    // 太频繁了，重置计时器但不立即触发
-    clearSaveTimer()
-    _saveTimer = setTimeout(() => {
-      scheduleSave()
-    }, SAVE_DELAY)
-    return
-  }
+  const minimumIntervalRemaining = Math.max(0, 500 - (now - lastSaveTime))
+  const delay = Math.max(SAVE_DELAY, minimumIntervalRemaining)
   clearSaveTimer()
   _storeRef.setState({ saveStatus: 'saving' })
   _saveTimer = setTimeout(() => {
     void saveDocNow()
-  }, SAVE_DELAY)
+  }, delay)
 }
 /**
  * Save the current document immediately.
@@ -145,20 +253,7 @@ async function persistCurrentDocument(): Promise<boolean> {
     markDocumentSaved(currentDocId)
     return true
   }
-  const currentStateDoc = state.docs.find((doc) => doc.id === currentDocId)
-  const recoveryDocument: CanvasDoc = {
-    schemaVersion: CANVAS_SCHEMA_VERSION,
-    id: currentDocId,
-    title: currentStateDoc?.title ?? '未命名画布',
-    elements,
-    layers,
-    activeLayerId,
-    bgColor,
-    backgroundStyle,
-    folderId: currentStateDoc?.folderId ?? null,
-    createdAt: currentStateDoc?.createdAt ?? Date.now(),
-    updatedAt: Date.now(),
-  }
+  const recoveryDocument = createRecoveryDocument(state)
 
   try {
     const now = Date.now()
@@ -186,6 +281,14 @@ async function persistCurrentDocument(): Promise<boolean> {
     _lastSavedGenerations.set(currentDocId, generationAtStart)
     _lastSaveTimes.set(currentDocId, now)
     clearRecoveryDraftForDocument(currentDocId, now)
+    if (_activeTextRecoveryDraft?.documentId === currentDocId) {
+      // Recreate the still-open textarea checkpoint after clearing older
+      // recovery records. It may contain a final DOM character that has not
+      // reached the live store yet.
+      saveActiveTextRecoveryDraftNow(
+        rebaseActiveTextRecoveryDraft(_storeRef.getState(), _activeTextRecoveryDraft)
+      )
+    }
     // P1 性能优化: 增量更新文档列表，避免每次都重新获取所有文档
     // 只更新当前修改的文档，而不是重新 fetch 全部
     // 复用已有的 state 变量，避免重复调用 getState()
@@ -231,7 +334,20 @@ async function persistCurrentDocument(): Promise<boolean> {
     return true
   } catch (error) {
     console.error('[save] Failed to persist the current document', error)
-    const recoverySaved = saveRecoveryDraft(recoveryDocument)
+    // Re-read the store after the failed async write. Typing or another
+    // mutation may have advanced while IndexedDB was pending, so the snapshot
+    // captured before the await can already be stale.
+    const latestRecoveryDocument = createRecoveryDocument(_storeRef.getState())
+    const recoverySaved =
+      _activeTextRecoveryDraft?.documentId === currentDocId
+        ? saveActiveTextRecoveryDraftNow(
+            rebaseActiveTextRecoveryDraft(_storeRef.getState(), _activeTextRecoveryDraft)
+          )
+        : latestRecoveryDocument
+          ? saveRecoveryDraft(latestRecoveryDocument)
+          : recoveryDocument
+            ? saveRecoveryDraft(recoveryDocument)
+            : false
     if (_storeRef.getState().currentDocId === currentDocId) {
       _storeRef.setState({ saveStatus: 'error' })
     }
@@ -244,6 +360,12 @@ async function persistCurrentDocument(): Promise<boolean> {
         'error',
         5000
       )
+    if (
+      (_saveGenerations.get(currentDocId) ?? 0) !== generationAtStart &&
+      _storeRef.getState().currentDocId === currentDocId
+    ) {
+      scheduleSave()
+    }
     return false
   }
 }
@@ -282,6 +404,7 @@ export function resetSaveCache(): void {
   _lastSavedGenerations = new Map()
   _lastSaveTimes = new Map()
   _docsIndexMap = null
+  _activeTextRecoveryDraft = null
   clearSaveStatusTimer()
 }
 // Clean up on HMR

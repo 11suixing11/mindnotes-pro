@@ -2,7 +2,7 @@
 
 ## 标题
 
-I got tired of whiteboard apps that need accounts and track everything, so I built one that loads in under 1 second with only 3 dependencies
+I got tired of whiteboard apps that need accounts and cloud storage, so I built a local-first one
 
 ## 正文（直接复制这段，Reddit会自动渲染Markdown）
 
@@ -12,9 +12,9 @@ So I built **MindNotes Pro** — a local-first whiteboard that runs entirely in 
 
 **What makes it different:**
 
-- **3 dependencies** — React, Zustand, perfect-freehand. That's it.
-- **<200KB bundle** — loads before your coffee cools
-- **Zero cloud** — everything stays in localStorage, works offline as PWA
+- **Local-first storage** — the current board stays in browser IndexedDB
+- **Portable backups** — export JSON plus PNG, JPEG, PDF, and SVG
+- **Offline-capable** — works as an installable PWA after the first load
 - **No accounts** — open the URL and start drawing
 
 **What you can do with it:**
@@ -25,11 +25,11 @@ So I built **MindNotes Pro** — a local-first whiteboard that runs entirely in 
 - Frame select, resize, move, snap & align
 - Undo/redo, dark mode
 - Export to PDF or PNG
-- Multi-document workspace with folder hierarchy
+- Focused single-board workspace with layers
 
-**Why only 3 dependencies?**
+**Why local-first?**
 
-I wanted to prove a point: beautiful software doesn't need 50 packages. The drawing engine is `perfect-freehand` (11KB), state management is `Zustand` (2KB), and everything else is React + Canvas API.
+I wanted a personal drawing surface that does not require an account or hosted workspace. The board remains on the device, while explicit exports make important work portable.
 
 **Try it:** https://11suixing11.github.io/mindnotes-pro/
 

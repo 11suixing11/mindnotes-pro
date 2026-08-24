@@ -15,13 +15,17 @@ interface MenuItemProps {
   shortcut?: string
   danger?: boolean
   hasSubmenu?: boolean
+  ariaExpanded?: boolean
 }
 
-export function MenuItem({ onClick, label, shortcut, danger, hasSubmenu }: MenuItemProps) {
-  return (
+export const MenuItem = React.forwardRef<HTMLButtonElement, MenuItemProps>(
+  ({ onClick, label, shortcut, danger, hasSubmenu, ariaExpanded }, ref) => (
     <button
+      ref={ref}
       onClick={onClick}
       className="context-menu-item"
+      aria-haspopup={hasSubmenu ? 'menu' : undefined}
+      aria-expanded={hasSubmenu ? ariaExpanded : undefined}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -33,7 +37,7 @@ export function MenuItem({ onClick, label, shortcut, danger, hasSubmenu }: MenuI
         background: 'transparent',
         borderRadius: 6,
         cursor: 'pointer',
-        fontSize: 13,
+        fontSize: 14,
         color: danger ? 'var(--danger)' : 'var(--text-1)',
         textAlign: 'left',
         transition: 'background 0.1s',
@@ -50,9 +54,9 @@ export function MenuItem({ onClick, label, shortcut, danger, hasSubmenu }: MenuI
         {shortcut && (
           <span
             style={{
-              fontSize: 11,
+              fontSize: 12,
               color: 'var(--text-3)',
-              letterSpacing: 0.5,
+              letterSpacing: 0,
             }}
           >
             {shortcut}
@@ -73,7 +77,9 @@ export function MenuItem({ onClick, label, shortcut, danger, hasSubmenu }: MenuI
       </div>
     </button>
   )
-}
+)
+
+MenuItem.displayName = 'MenuItem'
 
 export function MenuSeparator() {
   return (
@@ -99,18 +105,24 @@ interface ContextMenuSubmenuProps {
   menuWidth: number
   topOffset: number
   actions: SubmenuAction[]
+  anchorRef?: React.RefObject<HTMLElement | null>
 }
 
 const ContextMenuSubmenu = React.forwardRef<HTMLDivElement, ContextMenuSubmenuProps>(
-  ({ menuX, menuY, menuWidth, topOffset, actions }, ref) =>
-    createPortal(
+  ({ menuX, menuY, menuWidth, topOffset, actions, anchorRef }, ref) => {
+    const anchorRect = anchorRef?.current?.getBoundingClientRect()
+    const left = anchorRect ? anchorRect.right + SUBMENU_OFFSET : menuX + menuWidth + SUBMENU_OFFSET
+    const top = anchorRect ? anchorRect.top : menuY + topOffset
+
+    return createPortal(
       <div
         ref={ref}
         className="context-menu-submenu"
+        role="menu"
         style={{
           position: 'fixed',
-          left: menuX + menuWidth + SUBMENU_OFFSET,
-          top: menuY + topOffset,
+          left,
+          top,
           minWidth: 140,
           background: 'var(--bg-1)',
           border: '1px solid var(--border-1)',
@@ -124,6 +136,7 @@ const ContextMenuSubmenu = React.forwardRef<HTMLDivElement, ContextMenuSubmenuPr
         {actions.map((action) => (
           <button
             key={action.key}
+            role="menuitem"
             onClick={action.onClick}
             style={{
               display: 'flex',
@@ -135,7 +148,7 @@ const ContextMenuSubmenu = React.forwardRef<HTMLDivElement, ContextMenuSubmenuPr
               background: 'transparent',
               borderRadius: 6,
               cursor: 'pointer',
-              fontSize: 13,
+              fontSize: 14,
               color: 'var(--text-1)',
               textAlign: 'left',
               transition: 'background 0.1s',
@@ -153,6 +166,7 @@ const ContextMenuSubmenu = React.forwardRef<HTMLDivElement, ContextMenuSubmenuPr
       </div>,
       document.body
     )
+  }
 )
 
 ContextMenuSubmenu.displayName = 'ContextMenuSubmenu'
@@ -161,17 +175,19 @@ interface AlignSubmenuProps {
   menuX: number
   menuY: number
   menuWidth: number
+  anchorRef?: React.RefObject<HTMLElement | null>
   onAlign: (alignment: AlignmentType) => void
 }
 
 export const AlignSubmenu = React.forwardRef<HTMLDivElement, AlignSubmenuProps>(
-  ({ menuX, menuY, menuWidth, onAlign }, ref) => (
+  ({ menuX, menuY, menuWidth, anchorRef, onAlign }, ref) => (
     <ContextMenuSubmenu
       ref={ref}
       menuX={menuX}
       menuY={menuY}
       menuWidth={menuWidth}
       topOffset={MENU_PADDING + 5 * MENU_ITEM_HEIGHT + 16}
+      anchorRef={anchorRef}
       actions={ALIGN_ACTIONS.map(({ label, alignment }) => ({
         key: alignment,
         label,
@@ -187,21 +203,19 @@ interface DistributeSubmenuProps {
   menuX: number
   menuY: number
   menuWidth: number
+  anchorRef?: React.RefObject<HTMLElement | null>
   onDistribute: (distribution: DistributionType) => void
 }
 
-export function DistributeSubmenu({
-  menuX,
-  menuY,
-  menuWidth,
-  onDistribute,
-}: DistributeSubmenuProps) {
-  return (
+export const DistributeSubmenu = React.forwardRef<HTMLDivElement, DistributeSubmenuProps>(
+  ({ menuX, menuY, menuWidth, anchorRef, onDistribute }, ref) => (
     <ContextMenuSubmenu
+      ref={ref}
       menuX={menuX}
       menuY={menuY}
       menuWidth={menuWidth}
       topOffset={MENU_PADDING + 6 * MENU_ITEM_HEIGHT + 24}
+      anchorRef={anchorRef}
       actions={DISTRIBUTE_ACTIONS.map(({ label, distribution }) => ({
         key: distribution,
         label,
@@ -209,4 +223,6 @@ export function DistributeSubmenu({
       }))}
     />
   )
-}
+)
+
+DistributeSubmenu.displayName = 'DistributeSubmenu'
