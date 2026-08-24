@@ -51,6 +51,25 @@ Labels are metadata only; their descriptions should explain the maintainer actio
 - Keep secret scanning and push protection enabled. Report vulnerabilities privately through [SECURITY.md](SECURITY.md).
 - Treat audit warnings as follow-up work unless the affected package is reachable in the shipped application; document the decision in the pull request.
 
+### Security fix to patch-release rule
+
+After every stable release, check whether a security-related change has landed on
+`main` without being included in the latest release tag. Treat a CodeQL fix,
+Dependabot security update, secret-scanning remediation, or a security advisory
+affecting shipped code as a patch-release candidate.
+
+For a candidate:
+
+1. Confirm the fix is on `main` and identify the latest stable tag; never move an existing release tag.
+2. Assess whether the change affects shipped web, desktop, import/export, or persisted-data behavior.
+3. If it does, prepare the next `vX.Y.Z` patch metadata in one focused PR, including `package.json`, `package-lock.json`, `CHANGELOG.md`, and public version/cache markers.
+4. Run the repository gate, the affected end-to-end journey, and the desktop build when the shell is involved.
+5. Publish only from the verified `main` commit, then verify the tag, release assets, checksums, Pages deployment, and migration/backup guidance.
+
+If the fix is limited to CI or development tooling and does not ship to users,
+record the decision and handle it in the normal maintenance cadence instead of
+creating a release solely for workflow metadata.
+
 ## Release checklist
 
 1. Confirm `package.json`, `package-lock.json`, `CHANGELOG.md`, and the intended release commit contain the same version.
@@ -58,6 +77,21 @@ Labels are metadata only; their descriptions should explain the maintainer actio
 3. Create the `vX.Y.Z` tag from verified `main`; use `-rc`, `-beta`, or `-alpha` suffixes for pre-releases.
 4. Let `.github/workflows/release.yml` produce the web archive, Linux AppImage, and `SHA256SUMS` file.
 5. Verify the GitHub Release assets, release notes, tag, Pages deployment, and backup/migration warnings before announcing the release.
+
+For the post-release security decision, use the rule above before closing the
+maintenance pass. A stable release is not considered current merely because
+`main` is green; it must also contain all security fixes that affect shipped
+behavior, or have a documented reason to defer them.
+
+## Branch cleanup
+
+- Keep `gh-pages` because it is the Pages deployment branch.
+- Keep recent branches with substantial independent work until the owner decides
+  whether to open a focused PR or archive the work.
+- Before deleting a closed-PR branch, compare its unique commits with `main`,
+  confirm the PR and its review history remain available, and record the reason.
+- Do not delete a documentation rewrite or architecture batch solely because it
+  is stale; preserve it until its unique content has been reviewed or archived.
 
 ## Monthly review
 
