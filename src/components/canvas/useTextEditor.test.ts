@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useTextEditor } from './useTextEditor'
+import { createSessionId, useTextEditor } from './useTextEditor'
 import { useAppStore } from '../../store/appStore'
 import { createDefaultLayer } from '../../store/layers'
 
@@ -21,6 +21,49 @@ describe('useTextEditor', () => {
       undoStack: [],
       redoStack: [],
       selectedIds: [],
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  describe('createSessionId', () => {
+    it('prefers randomUUID when Web Crypto provides it', () => {
+      const randomUUID = vi.fn(() => 'uuid-1')
+      const getRandomValues = vi.fn()
+      vi.stubGlobal('crypto', { randomUUID, getRandomValues })
+
+      expect(createSessionId('text-')).toBe('text-uuid-1')
+      expect(randomUUID).toHaveBeenCalledOnce()
+      expect(getRandomValues).not.toHaveBeenCalled()
+    })
+
+    it('uses getRandomValues when randomUUID is unavailable', () => {
+      const getRandomValues = vi.fn((values: Uint32Array) => {
+        values[0] = 1
+        values[1] = 35
+        return values
+      })
+      vi.stubGlobal('crypto', { getRandomValues })
+      vi.spyOn(Date, 'now').mockReturnValue(123)
+
+      expect(createSessionId('text-')).toBe('text-123-1-z')
+      expect(getRandomValues).toHaveBeenCalledOnce()
+      expect(getRandomValues.mock.calls[0][0]).toBeInstanceOf(Uint32Array)
+    })
+
+    it('uses a monotonic fallback when Web Crypto is unavailable', () => {
+      vi.stubGlobal('crypto', undefined)
+      vi.spyOn(Date, 'now').mockReturnValue(123)
+
+      const first = createSessionId('text-')
+      const second = createSessionId('text-')
+
+      expect(first).toMatch(/^text-123-\d+$/)
+      expect(second).toMatch(/^text-123-\d+$/)
+      expect(second).not.toBe(first)
     })
   })
 

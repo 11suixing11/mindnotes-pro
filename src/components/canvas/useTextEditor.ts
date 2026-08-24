@@ -70,12 +70,21 @@ interface TextEditBaseline {
   element: TextElement | null
 }
 
-function createSessionId(prefix: string): string {
-  const uuid =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  return `${prefix}${uuid}`
+let fallbackSessionCounter = 0
+
+export function createSessionId(prefix: string): string {
+  const webCrypto = globalThis.crypto
+  if (webCrypto && typeof webCrypto.randomUUID === 'function') {
+    return `${prefix}${webCrypto.randomUUID()}`
+  }
+
+  if (webCrypto && typeof webCrypto.getRandomValues === 'function') {
+    const values = webCrypto.getRandomValues(new Uint32Array(2))
+    return `${prefix}${Date.now()}-${values[0].toString(36)}-${values[1].toString(36)}`
+  }
+
+  fallbackSessionCounter += 1
+  return `${prefix}${Date.now()}-${fallbackSessionCounter}`
 }
 
 function matchesExistingText(
