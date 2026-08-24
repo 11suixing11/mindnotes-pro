@@ -13,8 +13,9 @@ interface TextFormatToolbarProps {
   textAreaRef: RefObject<HTMLTextAreaElement | null>
   left: number
   top: number
-  alignRight: boolean
   onChange: (patch: Partial<TextFormatState>) => void
+  onInteractionStart?: (kind: 'toolbar' | 'color-picker') => void
+  onInteractionEnd?: () => void
   onBlurOutside: () => void
 }
 
@@ -52,7 +53,7 @@ const buttonStyle: CSSProperties = {
   background: 'var(--card)',
   color: 'var(--text)',
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: 600,
   cursor: 'pointer',
 }
 
@@ -73,6 +74,24 @@ const colorInputStyle: CSSProperties = {
   cursor: 'pointer',
 }
 
+const colorInputContainerStyle: CSSProperties = {
+  position: 'relative',
+  width: 30,
+  height: 30,
+  flex: '0 0 auto',
+}
+
+const noBackgroundIndicatorStyle: CSSProperties = {
+  position: 'absolute',
+  inset: 3,
+  zIndex: 1,
+  border: '1px solid var(--border)',
+  borderRadius: 4,
+  background:
+    'linear-gradient(135deg, var(--card-solid) 0 46%, var(--text-3) 47% 53%, var(--card-solid) 54% 100%)',
+  pointerEvents: 'none',
+}
+
 function includeCurrentSize(fontSize: number): number[] {
   const normalized = clampTextFontSize(fontSize)
   if (TEXT_FONT_SIZE_OPTIONS.includes(normalized as (typeof TEXT_FONT_SIZE_OPTIONS)[number])) {
@@ -87,14 +106,14 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
   textAreaRef,
   left,
   top,
-  alignRight,
   onChange,
+  onInteractionStart,
+  onInteractionEnd,
   onBlurOutside,
 }: TextFormatToolbarProps) {
   const fontSizeOptions = includeCurrentSize(editingText.fontSize)
-  const backgroundColor = isVisibleTextBackground(editingText.backgroundColor)
-    ? editingText.backgroundColor
-    : '#FFF3BF'
+  const hasBackgroundColor = isVisibleTextBackground(editingText.backgroundColor)
+  const backgroundColor = hasBackgroundColor ? editingText.backgroundColor : '#FFF3BF'
 
   return (
     <div
@@ -105,7 +124,15 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
         ...toolbarStyle,
         left,
         top,
-        transform: alignRight ? 'translateX(-100%)' : undefined,
+        // `left` already represents the visible left edge. Do not apply a
+        // second right-anchor transform; it causes overflow on narrow screens.
+        transform: undefined,
+      }}
+      onPointerDownCapture={(event) => {
+        const target = event.target
+        onInteractionStart?.(
+          target instanceof HTMLInputElement && target.type === 'color' ? 'color-picker' : 'toolbar'
+        )
       }}
       onMouseDown={(event) => {
         const target = event.target as HTMLElement
@@ -129,9 +156,10 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
           aria-pressed={editingText.fontWeight === 'bold'}
           title="Bold"
           style={editingText.fontWeight === 'bold' ? activeButtonStyle : buttonStyle}
-          onClick={() =>
+          onClick={() => {
             onChange({ fontWeight: editingText.fontWeight === 'bold' ? 'normal' : 'bold' })
-          }
+            onInteractionEnd?.()
+          }}
         >
           B
         </button>
@@ -144,9 +172,10 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
             ...(editingText.fontStyle === 'italic' ? activeButtonStyle : buttonStyle),
             fontStyle: 'italic',
           }}
-          onClick={() =>
+          onClick={() => {
             onChange({ fontStyle: editingText.fontStyle === 'italic' ? 'normal' : 'italic' })
-          }
+            onInteractionEnd?.()
+          }}
         >
           I
         </button>
@@ -159,11 +188,12 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
             ...(editingText.textDecoration === 'underline' ? activeButtonStyle : buttonStyle),
             textDecoration: 'underline',
           }}
-          onClick={() =>
+          onClick={() => {
             onChange({
               textDecoration: editingText.textDecoration === 'underline' ? 'none' : 'underline',
             })
-          }
+            onInteractionEnd?.()
+          }}
         >
           U
         </button>
@@ -173,9 +203,10 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
         <select
           aria-label="Font size"
           value={editingText.fontSize}
-          onChange={(event) =>
+          onChange={(event) => {
             onChange({ fontSize: clampTextFontSize(Number(event.target.value)) })
-          }
+            onInteractionEnd?.()
+          }}
           style={{
             width: 66,
             height: 30,
@@ -184,7 +215,7 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
             background: 'var(--card)',
             color: 'var(--text)',
             fontSize: 12,
-            fontWeight: 600,
+            fontWeight: 500,
           }}
         >
           {fontSizeOptions.map((size) => (
@@ -204,7 +235,10 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
             aria-pressed={editingText.textAlign === align}
             title={`Align ${align}`}
             style={editingText.textAlign === align ? activeButtonStyle : buttonStyle}
-            onClick={() => onChange({ textAlign: align })}
+            onClick={() => {
+              onChange({ textAlign: align })
+              onInteractionEnd?.()
+            }}
           >
             {align[0].toUpperCase()}
           </button>
@@ -217,25 +251,41 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
           title="Text color"
           type="color"
           value={editingText.color}
-          onChange={(event) => onChange({ color: event.target.value })}
+          onChange={(event) => {
+            onChange({ color: event.target.value })
+            onInteractionEnd?.()
+          }}
           style={colorInputStyle}
         />
-        <input
-          aria-label="Text background color"
-          title="Text background color"
-          type="color"
-          value={backgroundColor}
-          onChange={(event) => onChange({ backgroundColor: event.target.value })}
-          style={colorInputStyle}
-        />
+        <div style={colorInputContainerStyle}>
+          <input
+            aria-label="Text background color"
+            title={hasBackgroundColor ? 'Text background color' : 'Text background color (none)'}
+            type="color"
+            value={backgroundColor}
+            onChange={(event) => {
+              onChange({ backgroundColor: event.target.value })
+              onInteractionEnd?.()
+            }}
+            style={colorInputStyle}
+          />
+          {!hasBackgroundColor && (
+            <span
+              aria-hidden="true"
+              data-testid="text-background-none-indicator"
+              style={noBackgroundIndicatorStyle}
+            />
+          )}
+        </div>
         <button
           type="button"
           aria-label="Clear text background"
           title="Clear text background"
-          style={
-            isVisibleTextBackground(editingText.backgroundColor) ? activeButtonStyle : buttonStyle
-          }
-          onClick={() => onChange({ backgroundColor: undefined })}
+          style={hasBackgroundColor ? activeButtonStyle : buttonStyle}
+          onClick={() => {
+            onChange({ backgroundColor: undefined })
+            onInteractionEnd?.()
+          }}
         >
           X
         </button>

@@ -3,24 +3,11 @@ import { render, screen } from '@testing-library/react'
 import LoadingScreen from './LoadingScreen'
 
 describe('LoadingScreen', () => {
-  it('renders the MindNotes Pro branding', () => {
+  it('announces loading without a visual splash', () => {
     render(<LoadingScreen />)
-    expect(screen.getByText('MindNotes Pro')).toBeTruthy()
-  })
-
-  it('renders the M logo', () => {
-    render(<LoadingScreen />)
-    expect(screen.getByText('M')).toBeTruthy()
-  })
-
-  it('announces the loading state', () => {
-    render(<LoadingScreen />)
-    expect(screen.getByRole('status', { name: '正在打开 MindNotes Pro' })).toBeTruthy()
-  })
-
-  it('renders loading dots', () => {
-    const { container } = render(<LoadingScreen />)
-    const dots = container.querySelectorAll('.loading-dots span')
-    expect(dots).toHaveLength(3)
+    const status = screen.getByRole('status', { name: '正在打开 MindNotes Pro' })
+    expect(status.querySelector('.sr-only')?.textContent).toBe('正在打开 MindNotes Pro')
+    expect(status.querySelector('.loading-logo')).toBeNull()
+    expect(status.querySelector('.loading-dots')).toBeNull()
   })
 })

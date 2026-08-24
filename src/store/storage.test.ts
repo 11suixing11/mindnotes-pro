@@ -1,16 +1,97 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   openDB,
   getAll,
   get,
   put,
+  putMany,
+  putManyStores,
   update,
   del,
   loadFromStorage,
   migrateLegacyStorageKey,
+  readLegacyDatabase,
   saveToStorage,
 } from './storage'
 import { encodeLegacyStorageValue } from '../test/legacyStorage'
+
+interface FakeLegacyDatabase {
+  objectStoreNames: { contains: (name: string) => boolean }
+  transaction: (storeNames: string[], _mode: IDBTransactionMode) => FakeLegacyTransaction
+  close: () => void
+}
+
+interface FakeLegacyTransaction {
+  objectStore: (name: string) => {
+    getAll: () => { result: unknown[]; onsuccess: (() => void) | null }
+  }
+  oncomplete: (() => void) | null
+  onerror: (() => void) | null
+  onabort: (() => void) | null
+}
+
+function makeLegacyDatabase(data: { docs?: unknown[]; folders?: unknown[] }): FakeLegacyDatabase {
+  const stores = new Map<string, unknown[]>()
+  if (data.docs) stores.set('docs', data.docs)
+  if (data.folders) stores.set('folders', data.folders)
+
+  return {
+    objectStoreNames: { contains: (name) => stores.has(name) },
+    transaction: (storeNames) => {
+      let remaining = storeNames.length
+      const transaction: FakeLegacyTransaction = {
+        objectStore: () => ({ getAll: () => ({ result: [], onsuccess: null }) }),
+        oncomplete: null,
+        onerror: null,
+        onabort: null,
+      }
+
+      // Each request object must remain stable so the storage reader can set
+      // its handler after getAll() returns.
+      transaction.objectStore = (name) => {
+        const request = {
+          result: stores.get(name) ?? [],
+          onsuccess: null as (() => void) | null,
+        }
+        queueMicrotask(() => {
+          request.onsuccess?.()
+          remaining -= 1
+          if (remaining === 0) queueMicrotask(() => transaction.oncomplete?.())
+        })
+        return { getAll: () => request }
+      }
+      return transaction
+    },
+    close: vi.fn(),
+  }
+}
+
+function installLegacyIndexedDb(databases: Record<string, FakeLegacyDatabase>) {
+  const openedNames: string[] = []
+  const indexedDb = {
+    databases: async () => Object.keys(databases).map((name) => ({ name })),
+    open: (name: string) => {
+      openedNames.push(name)
+      const request: {
+        result?: FakeLegacyDatabase
+        onsuccess: (() => void) | null
+        onerror: (() => void) | null
+      } = { onsuccess: null, onerror: null }
+      queueMicrotask(() => {
+        const database = databases[name]
+        if (!database) {
+          request.onerror?.()
+          return
+        }
+        request.result = database
+        request.onsuccess?.()
+      })
+      return request
+    },
+  }
+  vi.stubGlobal('indexedDB', indexedDb)
+  return openedNames
+}
 
 describe('storage', () => {
   describe('exports', () => {
@@ -28,6 +109,11 @@ describe('storage', () => {
 
     it('should export put function', () => {
       expect(put).toBeTypeOf('function')
+    })
+
+    it('should export atomic batch functions', () => {
+      expect(putMany).toBeTypeOf('function')
+      expect(putManyStores).toBeTypeOf('function')
     })
 
     it('should export update function', () => {
@@ -167,6 +253,13 @@ describe('storage', () => {
       await expect(put('docs', { id: 'test' })).rejects.toThrow('IndexedDB is unavailable')
     })
 
+    it('batch writes reject when DB is unavailable', async () => {
+      await expect(putMany('docs', [{ id: 'test' }])).rejects.toThrow('IndexedDB is unavailable')
+      await expect(
+        putManyStores([{ storeName: 'docs', records: [{ id: 'test' }] }])
+      ).rejects.toThrow('IndexedDB is unavailable')
+    })
+
     it('update rejects when DB is unavailable', async () => {
       await expect(update('docs', 'test', (record) => record)).rejects.toThrow(
         'IndexedDB is unavailable'
@@ -175,6 +268,59 @@ describe('storage', () => {
 
     it('del rejects when DB is unavailable', async () => {
       await expect(del('docs', 'test')).rejects.toThrow('IndexedDB is unavailable')
+    })
+  })
+
+  describe('legacy database reads', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('falls back from a folder-only v4 database and merges folders by id', async () => {
+      const openedNames = installLegacyIndexedDb({
+        'mindnotes-pro-v4': makeLegacyDatabase({
+          folders: [
+            { id: 'shared', name: 'v4 folder' },
+            { id: 'v4-only', name: 'V4 only' },
+          ],
+        }),
+        'mindnotes-pro': makeLegacyDatabase({
+          docs: [{ id: 'old-doc', title: 'Recovered document' }],
+          folders: [
+            { id: 'shared', name: 'old folder' },
+            { id: 'old-only', name: 'Old only' },
+          ],
+        }),
+      })
+
+      await expect(readLegacyDatabase()).resolves.toEqual({
+        docs: [{ id: 'old-doc', title: 'Recovered document' }],
+        folders: [
+          { id: 'shared', name: 'v4 folder' },
+          { id: 'v4-only', name: 'V4 only' },
+          { id: 'old-only', name: 'Old only' },
+        ],
+      })
+      expect(openedNames).toEqual(['mindnotes-pro-v4', 'mindnotes-pro'])
+    })
+
+    it('does not combine older documents when v4 already has documents', async () => {
+      const openedNames = installLegacyIndexedDb({
+        'mindnotes-pro-v4': makeLegacyDatabase({
+          docs: [{ id: 'v4-doc', title: 'V4 document' }],
+          folders: [{ id: 'shared', name: 'v4 folder' }],
+        }),
+        'mindnotes-pro': makeLegacyDatabase({
+          docs: [{ id: 'old-doc', title: 'Older document' }],
+          folders: [{ id: 'old-only', name: 'Old only' }],
+        }),
+      })
+
+      await expect(readLegacyDatabase()).resolves.toEqual({
+        docs: [{ id: 'v4-doc', title: 'V4 document' }],
+        folders: [{ id: 'shared', name: 'v4 folder' }],
+      })
+      expect(openedNames).toEqual(['mindnotes-pro-v4'])
     })
   })
 })

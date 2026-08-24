@@ -12,17 +12,17 @@
   </p>
   <p>
     <a href="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml"><img src="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
-    <img src="https://img.shields.io/badge/version-4.0.0-0f766e" alt="Version 4.0.0" />
+    <img src="https://img.shields.io/badge/version-5.0.0-0f766e" alt="Version 5.0.0" />
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2563eb" alt="MIT License" /></a>
     <img src="https://img.shields.io/badge/storage-local--first-16a34a" alt="Local-first storage" />
   </p>
 </div>
 
 <p align="center">
-  <img src=".github/mindnotes-pro-v4.png" width="900" alt="MindNotes Pro v4 with an editable flowchart selected on the canvas" />
+  <img src=".github/mindnotes-pro-v4.png" width="900" alt="MindNotes Pro v5 with an editable flowchart selected on the canvas" />
 </p>
 
-## What v4 delivers
+## What v5 delivers
 
 MindNotes Pro starts on a blank, immediately usable canvas. It focuses on a small set of complete workflows instead of disconnected demos.
 
@@ -30,19 +30,20 @@ MindNotes Pro starts on a blank, immediately usable canvas. It focuses on a smal
 | ----------- | ----------------------------------------------------------------------------------------------------------- |
 | Drawing     | Freehand brush presets, pressure-aware strokes, rectangles, circles, lines, arrows, text, and images        |
 | Editing     | Selection, move, resize, rotate, group, lock, copy/paste, undo/redo, and predictable partial-stroke erasing |
-| Workspace   | Multiple documents, title/content search, sorting, layers, backgrounds, grid, snapping, zoom, and minimap   |
+| Workspace   | One focused board with layers, backgrounds, grid, snapping, and zoom                                        |
 | Templates   | Five built-in editable templates plus reusable custom templates made from canvas content                    |
-| Persistence | Autosaved v4 documents in IndexedDB, with preferences and custom templates stored locally                   |
-| Portability | Full-content PNG, JPEG, PDF, and SVG exports; strict v4 JSON backups; v4, v3, and legacy JSON import        |
+| Persistence | The current board is autosaved in IndexedDB, with preferences and custom templates stored locally           |
+| Portability | Full-content PNG, JPEG, PDF, and SVG exports; strict v5 JSON backups; v4, v3, and legacy JSON import        |
 | Runtimes    | Responsive browser app, installable offline PWA, and a sandboxed Electron desktop shell                     |
 
 ## Local-first means local
 
-- Documents are stored in the browser origin's IndexedDB database, `mindnotes-pro-v4`.
+- The current board is stored in the browser origin's IndexedDB database, `mindnotes-pro-v5`.
+- v4 documents are imported read-only on first startup when available; the original `mindnotes-pro-v4` database is never deleted.
 - The app does not provide an account system, hosted sync, or real-time collaboration.
-- Clearing browser site data can remove local documents. Export a JSON backup for important work.
-- JSON import always creates a separate editable document instead of overwriting the current one.
-- A previous `mindnotes-drawing-data` local-storage document is migrated on the first empty v4 startup when possible.
+- Clearing browser site data can remove the local board. Export a JSON backup for important work.
+- JSON import replaces the current board in place; it never opens a second board.
+- A previous `mindnotes-drawing-data` local-storage document is migrated on the first empty v5 startup when possible.
 
 ## Quick start
 
@@ -82,12 +83,12 @@ npx playwright install chromium
 
 Visual exports are rendered from the complete visible document bounds, not from the current pan and zoom. PNG keeps transparency; JPEG and PDF use the document background; SVG keeps vector content where possible.
 
-The v4 JSON backup contract is intentionally explicit:
+The v5 JSON backup contract is intentionally explicit:
 
 ```json
 {
   "format": "mindnotes-pro-backup",
-  "version": 4,
+  "version": 5,
   "exportedAt": "2026-07-31T00:00:00.000Z",
   "document": {
     "title": "Project board",

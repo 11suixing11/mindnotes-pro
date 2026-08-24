@@ -1,4 +1,4 @@
-import { useState, useEffect, memo, useMemo } from 'react'
+import { useState, useEffect, memo, useMemo, useCallback } from 'react'
 import {
   FIXED_SHORTCUT_HELP,
   SHORTCUT_DEFINITIONS,
@@ -9,6 +9,7 @@ import {
   type ShortcutCategory,
 } from '../../keyboard/shortcuts'
 import { useShortcutStore } from '../../store/useShortcutStore'
+import { useDialogFocus } from '../useDialogFocus'
 
 interface KeyboardShortcutsHelpProps {
   open: boolean
@@ -23,7 +24,7 @@ function Keys({ parts }: { parts: string[] }) {
     <div className="flex items-center gap-[3px]">
       {parts.map((key, index) => (
         <span key={`${key}-${index}`}>
-          <kbd className="inline-block px-[6px] py-[2px] text-[11px] font-semibold text-[var(--text)] bg-[var(--bg)] border border-[var(--border)] rounded-[5px] shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+          <kbd className="inline-block px-[6px] py-[2px] text-[11px] font-medium text-[var(--text)] bg-[var(--bg)] border border-[var(--border)] rounded-[5px] shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
             {key}
           </kbd>
           {index < parts.length - 1 && (
@@ -71,20 +72,29 @@ export default memo(function KeyboardShortcutsHelp({
     setVisible(open)
   }, [open])
 
+  const closeHelp = useCallback(() => {
+    setVisible(false)
+    onClose()
+  }, [onClose])
+
+  const dialogRef = useDialogFocus<HTMLDivElement>({
+    open: visible,
+    onClose: closeHelp,
+  })
+
   useEffect(() => {
     if (!visible) return
     const handler = (e: KeyboardEvent) => {
       if (isEditableShortcutTarget(e.target)) return
       const action = findShortcutAction(e, useShortcutStore.getState().bindings)
-      if (e.key === 'Escape' || action === 'help.shortcuts') {
+      if (action === 'help.shortcuts') {
         e.preventDefault()
-        setVisible(false)
-        onClose()
+        closeHelp()
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [visible, onClose])
+  }, [closeHelp, visible])
 
   if (!visible) return null
 
@@ -92,18 +102,25 @@ export default memo(function KeyboardShortcutsHelp({
     <div
       className="fixed inset-0 z-[500] bg-[rgba(0,0,0,0.35)] backdrop-blur-[3px] flex items-center justify-center"
       style={{ animation: 'fadeIn 0.15s ease' }}
-      onClick={() => {
-        setVisible(false)
-        onClose()
-      }}
+      onClick={closeHelp}
     >
       <div
+        ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
         className="bg-[var(--card-solid)] rounded-[16px] py-[24px] px-[28px] max-w-[520px] w-[90vw] shadow-[0_8px_40px_rgba(0,0,0,0.2)] border border-[var(--border)]"
         style={{ animation: 'popIn 0.2s cubic-bezier(0.16,1,0.3,1)' }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="keyboard-shortcuts-help-title"
+        tabIndex={-1}
       >
         <div className="flex items-center justify-between gap-[12px] mb-[16px]">
-          <div className="text-[16px] font-bold text-[var(--text)]">键盘快捷键</div>
+          <h2
+            id="keyboard-shortcuts-help-title"
+            className="text-[16px] font-medium text-[var(--text)]"
+          >
+            键盘快捷键
+          </h2>
           <div className="flex items-center gap-[8px]">
             {onCustomize && (
               <button
@@ -114,10 +131,7 @@ export default memo(function KeyboardShortcutsHelp({
               </button>
             )}
             <button
-              onClick={() => {
-                setVisible(false)
-                onClose()
-              }}
+              onClick={closeHelp}
               className="w-[28px] h-[28px] rounded-[8px] flex items-center justify-center text-[var(--text-3)] hover:bg-[var(--primary-bg)] transition-colors text-[16px]"
               aria-label="关闭"
             >
@@ -128,7 +142,7 @@ export default memo(function KeyboardShortcutsHelp({
         <div className="grid grid-cols-1 gap-[10px] max-h-[56vh] overflow-y-auto pr-[4px]">
           {groupedShortcuts.map((group) => (
             <section key={group.category}>
-              <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-4)] mb-[4px]">
+              <div className="text-[12px] font-medium text-[var(--text-4)] mb-[4px]">
                 {getShortcutCategoryLabel(group.category)}
               </div>
               <div className="grid grid-cols-1 gap-[2px]">
@@ -137,7 +151,7 @@ export default memo(function KeyboardShortcutsHelp({
                     key={shortcut.id}
                     className="flex items-center justify-between gap-[12px] py-[6px] px-[8px] rounded-[8px] hover:bg-[var(--primary-bg)] transition-colors"
                   >
-                    <span className="text-[13px] text-[var(--text-2)]">{shortcut.label}</span>
+                    <span className="text-[14px] text-[var(--text-2)]">{shortcut.label}</span>
                     <Keys parts={shortcut.keyParts} />
                   </div>
                 ))}

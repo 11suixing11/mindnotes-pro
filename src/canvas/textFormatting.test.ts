@@ -3,10 +3,13 @@ import {
   clampTextFontSize,
   getTextAnchorX,
   getTextFont,
+  getTextLayout,
   getTextLineHeight,
   isVisibleTextBackground,
   normalizeTextFormat,
+  TEXT_FONT_FAMILY,
   toStoredTextFormat,
+  wrapTextLines,
 } from './textFormatting'
 
 describe('textFormatting', () => {
@@ -32,8 +35,50 @@ describe('textFormatting', () => {
 
   it('builds a canvas font string with style and weight', () => {
     expect(getTextFont({ fontSize: 24, fontStyle: 'italic', fontWeight: 'bold' })).toBe(
-      "italic 700 24px 'Noto Sans SC', 'PingFang SC', sans-serif"
+      `italic 700 24px ${TEXT_FONT_FAMILY}`
     )
+  })
+
+  it('uses one wrap pipeline for words, CJK, and blank lines', () => {
+    const measureText = (value: string) => Array.from(value).length * 10
+
+    expect(wrapTextLines('Hello world', 60, measureText)).toEqual(['Hello', 'world'])
+    expect(wrapTextLines('你好世界', 20, measureText)).toEqual(['你好', '世界'])
+    expect(wrapTextLines('first\n\nthird', 200, measureText)).toEqual(['first', '', 'third'])
+  })
+
+  it('wraps a long unbroken token at grapheme boundaries', () => {
+    const measureText = (value: string) => Array.from(value).length * 10
+
+    expect(wrapTextLines('abcdefghijkl', 40, measureText)).toEqual(['abcd', 'efgh', 'ijkl'])
+  })
+
+  it('preserves decomposed Unicode text while wrapping by grapheme', () => {
+    const decomposed = 'e\u0301'
+
+    expect(wrapTextLines(decomposed, 20, () => 10)).toEqual([decomposed])
+  })
+
+  it('auto-sizes new text and switches to wrapping at the width cap', () => {
+    const format = normalizeTextFormat({ color: '#333333', fontSize: 16 })
+    const measureText = (value: string) => Array.from(value).length * 10
+    const short = getTextLayout('Hello', format, {
+      autoResize: true,
+      maxWidth: 200,
+      measureText,
+    })
+    const long = getTextLayout('Hello world again', format, {
+      autoResize: true,
+      maxWidth: 80,
+      measureText,
+    })
+
+    expect(short.width).toBe(52)
+    expect(short.lines).toEqual(['Hello'])
+    expect(short.wraps).toBe(false)
+    expect(long.width).toBe(80)
+    expect(long.lines).toEqual(['Hello', 'world', 'again'])
+    expect(long.wraps).toBe(true)
   })
 
   it('computes line height and alignment anchors', () => {

@@ -7,6 +7,15 @@ export interface CanvasInputHandlers {
   onCancel: (event: Event) => void
 }
 
+export interface CanvasAuxiliaryEventHandlers {
+  onCancel: (event: Event) => void
+  onWheel: (event: WheelEvent) => void
+  onKeyDown: (event: KeyboardEvent) => void
+  onKeyUp: (event: KeyboardEvent) => void
+  onContextMenu: (event: MouseEvent) => void
+  onDoubleClick: (event: MouseEvent) => void
+}
+
 /**
  * Bind one event path per input source. Touch stays on Touch Events because
  * pinch zoom needs the complete touch list; mouse and pen use Pointer Events
@@ -85,5 +94,36 @@ export function bindCanvasInputEvents(
     canvas.removeEventListener('touchmove', onTouchMove)
     canvas.removeEventListener('touchend', onTouchEnd)
     canvas.removeEventListener('touchcancel', onTouchCancel)
+  }
+}
+
+/** Bind non-pointer canvas inputs and window/document cancellation signals. */
+export function bindCanvasAuxiliaryEvents(
+  canvas: HTMLCanvasElement,
+  handlers: CanvasAuxiliaryEventHandlers
+): () => void {
+  const onBlur = () => handlers.onCancel(new Event('blur'))
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      handlers.onCancel(new Event('visibilitychange'))
+    }
+  }
+
+  window.addEventListener('keydown', handlers.onKeyDown)
+  window.addEventListener('keyup', handlers.onKeyUp)
+  window.addEventListener('blur', onBlur)
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  canvas.addEventListener('contextmenu', handlers.onContextMenu)
+  canvas.addEventListener('wheel', handlers.onWheel, { passive: false })
+  canvas.addEventListener('dblclick', handlers.onDoubleClick)
+
+  return () => {
+    window.removeEventListener('keydown', handlers.onKeyDown)
+    window.removeEventListener('keyup', handlers.onKeyUp)
+    window.removeEventListener('blur', onBlur)
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+    canvas.removeEventListener('contextmenu', handlers.onContextMenu)
+    canvas.removeEventListener('wheel', handlers.onWheel)
+    canvas.removeEventListener('dblclick', handlers.onDoubleClick)
   }
 }

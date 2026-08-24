@@ -3,14 +3,16 @@ import {
   clearRecoveryDraftForDocument,
   loadRecoveryDraft,
   loadRecoveryDrafts,
+  LEGACY_RECOVERY_DRAFT_STORAGE_KEY,
   RECOVERY_DRAFT_STORAGE_KEY,
   saveRecoveryDraft,
 } from './recovery'
 import type { CanvasDoc } from './types'
+import { CANVAS_SCHEMA_VERSION } from './schema'
 
 function makeDocument(id: string, updatedAt: number): CanvasDoc {
   return {
-    schemaVersion: 4,
+    schemaVersion: CANVAS_SCHEMA_VERSION,
     id,
     title: id,
     elements: [],
@@ -73,5 +75,25 @@ describe('recovery drafts', () => {
 
     expect(saveRecoveryDraft(document, 30)).toBe(true)
     expect(loadRecoveryDraft('without-layers')).toMatchObject({ id: 'without-layers' })
+  })
+
+  it('upgrades a v4 recovery draft after copying it to the v5 key', () => {
+    const document = { ...makeDocument('legacy-v4', 40), schemaVersion: 4 as const }
+    localStorage.setItem(
+      LEGACY_RECOVERY_DRAFT_STORAGE_KEY,
+      JSON.stringify({
+        format: 'mindnotes-pro-recovery',
+        version: 1,
+        savedAt: 40,
+        document,
+      })
+    )
+
+    expect(loadRecoveryDraft('legacy-v4')).toMatchObject({
+      id: 'legacy-v4',
+      schemaVersion: 5,
+    })
+    expect(localStorage.getItem(LEGACY_RECOVERY_DRAFT_STORAGE_KEY)).toBeNull()
+    expect(localStorage.getItem(RECOVERY_DRAFT_STORAGE_KEY)).not.toBeNull()
   })
 })

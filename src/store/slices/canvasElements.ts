@@ -5,29 +5,38 @@ import type {
   CanvasLayer,
   UndoAction,
 } from '../types'
-import {
-  alignElements,
-  distributeElements,
-  moveElement,
-  resizeElement,
-  rotateElement,
-} from '../types'
-import {
-  assignElementLayer,
-  createCanvasLayer,
-  createDefaultLayer,
-  getElementLayerId,
-  getSortedLayers,
-  getWritableLayerId,
-  isElementLayerEditable,
-  isLayerWritable,
-} from '../layers'
-import { shallowClone, snapshot } from '../helpers'
+import { createDefaultLayer } from '../layers'
 import { scheduleSave, incrementSaveGeneration } from '../saveManager'
-import { MAX_HISTORY } from './history'
-import { SpatialIndex } from '../../eraser/SpatialIndex'
-// P12 箭头绑定: 导入绑定工具函数
-import { updateBoundArrows } from '../bindingUtils'
+import type { SpatialIndex } from '../../eraser/SpatialIndex'
+import { getSelectableIds } from './canvasElementRules'
+import {
+  appendElementCollection,
+  createCanvasElementCollectionRuntime,
+  rebuildElementIndexes,
+  removeElementCollection,
+  replaceElementCollection,
+  synchronizeElementCollection,
+  synchronizeElementGeometry,
+  synchronizeElementReplacement,
+  synchronizeElementReferences,
+} from './canvasElementCollection'
+import { createCanvasElementCommitPlan, type CommitElementsOptions } from './canvasElementCommit'
+import { createCanvasElementLayerActions } from './canvasElementLayerActions'
+import { createCanvasElementClipboardActions } from './canvasElementClipboardActions'
+import { createCanvasElementMetadataActions } from './canvasElementMetadataActions'
+import { createCanvasElementArrangementActions } from './canvasElementArrangementActions'
+import {
+  createCanvasElementMutationActions,
+  type UpdateElementOptions,
+} from './canvasElementMutationActions'
+import {
+  createCanvasElementGeometryActions,
+  type MoveElementsOptions,
+} from './canvasElementGeometryActions'
+import { createCanvasElementSnapshotActions } from './canvasElementSnapshotActions'
+
+export type { CommitElementsOptions } from './canvasElementCommit'
+export type { MoveElementsOptions } from './canvasElementGeometryActions'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
@@ -48,13 +57,9 @@ export interface CanvasElementsState {
   _indexDirty: boolean
 }
 
-export interface MoveElementsOptions {
-  recordHistory?: boolean
-}
-
 export interface CanvasElementsActions {
-  addElement: (el: CanvasElement) => void
-  addElements: (els: CanvasElement[]) => void
+  addElement: (el: CanvasElement) => boolean
+  addElements: (els: CanvasElement[]) => boolean
   createLayer: (name?: string) => string
   renameLayer: (id: string, name: string) => void
   deleteLayer: (id: string) => void
@@ -64,9 +69,14 @@ export interface CanvasElementsActions {
   moveLayer: (id: string, direction: 'up' | 'down') => void
   moveElementsToLayer: (ids: string[], layerId: string) => void
   moveSelectedToLayer: (layerId: string) => void
-  updateElement: (id: string, update: (el: CanvasElement) => CanvasElement) => void
-  removeElement: (id: string) => void
-  removeElements: (ids: string[]) => void
+  updateElement: (
+    id: string,
+    update: (el: CanvasElement) => CanvasElement,
+    options?: UpdateElementOptions
+  ) => boolean
+  commitElements: (elements: CanvasElement[], options?: CommitElementsOptions) => void
+  removeElement: (id: string) => boolean
+  removeElements: (ids: string[]) => boolean
   moveElementById: (id: string, dx: number, dy: number) => void
   moveElementsById: (ids: string[], dx: number, dy: number, options?: MoveElementsOptions) => void
   resizeElementById: (id: string, ax: number, ay: number, sx: number, sy: number) => void
@@ -79,7 +89,7 @@ export interface CanvasElementsActions {
     commonCenterX?: number,
     commonCenterY?: number
   ) => void
-  clearAll: () => void
+  clearAll: () => boolean
   setSelectedIds: (ids: string[]) => void
   copySelected: () => void
   paste: () => void
@@ -88,17 +98,16 @@ export interface CanvasElementsActions {
   ungroupSelected: () => void
   alignSelected: (alignment: AlignmentType) => void
   distributeSelected: (distribution: DistributionType) => void
-  batchErase: (beforeSnap: CanvasElement[], added: CanvasElement[]) => void
+  batchErase: (
+    beforeSnap: CanvasElement[],
+    added: CanvasElement[],
+    baseUndoStack?: UndoAction[]
+  ) => void
   restoreElementsSnapshot: (elements: CanvasElement[], selectedIds?: string[]) => void
   // 元素锁定
   // 专业设计工具标配：锁定元素防止误操作
   lockSelected: () => void
   unlockSelected: () => void
-}
-
-interface CanvasMutationState extends CanvasElementsState {
-  undoStack: UndoAction[]
-  redoStack: UndoAction[]
 }
 
 export function createCanvasElementsSlice(
@@ -108,11 +117,10 @@ export function createCanvasElementsSlice(
   get: any
 ): CanvasElementsState & CanvasElementsActions {
   // 全局空间索引实例 - 实时维护，O(log n) 区域查询
-  const spatialIndex = new SpatialIndex()
+  const collectionRuntime = createCanvasElementCollectionRuntime()
+  const { spatialIndex, idToElement, idToIndex } = collectionRuntime
   // P0 性能优化: ID → 元素 映射，O(1) 查找
-  const idToElement = new Map<string, CanvasElement>()
   // P0-2 性能优化: ID → 数组索引 映射，O(1) 查找
-  const idToIndex = new Map<string, number>()
   // P0-3 性能优化: 索引脏标记 - 懒更新策略
   // 使用闭包变量作为内部状态，避免触发 store 更新
   // 这是安全的，因为索引映射只在 slice 内部使用
@@ -124,62 +132,37 @@ export function createCanvasElementsSlice(
   function rebuildIndexIfNeeded() {
     if (!_indexDirty) return
     const st = get()
-    // 同时更新闭包中的 idToIndex 和 store 中的 idToIndex
-    idToIndex.clear()
-    st.idToIndex.clear()
-    for (let i = 0; i < st.elements.length; i++) {
-      idToIndex.set(st.elements[i].id, i)
-      st.idToIndex.set(st.elements[i].id, i)
-    }
+    rebuildElementIndexes(collectionRuntime, st.elements, st)
     _indexDirty = false
-  }
-
-  function getEditableIds(ids: string[], st = get()): string[] {
-    return ids.filter((id) => {
-      const el = st.idToElement.get(id) ?? st.elements.find((item: CanvasElement) => item.id === id)
-      return el && isElementLayerEditable(el, st.layers)
-    })
-  }
-
-  function getSelectableIds(ids: string[], st = get()): string[] {
-    return ids.filter((id) => {
-      const el = st.idToElement.get(id) ?? st.elements.find((item: CanvasElement) => item.id === id)
-      return el && isLayerWritable(st.layers, getElementLayerId(el))
-    })
-  }
-
-  function assignToWritableLayer(el: CanvasElement, st = get()): CanvasElement | null {
-    const preferredLayerId =
-      el.layerId && isLayerWritable(st.layers, el.layerId) ? el.layerId : st.activeLayerId
-    const layerId = getWritableLayerId(st.layers, preferredLayerId)
-    if (!layerId) return null
-    return assignElementLayer(el, layerId, st.layers)
-  }
-
-  function hasBoundArrowForAny(ids: Set<string>, elements: CanvasElement[]): boolean {
-    for (const el of elements) {
-      if (el.type !== 'shape') continue
-      if (el.kind !== 'line' && el.kind !== 'arrow') continue
-      if (el.startBinding && ids.has(el.startBinding.targetId)) return true
-      if (el.endBinding && ids.has(el.endBinding.targetId)) return true
-    }
-    return false
   }
 
   function setElementCollection(next: CanvasElement[], st = get()) {
-    idToElement.clear()
-    st.idToElement.clear()
-    idToIndex.clear()
-    st.idToIndex.clear()
-    spatialIndex.clear()
-    next.forEach((el, index) => {
-      idToElement.set(el.id, el)
-      st.idToElement.set(el.id, el)
-      idToIndex.set(el.id, index)
-      st.idToIndex.set(el.id, index)
-      spatialIndex.insert(el)
-    })
+    replaceElementCollection(collectionRuntime, next, st)
     _indexDirty = false
+  }
+
+  function syncElementCollection(next: CanvasElement[], st = get()) {
+    synchronizeElementCollection(collectionRuntime, next, st)
+    _indexDirty = false
+  }
+
+  function commitElements(
+    nextElements: CanvasElement[],
+    options: CommitElementsOptions = {}
+  ): void {
+    const st = get()
+    const plan = createCanvasElementCommitPlan(st, nextElements, options)
+    if (!plan) return
+
+    incrementSaveGeneration()
+    set({
+      elements: plan.elements,
+      selectedIds: plan.selectedIds,
+      undoStack: plan.undoStack,
+      ...(plan.clearRedo ? { redoStack: [] } : {}),
+    })
+    syncElementCollection(plan.elements, get())
+    scheduleSave()
   }
 
   const defaultLayer = createDefaultLayer()
@@ -197,1060 +180,59 @@ export function createCanvasElementsSlice(
     _indexDirty: false,
 
     // Actions
-    setSelectedIds: (ids) => set({ selectedIds: getSelectableIds(ids) }),
-
-    createLayer: (name) => {
-      const st = get()
-      const order =
-        st.layers.length === 0
-          ? 0
-          : Math.max(...st.layers.map((layer: CanvasLayer) => layer.order)) + 1
-      const layer = createCanvasLayer(name ?? `图层 ${order + 1}`, order)
-      incrementSaveGeneration()
-      set({
-        layers: [...st.layers, layer],
-        activeLayerId: layer.id,
-      })
-      scheduleSave()
-      return layer.id
-    },
-
-    renameLayer: (id, name) => {
-      const nextName = name.trim()
-      if (!nextName) return
-      const st = get()
-      const layer = st.layers.find((item: CanvasLayer) => item.id === id)
-      if (!layer || layer.name === nextName) return
-      incrementSaveGeneration()
-      set({
-        layers: st.layers.map((item: CanvasLayer) =>
-          item.id === id ? { ...item, name: nextName, updatedAt: Date.now() } : item
-        ),
-      })
-      scheduleSave()
-    },
-
-    deleteLayer: (id) => {
-      const st = get()
-      if (st.layers.length <= 1) return
-      const target = st.layers.find((layer: CanvasLayer) => layer.id === id)
-      if (!target) return
-
-      const remaining = getSortedLayers(
-        st.layers.filter((layer: CanvasLayer) => layer.id !== id)
-      ).map((layer: CanvasLayer, order: number) => ({ ...layer, order }))
-      const fallbackLayerId = getWritableLayerId(remaining, st.activeLayerId) ?? remaining[0].id
-      const nextElements = st.elements.map((el: CanvasElement) =>
-        getElementLayerId(el) === id ? { ...el, layerId: fallbackLayerId } : el
-      )
-      const selectedIds = st.selectedIds.filter((selectedId: string) => {
-        const el = st.idToElement.get(selectedId)
-        return el ? getElementLayerId(el) !== id : false
-      })
-
-      incrementSaveGeneration()
-      set({
-        layers: remaining,
-        activeLayerId:
-          st.activeLayerId === id
-            ? fallbackLayerId
-            : (getWritableLayerId(remaining, st.activeLayerId) ?? fallbackLayerId),
-        elements: nextElements,
-        selectedIds,
-      })
-      setElementCollection(nextElements, get())
-      scheduleSave()
-    },
-
-    setActiveLayer: (id) => {
-      const st = get()
-      if (!isLayerWritable(st.layers, id) || st.activeLayerId === id) return
-      set({ activeLayerId: id })
-    },
-
-    setLayerVisibility: (id, visible) => {
-      const st = get()
-      const layer = st.layers.find((item: CanvasLayer) => item.id === id)
-      if (!layer || layer.visible === visible) return
-      const visibleCount = st.layers.filter((item: CanvasLayer) => item.visible).length
-      if (!visible && visibleCount <= 1) return
-
-      const nextLayers = st.layers.map((item: CanvasLayer) =>
-        item.id === id ? { ...item, visible, updatedAt: Date.now() } : item
-      )
-      const nextActiveLayerId =
-        !visible && st.activeLayerId === id
-          ? (getWritableLayerId(nextLayers) ?? nextLayers[0].id)
-          : (getWritableLayerId(nextLayers, st.activeLayerId) ?? nextLayers[0].id)
-      const hiddenIds = new Set(
-        st.elements
-          .filter((el: CanvasElement) => getElementLayerId(el) === id)
-          .map((el: CanvasElement) => el.id)
-      )
-
-      incrementSaveGeneration()
-      set({
-        layers: nextLayers,
-        activeLayerId: nextActiveLayerId,
-        selectedIds: visible
-          ? st.selectedIds
-          : st.selectedIds.filter((selectedId: string) => !hiddenIds.has(selectedId)),
-      })
-      scheduleSave()
-    },
-
-    setLayerLocked: (id, locked) => {
-      const st = get()
-      const layer = st.layers.find((item: CanvasLayer) => item.id === id)
-      if (!layer || layer.locked === locked) return
-
-      const nextLayers = st.layers.map((item: CanvasLayer) =>
-        item.id === id ? { ...item, locked, updatedAt: Date.now() } : item
-      )
-      const nextActiveLayerId =
-        locked && st.activeLayerId === id
-          ? (getWritableLayerId(nextLayers) ?? nextLayers[0].id)
-          : (getWritableLayerId(nextLayers, st.activeLayerId) ?? nextLayers[0].id)
-      const lockedIds = new Set(
-        st.elements
-          .filter((el: CanvasElement) => getElementLayerId(el) === id)
-          .map((el: CanvasElement) => el.id)
-      )
-
-      incrementSaveGeneration()
-      set({
-        layers: nextLayers,
-        activeLayerId: nextActiveLayerId,
-        selectedIds: locked
-          ? st.selectedIds.filter((selectedId: string) => !lockedIds.has(selectedId))
-          : st.selectedIds,
-      })
-      scheduleSave()
-    },
-
-    moveLayer: (id, direction) => {
-      const st = get()
-      const sorted = getSortedLayers(st.layers)
-      const index = sorted.findIndex((layer) => layer.id === id)
-      if (index < 0) return
-      const targetIndex = direction === 'up' ? index + 1 : index - 1
-      if (targetIndex < 0 || targetIndex >= sorted.length) return
-
-      const next = [...sorted]
-      ;[next[index], next[targetIndex]] = [next[targetIndex], next[index]]
-      const reordered = next.map((layer, order) => ({ ...layer, order, updatedAt: Date.now() }))
-
-      incrementSaveGeneration()
-      set({ layers: reordered })
-      scheduleSave()
-    },
-
-    moveElementsToLayer: (ids, layerId) => {
-      const st = get()
-      if (!isLayerWritable(st.layers, layerId)) return
-      const editableIds = getEditableIds(ids, st)
-      if (editableIds.length === 0) return
-      const idSet = new Set(editableIds)
-      let changed = false
-      const next = st.elements.map((el: CanvasElement) => {
-        if (!idSet.has(el.id) || getElementLayerId(el) === layerId) return el
-        changed = true
-        return { ...el, layerId }
-      })
-      if (!changed) return
-
-      incrementSaveGeneration()
-      set({ elements: next, selectedIds: editableIds })
-      setElementCollection(next, get())
-      scheduleSave()
-    },
-
-    moveSelectedToLayer: (layerId) => {
-      get().moveElementsToLayer(get().selectedIds, layerId)
-    },
-
-    addElement: (el) => {
-      const st = get()
-      const layeredEl = assignToWritableLayer(el, st)
-      if (!layeredEl) return
-      incrementSaveGeneration()
-      const action: UndoAction = {
-        type: 'add',
-        ids: [layeredEl.id],
-        els: [shallowClone(layeredEl)],
-      }
-      const newIndex = st.elements.length
-      set({
-        elements: [...st.elements, layeredEl],
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
-      })
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      idToElement.set(layeredEl.id, layeredEl)
-      st.idToElement.set(layeredEl.id, layeredEl)
-      idToIndex.set(layeredEl.id, newIndex)
-      st.idToIndex.set(layeredEl.id, newIndex)
-      spatialIndex.insert(layeredEl)
-      scheduleSave()
-    },
-
-    addElements: (els) => {
-      const st = get()
-      const layeredEls = els
-        .map((el) => assignToWritableLayer(el, st))
-        .filter((el: CanvasElement | null): el is CanvasElement => !!el)
-      if (layeredEls.length === 0) return
-      incrementSaveGeneration()
-      const action: UndoAction = {
-        type: 'add',
-        ids: layeredEls.map((e) => e.id),
-        els: layeredEls.map(shallowClone),
-      }
-      const baseIndex = st.elements.length
-      set({
-        elements: [...st.elements, ...layeredEls],
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
-      })
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      layeredEls.forEach((el, i) => {
-        idToElement.set(el.id, el)
-        st.idToElement.set(el.id, el)
-        idToIndex.set(el.id, baseIndex + i)
-        st.idToIndex.set(el.id, baseIndex + i)
-        spatialIndex.insert(el)
-      })
-      scheduleSave()
-    },
-
-    updateElement: (id, update) => {
-      incrementSaveGeneration()
-      // P0 性能优化: 使用 idToIndex O(1) 查找，替代 map O(n) 遍历
-      // 单元素更新性能提升 10-100x（元素越多提升越明显）
-      const st = get()
-      // 懒索引重建 - 查询失败时先重建再重试
-      rebuildIndexIfNeeded()
-      let idx: number | undefined = idToIndex.get(id)
-      if (idx === undefined) {
-        idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
-      }
-      if (idx === undefined || idx < 0) return
-      const oldEl = st.elements[idx]
-      if (!isElementLayerEditable(oldEl, st.layers)) return
-      const newEl = update(oldEl)
-      // 原地修改数组副本，避免创建全新数组
-      const next = [...st.elements]
-      next[idx] = newEl
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      idToElement.set(id, newEl)
-      st.idToElement.set(id, newEl)
-      spatialIndex.update(newEl)
-      set({ elements: next })
-      scheduleSave()
-    },
-
-    removeElement: (id) => {
-      incrementSaveGeneration()
-      const st = get()
-      // 懒索引重建 - 查询失败时先重建再重试
-      rebuildIndexIfNeeded()
-      // 使用 idToIndex O(1) 查找替代 findIndex O(n)
-      // fallback: 如果 idToIndex 中找不到，回退到 findIndex（兼容测试环境和历史数据）
-      let idx: number | undefined = idToIndex.get(id)
-      if (idx === undefined) {
-        idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
-      }
-      if (idx === undefined || idx < 0) return
-      // 跳过锁定或不可见/锁定图层中的元素，禁止删除
-      if (!isElementLayerEditable(st.elements[idx], st.layers)) return
-      const el = st.elements[idx]
-      const action: UndoAction = {
-        type: 'remove',
-        items: [{ el: shallowClone(el), index: idx }],
-      }
-      const next = [...st.elements]
-      next.splice(idx, 1)
-      set({
-        elements: next,
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
-        selectedIds: st.selectedIds.filter((i: string) => i !== id),
-      })
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      idToElement.delete(id)
-      st.idToElement.delete(id)
-      idToIndex.delete(id)
-      st.idToIndex.delete(id)
-      // 懒更新策略 - 只标记脏，不立即更新后续所有元素的索引
-      // 性能提升: 删除操作从 O(n) → O(1)，大画布场景提升 100x+
-      _indexDirty = true
-      spatialIndex.remove(id)
-      scheduleSave()
-    },
-
-    removeElements: (ids) => {
-      incrementSaveGeneration()
-      const st = get()
-      // 过滤掉锁定或不可见/锁定图层中的元素，禁止删除
-      const unlockedIds = getEditableIds(ids, st)
-      if (unlockedIds.length === 0) return
-      const idSet = new Set(unlockedIds)
-      const items: { el: CanvasElement; index: number }[] = []
-      st.elements.forEach((el: CanvasElement, i: number) => {
-        if (idSet.has(el.id)) items.push({ el: shallowClone(el), index: i })
-      })
-      const action: UndoAction = { type: 'remove', items }
-      const newElements = st.elements.filter((e: CanvasElement) => !idSet.has(e.id))
-      set({
-        elements: newElements,
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
-        selectedIds: [],
-      })
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      unlockedIds.forEach((id) => {
-        idToElement.delete(id)
-        st.idToElement.delete(id)
-        idToIndex.delete(id)
-        st.idToIndex.delete(id)
-        spatialIndex.remove(id)
-      })
-      // 懒更新策略 - 只标记脏，不立即重建所有索引
-      // 性能提升: 批量删除从 O(n) → O(k)，k 为删除元素数量
-      _indexDirty = true
-      scheduleSave()
-    },
-
-    moveElementById: (id, dx, dy) => {
-      // P0 性能优化: 跳过无意义的移动
-      if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return
-      incrementSaveGeneration()
-
-      const st = get()
-      // 懒索引重建 - 查询失败时先重建再重试
-      rebuildIndexIfNeeded()
-      // 使用 idToIndex O(1) 查找替代 findIndex O(n)
-      // fallback: 如果 idToIndex 中找不到，回退到 findIndex（兼容测试环境和历史数据）
-      let idx: number | undefined = idToIndex.get(id)
-      if (idx === undefined) {
-        idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
-      }
-      if (idx === undefined || idx < 0) return
-      // 跳过锁定或不可见/锁定图层中的元素，禁止移动
-      if (!isElementLayerEditable(st.elements[idx], st.layers)) return
-      const elementIndex = idx
-
-      set((s: CanvasMutationState) => {
-        const next = [...s.elements]
-        const newEl = moveElement(next[elementIndex], dx, dy)
-        next[elementIndex] = newEl
-
-        // 同步更新 ID 映射（闭包和 store 都更新）
-        idToElement.set(id, newEl)
-        s.idToElement.set(id, newEl)
-        spatialIndex.update(newEl)
-
-        // P12 箭头绑定: 移动形状时自动更新所有绑定的箭头
-        const arrowUpdates = updateBoundArrows(id, next, idToElement)
-        for (const update of arrowUpdates) {
-          const arrowIdx = idToIndex.get(update.id)
-          if (arrowIdx !== undefined && arrowIdx >= 0) {
-            next[arrowIdx] = update.newEl
-            idToElement.set(update.id, update.newEl)
-            s.idToElement.set(update.id, update.newEl)
-            spatialIndex.update(update.newEl)
-          }
-        }
-
-        return { elements: next }
-      })
-      scheduleSave()
-    },
-
-    moveElementsById: (ids, dx, dy, options = {}) => {
-      // P0 性能优化: 跳过无意义的移动
-      if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return
-      if (ids.length === 0) return
-      incrementSaveGeneration()
-
-      const st = get()
-      // 过滤掉锁定或不可见/锁定图层中的元素，禁止移动
-      const unlockedIds = getEditableIds(ids, st)
-      if (unlockedIds.length === 0) return
-
-      const idSet = new Set(unlockedIds)
-      const recordHistory = options.recordHistory !== false
-      const needsSnapshotHistory = recordHistory && hasBoundArrowForAny(idSet, st.elements)
-      const beforeSnapshot = needsSnapshotHistory ? snapshot(st.elements) : null
-      set((s: CanvasMutationState) => {
-        // P0 性能优化: 快速检查是否有元素需要移动 - 使用 idToElement O(1) 检查
-        // 使用 index-based 替换替代全量 map
-        const next = [...s.elements]
-        let changed = false
-        const movedIds: string[] = []
-        const affectedIds = new Set<string>()
-        for (let i = 0; i < next.length; i++) {
-          const el = next[i]
-          if (idSet.has(el.id)) {
-            const newEl = moveElement(el, dx, dy)
-            next[i] = newEl
-            // 同步更新 ID 映射（闭包和 store 都更新）
-            idToElement.set(el.id, newEl)
-            s.idToElement.set(el.id, newEl)
-            spatialIndex.update(newEl)
-            movedIds.push(el.id)
-            affectedIds.add(el.id)
-            changed = true
-          }
-        }
-        if (!changed) return s
-
-        // P12 箭头绑定: 批量移动形状时自动更新所有绑定的箭头
-        for (const movedId of movedIds) {
-          const arrowUpdates = updateBoundArrows(movedId, next, idToElement)
-          for (const update of arrowUpdates) {
-            const arrowIdx = idToIndex.get(update.id)
-            if (arrowIdx !== undefined && arrowIdx >= 0) {
-              next[arrowIdx] = update.newEl
-              idToElement.set(update.id, update.newEl)
-              s.idToElement.set(update.id, update.newEl)
-              spatialIndex.update(update.newEl)
-              affectedIds.add(update.id)
-            }
-          }
-        }
-
-        const nextState: { elements: CanvasElement[]; undoStack?: UndoAction[]; redoStack?: [] } = {
-          elements: next,
-        }
-        if (recordHistory) {
-          const action: UndoAction = beforeSnapshot
-            ? {
-                type: 'snapshot',
-                before: beforeSnapshot,
-                after: snapshot(next),
-                label:
-                  unlockedIds.length === 1 ? 'Move element' : `Move ${unlockedIds.length} elements`,
-                affectedIds: [...affectedIds],
-              }
-            : {
-                type: 'move',
-                deltas: movedIds.map((id) => ({ id, dx, dy })),
-              }
-          nextState.undoStack = [...s.undoStack.slice(-MAX_HISTORY), action]
-          nextState.redoStack = []
-        }
-
-        return nextState
-      })
-      scheduleSave()
-    },
-
-    resizeElementById: (id, ax, ay, sx, sy) => {
-      // P0 性能优化: 跳过无意义的缩放
-      if (Math.abs(sx - 1) < 0.001 && Math.abs(sy - 1) < 0.001) return
-      incrementSaveGeneration()
-
-      const st = get()
-      // 懒索引重建 - 查询失败时先重建再重试
-      rebuildIndexIfNeeded()
-      // 使用 idToIndex O(1) 查找替代 findIndex O(n)
-      // fallback: 如果 idToIndex 中找不到，回退到 findIndex（兼容测试环境和历史数据）
-      let idx: number | undefined = idToIndex.get(id)
-      if (idx === undefined) {
-        idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
-      }
-      if (idx === undefined || idx < 0) return
-      // 跳过锁定或不可见/锁定图层中的元素，禁止缩放
-      if (!isElementLayerEditable(st.elements[idx], st.layers)) return
-      const elementIndex = idx
-
-      set((s: CanvasMutationState) => {
-        const next = [...s.elements]
-        const newEl = resizeElement(next[elementIndex], ax, ay, sx, sy)
-        next[elementIndex] = newEl
-
-        // 同步更新 ID 映射（闭包和 store 都更新）
-        idToElement.set(id, newEl)
-        s.idToElement.set(id, newEl)
-        spatialIndex.update(newEl)
-
-        return { elements: next }
-      })
-      scheduleSave()
-    },
-
-    // 元素旋转
-    // 专业白板标准功能：绕中心点旋转元素
-    rotateElementById: (id, angle, cx, cy) => {
-      // P0 性能优化: 跳过无意义的旋转
-      if (Math.abs(angle) < 0.0001) return
-      incrementSaveGeneration()
-
-      const st = get()
-      // 懒索引重建 - 查询失败时先重建再重试
-      rebuildIndexIfNeeded()
-      // 使用 idToIndex O(1) 查找替代 findIndex O(n)
-      let idx: number | undefined = idToIndex.get(id)
-      if (idx === undefined) {
-        idx = st.elements.findIndex((e: CanvasElement) => e.id === id)
-      }
-      if (idx === undefined || idx < 0) return
-      // 跳过锁定或不可见/锁定图层中的元素，禁止旋转
-      if (!isElementLayerEditable(st.elements[idx], st.layers)) return
-      const elementIndex = idx
-
-      set((s: CanvasMutationState) => {
-        const next = [...s.elements]
-        const newEl = rotateElement(next[elementIndex], angle, cx, cy)
-        next[elementIndex] = newEl
-
-        // 同步更新 ID 映射（闭包和 store 都更新）
-        idToElement.set(id, newEl)
-        s.idToElement.set(id, newEl)
-        spatialIndex.update(newEl)
-
-        return { elements: next }
-      })
-      scheduleSave()
-    },
-    // 批量旋转多个元素
-    // 专业设计工具标准：选中多个元素，拖拽旋转手柄一起旋转
-    rotateElementsById: (ids, angleDelta, commonCenterX, commonCenterY) => {
-      if (Math.abs(angleDelta) < 0.0001) return
-      if (ids.length === 0) return
-      incrementSaveGeneration()
-      const st = get()
-      // 过滤掉锁定或不可见/锁定图层中的元素，禁止旋转
-      const unlockedIds = getEditableIds(ids, st)
-      if (unlockedIds.length === 0) return
-      const idSet = new Set(unlockedIds)
-      set((s: CanvasMutationState) => {
-        const next = [...s.elements]
-        let changed = false
-        for (let i = 0; i < next.length; i++) {
-          const el = next[i]
-          if (idSet.has(el.id)) {
-            const newEl = rotateElement(el, angleDelta, commonCenterX, commonCenterY)
-            next[i] = newEl
-            idToElement.set(el.id, newEl)
-            s.idToElement.set(el.id, newEl)
-            spatialIndex.update(newEl)
-            changed = true
-          }
-        }
-        if (!changed) return s
-        return { elements: next }
-      })
-      scheduleSave()
-    },
-
-    clearAll: () => {
-      incrementSaveGeneration()
-      const st = get()
-      const action: UndoAction = { type: 'clear', snapshot: snapshot(st.elements) }
-      set({
-        elements: [],
-        undoStack: [...st.undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
-        selectedIds: [],
-      })
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      idToElement.clear()
-      st.idToElement.clear()
-      idToIndex.clear()
-      st.idToIndex.clear()
-      spatialIndex.clear()
-      // 清空后索引干净，重置脏标记
-      _indexDirty = false
-      scheduleSave()
-    },
-
-    copySelected: () => {
-      const { elements, selectedIds } = get()
-      if (selectedIds.length === 0) return
-      const selSet = new Set(selectedIds)
-      const copied = elements.filter((e: CanvasElement) => selSet.has(e.id)).map(shallowClone)
-      set({ clipboard: copied })
-    },
-
-    paste: () => {
-      const st = get()
-      const { clipboard, elements } = st
-      if (clipboard.length === 0) return
-      const now = Date.now()
-      const newIds: string[] = []
-      const pasted: CanvasElement[] = []
-      clipboard.forEach((el: CanvasElement, i: number) => {
-        const newId = `${el.type}-${now}-${i}`
-        const layeredEl = assignToWritableLayer(
-          moveElement({ ...shallowClone(el), id: newId }, 20, 20),
-          st
-        )
-        if (!layeredEl) return
-        newIds.push(newId)
-        pasted.push(layeredEl)
-      })
-      if (pasted.length === 0) return
-      incrementSaveGeneration()
-      const action: UndoAction = { type: 'add', ids: newIds, els: pasted.map(shallowClone) }
-      const baseIndex = elements.length
-      set({
-        elements: [...elements, ...pasted],
-        selectedIds: newIds,
-        clipboard: pasted.map(shallowClone),
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
-      })
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      pasted.forEach((el: CanvasElement, i: number) => {
-        idToElement.set(el.id, el)
-        st.idToElement.set(el.id, el)
-        idToIndex.set(el.id, baseIndex + i)
-        st.idToIndex.set(el.id, baseIndex + i)
-        spatialIndex.insert(el)
-      })
-      scheduleSave()
-    },
-
-    // Ctrl+D 快速复制
-    // 一键复制选中元素并偏移 20px，比 Ctrl+C/V 少一次按键操作
-    // 常见设计工具通常支持此快捷键
-    duplicateSelected: () => {
-      const st = get()
-      const { elements, selectedIds } = st
-      if (selectedIds.length === 0) return
-      const now = Date.now()
-      const editableIds = getEditableIds(selectedIds, st)
-      if (editableIds.length === 0) return
-      const selSet = new Set(editableIds)
-      const newIds: string[] = []
-      const duplicated = elements
-        .filter((e: CanvasElement) => selSet.has(e.id))
-        .map((el: CanvasElement, i: number) => {
-          const newId = `${el.type}-${now}-${i}`
-          newIds.push(newId)
-          return assignToWritableLayer(moveElement({ ...shallowClone(el), id: newId }, 20, 20), st)
-        })
-        .filter((el: CanvasElement | null): el is CanvasElement => !!el)
-      if (duplicated.length === 0) return
-      incrementSaveGeneration()
-      const action: UndoAction = { type: 'add', ids: newIds, els: duplicated.map(shallowClone) }
-      const baseIndex = elements.length
-      set({
-        elements: [...elements, ...duplicated],
-        selectedIds: newIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
-      })
-      // 同步更新 ID 映射（闭包和 store 都更新）
-      duplicated.forEach((el: CanvasElement, i: number) => {
-        idToElement.set(el.id, el)
-        st.idToElement.set(el.id, el)
-        idToIndex.set(el.id, baseIndex + i)
-        st.idToIndex.set(el.id, baseIndex + i)
-        spatialIndex.insert(el)
-      })
-      scheduleSave()
-    },
-
-    // Ctrl+G 元素分组
-    // 将选中的多个元素组合成一个组，点击组内任意元素选中整个组
-    // 常见设计工具通常支持此功能
-    groupSelected: () => {
-      const st = get()
-      const { elements, selectedIds } = st
-      if (selectedIds.length < 2) return
-      const editableIds = getEditableIds(selectedIds, st)
-      if (editableIds.length < 2) return
-
-      const groupId = `group-${Date.now()}`
-      const selSet = new Set(editableIds)
-
-      // 记录分组前的状态用于撤销
-      const beforeGroup = elements
-        .filter((e: CanvasElement) => selSet.has(e.id))
-        .map((e: CanvasElement) => ({ id: e.id, oldGroupId: e.groupId }))
-
-      // 更新选中元素的 groupId
-      const next = elements.map((el: CanvasElement) => {
-        if (selSet.has(el.id)) {
-          const updated = { ...el, groupId }
-          // 同步更新 ID 映射（闭包和 store 都更新）
-          idToElement.set(el.id, updated)
-          st.idToElement.set(el.id, updated)
-          return updated
-        }
-        return el
-      })
-
-      const action: UndoAction = {
-        type: 'group',
-        groupId,
-        elementIds: editableIds,
-        beforeGroup,
-      }
-
-      incrementSaveGeneration()
-      set({
-        elements: next,
-        selectedIds: editableIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
-      })
-
-      scheduleSave()
-    },
-
-    // Ctrl+Shift+G 取消分组
-    // 解散选中的组，组内元素恢复为独立可选择状态
-    ungroupSelected: () => {
-      const st = get()
-      const { elements, selectedIds } = st
-      if (selectedIds.length === 0) return
-      const editableIds = getEditableIds(selectedIds, st)
-      if (editableIds.length === 0) return
-
-      const selSet = new Set(editableIds)
-      const affectedGroups = new Set<string>()
-
-      // 收集所有选中元素所属的组
-      elements.forEach((el: CanvasElement) => {
-        if (selSet.has(el.id) && el.groupId) {
-          affectedGroups.add(el.groupId)
-        }
-      })
-
-      if (affectedGroups.size === 0) return
-
-      // 记录取消分组前的状态用于撤销
-      const beforeUngroup: { id: string; oldGroupId: string | undefined }[] = []
-
-      // 移除所有受影响组的 groupId
-      const next = elements.map((el: CanvasElement) => {
-        if (el.groupId && affectedGroups.has(el.groupId)) {
-          beforeUngroup.push({ id: el.id, oldGroupId: el.groupId })
-          const updated = { ...el, groupId: undefined }
-          // 同步更新 ID 映射（闭包和 store 都更新）
-          idToElement.set(el.id, updated)
-          st.idToElement.set(el.id, updated)
-          return updated
-        }
-        return el
-      })
-
-      const action: UndoAction = {
-        type: 'ungroup',
-        groupIds: Array.from(affectedGroups),
-        beforeUngroup,
-      }
-
-      incrementSaveGeneration()
-      set({
-        elements: next,
-        selectedIds: editableIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
-      })
-
-      scheduleSave()
-    },
-
-    // 元素对齐
-    // 专业白板/设计工具标配：选中多个元素后一键对齐
-    // 支持 6 种对齐方式：左对齐、水平居中、右对齐、顶对齐、垂直居中、底对齐
-    alignSelected: (alignment) => {
-      const st = get()
-      const { elements, selectedIds } = st
-      if (selectedIds.length < 2) return
-      const editableIds = getEditableIds(selectedIds, st)
-      if (editableIds.length < 2) return
-
-      // 记录对齐前的位置用于撤销
-      const selSet = new Set(editableIds)
-      const beforeMove = elements
-        .filter((el: CanvasElement) => selSet.has(el.id))
-        .map((el: CanvasElement) => shallowClone(el))
-
-      // 执行对齐
-      const next = alignElements(elements, editableIds, alignment)
-
-      // 检查是否有实际变化
-      let hasChanges = false
-      for (let i = 0; i < elements.length; i++) {
-        if (elements[i] !== next[i]) {
-          hasChanges = true
-          break
-        }
-      }
-      if (!hasChanges) return
-
-      // 更新 ID 映射和空间索引
-      for (let i = 0; i < next.length; i++) {
-        const el = next[i]
-        if (selSet.has(el.id)) {
-          idToElement.set(el.id, el)
-          st.idToElement.set(el.id, el)
-          idToIndex.set(el.id, i)
-          st.idToIndex.set(el.id, i)
-          spatialIndex.update(el)
-        }
-      }
-
-      // 构建撤销操作：记录对齐前的位置
-      const action: UndoAction = {
-        type: 'move',
-        deltas: beforeMove.map((el: CanvasElement) => ({ id: el.id, dx: 0, dy: 0 })),
-      }
-
-      incrementSaveGeneration()
-      set({
-        elements: next,
-        selectedIds: editableIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
-      })
-
-      scheduleSave()
-    },
-
-    // 元素分布
-    // 专业设计工具标配：选中多个元素后一键等间距分布
-    // 支持 2 种分布方式：水平分布、垂直分布
-    distributeSelected: (distribution) => {
-      const st = get()
-      const { elements, selectedIds } = st
-      if (selectedIds.length < 3) return
-      const editableIds = getEditableIds(selectedIds, st)
-      if (editableIds.length < 3) return
-
-      // 记录分布前的位置用于撤销
-      const selSet = new Set(editableIds)
-      const beforeMove = elements
-        .filter((el: CanvasElement) => selSet.has(el.id))
-        .map((el: CanvasElement) => shallowClone(el))
-
-      // 执行分布
-      const next = distributeElements(elements, editableIds, distribution)
-
-      // 检查是否有实际变化
-      let hasChanges = false
-      for (let i = 0; i < elements.length; i++) {
-        if (elements[i] !== next[i]) {
-          hasChanges = true
-          break
-        }
-      }
-      if (!hasChanges) return
-
-      // 更新 ID 映射和空间索引
-      for (let i = 0; i < next.length; i++) {
-        const el = next[i]
-        if (selSet.has(el.id)) {
-          idToElement.set(el.id, el)
-          st.idToElement.set(el.id, el)
-          idToIndex.set(el.id, i)
-          st.idToIndex.set(el.id, i)
-          spatialIndex.update(el)
-        }
-      }
-
-      // 构建撤销操作：记录分布前的位置
-      const action: UndoAction = {
-        type: 'move',
-        deltas: beforeMove.map((el: CanvasElement) => ({ id: el.id, dx: 0, dy: 0 })),
-      }
-
-      incrementSaveGeneration()
-      set({
-        elements: next,
-        selectedIds: editableIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
-      })
-
-      scheduleSave()
-    },
-
-    batchErase: (beforeSnap, _added) => {
-      incrementSaveGeneration()
-      const st = get()
-      const action: UndoAction = {
-        type: 'erase',
-        before: beforeSnap.map(shallowClone),
-        after: st.elements.map(shallowClone),
-      }
-      const newElements = st.elements
-      set({
-        elements: newElements,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
-        selectedIds: [],
-      })
-
-      // P1 性能优化: 增量更新 ID 映射和空间索引，而非全量重建
-      // 性能提升: 擦除操作从 O(n log n) → O(k log n)，k 为变化元素数量
-      // 大画布场景（1000+ 元素）擦除性能提升 5-20x
-
-      // 1. 构建 before 快照的 ID Set 用于差集计算
-      const beforeIdSet = new Set(beforeSnap.map((e: CanvasElement) => e.id))
-      const afterIdSet = new Set(newElements.map((e: CanvasElement) => e.id))
-
-      // 2. 计算删除的元素（在 before 中但不在 after 中）
-      for (const id of beforeIdSet) {
-        if (!afterIdSet.has(id)) {
-          // 同步更新 ID 映射（闭包和 store 都更新）
-          idToElement.delete(id)
-          st.idToElement.delete(id)
-          idToIndex.delete(id)
-          st.idToIndex.delete(id)
-          spatialIndex.remove(id)
-        }
-      }
-
-      // 3. 计算新增/修改的元素（在 after 中但不在 before 中，或引用变化）
-      // 构建 before 的 ID → 元素引用映射
-      const beforeRefMap = new Map<string, CanvasElement>()
-      for (const el of beforeSnap) {
-        beforeRefMap.set(el.id, el)
-      }
-
-      for (let i = 0; i < newElements.length; i++) {
-        const el = newElements[i]
-        const beforeEl = beforeRefMap.get(el.id)
-        // 元素是新增的（不在 before 中）或被修改的（引用变化）
-        if (!beforeEl || beforeEl !== el) {
-          // 同步更新 ID 映射（闭包和 store 都更新）
-          idToElement.set(el.id, el)
-          st.idToElement.set(el.id, el)
-          idToIndex.set(el.id, i)
-          st.idToIndex.set(el.id, i)
-          if (!beforeEl) {
-            // 新增元素 - 插入空间索引
-            spatialIndex.insert(el)
-          } else {
-            // 修改元素 - 更新空间索引
-            spatialIndex.update(el)
-          }
-        } else {
-          // 未变化元素 - 只更新索引
-          idToIndex.set(el.id, i)
-          st.idToIndex.set(el.id, i)
-        }
-      }
-
-      // 重建索引后标记为干净
-      _indexDirty = false
-      scheduleSave()
-    },
-
-    restoreElementsSnapshot: (elements, selectedIds = get().selectedIds) => {
-      const nextElements = elements.map(shallowClone)
-      const nextIds = new Set(nextElements.map((element) => element.id))
-      incrementSaveGeneration()
-      set({
-        elements: nextElements,
-        selectedIds: selectedIds.filter((id) => nextIds.has(id)),
-      })
-      setElementCollection(nextElements, get())
-      scheduleSave()
-    },
-
-    // 锁定选中元素
-    // 专业设计工具标配：锁定元素防止误操作
-    // 用户痛点："背景元素经常被不小心移动/删除"
-    lockSelected: () => {
-      incrementSaveGeneration()
-      const st = get()
-      const { elements, selectedIds } = st
-      if (selectedIds.length === 0) return
-
-      const selSet = new Set(selectedIds)
-      // 记录锁定前的状态用于撤销
-      const beforeLock = elements
-        .filter((el: CanvasElement) => selSet.has(el.id) && isElementLayerEditable(el, st.layers))
-        .map((el: CanvasElement) => ({ id: el.id, wasLocked: !!el.locked }))
-
-      if (beforeLock.length === 0) return
-
-      const elementIds = beforeLock.map((item: { id: string; wasLocked: boolean }) => item.id)
-      const lockSet = new Set(elementIds)
-
-      // 更新选中元素的 locked 状态
-      const next = elements.map((el: CanvasElement) => {
-        if (lockSet.has(el.id)) {
-          const updated = { ...el, locked: true }
-          // 同步更新 ID 映射（闭包和 store 都更新）
-          idToElement.set(el.id, updated)
-          st.idToElement.set(el.id, updated)
-          return updated
-        }
-        return el
-      })
-
-      const action: UndoAction = {
-        type: 'lock',
-        elementIds,
-        beforeLock,
-      }
-
-      set({
-        elements: next,
-        selectedIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
-      })
-
-      scheduleSave()
-    },
-
-    // 解锁选中元素
-    unlockSelected: () => {
-      incrementSaveGeneration()
-      const st = get()
-      const { elements, selectedIds } = st
-      if (selectedIds.length === 0) return
-
-      const selSet = new Set(selectedIds)
-      // 记录解锁前的状态用于撤销
-      const beforeUnlock = elements
-        .filter(
-          (el: CanvasElement) =>
-            selSet.has(el.id) && el.locked && isLayerWritable(st.layers, getElementLayerId(el))
-        )
-        .map((el: CanvasElement) => ({ id: el.id, wasLocked: !!el.locked }))
-
-      if (beforeUnlock.length === 0) return
-
-      const elementIds = beforeUnlock.map((item: { id: string; wasLocked: boolean }) => item.id)
-      const unlockSet = new Set(elementIds)
-
-      // 更新选中元素的 locked 状态
-      const next = elements.map((el: CanvasElement) => {
-        if (unlockSet.has(el.id)) {
-          const updated = { ...el, locked: false }
-          // 同步更新 ID 映射（闭包和 store 都更新）
-          idToElement.set(el.id, updated)
-          st.idToElement.set(el.id, updated)
-          return updated
-        }
-        return el
-      })
-
-      const action: UndoAction = {
-        type: 'unlock',
-        elementIds,
-        beforeUnlock,
-      }
-
-      set({
-        elements: next,
-        selectedIds,
-        undoStack: [...get().undoStack.slice(-MAX_HISTORY), action],
-        redoStack: [],
-      })
-
-      scheduleSave()
-    },
+    setSelectedIds: (ids) => set({ selectedIds: getSelectableIds(ids, get()) }),
+    ...createCanvasElementLayerActions({
+      set,
+      get,
+      replaceElementCollection: setElementCollection,
+    }),
+    ...createCanvasElementClipboardActions({
+      set,
+      get,
+      appendElementCollection: (elements, startIndex, state) =>
+        appendElementCollection(collectionRuntime, elements, startIndex, state),
+    }),
+    ...createCanvasElementMetadataActions({
+      set,
+      get,
+      synchronizeElementReferences: (elements, state) =>
+        synchronizeElementReferences(collectionRuntime, elements, state),
+    }),
+    ...createCanvasElementArrangementActions({
+      set,
+      get,
+      synchronizeElementGeometry: (elements, elementIds, state) =>
+        synchronizeElementGeometry(collectionRuntime, elements, elementIds, state),
+    }),
+    ...createCanvasElementMutationActions({
+      set,
+      get,
+      rebuildIndexIfNeeded,
+      appendElementCollection: (elements, startIndex, state) =>
+        appendElementCollection(collectionRuntime, elements, startIndex, state),
+      synchronizeElementReplacement: (elements, index, previousId, state) =>
+        synchronizeElementReplacement(collectionRuntime, elements, index, previousId, state),
+      removeElementCollection: (elementIds, state) =>
+        removeElementCollection(collectionRuntime, elementIds, state),
+      replaceElementCollection: setElementCollection,
+      markIndexDirty: () => {
+        _indexDirty = true
+      },
+    }),
+    ...createCanvasElementGeometryActions({
+      set,
+      get,
+      rebuildIndexIfNeeded,
+      synchronizeElementGeometry: (elements, elementIds, state) =>
+        synchronizeElementGeometry(collectionRuntime, elements, elementIds, state),
+    }),
+    ...createCanvasElementSnapshotActions({
+      set,
+      get,
+      commitElements,
+      replaceElementCollection: setElementCollection,
+    }),
+
+    commitElements,
   }
 }

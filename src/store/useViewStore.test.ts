@@ -245,6 +245,24 @@ describe('useViewStore', () => {
     })
   })
 
+  describe('zoomToSelection', () => {
+    it('fits bounds supplied by the application layer', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true })
+      Object.defineProperty(window, 'innerHeight', { value: 768, writable: true })
+
+      useViewStore.getState().zoomToSelection({ x: 100, y: 100, w: 200, h: 200 })
+
+      expect(useViewStore.getState().viewBox.zoom).toBeGreaterThan(0)
+      expect(useViewStore.getState().viewBox.zoom).toBeLessThanOrEqual(3)
+    })
+
+    it('does nothing when no selection bounds are supplied', () => {
+      const before = useViewStore.getState().viewBox
+      useViewStore.getState().zoomToSelection()
+      expect(useViewStore.getState().viewBox).toEqual(before)
+    })
+  })
+
   describe('toggleGrid', () => {
     it('toggles showGrid from false to true', () => {
       expect(useViewStore.getState().showGrid).toBe(false)

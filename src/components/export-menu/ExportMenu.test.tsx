@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as DocumentExportModule from '../../canvas/documentExport'
+import { CANVAS_IMPORT_MAX_JSON_BYTES } from '../../store/importLimits'
 import ExportMenu from './ExportMenu'
 
 const {
@@ -8,7 +9,7 @@ const {
   baseElement,
   baseLayer,
   canvasToBlobMock,
-  importDocMock,
+  replaceCurrentDocMock,
   renderDocumentMock,
   showToastMock,
 } = vi.hoisted(() => {
@@ -33,14 +34,14 @@ const {
     color: '#111827',
     size: 2,
   }
-  const importDoc = vi.fn(async (_document: unknown) => 'imported-doc')
+  const replaceCurrentDoc = vi.fn(async (_document: unknown) => 'replaced-doc')
 
   return {
     appState: {
       currentDocId: 'doc-1',
       docs: [
         {
-          schemaVersion: 4 as const,
+          schemaVersion: 5 as const,
           id: 'doc-1',
           title: '测试画布',
           elements: [element],
@@ -58,12 +59,12 @@ const {
       activeLayerId: layer.id,
       bgColor: '#ffffff',
       backgroundStyle: 'plain' as const,
-      importDoc,
+      replaceCurrentDoc,
     },
     baseElement: element,
     baseLayer: layer,
     canvasToBlobMock: vi.fn(async () => new Blob(['jpeg'], { type: 'image/jpeg' })),
-    importDocMock: importDoc,
+    replaceCurrentDocMock: replaceCurrentDoc,
     renderDocumentMock: vi.fn(async () => ({
       canvas: document.createElement('canvas'),
       bounds: { x: 0, y: 0, w: 100, h: 100 },
@@ -119,7 +120,7 @@ describe('ExportMenu', () => {
     appState.bgColor = '#ffffff'
     appState.backgroundStyle = 'plain'
     showToastMock.mockReset()
-    importDocMock.mockClear()
+    replaceCurrentDocMock.mockClear()
     renderDocumentMock.mockClear()
     canvasToBlobMock.mockClear()
     Object.defineProperty(URL, 'createObjectURL', {
@@ -227,7 +228,7 @@ describe('ExportMenu', () => {
     expect(canvasToBlobMock).not.toHaveBeenCalled()
   })
 
-  it('imports a backup as a separate editable document', async () => {
+  it('imports a backup into the current single board', async () => {
     render(<ExportMenu />)
     const input = screen.getByLabelText('选择 JSON 文件') as HTMLInputElement
     const serialized = JSON.stringify({
@@ -248,8 +249,27 @@ describe('ExportMenu', () => {
 
     fireEvent.change(input, { target: { files: [file] } })
 
-    await waitFor(() => expect(importDocMock).toHaveBeenCalledTimes(1))
-    expect(importDocMock.mock.calls[0][0]).toMatchObject({ title: '导入测试' })
-    expect(showToastMock).toHaveBeenCalledWith('已导入为新的可编辑画布', 'success')
+    await waitFor(() => expect(replaceCurrentDocMock).toHaveBeenCalledTimes(1))
+    expect(replaceCurrentDocMock.mock.calls[0][0]).toMatchObject({ title: '导入测试' })
+    expect(showToastMock).toHaveBeenCalledWith('已导入并替换当前画板', 'success')
+  })
+
+  it('rejects oversized JSON files before reading them', async () => {
+    render(<ExportMenu />)
+    const input = screen.getByLabelText('选择 JSON 文件') as HTMLInputElement
+    const file = new File(['{}'], 'large-backup.json', { type: 'application/json' })
+    const text = vi.fn(async () => '{}')
+    Object.defineProperties(file, {
+      size: { configurable: true, value: CANVAS_IMPORT_MAX_JSON_BYTES + 1 },
+      text: { configurable: true, value: text },
+    })
+
+    fireEvent.change(input, { target: { files: [file] } })
+
+    await waitFor(() =>
+      expect(showToastMock).toHaveBeenCalledWith('导入失败：JSON 文件过大，无法导入', 'error')
+    )
+    expect(text).not.toHaveBeenCalled()
+    expect(replaceCurrentDocMock).not.toHaveBeenCalled()
   })
 })

@@ -1,6 +1,7 @@
-import { useState, useEffect, memo } from 'react'
+import { useCallback, useEffect, memo, useState } from 'react'
 import type { ConfirmOptions } from './useConfirm'
 import { queue } from './useConfirm'
+import { useDialogFocus } from '../useDialogFocus'
 
 const ConfirmModal = memo(function ConfirmModal() {
   const [opts, setOpts] = useState<ConfirmOptions | null>(null)
@@ -14,7 +15,7 @@ const ConfirmModal = memo(function ConfirmModal() {
     return () => window.removeEventListener('app-confirm', handler)
   }, [])
 
-  const close = (result: boolean) => {
+  const close = useCallback((result: boolean) => {
     const entry = queue.shift()
     if (entry) entry.resolve(result)
     if (queue.length > 0) {
@@ -22,14 +23,26 @@ const ConfirmModal = memo(function ConfirmModal() {
     } else {
       setOpts(null)
     }
-  }
+  }, [])
+
+  const dialogRef = useDialogFocus<HTMLDivElement>({
+    open: opts !== null,
+    onClose: () => close(false),
+  })
 
   if (!opts) return null
 
   return (
     <div className="confirm-modal" role="presentation">
-      <div className="confirm-modal-bg" onClick={() => close(false)} />
-      <div className="confirm-modal-box" role="dialog" aria-modal="true" aria-label="确认操作">
+      <div className="confirm-modal-bg" aria-hidden="true" onClick={() => close(false)} />
+      <div
+        ref={dialogRef}
+        className="confirm-modal-box"
+        role="dialog"
+        aria-modal="true"
+        aria-label="确认操作"
+        tabIndex={-1}
+      >
         <p>{opts.message}</p>
         <div className="confirm-modal-actions">
           <button className="btn-cancel" aria-label="取消" onClick={() => close(false)}>

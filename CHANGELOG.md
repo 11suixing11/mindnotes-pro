@@ -5,6 +5,88 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- The primary workspace now exposes one board instead of a user-visible document collection.
+- JSON import replaces the current board in place; legacy document collections remain readable only for migration compatibility.
+- The minimap is removed from the focused single-board workspace.
+
+### Fixed
+
+- Built-in and custom template instances now unlock and expose each element as an independently editable object.
+- Generated bundle-analysis output containing build-machine paths is no longer tracked.
+
+## [5.0.0] - 2026-08-19
+
+### Added
+
+- Dependency-free core models, geometry, and arrangement transforms
+- A `DocumentRepository` application port with an IndexedDB v5 adapter
+- Read-only v4 database import with validation, atomic v5 writes, and failure recovery tests
+
+### Changed
+
+- Documents now persist in the isolated `mindnotes-pro-v5` database
+- v5 JSON backups remain compatible with v4, v3, and supported legacy imports
+- Recovery drafts and custom templates migrate forward without deleting the v4 database
+- Element collection mutations now share one synchronization boundary for runtime indexes
+- Canvas coordinate conversion, grid snapping, and hit testing now live behind tested pure modules
+- Pan, pinch, drag-threshold, geometry-change, and marquee-selection calculations now live behind tested pure modules
+- Selection resize, drag snapping, rotation, and drag-anchor calculations now live behind a tested pure module
+- Pointer-session contracts, cancellation restoration, and selection undo snapshot decisions now live behind a tested pure module
+- Pen sampling, shape endpoint binding, and eraser-session commit decisions now live behind a tested pure module
+- Group-selection presses, selection bounds, and rotation-session initialization now live behind tested pure helpers
+- Alt/Option-drag duplication now derives a pure copy-and-restore plan before applying Store mutations
+- Selected-element PNG rendering and system clipboard writes now live behind a tested canvas boundary
+- Canvas wheel, keyboard, context-menu, double-click, blur, and visibility bindings now share a tested lifecycle boundary
+- Auxiliary canvas wheel, Space-pan, context-menu, and double-click decisions now live behind a focused tested handler boundary
+- Canvas redraw scheduling, resize observation, store and image invalidation subscriptions, and bounds-cache synchronization now share a focused tested lifecycle boundary
+- Select-tool drag, resize, rotate, marquee, duplication, cancellation, and undo orchestration now live behind a focused hook and tests
+- Pen, shape, and eraser pointer-session coordination now lives behind a focused hook with direct tests
+- Shape, text, and image renderers now live behind a tested canvas renderer module, with a shared bounded LRU/TTL cache primitive
+- Selection-box handles and the zoom indicator now live behind a focused overlay renderer while retaining the existing canvas drawing exports
+- Canvas backgrounds and decorative grids now live behind a focused renderer with explicit cache invalidation while retaining the existing canvas drawing exports
+- Minimap rendering and aggregate-bounds caching now live behind a focused renderer while retaining the existing canvas drawing exports
+- Brush-specific stroke rendering, perfect-freehand outline caching, and calligraphy pooling now live behind a focused renderer while retaining the existing canvas drawing exports
+- Canvas element editability, selection eligibility, writable-layer assignment, and bound-arrow history decisions now live behind tested pure rules
+- Canvas element maps, position indexes, and spatial-index synchronization now share a tested collection boundary
+- Copy, paste, and duplicate element planning now share a tested clipboard boundary with independent stroke samples
+- Canvas clipboard command coordination now lives behind a focused store boundary while pure copy plans remain independently tested
+- Grouping and element lock metadata now use tested pure transforms that produce explicit history payloads
+- Canvas metadata command coordination now lives behind a focused store boundary while pure transforms remain independently tested
+- Alignment and distribution now derive tested plans with complete before/after document snapshots
+- Canvas arrangement command coordination now lives behind a focused store boundary while pure plans remain independently tested
+- Move, resize, and rotation now derive tested element plans, including bound-arrow synchronization and snapshot-versus-delta move history
+- Layer deletion, visibility, locking, reordering, and element reassignment now derive tested plans outside the Zustand slice
+- Canvas layer action coordination now lives behind a focused store boundary while pure layer plans remain independently tested
+- Element add, update, remove, and clear operations now use tested plans and shared runtime-index synchronization
+- Canvas mutation command coordination now lives behind a focused store boundary while pure mutation plans remain independently tested
+- Canvas geometry command coordination now lives behind a focused store boundary while deterministic plans remain independently tested
+- Canvas eraser commits and transient snapshot restoration now share a focused store coordination boundary
+- Element commits now share tested selection filtering, bounded undo history, and redo-clear decisions
+- Undo and redo element transitions now live in a pure, tested history-transition boundary; the history slice retains runtime synchronization, viewport focus, feedback, and save coordination
+- Document and folder record construction, schema normalization, ordering, duplication, and import transforms now live in a tested helper boundary; document management retains hydration, recovery, search-history, and persistence coordination
+- Recovery-draft reconciliation now lives in a tested pure boundary; document management retains localStorage cleanup and recovery feedback coordination
+- Recent document search parsing, persistence, and bounded deduplication now live in a tested helper boundary
+- Runtime element-map and spatial-index rebuilding now lives in a tested helper boundary
+- Current document workspace projection now lives in a tested helper boundary, keeping document management focused on workflow coordination
+- Document persistence bootstrap, legacy migration, recovery reconciliation, and fallback preparation now share a tested initialization boundary
+- Context-menu selection capabilities and viewport positioning now live behind a tested model, with reusable menu primitives separated from Store coordination
+- Sidebar document search, snippets, and sorting now use a tested projection model, with list rendering separated from document workflow coordination
+- Export menu formatting and reusable format controls now live behind focused model and view boundaries while document rendering and file workflows remain coordinated in the menu
+- Template category projection, preview cards, and gallery sections now live behind focused boundaries while the picker retains modal focus and custom-template workflow coordination
+- Keyboard paste workflows and Store-backed shortcut commands now live behind focused boundaries while the keyboard hook retains dispatch priority and listener lifecycle
+- App bootstrap, save/install/shortcut lifecycle, and status-bar rendering now live behind focused component boundaries while `App.tsx` retains shell composition
+- The shared stylesheet audit removed unreferenced legacy rules without changing active canvas, sidebar, export, template, modal, or responsive selectors
+- The v5 architecture audit now records the remaining large modules as intentional composition roots and removes the last malformed UTF-8 test label
+
+### Fixed
+
+- Alignment and distribution undo now restore exact document snapshots
+- View and theme stores no longer depend cyclically on the application store
+
 ## [4.0.0] - 2026-08-01
 
 ### Added
@@ -230,6 +312,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic canvas with undo/redo
 - LocalStorage persistence
 
+[5.0.0]: https://github.com/11suixing11/mindnotes-pro/compare/v4.0.0...v5.0.0
 [4.0.0]: https://github.com/11suixing11/mindnotes-pro/compare/v3.3.0...v4.0.0
 [3.3.0]: https://github.com/11suixing11/mindnotes-pro/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/11suixing11/mindnotes-pro/compare/v3.1.0...v3.2.0

@@ -6,27 +6,24 @@ import { useThemeStore } from '../../store/useThemeStore'
 import { useToastStore } from '../../store/toastStore'
 import type { CanvasDoc } from '../../store/types'
 import { createCanvasBackup, parseCanvasImportJSON } from '../../store/backup'
+import { CANVAS_IMPORT_MAX_JSON_BYTES } from '../../store/importLimits'
 import { getRenderableElements } from '../../store/layers'
 import {
   canvasToBlob,
   EmptyDocumentError,
-  formatExportTimestamp,
   getDocumentExportBounds,
   renderDocumentToCanvas,
-  type RenderedDocument,
-  sanitizeExportFilename,
 } from '../../canvas/documentExport'
 import { buildSVGString } from '../../canvas/svgExport'
-
-const DEFAULT_JPEG_QUALITY = 85
-const LOSSY_EXPORT_MAX_PIXELS = 16_000_000
-
-interface ExportContext {
-  doc: CanvasDoc
-  visibleElements: CanvasDoc['elements']
-}
-
-type RasterExport = ExportContext & RenderedDocument
+import { ExportItemButton, JpegExportPanel } from './ExportMenuItems'
+import {
+  DEFAULT_JPEG_QUALITY,
+  LOSSY_EXPORT_MAX_PIXELS,
+  buildExportFilename,
+  formatExportBytes,
+  type ExportContext,
+  type RasterExport,
+} from './exportMenuModel'
 
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
@@ -42,13 +39,9 @@ function download(blob: Blob, filename: string) {
   }, 200)
 }
 
-function exportFilename(doc: CanvasDoc, extension: string) {
-  return `${sanitizeExportFilename(doc.title)}-${formatExportTimestamp()}.${extension}`
-}
-
 function getExportContext(): ExportContext {
   const state = useAppStore.getState()
-  const storedDoc = state.docs.find((doc) => doc.id === state.currentDocId)
+  const storedDoc = state.docs.find((doc) => doc.id === state.currentDocId) ?? state.docs[0]
   if (!storedDoc) throw new Error('当前文档未就绪')
 
   const doc: CanvasDoc = {
@@ -63,12 +56,6 @@ function getExportContext(): ExportContext {
     doc,
     visibleElements: getRenderableElements(state.elements, state.layers),
   }
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 const ExportMenu = memo(function ExportMenu() {
@@ -145,7 +132,7 @@ const ExportMenu = memo(function ExportMenu() {
       void renderOpaqueRaster()
         .then(({ canvas }) => canvasToBlob(canvas, 'image/jpeg', jpegQuality / 100))
         .then((blob) => {
-          if (!cancelled) setJpegEstimate(formatBytes(blob.size))
+          if (!cancelled) setJpegEstimate(formatExportBytes(blob.size))
         })
         .catch((error: unknown) => {
           if (cancelled) return
@@ -162,14 +149,14 @@ const ExportMenu = memo(function ExportMenu() {
   const exportPNG = async () => {
     const { canvas, doc } = await renderRaster(true)
     const blob = await canvasToBlob(canvas)
-    download(blob, exportFilename(doc, 'png'))
+    download(blob, buildExportFilename(doc, 'png'))
     showToast('PNG 导出成功', 'success')
   }
 
   const exportJPEG = async () => {
     const { canvas, doc } = await renderOpaqueRaster()
     const blob = await canvasToBlob(canvas, 'image/jpeg', jpegQuality / 100)
-    download(blob, exportFilename(doc, 'jpg'))
+    download(blob, buildExportFilename(doc, 'jpg'))
     showToast('JPEG 导出成功', 'success')
   }
 
@@ -185,7 +172,7 @@ const ExportMenu = memo(function ExportMenu() {
       format: [widthMm, heightMm],
     })
     pdf.addImage(imageData, 'PNG', 0, 0, widthMm, heightMm)
-    pdf.save(exportFilename(doc, 'pdf'))
+    pdf.save(buildExportFilename(doc, 'pdf'))
     showToast('PDF 导出成功', 'success')
   }
 
@@ -202,7 +189,7 @@ const ExportMenu = memo(function ExportMenu() {
       backgroundColor: doc.bgColor,
       backgroundStyle: doc.backgroundStyle,
     })
-    download(new Blob([svg], { type: 'image/svg+xml' }), exportFilename(doc, 'svg'))
+    download(new Blob([svg], { type: 'image/svg+xml' }), buildExportFilename(doc, 'svg'))
     showToast('SVG 导出成功', 'success')
   }
 
@@ -211,7 +198,7 @@ const ExportMenu = memo(function ExportMenu() {
     const backup = createCanvasBackup(doc)
     download(
       new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }),
-      exportFilename(doc, 'json')
+      buildExportFilename(doc, 'json')
     )
     showToast('JSON 备份导出成功', 'success')
   }
@@ -235,9 +222,12 @@ const ExportMenu = memo(function ExportMenu() {
     if (!file) return
 
     try {
+      if (file.size > CANVAS_IMPORT_MAX_JSON_BYTES) {
+        throw new Error('JSON 文件过大，无法导入')
+      }
       const imported = parseCanvasImportJSON(await file.text())
-      await useAppStore.getState().importDoc(imported)
-      showToast('已导入为新的可编辑画布', 'success')
+      await useAppStore.getState().replaceCurrentDoc(imported)
+      showToast('已导入并替换当前画板', 'success')
     } catch (error) {
       const message = error instanceof Error ? error.message : '无法解析文件'
       showToast(`导入失败：${message}`, 'error')
@@ -268,7 +258,7 @@ const ExportMenu = memo(function ExportMenu() {
     {
       icon: <FileJson size={16} />,
       label: 'JSON 备份',
-      desc: 'MindNotes Pro v4 完整文档',
+      desc: 'MindNotes Pro v5 完整文档',
       action: exportJSON,
     },
   ]
@@ -287,19 +277,13 @@ const ExportMenu = memo(function ExportMenu() {
   }, [closeExport, showExport])
 
   const renderExportItem = (item: (typeof exports)[number]) => (
-    <button
+    <ExportItemButton
       key={item.label}
-      type="button"
+      icon={item.icon}
+      label={item.label}
+      description={item.desc}
       onClick={() => runExport(item.action)}
-      className="ditem"
-      aria-label={item.label}
-    >
-      <span className="di em-icon">{item.icon}</span>
-      <span className="em-labels">
-        <span className="dl">{item.label}</span>
-        <span className="dd">{item.desc}</span>
-      </span>
-    </button>
+    />
   )
 
   return (
@@ -330,37 +314,12 @@ const ExportMenu = memo(function ExportMenu() {
               style={{ top: exportPos.top, right: exportPos.right }}
             >
               {exports.slice(0, 1).map(renderExportItem)}
-              <div className="em-jpeg-panel" role="group" aria-label="JPEG 导出设置">
-                <button
-                  type="button"
-                  onClick={() => runExport(exportJPEG)}
-                  className="ditem em-jpeg-action"
-                  aria-label="JPEG 图片"
-                >
-                  <span className="di em-icon">
-                    <ImageIcon size={16} />
-                  </span>
-                  <span className="em-labels">
-                    <span className="dl">JPEG 图片</span>
-                    <span className="dd">文档背景 · {jpegQuality}%</span>
-                  </span>
-                </button>
-                <label className="em-quality-row">
-                  <span>质量</span>
-                  <strong>{jpegQuality}%</strong>
-                  <input
-                    aria-label="JPEG 质量"
-                    type="range"
-                    min="1"
-                    max="100"
-                    value={jpegQuality}
-                    onChange={(event) => setJpegQuality(Number(event.target.value))}
-                  />
-                </label>
-                <div className="em-estimate" aria-live="polite">
-                  预计大小：{jpegEstimate}
-                </div>
-              </div>
+              <JpegExportPanel
+                quality={jpegQuality}
+                estimate={jpegEstimate}
+                onExport={() => runExport(exportJPEG)}
+                onQualityChange={setJpegQuality}
+              />
               {exports.slice(1).map(renderExportItem)}
               <div className="dsep" />
               <button
@@ -377,7 +336,7 @@ const ExportMenu = memo(function ExportMenu() {
                 </span>
                 <span className="em-labels">
                   <span className="dl">导入 JSON</span>
-                  <span className="dd">作为新画布导入 v4、v3 或旧版文件</span>
+                  <span className="dd">导入 v4、v3 或旧版文件，替换当前画板</span>
                 </span>
               </button>
             </div>

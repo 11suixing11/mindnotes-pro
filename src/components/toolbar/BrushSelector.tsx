@@ -58,7 +58,7 @@ const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: Bru
                   <span className="dd">{b.description}</span>
                 </div>
                 {brush === b.id && (
-                  <span className="ml-auto text-[var(--primary)] font-bold text-[14px]">
+                  <span className="ml-auto text-[var(--primary)] font-medium text-[14px]">
                     {CHECK}
                   </span>
                 )}

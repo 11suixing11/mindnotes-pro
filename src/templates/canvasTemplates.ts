@@ -26,7 +26,8 @@ export const TEMPLATE_CATEGORY_LABELS: Record<TemplateCategory, string> = {
   custom: '自定义',
 }
 
-export const CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes-pro-v4.custom-templates'
+export const CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes-pro-v5.custom-templates'
+export const LEGACY_V4_CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes-pro-v4.custom-templates'
 export const LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY = 'mindnotes.customTemplates.v1'
 
 let idCounter = 0
@@ -83,6 +84,8 @@ function text(
     width,
     height,
     content,
+    originalContent: content,
+    autoResize: false,
     fontSize,
     color,
     fontWeight: 'bold',
@@ -341,6 +344,8 @@ function isCanvasElement(value: unknown): value is CanvasElement {
       isFiniteNumber(value.width) &&
       isFiniteNumber(value.height) &&
       typeof value.content === 'string' &&
+      isOptionalString(value.originalContent) &&
+      (value.autoResize === undefined || typeof value.autoResize === 'boolean') &&
       isFiniteNumber(value.fontSize) &&
       typeof value.color === 'string' &&
       (value.fontWeight === undefined ||
@@ -412,13 +417,14 @@ export function instantiateTemplate(
   if (!bounds) return []
 
   const idMap = new Map(template.elements.map((el) => [el.id, createRuntimeId(el.type)]))
-  const instanceGroupId = createRuntimeId('template-group')
   const dx = centerX - (bounds.x + bounds.w / 2)
   const dy = centerY - (bounds.y + bounds.h / 2)
 
   return template.elements.map((el) => ({
+    // A template is a starting point, not a locked/grouped composite. Keep
+    // every instantiated element independently selectable and editable.
     ...unlockTemplateElement(moveElement(cloneElement(el, idMap), dx, dy)),
-    groupId: instanceGroupId,
+    groupId: undefined,
   }))
 }
 
@@ -464,6 +470,7 @@ function isCanvasTemplate(value: unknown): value is CanvasTemplate {
 }
 
 export function loadCustomTemplates(): CanvasTemplate[] {
+  migrateLegacyStorageKey(LEGACY_V4_CUSTOM_TEMPLATE_STORAGE_KEY, CUSTOM_TEMPLATE_STORAGE_KEY)
   migrateLegacyStorageKey(LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY, CUSTOM_TEMPLATE_STORAGE_KEY)
   const stored = loadFromStorage<unknown>(CUSTOM_TEMPLATE_STORAGE_KEY, [])
   if (!Array.isArray(stored)) return []

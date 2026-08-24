@@ -121,6 +121,10 @@ function createMockPointerEvent(
     tiltY: { value: overrides.tiltY ?? 0 },
     button: { value: overrides.button ?? 0 },
     buttons: { value: overrides.buttons ?? 1 },
+    shiftKey: { value: overrides.shiftKey ?? false },
+    altKey: { value: overrides.altKey ?? false },
+    ctrlKey: { value: overrides.ctrlKey ?? false },
+    metaKey: { value: overrides.metaKey ?? false },
   })
   return event
 }
@@ -431,6 +435,123 @@ describe('usePointerEngine', () => {
   })
 
   describe('select interactions', () => {
+    it('preserves the existing Alt-drag session behavior while duplicating a selection', () => {
+      useAppStore.setState({ tool: 'select' })
+      seedCanvasElements([
+        {
+          type: 'shape',
+          id: 'alt-source',
+          kind: 'rectangle',
+          x: 100,
+          y: 100,
+          w: 80,
+          h: 50,
+          color: '#000',
+          size: 2,
+        },
+      ])
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 37,
+          pointerType: 'mouse',
+          clientX: 140,
+          clientY: 125,
+          altKey: true,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 37,
+          pointerType: 'mouse',
+          clientX: 180,
+          clientY: 125,
+          altKey: true,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 37,
+          pointerType: 'mouse',
+          clientX: 180,
+          clientY: 125,
+          buttons: 0,
+        })
+      )
+
+      const state = useAppStore.getState()
+      expect(state.elements).toHaveLength(2)
+      expect(state.idToElement.get('alt-source')).toMatchObject({ x: 140, y: 100 })
+      const copy = state.elements.find((element) => element.id !== 'alt-source')
+      expect(copy).toMatchObject({ type: 'shape', x: 100, y: 100 })
+      expect(state.selectedIds).toEqual([copy?.id])
+    })
+
+    it('selects editable elements intersecting a marquee and skips locked elements', () => {
+      useAppStore.setState({ tool: 'select' })
+      seedCanvasElements([
+        {
+          type: 'shape',
+          id: 'editable-shape',
+          kind: 'rectangle',
+          x: 100,
+          y: 100,
+          w: 40,
+          h: 40,
+          color: '#000',
+          size: 2,
+        },
+        {
+          type: 'shape',
+          id: 'locked-shape',
+          kind: 'rectangle',
+          x: 160,
+          y: 100,
+          w: 40,
+          h: 40,
+          color: '#000',
+          size: 2,
+          locked: true,
+        },
+      ])
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 30,
+          pointerType: 'mouse',
+          clientX: 50,
+          clientY: 50,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 30,
+          pointerType: 'mouse',
+          clientX: 220,
+          clientY: 180,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 30,
+          pointerType: 'mouse',
+          clientX: 220,
+          clientY: 180,
+          buttons: 0,
+        })
+      )
+
+      expect(useAppStore.getState().selectedIds).toEqual(['editable-shape'])
+    })
+
     it('moves a multi-selection instead of rotating when dragging through an individual element rotate handle', () => {
       useAppStore.setState({ tool: 'select' })
       seedCanvasElements([

@@ -1,98 +1,27 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Canvas } from './components/canvas'
 import { Toolbar } from './components/toolbar'
-import { Sidebar } from './components/sidebar'
+import LayersPanel from './components/layers/LayersPanel'
 import { ToastContainer } from './components/toast'
 import { ConfirmModal } from './components/confirm-modal'
 import { useAppStore } from './store/appStore'
-import { useViewStore } from './store/useViewStore'
-import { useThemeStore } from './store/useThemeStore'
-import { getContentBounds } from './canvas/canvasUtils'
 import {
   KeyboardShortcutsHelp,
   KeyboardShortcutSettings,
 } from './components/keyboard-shortcuts-help'
 import { LoadingScreen } from './components/loading-screen'
-import { FEEDBACK_DISCUSSION_URL } from './productLinks'
-import { findShortcutAction, isEditableShortcutTarget } from './keyboard/shortcuts'
-import { useShortcutStore } from './store/useShortcutStore'
-import { Download } from 'lucide-react'
-
-const TOOL_LABELS: Record<string, string> = {
-  select: '选择',
-  pen: '画笔',
-  eraser: '橡皮擦',
-  pan: '平移',
-  text: '文字',
-  rectangle: '矩形',
-  circle: '圆形',
-  line: '直线',
-  arrow: '箭头',
-}
+import { AppStatusBar } from './components/app/AppStatusBar'
+import { useAppLifecycle } from './components/app/useAppLifecycle'
 
 export default function App() {
-  const { initTheme } = useThemeStore()
   const mainContentRef = useRef<HTMLDivElement>(null)
-  const init = useAppStore((s) => s.init)
-  const loaded = useAppStore((s) => s.loaded)
-  const tool = useAppStore((s) => s.tool)
-  // P1-9/只订阅 length 而非完整数组，避免不必要的 re-render
-  const elementCount = useAppStore((s) => s.elements.length)
-  const bgColor = useAppStore((s) => s.bgColor)
-  const docCount = useAppStore((s) => s.docs.length)
+  const loaded = useAppStore((state) => state.loaded)
+  const bgColor = useAppStore((state) => state.bgColor)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false)
-  const saveStatus = useAppStore((s) => s.saveStatus)
-  const zoom = useViewStore((s) => s.viewBox.zoom)
-  const zoomToFit = useViewStore((s) => s.zoomToFit)
-  interface BeforeInstallPromptEvent extends Event {
-    prompt(): Promise<void>
-    userChoice: Promise<{ outcome: string }>
-  }
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-
-  useEffect(() => {
-    initTheme()
-    init()
-  }, [initTheme, init])
-
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      useAppStore.getState().saveNow()
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [])
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (isEditableShortcutTarget(e.target)) return
-
-      const action = findShortcutAction(e, useShortcutStore.getState().bindings)
-      if (action === 'help.shortcuts') {
-        e.preventDefault()
-        setShortcutsOpen((v) => !v)
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [])
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault()
-      setDeferredPrompt(e as BeforeInstallPromptEvent)
-    }
-    const installedHandler = () => setDeferredPrompt(null)
-    window.addEventListener('beforeinstallprompt', handler)
-    window.addEventListener('appinstalled', installedHandler)
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handler)
-      window.removeEventListener('appinstalled', installedHandler)
-    }
-  }, [])
-
+  const handleShortcutsToggle = useCallback(() => setShortcutsOpen((open) => !open), [])
   const handleShortcutsClose = useCallback(() => setShortcutsOpen(false), [])
+  const { canInstall, installApp } = useAppLifecycle(handleShortcutsToggle)
 
   if (!loaded) {
     return <LoadingScreen />
@@ -122,105 +51,15 @@ export default function App() {
         role="application"
         aria-label="MindNotes Pro 白板"
       >
-        <Sidebar />
         <div ref={mainContentRef} tabIndex={-1} className="workspace-main">
           <Canvas />
-          <Toolbar />
+          <Toolbar canInstall={canInstall} onInstall={() => void installApp()} />
+          <div className="layers-dock">
+            <LayersPanel />
+          </div>
           <ToastContainer />
           <ConfirmModal />
-          <div className="status panel" role="status" aria-label="应用状态">
-            <span className="dot" aria-hidden="true" />
-            <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
-              {TOOL_LABELS[tool] ?? tool}
-            </span>
-            <span className="vl" aria-hidden="true" />
-            <span>{elementCount} 个元素</span>
-            <span className="vl" aria-hidden="true" />
-            <span>{docCount} 个文档</span>
-            <span className="vl" aria-hidden="true" />
-            <span
-              style={{ cursor: 'pointer' }}
-              onClick={() => {
-                const bounds = getContentBounds(useAppStore.getState().elements)
-                if (bounds) zoomToFit(bounds)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  const bounds = getContentBounds(useAppStore.getState().elements)
-                  if (bounds) zoomToFit(bounds)
-                }
-              }}
-              role="button"
-              tabIndex={0}
-              aria-label={`缩放 ${Math.round(zoom * 100)}%，点击适应内容`}
-            >
-              {Math.round(zoom * 100)}%
-            </span>
-            <span className="vl" aria-hidden="true" />
-            <span
-              style={{
-                fontSize: '10px',
-                color:
-                  saveStatus === 'error'
-                    ? 'var(--danger)'
-                    : saveStatus === 'saving'
-                      ? 'var(--text-4)'
-                      : 'var(--success)',
-                transition: 'color 0.3s',
-              }}
-              aria-live="polite"
-              aria-label={
-                saveStatus === 'saving'
-                  ? '正在保存'
-                  : saveStatus === 'saved'
-                    ? '已保存'
-                    : saveStatus === 'error'
-                      ? '保存失败'
-                      : ''
-              }
-            >
-              {saveStatus === 'saving'
-                ? '\u00b7\u00b7\u00b7'
-                : saveStatus === 'saved'
-                  ? '\u2713'
-                  : saveStatus === 'error'
-                    ? '保存失败'
-                    : ''}
-            </span>
-            <span className="vl" aria-hidden="true" />
-            <a
-              href={FEEDBACK_DISCUSSION_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="status-feedback"
-              title="提交反馈"
-              aria-label="提交反馈"
-            >
-              反馈
-            </a>
-            <span className="vl" aria-hidden="true" />
-            <button
-              onClick={() => setShortcutsOpen(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-4)',
-                cursor: 'pointer',
-                fontSize: '12px',
-                padding: '0 2px',
-                lineHeight: 1,
-                borderRadius: '4px',
-                transition: 'color 0.15s',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--primary)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-4)')}
-              title="键盘快捷键（?）"
-              aria-label="键盘快捷键"
-            >
-              ?
-            </button>
-          </div>
+          <AppStatusBar onOpenShortcuts={() => setShortcutsOpen(true)} />
 
           <KeyboardShortcutsHelp
             open={shortcutsOpen}
@@ -234,21 +73,6 @@ export default function App() {
             open={shortcutSettingsOpen}
             onClose={() => setShortcutSettingsOpen(false)}
           />
-
-          {deferredPrompt && (
-            <button
-              onClick={async () => {
-                deferredPrompt.prompt()
-                await deferredPrompt.userChoice
-                setDeferredPrompt(null)
-              }}
-              className="install-btn"
-              aria-label="安装 MindNotes Pro"
-            >
-              <Download size={16} aria-hidden="true" />
-              安装应用
-            </button>
-          )}
         </div>
       </div>
     </>

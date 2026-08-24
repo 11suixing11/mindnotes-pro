@@ -55,10 +55,10 @@ const Tooltip = memo(function Tooltip({ content, shortcut, children }: TooltipPr
             animation: 'fadeIn 0.12s ease',
           }}
         >
-          <div className="bg-[var(--card-solid)] text-[var(--text)] text-[11px] font-medium px-[10px] py-[5px] rounded-[8px] border border-[var(--border)] shadow-[var(--shadow-md)] whitespace-nowrap flex items-center gap-[6px]">
+          <div className="bg-[var(--card-solid)] text-[var(--text)] text-[12px] font-normal leading-[18px] px-[10px] py-[5px] rounded-[8px] border border-[var(--border)] shadow-[var(--shadow-md)] whitespace-nowrap flex items-center gap-[6px]">
             <span>{content}</span>
             {shortcut && (
-              <kbd className="text-[10px] text-[var(--text-3)] bg-[var(--bg)] border border-[var(--border)] rounded-[4px] px-[4px] py-[1px] font-semibold">
+              <kbd className="text-[11px] text-[var(--text-3)] bg-[var(--bg)] border border-[var(--border)] rounded-[4px] px-[4px] py-[1px] font-normal">
                 {shortcut}
               </kbd>
             )}

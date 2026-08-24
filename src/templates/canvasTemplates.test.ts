@@ -3,6 +3,7 @@ import type { CanvasElement, ShapeElement } from '../store/types'
 import type { CanvasTemplate } from './canvasTemplates'
 import {
   CUSTOM_TEMPLATE_STORAGE_KEY,
+  LEGACY_V4_CUSTOM_TEMPLATE_STORAGE_KEY,
   LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY,
   createTemplateFromElements,
   deleteCustomTemplate,
@@ -79,8 +80,7 @@ describe('canvas templates', () => {
     expect(inserted).toHaveLength(template.elements.length)
     expect(new Set(inserted.map((el) => el.id)).size).toBe(inserted.length)
     expect(inserted.some((el) => originalIds.has(el.id))).toBe(false)
-    expect(new Set(inserted.map((el) => el.groupId)).size).toBe(1)
-    expect(inserted[0].groupId).toMatch(/^template-group-/)
+    expect(inserted.every((el) => el.groupId === undefined)).toBe(true)
     expect(bounds.x + bounds.w / 2).toBeCloseTo(1200, 5)
     expect(bounds.y + bounds.h / 2).toBeCloseTo(-340, 5)
   })
@@ -190,5 +190,13 @@ describe('canvas templates', () => {
     expect(loadCustomTemplates()).toEqual([expect.objectContaining({ name: '旧模板' })])
     expect(localStorage.getItem(CUSTOM_TEMPLATE_STORAGE_KEY)).not.toBeNull()
     expect(localStorage.getItem(LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY)).toBeNull()
+  })
+
+  it('imports plain v4 custom templates into the v5 key', () => {
+    const template = requireTemplate(createTemplateFromElements('v4', [makeShape('v4')]))
+    localStorage.setItem(LEGACY_V4_CUSTOM_TEMPLATE_STORAGE_KEY, JSON.stringify([template]))
+
+    expect(loadCustomTemplates()).toEqual([expect.objectContaining({ name: 'v4' })])
+    expect(localStorage.getItem(LEGACY_V4_CUSTOM_TEMPLATE_STORAGE_KEY)).toBeNull()
   })
 })

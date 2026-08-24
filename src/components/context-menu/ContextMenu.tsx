@@ -1,7 +1,14 @@
-import React, { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore } from '../../store/appStore'
 import type { AlignmentType, DistributionType } from '../../store/types'
+import { AlignSubmenu, DistributeSubmenu, MenuItem, MenuSeparator } from './ContextMenuPrimitives'
+import {
+  MENU_PADDING,
+  MENU_WIDTH,
+  getContextMenuPosition,
+  getContextMenuSelectionState,
+} from './contextMenuModel'
 
 interface ContextMenuProps {
   x: number
@@ -9,26 +16,27 @@ interface ContextMenuProps {
   onClose: () => void
 }
 
-const MENU_ITEM_HEIGHT = 32
-const MENU_PADDING = 4
-const SUBMENU_OFFSET = -4
-
 // 右键上下文菜单
 // 专业白板/设计工具标配功能，集成所有常用操作
 export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const submenuRef = useRef<HTMLDivElement>(null)
+  const alignTriggerRef = useRef<HTMLButtonElement>(null)
+  const distributeTriggerRef = useRef<HTMLButtonElement>(null)
+  const [openSubmenu, setOpenSubmenu] = useState<'align' | 'distribute' | null>(null)
 
   const selectedIds = useAppStore((s) => s.selectedIds)
   const elements = useAppStore((s) => s.elements)
-  const hasSelection = selectedIds.length > 0
-  const hasMultipleSelection = selectedIds.length > 1
-  const hasGroupableSelection = selectedIds.length >= 2
-  const hasDistributableSelection = selectedIds.length >= 3
-
-  // 检查是否选中了组中的元素（通过 groupId 属性）
-  const selectedElements = elements.filter((el) => selectedIds.includes(el.id))
-  const hasGroupedElements = selectedElements.some((el) => el.groupId)
+  const selectionState = getContextMenuSelectionState(elements, selectedIds)
+  const {
+    hasSelection,
+    hasMultipleSelection,
+    hasGroupableSelection,
+    hasDistributableSelection,
+    hasGroupedElements,
+    hasLockedElements,
+    hasUnlockedElements,
+  } = selectionState
 
   // Actions
   const copySelected = useAppStore((s) => s.copySelected)
@@ -44,10 +52,6 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   // 锁定/解锁元素
   const lockSelected = useAppStore((s) => s.lockSelected)
   const unlockSelected = useAppStore((s) => s.unlockSelected)
-  // 检查选中元素的锁定状态
-  const hasLockedElements = selectedElements.some((el) => el.locked)
-  const hasUnlockedElements = selectedElements.some((el) => !el.locked)
-
   // 全选功能 - 选择所有元素
   const selectAll = useCallback(() => {
     setSelectedIds(elements.map((el) => el.id))
@@ -75,32 +79,14 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
     }
   }, [onClose])
 
-  // 计算菜单位置，确保不超出视口
-  const adjustPosition = useCallback(() => {
-    const menuWidth = 200
-    const menuHeight =
-      MENU_PADDING * 2 +
-      (hasSelection ? 5 : 2) * MENU_ITEM_HEIGHT + // 基础项
-      (hasMultipleSelection ? 2 : 0) * MENU_ITEM_HEIGHT + // 分组/取消分组
-      (hasMultipleSelection ? 1 : 0) * MENU_ITEM_HEIGHT + // 对齐子菜单
-      2 * 8 // 分隔符
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-
-    let adjustedX = x
-    let adjustedY = y
-
-    if (x + menuWidth > viewportWidth) {
-      adjustedX = Math.max(0, x - menuWidth)
-    }
-    if (y + menuHeight > viewportHeight) {
-      adjustedY = Math.max(0, y - menuHeight)
-    }
-
-    return { x: adjustedX, y: adjustedY, menuWidth }
-  }, [x, y, hasSelection, hasMultipleSelection])
-
-  const pos = adjustPosition()
+  const pos = getContextMenuPosition({
+    x,
+    y,
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+    hasSelection,
+    hasMultipleSelection,
+  })
 
   const handleAction = (action: () => void) => {
     action()
@@ -132,7 +118,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
         position: 'fixed',
         left: pos.x,
         top: pos.y,
-        minWidth: 200,
+        minWidth: MENU_WIDTH,
         background: 'var(--bg-1)',
         border: '1px solid var(--border-1)',
         borderRadius: 8,
@@ -213,13 +199,23 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
       {hasMultipleSelection && (
         <>
           <MenuSeparator />
-          <AlignSubmenu
-            ref={submenuRef}
-            menuX={pos.x}
-            menuY={pos.y}
-            menuWidth={pos.menuWidth}
-            onAlign={handleAlign}
+          <MenuItem
+            ref={alignTriggerRef}
+            onClick={() => setOpenSubmenu((current) => (current === 'align' ? null : 'align'))}
+            label="对齐"
+            hasSubmenu
+            ariaExpanded={openSubmenu === 'align'}
           />
+          {openSubmenu === 'align' && (
+            <AlignSubmenu
+              ref={submenuRef}
+              anchorRef={alignTriggerRef}
+              menuX={pos.x}
+              menuY={pos.y}
+              menuWidth={pos.menuWidth}
+              onAlign={handleAlign}
+            />
+          )}
         </>
       )}
 
@@ -227,12 +223,25 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
       {hasDistributableSelection && (
         <>
           <MenuSeparator />
-          <DistributeSubmenu
-            menuX={pos.x}
-            menuY={pos.y}
-            menuWidth={pos.menuWidth}
-            onDistribute={handleDistribute}
+          <MenuItem
+            ref={distributeTriggerRef}
+            onClick={() =>
+              setOpenSubmenu((current) => (current === 'distribute' ? null : 'distribute'))
+            }
+            label="分布"
+            hasSubmenu
+            ariaExpanded={openSubmenu === 'distribute'}
           />
+          {openSubmenu === 'distribute' && (
+            <DistributeSubmenu
+              ref={submenuRef}
+              anchorRef={distributeTriggerRef}
+              menuX={pos.x}
+              menuY={pos.y}
+              menuWidth={pos.menuWidth}
+              onDistribute={handleDistribute}
+            />
+          )}
         </>
       )}
 
@@ -245,225 +254,6 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   )
 
   return createPortal(menuContent, document.body)
-}
-
-interface MenuItemProps {
-  onClick: () => void
-  label: string
-  shortcut?: string
-  danger?: boolean
-  hasSubmenu?: boolean
-}
-
-function MenuItem({ onClick, label, shortcut, danger, hasSubmenu }: MenuItemProps) {
-  return (
-    <button
-      onClick={onClick}
-      className="context-menu-item"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        width: '100%',
-        height: MENU_ITEM_HEIGHT,
-        padding: '0 12px',
-        border: 'none',
-        background: 'transparent',
-        borderRadius: 6,
-        cursor: 'pointer',
-        fontSize: 13,
-        color: danger ? 'var(--danger)' : 'var(--text-1)',
-        textAlign: 'left',
-        transition: 'background 0.1s',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'var(--bg-2)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'transparent'
-      }}
-    >
-      <span>{label}</span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {shortcut && (
-          <span
-            style={{
-              fontSize: 11,
-              color: 'var(--text-3)',
-              letterSpacing: 0.5,
-            }}
-          >
-            {shortcut}
-          </span>
-        )}
-        {hasSubmenu && (
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-        )}
-      </div>
-    </button>
-  )
-}
-
-function MenuSeparator() {
-  return (
-    <div
-      style={{
-        height: 1,
-        background: 'var(--border-1)',
-        margin: '4px 8px',
-      }}
-    />
-  )
-}
-
-interface AlignSubmenuProps {
-  menuX: number
-  menuY: number
-  menuWidth: number
-  onAlign: (alignment: AlignmentType) => void
-}
-
-const AlignSubmenu = React.forwardRef<HTMLDivElement, AlignSubmenuProps>(
-  ({ menuX, menuY, menuWidth, onAlign }, ref) => {
-    const submenuX = menuX + menuWidth + SUBMENU_OFFSET
-
-    const alignActions: { label: string; alignment: AlignmentType }[] = [
-      { label: '左对齐', alignment: 'alignLeft' },
-      { label: '水平居中', alignment: 'alignCenterH' },
-      { label: '右对齐', alignment: 'alignRight' },
-      { label: '顶对齐', alignment: 'alignTop' },
-      { label: '垂直居中', alignment: 'alignCenterV' },
-      { label: '底对齐', alignment: 'alignBottom' },
-    ]
-
-    return createPortal(
-      <div
-        ref={ref}
-        className="context-menu-submenu"
-        style={{
-          position: 'fixed',
-          left: submenuX,
-          top: menuY + MENU_PADDING + 5 * MENU_ITEM_HEIGHT + 16,
-          minWidth: 140,
-          background: 'var(--bg-1)',
-          border: '1px solid var(--border-1)',
-          borderRadius: 8,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-          padding: MENU_PADDING,
-          zIndex: 100000,
-        }}
-        onContextMenu={(e) => e.preventDefault()}
-      >
-        {alignActions.map(({ label, alignment }) => (
-          <button
-            key={alignment}
-            onClick={() => onAlign(alignment)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              width: '100%',
-              height: MENU_ITEM_HEIGHT,
-              padding: '0 12px',
-              border: 'none',
-              background: 'transparent',
-              borderRadius: 6,
-              cursor: 'pointer',
-              fontSize: 13,
-              color: 'var(--text-1)',
-              textAlign: 'left',
-              transition: 'background 0.1s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--bg-2)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent'
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>,
-      document.body
-    )
-  }
-)
-
-AlignSubmenu.displayName = 'AlignSubmenu'
-
-interface DistributeSubmenuProps {
-  menuX: number
-  menuY: number
-  menuWidth: number
-  onDistribute: (distribution: DistributionType) => void
-}
-
-function DistributeSubmenu({ menuX, menuY, menuWidth, onDistribute }: DistributeSubmenuProps) {
-  const submenuX = menuX + menuWidth + SUBMENU_OFFSET
-
-  const distributeActions: { label: string; distribution: DistributionType }[] = [
-    { label: '水平分布', distribution: 'distributeH' },
-    { label: '垂直分布', distribution: 'distributeV' },
-  ]
-
-  return createPortal(
-    <div
-      className="context-menu-submenu"
-      style={{
-        position: 'fixed',
-        left: submenuX,
-        top: menuY + MENU_PADDING + 6 * MENU_ITEM_HEIGHT + 24,
-        minWidth: 140,
-        background: 'var(--bg-1)',
-        border: '1px solid var(--border-1)',
-        borderRadius: 8,
-        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-        padding: MENU_PADDING,
-        zIndex: 100000,
-      }}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      {distributeActions.map(({ label, distribution }) => (
-        <button
-          key={distribution}
-          onClick={() => onDistribute(distribution)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            width: '100%',
-            height: MENU_ITEM_HEIGHT,
-            padding: '0 12px',
-            border: 'none',
-            background: 'transparent',
-            borderRadius: 6,
-            cursor: 'pointer',
-            fontSize: 13,
-            color: 'var(--text-1)',
-            textAlign: 'left',
-            transition: 'background 0.1s',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--bg-2)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent'
-          }}
-        >
-          {label}
-        </button>
-      ))}
-    </div>,
-    document.body
-  )
 }
 
 export { AlignSubmenu, DistributeSubmenu }

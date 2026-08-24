@@ -1,0 +1,139 @@
+import { describe, expect, it } from 'vitest'
+import type { ShapeElement } from '../types'
+import {
+  appendElementCollection,
+  createCanvasElementCollectionRuntime,
+  rebuildElementIndexes,
+  removeElementCollection,
+  replaceElementCollection,
+  synchronizeElementCollection,
+  synchronizeElementGeometry,
+  synchronizeElementReplacement,
+  synchronizeElementReferences,
+} from './canvasElementCollection'
+
+function makeShape(id: string, x: number): ShapeElement {
+  return {
+    type: 'shape',
+    id,
+    kind: 'rectangle',
+    x,
+    y: 0,
+    w: 20,
+    h: 20,
+    color: '#000000',
+    size: 2,
+  }
+}
+
+describe('canvas element collection runtime', () => {
+  it('replaces maps and the spatial index as one collection boundary', () => {
+    const runtime = createCanvasElementCollectionRuntime()
+    const elements = [makeShape('a', 0), makeShape('b', 100)]
+
+    replaceElementCollection(runtime, elements)
+
+    expect(runtime.idToElement.get('a')).toBe(elements[0])
+    expect(runtime.idToIndex.get('b')).toBe(1)
+    expect(runtime.spatialIndex.search({ x: 0, y: 0, w: 20, h: 20 })).toContain('a')
+  })
+
+  it('synchronizes removals, updates, and mirror maps', () => {
+    const runtime = createCanvasElementCollectionRuntime()
+    const mirror = {
+      idToElement: new Map<string, ShapeElement>(),
+      idToIndex: new Map<string, number>(),
+    }
+    const initial = [makeShape('a', 0), makeShape('b', 100)]
+    replaceElementCollection(runtime, initial, mirror)
+
+    const updated = [{ ...initial[1], x: 200 }]
+    synchronizeElementCollection(runtime, updated, mirror)
+
+    expect(runtime.idToElement.has('a')).toBe(false)
+    expect(mirror.idToElement.get('b')).toBe(updated[0])
+    expect(runtime.idToIndex.get('b')).toBe(0)
+  })
+
+  it('rebuilds position indexes without replacing element maps', () => {
+    const runtime = createCanvasElementCollectionRuntime()
+    const elements = [makeShape('a', 0), makeShape('b', 100)]
+    replaceElementCollection(runtime, elements)
+
+    rebuildElementIndexes(runtime, [elements[1], elements[0]])
+
+    expect(runtime.idToElement.get('a')).toBe(elements[0])
+    expect(runtime.idToIndex.get('a')).toBe(1)
+    expect(runtime.idToIndex.get('b')).toBe(0)
+  })
+
+  it('updates element references without changing position indexes', () => {
+    const runtime = createCanvasElementCollectionRuntime()
+    const elements = [makeShape('a', 0), makeShape('b', 100)]
+    replaceElementCollection(runtime, elements)
+    const updated = { ...elements[0], locked: true }
+
+    synchronizeElementReferences(runtime, [updated])
+
+    expect(runtime.idToElement.get('a')).toBe(updated)
+    expect(runtime.idToIndex.get('a')).toBe(0)
+  })
+
+  it('updates geometry maps, indexes, and spatial entries for affected elements', () => {
+    const runtime = createCanvasElementCollectionRuntime()
+    const elements = [makeShape('a', 0), makeShape('b', 100)]
+    replaceElementCollection(runtime, elements)
+    const updated = [{ ...elements[0], x: 200 }, elements[1]]
+
+    synchronizeElementGeometry(runtime, updated, ['a'])
+
+    expect(runtime.idToElement.get('a')).toBe(updated[0])
+    expect(runtime.idToIndex.get('a')).toBe(0)
+    expect(runtime.spatialIndex.search({ x: 200, y: 0, w: 20, h: 20 })).toContain('a')
+  })
+
+  it('repairs a stale position index while synchronizing geometry', () => {
+    const runtime = createCanvasElementCollectionRuntime()
+    const initial = [makeShape('a', 0), makeShape('b', 100)]
+    replaceElementCollection(runtime, initial)
+    const updated = [initial[1], { ...initial[0], x: 200 }]
+
+    synchronizeElementGeometry(runtime, updated, ['a'])
+
+    expect(runtime.idToElement.get('a')).toBe(updated[1])
+    expect(runtime.idToIndex.get('a')).toBe(1)
+    expect(runtime.spatialIndex.search({ x: 200, y: 0, w: 20, h: 20 })).toContain('a')
+  })
+
+  it('appends and removes collection entries through focused helpers', () => {
+    const runtime = createCanvasElementCollectionRuntime()
+    const initial = [makeShape('a', 0)]
+    replaceElementCollection(runtime, initial)
+    const appended = makeShape('b', 100)
+
+    appendElementCollection(runtime, [appended], initial.length)
+
+    expect(runtime.idToElement.get('b')).toBe(appended)
+    expect(runtime.idToIndex.get('b')).toBe(1)
+
+    removeElementCollection(runtime, ['a'])
+
+    expect(runtime.idToElement.has('a')).toBe(false)
+    expect(runtime.idToIndex.has('a')).toBe(false)
+  })
+
+  it('replaces an element id without leaving a stale reference', () => {
+    const runtime = createCanvasElementCollectionRuntime()
+    const initial = [makeShape('a', 0)]
+    replaceElementCollection(runtime, initial)
+    const updated = [{ ...initial[0], id: 'renamed', x: 40 }]
+
+    synchronizeElementReplacement(runtime, updated, 0, 'a')
+
+    expect(runtime.idToElement.has('a')).toBe(false)
+    expect(runtime.idToIndex.has('a')).toBe(false)
+    expect(runtime.idToElement.get('renamed')).toBe(updated[0])
+    expect(runtime.idToIndex.get('renamed')).toBe(0)
+    expect(runtime.spatialIndex.search({ x: 40, y: 0, w: 20, h: 20 })).toContain('renamed')
+  })
+})
