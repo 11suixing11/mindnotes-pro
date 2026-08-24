@@ -65,6 +65,17 @@ describe('useTextEditor', () => {
       expect(second).toMatch(/^text-123-\d+$/)
       expect(second).not.toBe(first)
     })
+
+    it('avoids IDs that already exist in the current document', () => {
+      vi.stubGlobal('crypto', { randomUUID: () => 'duplicate' })
+      vi.spyOn(Date, 'now').mockReturnValue(123)
+      const existingIds = new Set(['text-duplicate'])
+
+      const id = createSessionId('text-', (candidate) => existingIds.has(candidate))
+
+      expect(id).toMatch(/^text-123-\d+$/)
+      expect(existingIds.has(id)).toBe(false)
+    })
   })
 
   it('should initialize with no editing text', () => {
