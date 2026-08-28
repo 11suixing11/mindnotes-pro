@@ -43,21 +43,23 @@ describe('BrushSelector', () => {
   it('calls setBrush when a brush is selected', () => {
     render(<BrushSelector brush="pen" setBrush={setBrush} tool="pen" />)
     fireEvent.click(screen.getByText('钢笔').closest('button')!)
-    fireEvent.click(screen.getByText('荧光笔').closest('[role="menuitem"]')!)
+    fireEvent.click(screen.getByRole('menuitemradio', { name: '荧光笔' }))
     expect(setBrush).toHaveBeenCalledWith('highlighter')
   })
 
   it('calls setBrush for new brush types', () => {
     render(<BrushSelector brush="pen" setBrush={setBrush} tool="pen" />)
     fireEvent.click(screen.getByText('钢笔').closest('button')!)
-    fireEvent.click(screen.getByText('水彩笔').closest('[role="menuitem"]')!)
+    fireEvent.click(screen.getByRole('menuitemradio', { name: '水彩笔' }))
     expect(setBrush).toHaveBeenCalledWith('watercolor')
   })
 
-  it('shows check mark for current brush', () => {
+  it('exposes the current brush as checked', () => {
     render(<BrushSelector brush="pen" setBrush={setBrush} tool="pen" />)
     fireEvent.click(screen.getByText('钢笔').closest('button')!)
-    expect(screen.getByText('✓')).toBeTruthy()
+    expect(screen.getByRole('menuitemradio', { name: '钢笔' }).getAttribute('aria-checked')).toBe(
+      'true'
+    )
   })
 
   it('closes dropdown on overlay click', () => {
@@ -70,8 +72,8 @@ describe('BrushSelector', () => {
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
-  it('renders arrow indicator', () => {
+  it('renders a disclosure icon', () => {
     render(<BrushSelector brush="pen" setBrush={setBrush} tool="pen" />)
-    expect(screen.getByText('▾')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '画笔：钢笔' }).querySelector('svg')).toBeTruthy()
   })
 })

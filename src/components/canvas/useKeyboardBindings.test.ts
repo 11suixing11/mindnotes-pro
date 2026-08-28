@@ -228,10 +228,38 @@ describe('useKeyboardBindings', () => {
         size: 2,
         brush: 'pen',
       })
+      useAppStore.getState().addElement({
+        type: 'stroke',
+        id: 's2',
+        points: [[10, 10]],
+        color: '#000',
+        size: 2,
+        brush: 'pen',
+      })
       useAppStore.setState({ selectedIds: ['s1'] })
       renderHook(() => useKeyboardBindings())
       press('Backspace')
-      expect(useAppStore.getState().elements).toHaveLength(0)
+      expect(useAppStore.getState().elements).toHaveLength(1)
+      expect(useAppStore.getState().elements[0].id).toBe('s2')
+    })
+
+    it('Delete should request confirmation before clearing a whole-canvas selection', () => {
+      useAppStore.getState().addElement({
+        type: 'stroke',
+        id: 's1',
+        points: [[0, 0]],
+        color: '#000',
+        size: 2,
+        brush: 'pen',
+      })
+      useAppStore.setState({ selectedIds: ['s1'] })
+      const requestClearCanvas = vi.fn(async () => false)
+      renderHook(() => useKeyboardBindings({ requestClearCanvas }))
+
+      press('Delete')
+
+      expect(requestClearCanvas).toHaveBeenCalledWith(1, expect.any(Function))
+      expect(useAppStore.getState().elements).toHaveLength(1)
     })
 
     it('Delete should not remove when nothing selected', () => {
@@ -408,6 +436,18 @@ describe('useKeyboardBindings', () => {
       // However, dispatching on textarea doesn't bubble to window by default in jsdom
       // Let's test by adding a listener that sets target
       document.body.removeChild(textarea)
+      undoSpy.mockRestore()
+    })
+
+    it('does not consume shortcuts when a button or link has focus', () => {
+      const undoSpy = vi.spyOn(useAppStore.getState(), 'undo')
+      renderHook(() => useKeyboardBindings())
+      const button = document.createElement('button')
+      document.body.appendChild(button)
+      button.focus()
+      button.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }))
+      expect(undoSpy).not.toHaveBeenCalled()
+      button.remove()
       undoSpy.mockRestore()
     })
   })

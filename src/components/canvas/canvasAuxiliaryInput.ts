@@ -1,6 +1,7 @@
 import { worldToClient, zoomViewBoxAtScreenPoint } from '../../canvas/coordinates'
 import type { ViewBox } from '../../core/viewport'
 import type { CanvasElement, TextElement, ToolType } from '../../store/types'
+import { isInteractiveShortcutTarget } from '../../keyboard/shortcuts'
 import type { CanvasAuxiliaryEventHandlers } from './pointerEvents'
 
 interface MutableValue<T> {
@@ -101,7 +102,14 @@ export function createCanvasAuxiliaryInputHandlers(
 
   const onKeyDown = (event: KeyboardEvent) => {
     const state = spacePanRef.current
-    if (event.code !== 'Space' || event.repeat || !state.enabled) return
+    if (
+      event.code !== 'Space' ||
+      event.repeat ||
+      !state.enabled ||
+      isInteractiveShortcutTarget(event.target)
+    ) {
+      return
+    }
 
     event.preventDefault()
     if (state.isActive) return

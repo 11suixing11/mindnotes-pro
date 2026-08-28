@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { findShortcutAction, isEditableShortcutTarget } from '../../keyboard/shortcuts'
+import { findShortcutAction, isInteractiveShortcutTarget } from '../../keyboard/shortcuts'
 import { useAppStore } from '../../store/appStore'
 import { useShortcutStore } from '../../store/useShortcutStore'
 import { useThemeStore } from '../../store/useThemeStore'
@@ -42,7 +42,7 @@ export function useAppLifecycle(onToggleShortcuts: () => void): AppLifecycleStat
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (isEditableShortcutTarget(event.target)) return
+      if (isInteractiveShortcutTarget(event.target)) return
 
       const action = findShortcutAction(event, useShortcutStore.getState().bindings)
       if (action === 'help.shortcuts') {

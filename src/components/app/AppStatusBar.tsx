@@ -3,6 +3,9 @@ import { getContentBounds } from '../../canvas/canvasUtils'
 import { FEEDBACK_DISCUSSION_URL } from '../../productLinks'
 import { useAppStore } from '../../store/appStore'
 import type { ToolType } from '../../store/types'
+import { createCanvasBackup } from '../../store/backup'
+import { buildExportFilename } from '../export-menu/exportMenuModel'
+import { createBlankDocument } from '../../store/slices/documentRecords'
 import { useViewStore } from '../../store/useViewStore'
 
 const TOOL_LABELS: Record<ToolType, string> = {
@@ -25,16 +28,54 @@ export function AppStatusBar({ onOpenShortcuts }: AppStatusBarProps) {
   const tool = useAppStore((state) => state.tool)
   const elementCount = useAppStore((state) => state.elements.length)
   const saveStatus = useAppStore((state) => state.saveStatus)
+  const persistenceMode = useAppStore((state) => state.persistenceMode)
+  const lastSavedAt = useAppStore((state) => state.lastSavedAt)
+  const saveError = useAppStore((state) => state.saveError)
+  const saveNow = useAppStore((state) => state.saveNow)
   const zoom = useViewStore((state) => state.viewBox.zoom)
   const zoomToFit = useViewStore((state) => state.zoomToFit)
+  const savedTime = lastSavedAt
+    ? new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' }).format(lastSavedAt)
+    : null
   const saveFeedback =
     saveStatus === 'saving'
       ? { label: '保存中', ariaLabel: '正在保存' }
       : saveStatus === 'saved'
-        ? { label: '已保存', ariaLabel: '已保存' }
+        ? { label: savedTime ? `已保存 ${savedTime}` : '已保存', ariaLabel: '已保存' }
         : saveStatus === 'error'
-          ? { label: '保存失败', ariaLabel: '保存失败' }
-          : { label: '自动保存', ariaLabel: '自动保存已开启' }
+          ? {
+              label: persistenceMode === 'memory-only' ? '仅保存在内存中' : '保存失败',
+              ariaLabel: saveError ? `保存失败：${saveError}` : '保存失败',
+            }
+          : { label: '已启用本地保存', ariaLabel: '已启用本地保存' }
+
+  const exportRecoveryBackup = () => {
+    try {
+      const state = useAppStore.getState()
+      const currentDoc =
+        state.docs.find((doc) => doc.id === state.currentDocId) ??
+        state.docs[0] ??
+        createBlankDocument()
+      const backup = createCanvasBackup({
+        ...currentDoc,
+        elements: state.elements,
+        layers: state.layers,
+        activeLayerId: state.activeLayerId,
+        bgColor: state.bgColor,
+        backgroundStyle: state.backgroundStyle,
+      })
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+      )
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = buildExportFilename(currentDoc, 'json')
+      anchor.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 200)
+    } catch {
+      // The persistent error state remains visible if browser downloads are unavailable.
+    }
+  }
 
   const fitContent = () => {
     const bounds = getContentBounds(useAppStore.getState().elements)
@@ -67,13 +108,37 @@ export function AppStatusBar({ onOpenShortcuts }: AppStatusBarProps) {
         {Math.round(zoom * 100)}%
       </span>
       <span className="vl" aria-hidden="true" />
-      <span
-        className={`status-save status-save-${saveStatus}`}
-        aria-live="polite"
-        aria-label={saveFeedback.ariaLabel}
-      >
-        {saveFeedback.label}
-      </span>
+      {saveStatus === 'error' ? (
+        <span className="status-save-actions">
+          <button
+            type="button"
+            className={`status-save status-save-${saveStatus}`}
+            onClick={() => void saveNow()}
+            aria-live="polite"
+            aria-label={saveFeedback.ariaLabel}
+            title={saveError ? `保存失败：${saveError}，点击重试` : '保存失败，点击重试'}
+          >
+            {saveFeedback.label}
+          </button>
+          <button
+            type="button"
+            className="status-recovery"
+            onClick={exportRecoveryBackup}
+            aria-label="导出恢复备份"
+            title="导出恢复备份"
+          >
+            导出恢复
+          </button>
+        </span>
+      ) : (
+        <span
+          className={`status-save status-save-${saveStatus}`}
+          aria-live="polite"
+          aria-label={saveFeedback.ariaLabel}
+        >
+          {saveFeedback.label}
+        </span>
+      )}
       <span className="vl" aria-hidden="true" />
       <a
         href={FEEDBACK_DISCUSSION_URL}

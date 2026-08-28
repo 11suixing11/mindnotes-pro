@@ -24,10 +24,9 @@ export function reconcileDocumentRecovery(
   for (const recoveryDraft of recoveryDrafts) {
     const persistedRecovery = docs.find((doc) => doc.id === recoveryDraft.id)
     if (!persistedRecovery) {
-      draftsToClear.push({
-        documentId: recoveryDraft.id,
-        savedAt: Number.POSITIVE_INFINITY,
-      })
+      const recovered = normalizeCanvasDocLayers(recoveryDraft)
+      docs = [...docs, recovered]
+      recoveredDocumentIds.push(recovered.id)
       continue
     }
 

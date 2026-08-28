@@ -1,10 +1,10 @@
 import type { Page } from '@playwright/test'
-import { appStatus, downloadBuffer, expect, openApp, test } from './helpers'
+import { appStatus, downloadBuffer, expect, focusCanvas, openApp, test } from './helpers'
 
 async function exportBackup(page: Page) {
-  await page.getByRole('button', { name: '导出', exact: true }).click()
+  await page.getByRole('button', { name: '文件', exact: true }).click()
   const downloadPromise = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'JSON 备份' }).click()
+  await page.getByRole('button', { name: 'JSON 备份', exact: true }).click()
   return JSON.parse((await downloadBuffer(await downloadPromise)).toString('utf8'))
 }
 
@@ -46,6 +46,7 @@ test.describe('核心编辑交互回归', () => {
     const undoneBackup = await exportBackup(page)
     expect(undoneBackup.document.elements[0]).toMatchObject({ x: initial.x, y: initial.y })
 
+    await focusCanvas(page)
     await page.keyboard.press('Control+d')
     await expect(appStatus(page)).toContainText('2 个元素')
 
@@ -92,13 +93,14 @@ test.describe('核心编辑交互回归', () => {
     await page.mouse.up()
     await expect(appStatus(page)).toContainText('2 个元素')
 
+    await focusCanvas(page)
     await page.keyboard.press('Control+g')
     const grouped = await exportBackup(page)
     expect(grouped.document.elements.filter((element: any) => element.groupId)).toHaveLength(2)
 
     await page.mouse.click(360, 220, { button: 'right' })
     await expect(page.locator('.context-menu')).toBeVisible()
-    await page.getByRole('button', { name: '取消分组' }).click()
+    await page.getByRole('menuitem', { name: '取消分组' }).click()
     await expect(appStatus(page)).toContainText('2 个元素')
 
     await page.getByRole('button', { name: '展开图层' }).click()
@@ -121,6 +123,7 @@ test.describe('核心编辑交互回归', () => {
 
     await page.getByRole('button', { name: '颜色' }).click()
     await page.getByRole('button', { name: '红色' }).click()
+    await focusCanvas(page)
     await page.keyboard.press('4')
     await expect(page.getByRole('button', { name: '无填充' })).toBeVisible()
     await page.getByRole('button', { name: '无填充' }).click()
@@ -131,6 +134,7 @@ test.describe('核心编辑交互回归', () => {
 
     await page.getByRole('button', { name: '背景设置' }).click()
     await page.getByRole('menuitemradio', { name: '点阵' }).click()
+    await focusCanvas(page)
     await page.keyboard.press('0')
     await expect(page.getByRole('button', { name: /^选择工具/ })).toHaveClass(/on/)
 
@@ -163,6 +167,7 @@ test.describe('核心编辑交互回归', () => {
     await page.mouse.up()
     await expect(zoomButton).toHaveAttribute('aria-label', /110%/)
 
+    await focusCanvas(page)
     await page.keyboard.down('Space')
     await page.mouse.move(980, 500)
     await page.mouse.down()
@@ -193,7 +198,7 @@ test.describe('核心编辑交互回归', () => {
   test('画笔类型、线宽、颜色与橡皮擦撤销作用于真实元素', async ({ page }) => {
     await openApp(page)
     await page.getByRole('button', { name: /画笔：/ }).click()
-    await page.getByRole('menuitem').filter({ hasText: '荧光笔' }).click()
+    await page.getByRole('menuitemradio', { name: '荧光笔' }).click()
     await page.getByRole('button', { name: '颜色' }).click()
     await page.getByRole('button', { name: '蓝色' }).click()
     await page.getByRole('button', { name: '粗 16像素' }).click()
@@ -318,9 +323,9 @@ test.describe('核心编辑交互回归', () => {
     await drawRectangle(page, { x: 360, y: 220 }, { x: 580, y: 360 })
 
     for (const label of ['PNG 图片', 'JPEG 图片', 'PDF 文档', 'SVG 矢量图', 'JSON 备份']) {
-      await page.getByRole('button', { name: '导出', exact: true }).click()
+      await page.getByRole('button', { name: '文件', exact: true }).click()
       const downloadPromise = page.waitForEvent('download')
-      await page.getByRole('button', { name: label }).click()
+      await page.getByRole('button', { name: label, exact: true }).click()
       const download = await downloadPromise
       const buffer = await downloadBuffer(download)
       expect(buffer.byteLength).toBeGreaterThan(20)

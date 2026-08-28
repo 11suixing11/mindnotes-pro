@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
 import { sanitizeImageDataUrl } from '../../canvas/svgSanitizer'
@@ -7,6 +7,7 @@ import { createRuntimeId } from '../../store/runtimeId'
 import type { CanvasBackgroundStyle } from '../../store/types'
 import { useToastStore } from '../../store/toastStore'
 import { getMainCanvas, getVisibleCanvasViewport } from '../canvas/viewport'
+import { useDialogFocus } from '../useDialogFocus'
 import { icons } from './icons'
 
 const BACKGROUND_OPTIONS: {
@@ -59,6 +60,7 @@ const BACKGROUND_OPTIONS: {
 const CanvasActionButtons = memo(function CanvasActionButtons() {
   const toast = useToastStore((s) => s.show)
   const [showBackground, setShowBackground] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const [backgroundPos, setBackgroundPos] = useState({ top: 0, left: 0 })
   const { canvasBg, setCanvasBg, backgroundStyle, setBackgroundStyle, addElement } = useAppStore(
     useShallow((s) => ({
@@ -73,6 +75,18 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
   const imgRef = useRef<HTMLInputElement>(null)
   const bgRef = useRef<HTMLInputElement>(null)
   const backgroundBtnRef = useRef<HTMLButtonElement>(null)
+  const closeBackgroundMenu = useCallback(() => setShowBackground(false), [])
+  const backgroundMenuRef = useDialogFocus<HTMLDivElement>({
+    open: showBackground,
+    onClose: closeBackgroundMenu,
+  })
+
+  useEffect(() => {
+    const syncFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement))
+    syncFullscreen()
+    document.addEventListener('fullscreenchange', syncFullscreen)
+    return () => document.removeEventListener('fullscreenchange', syncFullscreen)
+  }, [])
 
   const toggleBackgroundMenu = useCallback(() => {
     if (!showBackground && backgroundBtnRef.current) {
@@ -119,6 +133,7 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
         }
         img.src = safeDataUrl
       }
+      r.onerror = () => toast('图片读取失败，请重试', 'error')
       r.readAsDataURL(f)
       e.target.value = ''
     },
@@ -126,9 +141,16 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
   )
 
   const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) document.documentElement.requestFullscreen()
-    else document.exitFullscreen()
-  }, [])
+    const request = async () => {
+      try {
+        if (!document.fullscreenElement) await document.documentElement.requestFullscreen()
+        else await document.exitFullscreen()
+      } catch {
+        toast('全屏切换失败，请检查浏览器权限', 'error')
+      }
+    }
+    void request()
+  }, [toast])
 
   return (
     <>
@@ -141,6 +163,7 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
         aria-label="背景设置"
         aria-haspopup="menu"
         aria-expanded={showBackground}
+        aria-controls="background-style-menu"
       >
         <span
           className="inline-block w-[14px] h-[14px] rounded-[4px] border-[1.5px] border-[var(--border)]"
@@ -155,9 +178,12 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
         createPortal(
           <>
             <div
+              ref={backgroundMenuRef}
+              id="background-style-menu"
               className="panel em-menu"
               role="menu"
               aria-label="背景样式"
+              tabIndex={-1}
               style={{ top: backgroundPos.top, left: backgroundPos.left }}
             >
               {BACKGROUND_OPTIONS.map((option) => (
@@ -169,7 +195,7 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
                   aria-checked={backgroundStyle === option.value}
                   onClick={() => {
                     setBackgroundStyle(option.value)
-                    setShowBackground(false)
+                    closeBackgroundMenu()
                   }}
                 >
                   <span
@@ -186,9 +212,11 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
               <button
                 type="button"
                 className="ditem"
+                role="menuitem"
+                aria-label="自定义背景色"
                 onClick={() => {
                   bgRef.current?.click()
-                  setShowBackground(false)
+                  closeBackgroundMenu()
                 }}
               >
                 <span
@@ -198,7 +226,7 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
                 <span className="dl">自定义背景色</span>
               </button>
             </div>
-            <div className="em-overlay" onClick={() => setShowBackground(false)} />
+            <div className="em-overlay" aria-hidden="true" onClick={closeBackgroundMenu} />
           </>,
           document.body
         )}
@@ -216,9 +244,10 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
       <button
         onClick={toggleFullscreen}
         className="abtn"
-        data-tip="全屏"
-        title="全屏"
-        aria-label="全屏"
+        data-tip={isFullscreen ? '退出全屏' : '进入全屏'}
+        title={isFullscreen ? '退出全屏' : '进入全屏'}
+        aria-label={isFullscreen ? '退出全屏' : '进入全屏'}
+        aria-pressed={isFullscreen}
       >
         {icons.fullscreen}
       </button>
@@ -226,6 +255,7 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
       <input
         ref={imgRef}
         type="file"
+        tabIndex={-1}
         accept="image/*"
         onChange={importImage}
         aria-label="选择图片文件"
@@ -234,6 +264,7 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
       <input
         ref={bgRef}
         type="color"
+        tabIndex={-1}
         value={canvasBg}
         onChange={(e) => setCanvasBg(e.target.value)}
         aria-label="选择背景颜色"

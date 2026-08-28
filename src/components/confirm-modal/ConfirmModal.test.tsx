@@ -22,8 +22,10 @@ describe('ConfirmModal', () => {
         })
       )
     })
-    expect(screen.getByText('Are you sure?')).toBeTruthy()
-    expect(screen.getByRole('dialog')).toBeTruthy()
+    const message = screen.getByText('Are you sure?')
+    const dialog = screen.getByRole('dialog', { name: '确认操作' })
+    expect(message.id).toBe('confirm-modal-message')
+    expect(dialog.getAttribute('aria-describedby')).toBe(message.id)
   })
 
   it('shows default button labels', () => {
@@ -92,7 +94,7 @@ describe('ConfirmModal', () => {
       )
     })
 
-    fireEvent.click(screen.getByLabelText('确认'))
+    fireEvent.click(screen.getByLabelText('确定'))
     expect(resolve).toHaveBeenCalledWith(true)
   })
 
@@ -126,7 +128,7 @@ describe('ConfirmModal', () => {
         })
       )
     })
-    const confirmBtn = screen.getByLabelText('确认')
+    const confirmBtn = screen.getByLabelText('确定')
     expect(confirmBtn.className).toContain('btn-danger')
   })
 
@@ -139,7 +141,7 @@ describe('ConfirmModal', () => {
         })
       )
     })
-    const confirmBtn = screen.getByLabelText('确认')
+    const confirmBtn = screen.getByLabelText('确定')
     expect(confirmBtn.className).toContain('btn-cancel')
   })
 
@@ -159,7 +161,7 @@ describe('ConfirmModal', () => {
       )
     })
 
-    fireEvent.click(screen.getByLabelText('确认'))
+    fireEvent.click(screen.getByLabelText('确定'))
     // After closing, the dialog should be gone
     expect(screen.queryByRole('dialog')).toBeNull()
   })

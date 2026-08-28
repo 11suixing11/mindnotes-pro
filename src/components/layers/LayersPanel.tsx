@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDown,
   ArrowUp,
@@ -18,6 +18,7 @@ import { useAppStore } from '../../store/appStore'
 import type { CanvasLayer } from '../../store/types'
 import { getElementLayerId, getSortedLayers, isLayerWritable } from '../../store/layers'
 import { useConfirm } from '../confirm-modal'
+import { useDialogFocus } from '../useDialogFocus'
 
 function layerElementsLabel(count: number) {
   return `${count} 个元素`
@@ -39,9 +40,23 @@ export default function LayersPanel() {
   const confirm = useConfirm()
 
   const [expanded, setExpanded] = useState(false)
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 768
+  )
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const closePanel = useCallback(() => setExpanded(false), [])
+  const panelRef = useDialogFocus<HTMLElement>({
+    open: expanded && isMobileViewport,
+    onClose: closePanel,
+  })
+
+  useEffect(() => {
+    const handleResize = () => setIsMobileViewport(window.innerWidth <= 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const sortedLayers = useMemo(() => getSortedLayers(layers), [layers])
   const displayLayers = useMemo(() => [...sortedLayers].reverse(), [sortedLayers])
@@ -84,168 +99,185 @@ export default function LayersPanel() {
   }
 
   return (
-    <section
-      className={`layers-panel${expanded ? ' layers-panel-expanded' : ''}`}
-      aria-label="图层"
-    >
-      <div className="layers-header">
+    <>
+      {expanded && isMobileViewport && (
         <button
           type="button"
-          className="layers-toggle"
-          aria-expanded={expanded}
-          aria-label={expanded ? '收起图层' : '展开图层'}
-          onClick={() => setExpanded((value) => !value)}
-        >
-          {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          <Layers3 size={16} aria-hidden="true" />
-          <span className="layers-heading">
-            <span className="layers-title">图层</span>
-            <span className="layers-meta">
-              {layers.length} 个图层 · 已选 {selectedIds.length} 个元素
-            </span>
-          </span>
-        </button>
-        {expanded && (
+          className="layers-sheet-overlay"
+          tabIndex={-1}
+          aria-hidden="true"
+          onClick={closePanel}
+        />
+      )}
+      <section
+        className={`layers-panel${expanded ? ' layers-panel-expanded' : ''}`}
+        ref={panelRef}
+        role={expanded && isMobileViewport ? 'dialog' : 'region'}
+        aria-label="图层"
+        aria-modal={expanded && isMobileViewport ? true : undefined}
+        aria-labelledby={expanded && isMobileViewport ? 'layers-panel-title' : undefined}
+      >
+        <div className="layers-header">
           <button
             type="button"
-            className="layers-icon-btn layers-create-btn"
-            aria-label="新建图层"
-            title="新建图层"
-            onClick={() => createLayer()}
+            className="layers-toggle"
+            aria-expanded={expanded}
+            aria-label={expanded ? '收起图层' : '展开图层'}
+            onClick={() => setExpanded((value) => !value)}
           >
-            <Plus size={15} />
+            {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            <Layers3 size={16} aria-hidden="true" />
+            <span className="layers-heading">
+              <span id="layers-panel-title" className="layers-title">
+                图层
+              </span>
+              <span className="layers-meta">
+                {layers.length} 个图层 · 已选 {selectedIds.length} 个元素
+              </span>
+            </span>
           </button>
-        )}
-      </div>
-
-      {expanded && (
-        <div className="layers-list" role="group" aria-label="画布图层">
-          {displayLayers.map((layer) => {
-            const isActive = layer.id === activeLayerId
-            const canActivate = isLayerWritable(layers, layer.id)
-            const canHide = layer.visible ? visibleCount > 1 : true
-            const canMoveSelection = selectedIds.length > 0 && canActivate
-            const count = layerCounts.get(layer.id) ?? 0
-
-            return (
-              <div
-                key={layer.id}
-                role="group"
-                aria-label={layer.name}
-                className={`layers-row${isActive ? ' layers-row-active' : ''}${
-                  !layer.visible ? ' layers-row-muted' : ''
-                }`}
-              >
-                <button
-                  type="button"
-                  className="layers-row-main"
-                  aria-current={isActive ? 'true' : undefined}
-                  disabled={!canActivate}
-                  onClick={() => setActiveLayer(layer.id)}
-                >
-                  <span className="layers-swatch" aria-hidden="true" />
-                  <span className="layers-row-text">
-                    {renamingId === layer.id ? (
-                      <input
-                        ref={inputRef}
-                        aria-label={`重命名 ${layer.name}`}
-                        className="layers-name-input"
-                        value={renameValue}
-                        onChange={(event) => setRenameValue(event.target.value)}
-                        onClick={(event) => event.stopPropagation()}
-                        onBlur={commitRename}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault()
-                            commitRename()
-                          } else if (event.key === 'Escape') {
-                            event.preventDefault()
-                            setRenamingId(null)
-                          }
-                        }}
-                      />
-                    ) : (
-                      <span className="layers-name">{layer.name}</span>
-                    )}
-                    <span className="layers-count">{layerElementsLabel(count)}</span>
-                  </span>
-                </button>
-
-                <div className="layers-actions" aria-label={`${layer.name} 操作`}>
-                  <button
-                    type="button"
-                    className="layers-icon-btn"
-                    aria-label={layer.visible ? `隐藏 ${layer.name}` : `显示 ${layer.name}`}
-                    title={layer.visible ? '隐藏图层' : '显示图层'}
-                    disabled={!canHide}
-                    onClick={() => setLayerVisibility(layer.id, !layer.visible)}
-                  >
-                    {layer.visible ? <Eye size={14} /> : <EyeOff size={14} />}
-                  </button>
-                  <button
-                    type="button"
-                    className="layers-icon-btn"
-                    aria-label={layer.locked ? `解锁 ${layer.name}` : `锁定 ${layer.name}`}
-                    title={layer.locked ? '解锁图层' : '锁定图层'}
-                    onClick={() => setLayerLocked(layer.id, !layer.locked)}
-                  >
-                    {layer.locked ? <Lock size={14} /> : <Unlock size={14} />}
-                  </button>
-                  <button
-                    type="button"
-                    className="layers-icon-btn"
-                    aria-label={`上移 ${layer.name}`}
-                    title="上移图层"
-                    disabled={layer.order >= maxOrder}
-                    onClick={() => moveLayer(layer.id, 'up')}
-                  >
-                    <ArrowUp size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="layers-icon-btn"
-                    aria-label={`下移 ${layer.name}`}
-                    title="下移图层"
-                    disabled={layer.order <= minOrder}
-                    onClick={() => moveLayer(layer.id, 'down')}
-                  >
-                    <ArrowDown size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="layers-icon-btn layers-move-btn"
-                    aria-label={`将所选元素移到 ${layer.name}`}
-                    title="将所选元素移到此图层"
-                    disabled={!canMoveSelection}
-                    onClick={() => moveSelectedToLayer(layer.id)}
-                  >
-                    <MoveRight size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="layers-icon-btn"
-                    aria-label={`重命名 ${layer.name}`}
-                    title="重命名图层"
-                    onClick={() => startRename(layer)}
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="layers-icon-btn layers-danger-btn"
-                    aria-label={`删除 ${layer.name}`}
-                    title="删除图层"
-                    disabled={layers.length <= 1}
-                    onClick={() => void requestDelete(layer)}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+          {expanded && (
+            <button
+              type="button"
+              className="layers-icon-btn layers-create-btn"
+              aria-label="新建图层"
+              title="新建图层"
+              onClick={() => createLayer()}
+            >
+              <Plus size={15} />
+            </button>
+          )}
         </div>
-      )}
-    </section>
+
+        {expanded && (
+          <div className="layers-list" role="group" aria-label="画布图层">
+            {displayLayers.map((layer) => {
+              const isActive = layer.id === activeLayerId
+              const canActivate = isLayerWritable(layers, layer.id)
+              const canHide = layer.visible ? visibleCount > 1 : true
+              const canMoveSelection = selectedIds.length > 0 && canActivate
+              const count = layerCounts.get(layer.id) ?? 0
+
+              return (
+                <div
+                  key={layer.id}
+                  role="group"
+                  aria-label={layer.name}
+                  className={`layers-row${isActive ? ' layers-row-active' : ''}${
+                    !layer.visible ? ' layers-row-muted' : ''
+                  }`}
+                >
+                  <button
+                    type="button"
+                    className="layers-row-main"
+                    aria-current={isActive ? 'true' : undefined}
+                    disabled={!canActivate}
+                    onClick={() => setActiveLayer(layer.id)}
+                  >
+                    <span className="layers-swatch" aria-hidden="true" />
+                    <span className="layers-row-text">
+                      {renamingId === layer.id ? (
+                        <input
+                          ref={inputRef}
+                          aria-label={`重命名 ${layer.name}`}
+                          className="layers-name-input"
+                          value={renameValue}
+                          onChange={(event) => setRenameValue(event.target.value)}
+                          onClick={(event) => event.stopPropagation()}
+                          onBlur={commitRename}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault()
+                              commitRename()
+                            } else if (event.key === 'Escape') {
+                              event.preventDefault()
+                              setRenamingId(null)
+                            }
+                          }}
+                        />
+                      ) : (
+                        <span className="layers-name">{layer.name}</span>
+                      )}
+                      <span className="layers-count">{layerElementsLabel(count)}</span>
+                    </span>
+                  </button>
+
+                  <div className="layers-actions" aria-label={`${layer.name} 操作`}>
+                    <button
+                      type="button"
+                      className="layers-icon-btn"
+                      aria-label={layer.visible ? `隐藏 ${layer.name}` : `显示 ${layer.name}`}
+                      title={layer.visible ? '隐藏图层' : '显示图层'}
+                      disabled={!canHide}
+                      onClick={() => setLayerVisibility(layer.id, !layer.visible)}
+                    >
+                      {layer.visible ? <Eye size={14} /> : <EyeOff size={14} />}
+                    </button>
+                    <button
+                      type="button"
+                      className="layers-icon-btn"
+                      aria-label={layer.locked ? `解锁 ${layer.name}` : `锁定 ${layer.name}`}
+                      title={layer.locked ? '解锁图层' : '锁定图层'}
+                      onClick={() => setLayerLocked(layer.id, !layer.locked)}
+                    >
+                      {layer.locked ? <Lock size={14} /> : <Unlock size={14} />}
+                    </button>
+                    <button
+                      type="button"
+                      className="layers-icon-btn"
+                      aria-label={`上移 ${layer.name}`}
+                      title="上移图层"
+                      disabled={layer.order >= maxOrder}
+                      onClick={() => moveLayer(layer.id, 'up')}
+                    >
+                      <ArrowUp size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="layers-icon-btn"
+                      aria-label={`下移 ${layer.name}`}
+                      title="下移图层"
+                      disabled={layer.order <= minOrder}
+                      onClick={() => moveLayer(layer.id, 'down')}
+                    >
+                      <ArrowDown size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="layers-icon-btn layers-move-btn"
+                      aria-label={`将所选元素移到 ${layer.name}`}
+                      title="将所选元素移到此图层"
+                      disabled={!canMoveSelection}
+                      onClick={() => moveSelectedToLayer(layer.id)}
+                    >
+                      <MoveRight size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="layers-icon-btn"
+                      aria-label={`重命名 ${layer.name}`}
+                      title="重命名图层"
+                      onClick={() => startRename(layer)}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="layers-icon-btn layers-danger-btn"
+                      aria-label={`删除 ${layer.name}`}
+                      title="删除图层"
+                      disabled={layers.length <= 1}
+                      onClick={() => void requestDelete(layer)}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </section>
+    </>
   )
 }

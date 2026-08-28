@@ -16,6 +16,7 @@ export type {
   ImageElement,
   CanvasElement,
   CanvasLayer,
+  CanvasWorkspaceMetadata,
   UndoAction,
   CanvasSchemaVersion,
   CanvasDoc,

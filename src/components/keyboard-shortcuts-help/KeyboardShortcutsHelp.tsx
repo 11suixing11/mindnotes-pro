@@ -5,7 +5,7 @@ import {
   findShortcutAction,
   getShortcutCategoryLabel,
   getShortcutKeyParts,
-  isEditableShortcutTarget,
+  isInteractiveShortcutTarget,
   type ShortcutCategory,
 } from '../../keyboard/shortcuts'
 import { useShortcutStore } from '../../store/useShortcutStore'
@@ -85,7 +85,7 @@ export default memo(function KeyboardShortcutsHelp({
   useEffect(() => {
     if (!visible) return
     const handler = (e: KeyboardEvent) => {
-      if (isEditableShortcutTarget(e.target)) return
+      if (isInteractiveShortcutTarget(e.target)) return
       const action = findShortcutAction(e, useShortcutStore.getState().bindings)
       if (action === 'help.shortcuts') {
         e.preventDefault()
@@ -112,6 +112,7 @@ export default memo(function KeyboardShortcutsHelp({
         role="dialog"
         aria-modal="true"
         aria-labelledby="keyboard-shortcuts-help-title"
+        aria-describedby="keyboard-shortcuts-help-description"
         tabIndex={-1}
       >
         <div className="flex items-center justify-between gap-[12px] mb-[16px]">
@@ -139,6 +140,9 @@ export default memo(function KeyboardShortcutsHelp({
             </button>
           </div>
         </div>
+        <p id="keyboard-shortcuts-help-description" className="sr-only">
+          查看当前可用的键盘快捷键。关闭窗口后可继续编辑画布。
+        </p>
         <div className="grid grid-cols-1 gap-[10px] max-h-[56vh] overflow-y-auto pr-[4px]">
           {groupedShortcuts.map((group) => (
             <section key={group.category}>

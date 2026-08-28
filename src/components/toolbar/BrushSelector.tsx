@@ -1,10 +1,9 @@
 import { useRef, useState, useCallback, memo } from 'react'
 import { createPortal } from 'react-dom'
+import { Check, ChevronDown } from 'lucide-react'
 import type { BrushType, ToolType } from '../../store/types'
 import { BRUSH_PRESETS, getBrushPreset } from '../../canvas/brushPresets'
-
-const ARROW = '\u25BE'
-const CHECK = '\u2713'
+import { useDialogFocus } from '../useDialogFocus'
 
 interface BrushSelectorProps {
   brush: BrushType
@@ -17,6 +16,11 @@ const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: Bru
   const [showBrush, setShowBrush] = useState(false)
   const [brushPos, setBrushPos] = useState({ top: 0, left: 0 })
   const currentBrush = getBrushPreset(brush)
+  const closeBrush = useCallback(() => setShowBrush(false), [])
+  const menuRef = useDialogFocus<HTMLDivElement>({
+    open: showBrush,
+    onClose: closeBrush,
+  })
 
   const handleToggle = useCallback(() => {
     if (!showBrush && brushBtnRef.current) {
@@ -30,8 +34,12 @@ const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: Bru
     ? createPortal(
         <>
           <div
+            ref={menuRef}
+            id="brush-selector-menu"
             className="panel fixed min-w-[200px] p-[5px] z-[100]"
             role="menu"
+            aria-label="画笔选择"
+            tabIndex={-1}
             style={{
               top: brushPos.top,
               left: brushPos.left,
@@ -43,10 +51,13 @@ const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: Bru
                 key={b.id}
                 onClick={() => {
                   setBrush(b.id)
-                  setShowBrush(false)
+                  closeBrush()
                 }}
                 className={`ditem ${brush === b.id ? 'bg-[var(--primary-bg)]' : ''}`}
-                role="menuitem"
+                role="menuitemradio"
+                aria-checked={brush === b.id}
+                type="button"
+                aria-label={b.label}
               >
                 <span
                   className="di"
@@ -58,14 +69,14 @@ const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: Bru
                   <span className="dd">{b.description}</span>
                 </div>
                 {brush === b.id && (
-                  <span className="ml-auto text-[var(--primary)] font-medium text-[14px]">
-                    {CHECK}
+                  <span className="ml-auto text-[var(--primary)]">
+                    <Check size={15} aria-hidden="true" />
                   </span>
                 )}
               </button>
             ))}
           </div>
-          <div className="fixed inset-0 z-[5]" onClick={() => setShowBrush(false)} />
+          <div className="fixed inset-0 z-[79]" aria-hidden="true" onClick={closeBrush} />
         </>,
         document.body
       )
@@ -81,11 +92,12 @@ const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: Bru
         className="pill-btn ghost"
         style={{ whiteSpace: 'nowrap' }}
         aria-label={`画笔：${currentBrush.label}`}
-        aria-haspopup="true"
+        aria-haspopup="menu"
         aria-expanded={showBrush}
+        aria-controls="brush-selector-menu"
       >
         <span>{currentBrush.label}</span>
-        <span className="text-[9px] opacity-50">{ARROW}</span>
+        <ChevronDown size={12} aria-hidden="true" className="opacity-50" />
       </button>
       <div className="tb-sep" />
       {dropdown}

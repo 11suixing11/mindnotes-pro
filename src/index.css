@@ -57,6 +57,58 @@ button:focus:not(:focus-visible) {
   border-width: 0;
 }
 
+/* The semantic canvas list stays unobtrusive for pointer users, then becomes
+   a visible keyboard workspace as soon as one of its controls receives focus. */
+.canvas-accessibility:focus-within,
+.canvas-accessibility:focus {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 180;
+  width: min(380px, calc(100vw - 24px));
+  height: auto;
+  max-height: calc(100dvh - 24px);
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  clip: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card-solid);
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  white-space: normal;
+}
+
+.canvas-accessibility h2 {
+  margin-bottom: 4px;
+  font-size: 16px;
+}
+
+.canvas-accessibility p {
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.canvas-accessibility ol {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  list-style: none;
+}
+
+.canvas-accessibility button {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--text-2);
+  text-align: left;
+}
+
 @font-face {
   font-family: 'Noto Sans SC';
   font-style: normal;
@@ -89,8 +141,8 @@ button:focus:not(:focus-visible) {
   --card-solid: #ffffff;
   --text: #182326;
   --text-2: #405156;
-  --text-3: #6d7d81;
-  --text-4: #9ba8ab;
+  --text-3: #58696e;
+  --text-4: #5f7075;
   --border: rgba(41, 63, 68, 0.16);
   --primary: #147d78;
   --primary-hover: #0f6a66;
@@ -128,8 +180,8 @@ button:focus:not(:focus-visible) {
   --card-solid: #1e2629;
   --text: #eef3f3;
   --text-2: #bdc9cb;
-  --text-3: #89999d;
-  --text-4: #637277;
+  --text-3: #aab8bb;
+  --text-4: #8e9da1;
   --border: rgba(206, 222, 224, 0.14);
   --primary: #5bc1b9;
   --primary-hover: #78d0c9;
@@ -157,6 +209,163 @@ button:focus:not(:focus-visible) {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+.first-use-notice {
+  position: absolute;
+  top: 78px;
+  left: 50%;
+  z-index: 35;
+  display: flex;
+  max-width: min(560px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.first-use-notice button {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 500;
+}
+
+.canvas-empty-state {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 10;
+  width: min(440px, calc(100% - 32px));
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+
+.canvas-empty-state h2 {
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.canvas-empty-state p {
+  margin-top: 6px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.canvas-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  pointer-events: auto;
+}
+
+.canvas-empty-actions button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card-solid);
+  color: var(--text-2);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.canvas-empty-actions button:first-child {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+.empty-canvas-state {
+  position: absolute;
+  /* Keep the onboarding affordance out of the primary drawing corridor. The
+     canvas remains immediately usable even before the first element exists. */
+  top: 24%;
+  left: 50%;
+  z-index: 10;
+  width: min(440px, calc(100% - 32px));
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+
+.empty-canvas-state h2 {
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 500;
+}
+.empty-canvas-state p {
+  margin-top: 6px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+.empty-canvas-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  pointer-events: auto;
+}
+.empty-canvas-action {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card-solid);
+  color: var(--text-2);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  font-size: 13px;
+}
+.empty-canvas-action-primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  .first-use-notice {
+    top: max(64px, calc(env(safe-area-inset-top) + 64px));
+    align-items: center;
+  }
+
+  .first-use-notice button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .canvas-empty-state {
+    top: 46%;
+  }
+
+  .empty-canvas-state {
+    top: 30%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 body {
@@ -382,7 +591,7 @@ body,
   background: transparent;
   color: var(--text-3);
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   outline: none;
   overflow: hidden;
   touch-action: manipulation;
@@ -469,6 +678,16 @@ body,
 }
 
 .toolbar-scroll-control {
+  display: none;
+}
+
+/* Phone-first controls are rendered alongside the desktop toolbars so the
+   file/import implementation stays shared. They only become visible at the
+   phone breakpoint. */
+.mobile-toolbar,
+.mobile-more-panel,
+.mobile-sheet-overlay,
+.mobile-selection-actions {
   display: none;
 }
 
@@ -598,7 +817,7 @@ body,
   border-radius: 50%;
   border: 2.5px solid transparent;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   outline: none;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   touch-action: manipulation;
@@ -628,7 +847,7 @@ body,
   border: none;
   background: transparent;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   outline: none;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -837,10 +1056,22 @@ body,
   animation: popIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+@media (max-width: 768px) {
+  .em-file-menu {
+    top: auto !important;
+    right: 8px !important;
+    bottom: max(74px, calc(env(safe-area-inset-bottom) + 74px));
+    left: 8px !important;
+    width: auto;
+    max-height: min(72dvh, 620px);
+    overflow-y: auto;
+  }
+}
+
 .em-overlay {
   position: fixed;
   inset: 0;
-  z-index: 5;
+  z-index: 79;
 }
 
 .em-icon {
@@ -852,6 +1083,15 @@ body,
 .em-labels {
   display: flex;
   flex-direction: column;
+}
+
+.em-section-title {
+  padding: 7px 13px 4px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .em-jpeg-panel {
@@ -999,6 +1239,40 @@ body,
 
 .status-save-error {
   color: var(--danger);
+}
+
+.status-save-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-save-actions .status-save,
+.status-recovery {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.status-save-actions .status-save {
+  padding: 0;
+}
+
+.status-recovery {
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: var(--primary);
+  font-size: 11px;
+}
+
+.status-recovery:hover,
+.status-recovery:focus-visible,
+.status-save-actions .status-save:hover,
+.status-save-actions .status-save:focus-visible {
+  text-decoration: underline;
 }
 
 .status-feedback {
@@ -1220,11 +1494,22 @@ body,
   }
 }
 
-/* At compact widths the status capsule competes with the bottom utility dock.
-   The same information remains available in the toolbar, so remove the
-   collision rather than stacking another overlay. */
-@media (max-width: 1024px) {
+/* Keep persistence visible on tablets without letting the full desktop status
+   row compete with the toolbars. Phone-specific positioning is defined below. */
+@media (min-width: 769px) and (max-width: 1024px) {
   .status {
+    right: auto;
+    bottom: 12px;
+    left: 12px;
+    display: flex;
+    width: auto;
+    max-width: calc(100vw - 24px);
+    margin: 0;
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .status > :not(.dot):not(.status-save):not(.status-save-actions) {
     display: none;
   }
 }
@@ -1272,148 +1557,541 @@ body,
 }
 
 @media (max-width: 768px) {
-  .layers-dock {
-    right: var(--canvas-edge);
-    bottom: max(72px, calc(env(safe-area-inset-bottom) + 64px));
-    width: min(340px, calc(100% - 24px));
-    border-right: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+  .sidebar,
+  .topbar,
+  .toolbar-scroll-control {
+    display: none !important;
+  }
+
+  .mobile-toolbar {
+    position: absolute;
+    left: max(6px, env(safe-area-inset-left));
+    right: max(6px, env(safe-area-inset-right));
+    bottom: max(6px, env(safe-area-inset-bottom));
+    z-index: 42;
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    height: 62px;
+    padding: 5px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card-solid);
     box-shadow: var(--shadow-lg);
   }
 
-  .sidebar {
-    position: absolute;
-    left: 8px;
-    right: 8px;
-    top: auto;
-    bottom: max(8px, env(safe-area-inset-bottom));
-    transform: none;
-    flex-direction: row;
-    align-items: center;
-    padding: 6px;
-    gap: 2px;
-    max-width: none;
-    max-height: 58px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-  }
-
-  .sidebar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .sidebar .sb-group {
-    flex-direction: row;
-  }
-
-  .sidebar .sb-sep {
-    width: 1px;
-    height: 24px;
-    margin: auto 3px;
-  }
-
-  .tbtn {
-    width: 36px;
-    height: 36px;
-  }
-
-  .topbar {
-    top: 8px;
-    left: 8px;
-    right: 8px;
-    padding: 6px 10px;
-    gap: 6px;
-    max-height: 52px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    flex-wrap: nowrap;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  /* Keep horizontally scrollable controls usable instead of letting flex shrink collapse them. */
-  .topbar > * {
-    flex: 0 0 auto;
-  }
-
-  .install-btn-label {
-    display: none;
-  }
-
-  .topbar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .topbar .tb-sep {
-    margin: 0 3px;
-    height: 16px;
-  }
-
-  .toolbar-scroll-control {
-    position: absolute;
-    z-index: 31;
+  .mobile-tool-button {
     display: flex;
-    width: 44px;
-    height: 44px;
+    width: 100%;
+    min-width: 44px;
+    height: 52px;
+    min-height: 44px;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--card-solid);
-    color: var(--text-2);
-    box-shadow: var(--shadow-md);
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px 1px;
+    overflow: hidden;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-3);
     cursor: pointer;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
 
-  .toolbar-scroll-control:hover,
-  .toolbar-scroll-control:focus-visible {
+  .mobile-tool-button:hover,
+  .mobile-tool-button:focus-visible {
+    background: var(--primary-bg);
+    color: var(--primary);
+  }
+
+  .mobile-tool-button.is-active {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  .mobile-tool-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.35;
+  }
+
+  .mobile-tool-label {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 10px;
+    line-height: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-sheet-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: block;
+    background: rgba(12, 18, 20, 0.32);
+  }
+
+  .mobile-more-panel {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 91;
+    display: flex;
+    max-height: min(72dvh, 620px);
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: env(safe-area-inset-bottom);
+    border: 1px solid var(--border);
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    background: var(--card-solid);
+    box-shadow: 0 -12px 34px rgba(20, 33, 36, 0.18);
+  }
+
+  .mobile-sheet-header {
+    display: flex;
+    min-height: 52px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 8px 4px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mobile-sheet-header h2 {
+    margin: 0;
+    color: var(--text);
+    font-size: 16px;
+    font-weight: var(--ui-weight-medium);
+    line-height: 22px;
+  }
+
+  .mobile-sheet-close {
+    display: flex;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 26px;
+    line-height: 1;
+  }
+
+  .mobile-sheet-close:hover,
+  .mobile-sheet-close:focus-visible {
+    background: var(--primary-bg);
+    color: var(--primary);
+  }
+
+  .mobile-more-content {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px 12px 16px;
+  }
+
+  .mobile-more-section {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mobile-more-section:last-child {
+    border-bottom: 0;
+  }
+
+  .mobile-more-section h3 {
+    margin: 0 0 8px;
+    color: var(--text-3);
+    font-size: 12px;
+    font-weight: var(--ui-weight-medium);
+    line-height: 18px;
+  }
+
+  .mobile-more-grid {
+    display: grid;
+    gap: 6px;
+  }
+
+  .mobile-shape-grid,
+  .mobile-view-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .mobile-more-panel .mobile-tool-button {
+    height: 58px;
+    border: 1px solid var(--border);
+    background: var(--card);
+  }
+
+  .mobile-more-panel .mobile-tool-button.is-active {
+    border-color: var(--primary);
+    background: var(--primary-bg);
+    color: var(--primary);
+  }
+
+  .mobile-more-panel .mobile-tool-label {
+    font-size: 11px;
+  }
+
+  .mobile-shape-icon {
+    position: relative;
+    display: block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid currentColor;
+  }
+
+  .mobile-shape-circle {
+    border-radius: 50%;
+  }
+
+  .mobile-shape-line {
+    border: 0;
+  }
+
+  .mobile-shape-line::before {
+    position: absolute;
+    top: 9px;
+    left: 0;
+    width: 22px;
+    height: 2px;
+    background: currentColor;
+    content: '';
+    transform: rotate(-42deg);
+    transform-origin: center;
+  }
+
+  .mobile-grid-size,
+  .mobile-zoom-value {
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mobile-background-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  /* Keep the semantic radio group transparent to the visual grid so the
+     custom-color command remains a separate, non-radio control. */
+  .mobile-background-style-options {
+    display: contents;
+  }
+
+  .mobile-background-option {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 50px;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 7px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 11px;
+  }
+
+  .mobile-background-option.is-active {
+    border-color: var(--primary);
+    background: var(--primary-bg);
+    color: var(--primary);
+  }
+
+  .mobile-background-preview {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background-color: var(--canvas);
+  }
+
+  .mobile-background-grid {
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 7px 7px;
+  }
+
+  .mobile-background-dots {
+    background-image: radial-gradient(circle, var(--text-4) 1px, transparent 1.2px);
+    background-size: 7px 7px;
+  }
+
+  .mobile-background-ruled {
+    background-image: linear-gradient(var(--border) 1px, transparent 1px);
+    background-size: 100% 7px;
+  }
+
+  .mobile-background-notebook {
+    background-image:
+      linear-gradient(
+        90deg,
+        transparent 8px,
+        var(--danger) 8px,
+        var(--danger) 9px,
+        transparent 9px
+      ),
+      linear-gradient(var(--border) 1px, transparent 1px);
+    background-size:
+      100% 100%,
+      100% 7px;
+  }
+
+  .mobile-background-color-option {
+    appearance: none;
+    font-family: inherit;
+    line-height: normal;
+    text-align: left;
+  }
+
+  .mobile-background-color-input {
+    position: fixed;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .mobile-selection-actions {
+    position: absolute;
+    right: max(6px, env(safe-area-inset-right));
+    bottom: max(74px, calc(env(safe-area-inset-bottom) + 74px));
+    left: max(6px, env(safe-area-inset-left));
+    z-index: 41;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    min-height: 54px;
+    align-items: center;
+    gap: 6px;
+    padding: 5px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card-solid);
+    box-shadow: var(--shadow-md);
+  }
+
+  .mobile-selection-count {
+    display: flex;
+    min-width: 0;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--text-3);
+    font-size: 11px;
+    line-height: 16px;
+    white-space: nowrap;
+  }
+
+  .mobile-selection-buttons {
+    display: contents;
+  }
+
+  .mobile-action-button {
+    display: inline-flex;
+    min-width: 0;
+    width: 100%;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 0 7px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 10px;
+  }
+
+  .mobile-action-button:hover,
+  .mobile-action-button:focus-visible {
     border-color: var(--primary);
     color: var(--primary);
   }
 
-  .toolbar-scroll-control:active {
-    transform: scale(0.94);
+  .mobile-action-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.35;
   }
 
-  .toolbar-scroll-control-top {
-    top: 12px;
+  .mobile-action-danger {
+    color: var(--danger);
   }
 
-  .toolbar-scroll-control-bottom {
-    bottom: max(15px, calc(env(safe-area-inset-bottom) + 15px));
+  .mobile-selection-select {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    height: 44px;
+    align-items: center;
+    gap: 4px;
+    padding-left: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--text-2);
   }
 
-  .toolbar-scroll-control-back {
-    left: 12px;
+  .mobile-selection-select select {
+    min-width: 0;
+    height: 100%;
+    flex: 1;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 11px;
   }
 
-  .toolbar-scroll-control-forward {
-    right: 12px;
+  .mobile-selection-actions > .mobile-selection-select:nth-last-child(2),
+  .mobile-selection-actions > .mobile-selection-select:last-child {
+    grid-column: span 2;
+  }
+
+  .layers-dock {
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: auto;
+    left: auto;
+    z-index: 40;
+    width: min(240px, calc(100% - 16px));
+    max-height: 52px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+  }
+
+  .layers-dock:has(.layers-panel-expanded) {
+    top: auto;
+    right: 0;
+    bottom: max(74px, calc(env(safe-area-inset-bottom) + 74px));
+    left: 0;
+    z-index: 43;
+    width: 100%;
+    max-height: min(45dvh, 420px);
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0 -10px 28px rgba(20, 33, 36, 0.16);
+    overflow: visible;
+  }
+
+  .layers-sheet-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    display: block;
+    border: 0;
+    background: rgba(12, 18, 20, 0.32);
+  }
+
+  .layers-header {
+    min-height: 52px;
+    padding: 4px 8px;
+  }
+
+  .layers-panel:not(.layers-panel-expanded) .layers-header {
+    min-height: 50px;
+  }
+
+  .layers-panel:not(.layers-panel-expanded) .layers-toggle {
+    min-height: 42px;
+  }
+
+  .layers-toggle,
+  .layers-create-btn,
+  .layers-icon-btn {
+    min-height: 44px;
+  }
+
+  .layers-toggle {
+    gap: 8px;
+  }
+
+  .layers-actions {
+    grid-template-columns: repeat(4, minmax(44px, 1fr));
+    gap: 5px;
+  }
+
+  .layers-icon-btn {
+    height: 44px;
   }
 
   .cdot {
-    width: 24px;
-    height: 24px;
+    width: 44px;
+    height: 44px;
   }
   .szbtn {
-    width: 28px;
-    height: 28px;
+    width: 44px;
+    height: 44px;
   }
   .abtn {
-    width: 34px;
-    height: 34px;
+    width: 44px;
+    height: 44px;
   }
 
   .status {
-    left: 8px;
-    bottom: 8px;
+    right: auto;
+    bottom: max(74px, calc(env(safe-area-inset-bottom) + 74px));
+    left: max(6px, env(safe-area-inset-left));
+    display: flex;
+    width: auto;
+    max-width: calc(100vw - 12px);
+    margin: 0;
     padding: 6px 10px;
     gap: 8px;
     font-size: 10px;
+  }
+
+  .status > :not(.dot):not(.status-save):not(.status-save-actions) {
+    display: none;
+  }
+
+  .workspace-main:has(.mobile-selection-actions) .status,
+  .workspace-main:has(.layers-panel-expanded) .status {
+    top: max(8px, env(safe-area-inset-top));
+    bottom: auto;
+  }
+
+  .status-save-actions {
+    min-width: 0;
+  }
+
+  .status-save,
+  .status-recovery {
+    min-height: 44px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .pill-btn {
@@ -1425,69 +2103,62 @@ body,
 
 @media (max-width: 480px) {
   .layers-dock {
-    right: 8px;
-    width: calc(100% - 16px);
+    right: 0;
+    width: 100%;
   }
 
-  .sidebar {
-    left: 6px;
-    right: 6px;
-    top: auto;
-    bottom: max(6px, env(safe-area-inset-bottom));
-    width: auto;
-    border-radius: var(--radius-lg);
-    max-height: 56px;
-    z-index: 30;
+  .mobile-toolbar {
+    left: max(4px, env(safe-area-inset-left));
+    right: max(4px, env(safe-area-inset-right));
+    gap: 0;
+    padding-right: 3px;
+    padding-left: 3px;
   }
 
-  .topbar {
-    left: 6px;
-    right: 6px;
+  .mobile-tool-button {
+    min-width: 0;
+  }
+
+  .mobile-selection-actions {
+    right: 4px;
+    left: 4px;
+  }
+
+  .mobile-selection-select {
+    min-width: 0;
+    padding-left: 5px;
+  }
+
+  .mobile-selection-select select {
+    font-size: 10px;
+  }
+
+  .mobile-selection-count {
+    padding: 0 2px;
   }
 
   .status {
-    display: none;
+    left: 4px;
+    max-width: calc(100vw - 8px);
+  }
+}
+
+/* Eight labelled controls cannot all provide a 44px touch target on a
+   320–390px viewport. Use two rows before the labels become cramped. */
+@media (max-width: 400px) {
+  .mobile-toolbar {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    height: 110px;
   }
 
-  /* Touch-friendly: larger tap targets */
-  .cdot {
-    width: 28px;
-    height: 28px;
-  }
-  .szbtn {
-    width: 32px;
-    height: 32px;
-  }
-  .abtn {
-    width: 38px;
-    height: 38px;
+  .mobile-tool-button {
+    height: 48px;
   }
 
-  /* Prevent toolbar overflow */
-  .topbar {
-    gap: 4px;
-    padding: 6px 6px;
-    max-height: 44px;
-  }
-
-  .topbar .tb-sep {
-    margin: 0 2px;
-  }
-
-  .toolbar-scroll-control-top {
-    top: 6px;
-  }
-
-  .toolbar-scroll-control-bottom {
-    bottom: max(12px, calc(env(safe-area-inset-bottom) + 12px));
-  }
-
-  .toolbar-scroll-control-back {
-    left: 6px;
-  }
-
-  .toolbar-scroll-control-forward {
-    right: 6px;
+  .layers-dock:has(.layers-panel-expanded),
+  .mobile-selection-actions,
+  .status {
+    bottom: max(122px, calc(env(safe-area-inset-bottom) + 122px));
   }
 }
 

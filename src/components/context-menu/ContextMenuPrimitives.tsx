@@ -1,5 +1,6 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
+import { ChevronRight } from 'lucide-react'
 import type { AlignmentType, DistributionType } from '../../store/types'
 import {
   ALIGN_ACTIONS,
@@ -22,8 +23,10 @@ export const MenuItem = React.forwardRef<HTMLButtonElement, MenuItemProps>(
   ({ onClick, label, shortcut, danger, hasSubmenu, ariaExpanded }, ref) => (
     <button
       ref={ref}
+      type="button"
       onClick={onClick}
       className="context-menu-item"
+      role="menuitem"
       aria-haspopup={hasSubmenu ? 'menu' : undefined}
       aria-expanded={hasSubmenu ? ariaExpanded : undefined}
       style={{
@@ -62,18 +65,7 @@ export const MenuItem = React.forwardRef<HTMLButtonElement, MenuItemProps>(
             {shortcut}
           </span>
         )}
-        {hasSubmenu && (
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-        )}
+        {hasSubmenu && <ChevronRight size={12} aria-hidden="true" />}
       </div>
     </button>
   )
@@ -84,6 +76,7 @@ MenuItem.displayName = 'MenuItem'
 export function MenuSeparator() {
   return (
     <div
+      role="separator"
       style={{
         height: 1,
         background: 'var(--border-1)',
@@ -106,10 +99,11 @@ interface ContextMenuSubmenuProps {
   topOffset: number
   actions: SubmenuAction[]
   anchorRef?: React.RefObject<HTMLElement | null>
+  ariaLabel?: string
 }
 
 const ContextMenuSubmenu = React.forwardRef<HTMLDivElement, ContextMenuSubmenuProps>(
-  ({ menuX, menuY, menuWidth, topOffset, actions, anchorRef }, ref) => {
+  ({ menuX, menuY, menuWidth, topOffset, actions, anchorRef, ariaLabel }, ref) => {
     const anchorRect = anchorRef?.current?.getBoundingClientRect()
     const left = anchorRect ? anchorRect.right + SUBMENU_OFFSET : menuX + menuWidth + SUBMENU_OFFSET
     const top = anchorRect ? anchorRect.top : menuY + topOffset
@@ -119,6 +113,8 @@ const ContextMenuSubmenu = React.forwardRef<HTMLDivElement, ContextMenuSubmenuPr
         ref={ref}
         className="context-menu-submenu"
         role="menu"
+        aria-label={ariaLabel}
+        tabIndex={-1}
         style={{
           position: 'fixed',
           left,
@@ -136,6 +132,7 @@ const ContextMenuSubmenu = React.forwardRef<HTMLDivElement, ContextMenuSubmenuPr
         {actions.map((action) => (
           <button
             key={action.key}
+            type="button"
             role="menuitem"
             onClick={action.onClick}
             style={{
@@ -188,6 +185,7 @@ export const AlignSubmenu = React.forwardRef<HTMLDivElement, AlignSubmenuProps>(
       menuWidth={menuWidth}
       topOffset={MENU_PADDING + 5 * MENU_ITEM_HEIGHT + 16}
       anchorRef={anchorRef}
+      ariaLabel="对齐选项"
       actions={ALIGN_ACTIONS.map(({ label, alignment }) => ({
         key: alignment,
         label,
@@ -216,6 +214,7 @@ export const DistributeSubmenu = React.forwardRef<HTMLDivElement, DistributeSubm
       menuWidth={menuWidth}
       topOffset={MENU_PADDING + 6 * MENU_ITEM_HEIGHT + 24}
       anchorRef={anchorRef}
+      ariaLabel="分布选项"
       actions={DISTRIBUTE_ACTIONS.map(({ label, distribution }) => ({
         key: distribution,
         label,

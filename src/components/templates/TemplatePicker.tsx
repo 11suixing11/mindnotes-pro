@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import type { CanvasTemplate } from '../../templates/canvasTemplates'
+import { useDialogFocus } from '../useDialogFocus'
 import TemplateGallery from './TemplateGallery'
 import { getBuiltInTemplateSections } from './templatePickerModel'
 
@@ -12,7 +13,7 @@ interface TemplatePickerProps {
   sourceElementCount: number
   onClose: () => void
   onInsert: (template: CanvasTemplate) => void
-  onSaveCustom: (name: string) => void
+  onSaveCustom: (name: string) => boolean
   onDeleteCustom: (templateId: string) => void
 }
 
@@ -27,70 +28,11 @@ export function TemplatePicker({
   onDeleteCustom,
 }: TemplatePickerProps) {
   const [customName, setCustomName] = useState('')
-  const dialogRef = useRef<HTMLElement>(null)
-  const previousFocusRef = useRef<HTMLElement | null>(null)
-  const onCloseRef = useRef(onClose)
   const builtInSections = useMemo(
     () => getBuiltInTemplateSections(builtInTemplates),
     [builtInTemplates]
   )
-
-  useEffect(() => {
-    onCloseRef.current = onClose
-  }, [onClose])
-
-  useEffect(() => {
-    if (!isOpen) {
-      const previousFocus = previousFocusRef.current
-      previousFocusRef.current = null
-      if (previousFocus?.isConnected) queueMicrotask(() => previousFocus.focus())
-      return
-    }
-
-    const activeElement = document.activeElement
-    previousFocusRef.current = activeElement instanceof HTMLElement ? activeElement : null
-    const focusableSelector =
-      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    const focusTimer = window.setTimeout(() => {
-      const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(focusableSelector)
-      firstFocusable?.focus()
-    }, 0)
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.isComposing) return
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onCloseRef.current()
-        return
-      }
-      if (event.key !== 'Tab') return
-
-      const focusable = dialogRef.current
-        ? Array.from(dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector))
-        : []
-      if (focusable.length === 0) {
-        event.preventDefault()
-        dialogRef.current?.focus()
-        return
-      }
-
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      const active = document.activeElement
-      if (event.shiftKey && active === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.clearTimeout(focusTimer)
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [isOpen])
+  const dialogRef = useDialogFocus<HTMLElement>({ open: isOpen, onClose })
 
   useEffect(() => {
     if (!isOpen) setCustomName('')
@@ -107,6 +49,7 @@ export function TemplatePicker({
         role="dialog"
         aria-modal="true"
         aria-labelledby="template-picker-title"
+        aria-describedby="template-picker-description"
         tabIndex={-1}
       >
         <header className="template-picker-header">
@@ -120,13 +63,15 @@ export function TemplatePicker({
             <X size={16} aria-hidden="true" />
           </button>
         </header>
+        <p id="template-picker-description" className="sr-only">
+          选择模板插入画布，或为当前内容保存自定义模板。
+        </p>
 
         <form
           className="template-save-row"
           onSubmit={(event) => {
             event.preventDefault()
-            onSaveCustom(customName)
-            setCustomName('')
+            if (onSaveCustom(customName)) setCustomName('')
           }}
         >
           <input

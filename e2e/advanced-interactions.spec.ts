@@ -1,10 +1,10 @@
 import type { Page } from '@playwright/test'
-import { appStatus, downloadBuffer, expect, openApp, test } from './helpers'
+import { appStatus, downloadBuffer, expect, focusCanvas, openApp, test } from './helpers'
 
 async function exportBackup(page: Page) {
-  await page.getByRole('button', { name: '导出', exact: true }).click()
+  await page.getByRole('button', { name: '文件', exact: true }).click()
   const downloadPromise = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'JSON 备份' }).click()
+  await page.getByRole('button', { name: 'JSON 备份', exact: true }).click()
   return JSON.parse((await downloadBuffer(await downloadPromise)).toString('utf8'))
 }
 
@@ -100,11 +100,12 @@ test.describe('高级交互回归', () => {
     await page.getByRole('button', { name: '关闭快捷键设置' }).click()
 
     await page.getByRole('button', { name: /^选择工具/ }).click()
+    await focusCanvas(page)
     await page.keyboard.press('p')
     await expect(page.getByRole('button', { name: /^画笔工具/ })).toHaveClass(/on/)
 
     await page.reload()
-    await expect(page.getByRole('application', { name: 'MindNotes Pro 白板' })).toBeVisible()
+    await expect(page.getByRole('region', { name: '交互式绘图画布' })).toBeVisible()
     await expect(page.getByRole('button', { name: '画笔工具（P）' })).toBeVisible()
   })
 
@@ -147,7 +148,7 @@ test.describe('高级交互回归', () => {
     expect(backup.document.elements[0].layerId).toBe(layerOne.id)
 
     await page.getByRole('button', { name: '删除 标注层' }).click()
-    await page.getByRole('button', { name: '确认' }).click()
+    await page.getByRole('button', { name: '删除', exact: true }).click()
     backup = await exportBackup(page)
     expect(backup.document.layers).toHaveLength(1)
   })
@@ -249,6 +250,9 @@ test.describe('高级交互回归', () => {
     expect(restored).toMatchObject({ x: initial.x, y: initial.y })
 
     await page.getByRole('button', { name: /^矩形工具/ }).click()
+    // Space temporarily pans only when the canvas itself (not an interactive
+    // control) owns focus. This preserves native Space activation for buttons.
+    await page.locator('#main-canvas').focus()
     await page.keyboard.down('Space')
     await expect(page.getByRole('button', { name: /^平移工具/ })).toHaveClass(/on/)
     await page.evaluate(() => window.dispatchEvent(new Event('blur')))
@@ -281,15 +285,16 @@ test.describe('高级交互回归', () => {
     await drawRectangle(page, { x: 500, y: 320 }, { x: 600, y: 380 })
     await drawRectangle(page, { x: 700, y: 430 }, { x: 800, y: 490 })
     await page.getByRole('button', { name: /^选择工具/ }).click()
+    await focusCanvas(page)
     await page.keyboard.press('Control+a')
     await page.mouse.click(500, 280, { button: 'right' })
-    await page.getByRole('button', { name: '对齐' }).click()
+    await page.getByRole('menuitem', { name: '对齐' }).click()
     await expect(page.locator('.context-menu-submenu')).toHaveCount(1)
     await page.getByRole('menuitem', { name: '左对齐' }).click()
     await expect(page.locator('.context-menu')).toBeHidden()
 
     await page.mouse.click(350, 350, { button: 'right' })
-    await page.getByRole('button', { name: '分布' }).click()
+    await page.getByRole('menuitem', { name: '分布' }).click()
     await expect(page.getByRole('menuitem', { name: '垂直分布' })).toBeVisible()
     await page.getByRole('menuitem', { name: '垂直分布' }).click()
     await expect(page.locator('.context-menu')).toBeHidden()

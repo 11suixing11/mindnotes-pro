@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore } from '../../store/appStore'
+import { useConfirm } from '../confirm-modal'
+import { requestClearCanvas } from '../confirm-modal/requestClearCanvas'
+import { useDialogFocus } from '../useDialogFocus'
 import type { AlignmentType, DistributionType } from '../../store/types'
 import { AlignSubmenu, DistributeSubmenu, MenuItem, MenuSeparator } from './ContextMenuPrimitives'
 import {
@@ -19,11 +22,15 @@ interface ContextMenuProps {
 // 右键上下文菜单
 // 专业白板/设计工具标配功能，集成所有常用操作
 export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null)
   const submenuRef = useRef<HTMLDivElement>(null)
   const alignTriggerRef = useRef<HTMLButtonElement>(null)
   const distributeTriggerRef = useRef<HTMLButtonElement>(null)
   const [openSubmenu, setOpenSubmenu] = useState<'align' | 'distribute' | null>(null)
+  const menuRef = useDialogFocus<HTMLDivElement>({
+    open: true,
+    onClose,
+    additionalRef: submenuRef,
+  })
 
   const selectedIds = useAppStore((s) => s.selectedIds)
   const elements = useAppStore((s) => s.elements)
@@ -49,6 +56,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const distributeSelected = useAppStore((s) => s.distributeSelected)
   const setSelectedIds = useAppStore((s) => s.setSelectedIds)
   const clearAll = useAppStore((s) => s.clearAll)
+  const confirm = useConfirm()
   // 锁定/解锁元素
   const lockSelected = useAppStore((s) => s.lockSelected)
   const unlockSelected = useAppStore((s) => s.unlockSelected)
@@ -60,24 +68,29 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   // 点击外部关闭菜单
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target instanceof Element ? e.target : null
+      if (target?.closest('[data-modal-layer="true"]')) return
       if (
         menuRef.current &&
-        !menuRef.current.contains(e.target as Node) &&
-        (!submenuRef.current || !submenuRef.current.contains(e.target as Node))
+        !menuRef.current.contains(target) &&
+        (!submenuRef.current || !submenuRef.current.contains(target))
       ) {
         onClose()
       }
     }
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
     window.addEventListener('mousedown', handleClickOutside)
-    window.addEventListener('keydown', handleEscape)
     return () => {
       window.removeEventListener('mousedown', handleClickOutside)
-      window.removeEventListener('keydown', handleEscape)
     }
-  }, [onClose])
+  }, [menuRef, onClose])
+
+  useEffect(() => {
+    if (!openSubmenu) return
+    const focusTimer = window.setTimeout(() => {
+      submenuRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
+    }, 0)
+    return () => window.clearTimeout(focusTimer)
+  }, [openSubmenu])
 
   const pos = getContextMenuPosition({
     x,
@@ -110,10 +123,20 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
     onClose()
   }
 
+  const handleClearAll = async () => {
+    const cleared = await requestClearCanvas(elements.length, confirm, clearAll, {
+      onEmpty: onClose,
+    })
+    if (cleared) onClose()
+  }
+
   const menuContent = (
     <div
       ref={menuRef}
       className="context-menu"
+      role="menu"
+      aria-label="画布上下文菜单"
+      tabIndex={-1}
       style={{
         position: 'fixed',
         left: pos.x,
@@ -249,7 +272,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
 
       {/* 选择操作 */}
       <MenuItem onClick={() => handleAction(selectAll)} label="全选" shortcut="Ctrl+A" />
-      <MenuItem onClick={() => handleAction(clearAll)} label="清空画布" danger />
+      <MenuItem onClick={() => void handleClearAll()} label="清空画布" danger />
     </div>
   )
 

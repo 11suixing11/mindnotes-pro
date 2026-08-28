@@ -132,5 +132,8 @@ describe('TemplateMenu', () => {
 
     const toasts = useToastStore.getState().toasts
     expect(toasts[toasts.length - 1]?.message).toContain('模板保存失败')
+    expect(
+      (screen.getByRole('textbox', { name: '自定义模板名称' }) as HTMLInputElement).value
+    ).toBe('项目模板')
   })
 })

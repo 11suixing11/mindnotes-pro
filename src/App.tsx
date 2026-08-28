@@ -12,6 +12,7 @@ import {
 import { LoadingScreen } from './components/loading-screen'
 import { AppStatusBar } from './components/app/AppStatusBar'
 import { useAppLifecycle } from './components/app/useAppLifecycle'
+import FirstUseNotice from './components/app/FirstUseNotice'
 
 export default function App() {
   const mainContentRef = useRef<HTMLDivElement>(null)
@@ -45,12 +46,7 @@ export default function App() {
       >
         跳到画布
       </a>
-      <div
-        className="app-shell"
-        style={{ background: bgColor }}
-        role="application"
-        aria-label="MindNotes Pro 白板"
-      >
+      <div className="app-shell" style={{ background: bgColor }}>
         <div ref={mainContentRef} tabIndex={-1} className="workspace-main">
           <Canvas />
           <Toolbar canInstall={canInstall} onInstall={() => void installApp()} />
@@ -60,6 +56,7 @@ export default function App() {
           <ToastContainer />
           <ConfirmModal />
           <AppStatusBar onOpenShortcuts={() => setShortcutsOpen(true)} />
+          <FirstUseNotice />
 
           <KeyboardShortcutsHelp
             open={shortcutsOpen}

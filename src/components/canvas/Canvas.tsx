@@ -7,6 +7,7 @@ import { DEFAULT_GRID_SIZE, useViewStore } from '../../store/useViewStore'
 import { useToastStore } from '../../store/toastStore'
 import { clientToWorld, worldToClient } from '../../canvas/coordinates'
 import { getTextLineHeight, TEXT_FONT_FAMILY } from '../../canvas/textFormatting'
+import type { TextElement } from '../../store/types'
 import { ContextMenu } from '../context-menu'
 import type { DrawState } from './useCanvasRenderer'
 import { useTextEditor } from './useTextEditor'
@@ -17,6 +18,8 @@ import { usePointerEngine } from './usePointerEngine'
 import TextFormatToolbar from './TextFormatToolbar'
 import { applyTextIndentation, getTextEditKeyAction } from './textEditorKeyboard'
 import { getTextToolbarPosition } from './textToolbarPosition'
+import { CanvasAccessibilityView } from './CanvasAccessibilityView'
+import EmptyCanvasState from './EmptyCanvasState'
 import {
   clearActiveTextRecoveryDraft,
   saveActiveTextRecoveryDraftNow,
@@ -216,6 +219,21 @@ export default function Canvas() {
       snapLinesRef,
     })
 
+  const editTextFromAccessibility = useCallback(
+    (element: TextElement) => {
+      const canvas = canvasRef.current
+      const rect = canvas?.getBoundingClientRect()
+      if (!rect) return
+      const screen = worldToClient(
+        { x: element.x, y: element.y },
+        rect,
+        useViewStore.getState().viewBox
+      )
+      beginTextEdit(element.x, element.y, screen.x, screen.y, element.color, element)
+    },
+    [beginTextEdit]
+  )
+
   // Provide getDrawState to renderer via ref
   getDrawStateRef.current = getDrawState
 
@@ -274,9 +292,10 @@ export default function Canvas() {
               dataUrl: safeDataUrl,
             })
           }
-          img.onerror = () => toast('Image failed to load', 'error')
+          img.onerror = () => toast('图片加载失败', 'error')
           img.src = safeDataUrl
         }
+        reader.onerror = () => toast('图片读取失败，请重试', 'error')
         reader.readAsDataURL(file)
       }
     },
@@ -398,8 +417,9 @@ export default function Canvas() {
           ref={canvasRef}
           width={Math.round(canvasSize.w * dpr)}
           height={Math.round(canvasSize.h * dpr)}
-          role="img"
-          aria-label="绘图画布"
+          role="region"
+          aria-label="交互式绘图画布"
+          aria-describedby="canvas-keyboard-instructions canvas-accessibility-status"
           tabIndex={0}
           className="main-canvas"
           onPointerDownCapture={(event) => {
@@ -415,6 +435,8 @@ export default function Canvas() {
             height: '100%',
           }}
         />
+        <EmptyCanvasState />
+        <CanvasAccessibilityView onEditText={editTextFromAccessibility} />
         {editingText &&
           (() => {
             const rect = canvasRef.current?.getBoundingClientRect()

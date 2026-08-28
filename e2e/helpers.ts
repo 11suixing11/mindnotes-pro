@@ -27,11 +27,17 @@ export function appStatus(page: Page) {
 
 export async function openApp(page: Page) {
   await page.goto('/')
-  await expect(page.getByRole('application', { name: 'MindNotes Pro 白板' })).toBeVisible()
+  await expect(page.getByRole('region', { name: '交互式绘图画布' })).toBeVisible()
   await expect(page.locator('#main-canvas')).toBeVisible()
   await expect(appStatus(page)).toContainText('单画板')
   await expect(appStatus(page)).not.toContainText('个文档')
   await expect(page.getByRole('button', { name: '打开文档面板' })).toHaveCount(0)
+}
+
+export async function focusCanvas(page: Page) {
+  const canvas = page.locator('#main-canvas')
+  await canvas.focus()
+  await expect(canvas).toBeFocused()
 }
 
 export async function drawStroke(

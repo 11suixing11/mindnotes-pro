@@ -22,6 +22,9 @@ interface StoreRef {
     undoStack: UndoAction[]
     redoStack: UndoAction[]
     saveStatus: string
+    persistenceMode: 'persistent' | 'memory-only'
+    lastSavedAt: number | null
+    saveError: string | null
     docs: CanvasDoc[]
   }
 }
@@ -49,6 +52,7 @@ let _storeRef: StoreRef | null = null
 let _saveGenerations = new Map<string, number>()
 let _lastSavedGenerations = new Map<string, number>()
 let _lastSaveTimes = new Map<string, number>()
+let _workspaceGeneration = 0
 let _saveInFlight: Promise<boolean> | null = null
 let _activeTextRecoveryDraft: TrackedActiveTextRecoveryDraft | null = null
 const _deletedDocumentIds = new Set<string>()
@@ -70,8 +74,23 @@ function rebuildDocsIndex(docs: CanvasDoc[]): void {
  */
 export function incrementSaveGeneration(): void {
   const documentId = _storeRef?.getState().currentDocId
-  if (!documentId) return
+  if (!documentId) {
+    _workspaceGeneration += 1
+    return
+  }
   _saveGenerations.set(documentId, (_saveGenerations.get(documentId) ?? 0) + 1)
+}
+
+/**
+ * Read the in-memory mutation generation for a document.
+ *
+ * Import replacement uses this as an optimistic concurrency token: the
+ * document must not be swapped into the live store if an edit landed while
+ * the replacement record was being written.
+ */
+export function getSaveGeneration(documentId: string | null | undefined): number {
+  if (!documentId) return _workspaceGeneration
+  return _saveGenerations.get(documentId) ?? 0
 }
 /**
  * Initialize the save manager with a reference to the store.
@@ -114,11 +133,16 @@ function clearSaveStatusTimer(): void {
   }
 }
 
-function markDocumentSaved(documentId: string): void {
+function markDocumentSaved(documentId: string, savedAt = Date.now()): void {
   if (!_storeRef || _storeRef.getState().currentDocId !== documentId) return
 
   clearSaveStatusTimer()
-  _storeRef.setState({ saveStatus: 'saved' })
+  _storeRef.setState({
+    saveStatus: 'saved',
+    persistenceMode: 'persistent',
+    lastSavedAt: savedAt,
+    saveError: null,
+  })
   _saveStatusTimer = setTimeout(() => {
     if (_storeRef?.getState().currentDocId === documentId) {
       if (_storeRef.getState().saveStatus === 'saved') _storeRef.setState({ saveStatus: 'idle' })
@@ -144,6 +168,8 @@ function createRecoveryDocument(state: StoreState): CanvasDoc | null {
     folderId: currentStateDoc?.folderId ?? null,
     createdAt: currentStateDoc?.createdAt ?? Date.now(),
     updatedAt: Date.now(),
+    undoStack: state.undoStack,
+    redoStack: state.redoStack,
   }
 }
 
@@ -234,16 +260,21 @@ export function clearActiveTextRecoveryDraft(): void {
 export function scheduleSave(): void {
   if (!_storeRef) return
   const now = Date.now()
-  const documentId = _storeRef.getState().currentDocId
+  const state = _storeRef.getState()
+  const documentId = state.currentDocId
   if (!documentId) {
-    _storeRef.setState({ saveStatus: 'idle' })
+    if (state.persistenceMode !== 'memory-only') {
+      _storeRef.setState({ saveStatus: 'idle', saveError: null })
+    }
     return
   }
   const lastSaveTime = _lastSaveTimes.get(documentId) ?? 0
   const minimumIntervalRemaining = Math.max(0, 500 - (now - lastSaveTime))
   const delay = Math.max(SAVE_DELAY, minimumIntervalRemaining)
   clearSaveTimer()
-  _storeRef.setState({ saveStatus: 'saving' })
+  if (state.persistenceMode !== 'memory-only') {
+    _storeRef.setState({ saveStatus: 'saving' })
+  }
   _saveTimer = setTimeout(() => {
     void saveDocNow()
   }, delay)
@@ -345,7 +376,7 @@ async function persistCurrentDocument(): Promise<boolean> {
     rebuildDocsIndex(docs)
     const isCurrentDocument = _storeRef.getState().currentDocId === currentDocId
     _storeRef.setState({ docs })
-    if (isCurrentDocument) markDocumentSaved(currentDocId)
+    if (isCurrentDocument) markDocumentSaved(currentDocId, now)
 
     if (
       (_saveGenerations.get(currentDocId) ?? 0) !== generationAtStart &&
@@ -372,7 +403,12 @@ async function persistCurrentDocument(): Promise<boolean> {
             ? saveRecoveryDraft(recoveryDocument)
             : false
     if (_storeRef.getState().currentDocId === currentDocId) {
-      _storeRef.setState({ saveStatus: 'error' })
+      const message = error instanceof Error ? error.message : '浏览器存储写入失败'
+      _storeRef.setState({
+        saveStatus: 'error',
+        persistenceMode: 'memory-only',
+        saveError: message,
+      })
     }
     useToastStore
       .getState()
@@ -397,20 +433,37 @@ async function persistCurrentDocument(): Promise<boolean> {
  * Serialize saves so an older, slower IndexedDB request cannot finish after a
  * newer request and overwrite its in-memory document list or save status.
  */
-export function saveDocNow(): Promise<boolean> {
+export interface SaveNowOptions {
+  /** Persist even when the generation cache says the board is already saved. */
+  force?: boolean
+}
+
+export function saveDocNow(options: SaveNowOptions = {}): Promise<boolean> {
   if (_saveInFlight) {
     const pending = _saveInFlight
     return pending.then((result) => {
       if (!result || !_storeRef) return result
       const currentDocId = _storeRef.getState().currentDocId
+      if (options.force && currentDocId) {
+        // An in-flight save may have completed before a conflicting write
+        // (for example an import) became visible. Invalidate its cache after
+        // waiting so the forced retry really writes the live workspace back.
+        _lastSavedGenerations.delete(currentDocId)
+      }
       if (
         !currentDocId ||
-        _lastSavedGenerations.get(currentDocId) === (_saveGenerations.get(currentDocId) ?? 0)
+        (!options.force &&
+          _lastSavedGenerations.get(currentDocId) === (_saveGenerations.get(currentDocId) ?? 0))
       ) {
         return result
       }
-      return saveDocNow()
+      return saveDocNow(options)
     })
+  }
+
+  if (options.force) {
+    const currentDocId = _storeRef?.getState().currentDocId
+    if (currentDocId) _lastSavedGenerations.delete(currentDocId)
   }
 
   const pending = persistCurrentDocument()
@@ -426,6 +479,7 @@ export function resetSaveCache(): void {
   _saveGenerations = new Map()
   _lastSavedGenerations = new Map()
   _lastSaveTimes = new Map()
+  _workspaceGeneration = 0
   _deletedDocumentIds.clear()
   _docsIndexMap = null
   _activeTextRecoveryDraft = null

@@ -39,6 +39,7 @@ export async function initializeDocuments(): Promise<DocumentInitializationResul
   const repository = getDocumentRepository()
   let docs = await repository.listDocuments()
   let folders = await repository.listFolders()
+  const recoveryDrafts = loadRecoveryDrafts()
   let migratedLocalStorage = false
 
   const migrationAlreadyAttempted = localStorage.getItem(LEGACY_DATABASE_MIGRATION_KEY) === '1'
@@ -66,7 +67,7 @@ export async function initializeDocuments(): Promise<DocumentInitializationResul
       await repository.saveDocument({ ...migrated, schemaVersion: CANVAS_SCHEMA_VERSION })
       docs = [migrated]
       migratedLocalStorage = true
-    } else {
+    } else if (recoveryDrafts.length === 0) {
       const blank = createBlankDocument()
       await repository.saveDocument({ ...blank, schemaVersion: CANVAS_SCHEMA_VERSION })
       docs = [blank]
@@ -79,7 +80,7 @@ export async function initializeDocuments(): Promise<DocumentInitializationResul
     folders = [defaultFolder]
   }
 
-  const recovery = reconcileDocumentRecovery(docs, loadRecoveryDrafts())
+  const recovery = reconcileDocumentRecovery(docs, recoveryDrafts)
   for (const draft of recovery.draftsToClear) {
     clearRecoveryDraftForDocument(draft.documentId, draft.savedAt)
   }

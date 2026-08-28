@@ -1,11 +1,23 @@
-import { downloadBuffer, expect, insertFlowchart, openApp, test, appStatus } from './helpers'
+import {
+  appStatus,
+  downloadBuffer,
+  expect,
+  focusCanvas,
+  insertFlowchart,
+  openApp,
+  test,
+} from './helpers'
 
 test.describe('模板与导入导出', () => {
   test('内置模板插入后仍是可编辑元素', async ({ page }) => {
     await openApp(page)
     await insertFlowchart(page)
 
+    await focusCanvas(page)
     await page.keyboard.press('Delete')
+    const confirmDialog = page.getByRole('dialog', { name: '确认操作' })
+    await expect(confirmDialog).toBeVisible()
+    await confirmDialog.getByRole('button', { name: '确定' }).click()
     await expect(appStatus(page)).toContainText('0 个元素')
     await page.getByRole('button', { name: '撤销' }).click()
     await expect(appStatus(page)).toContainText('13 个元素')
@@ -36,9 +48,9 @@ test.describe('模板与导入导出', () => {
     await editor.press('Control+Enter')
     await expect(appStatus(page)).toContainText('13 个元素')
 
-    await page.getByRole('button', { name: '导出' }).click()
+    await page.getByRole('button', { name: '文件', exact: true }).click()
     const downloadPromise = page.waitForEvent('download')
-    await page.getByRole('button', { name: 'JSON 备份' }).click()
+    await page.getByRole('button', { name: 'JSON 备份', exact: true }).click()
     const backup = JSON.parse((await downloadBuffer(await downloadPromise)).toString('utf8'))
     expect(backup.document.elements).toEqual(
       expect.arrayContaining([expect.objectContaining({ content: '已编辑节点' })])
@@ -49,9 +61,9 @@ test.describe('模板与导入导出', () => {
     await openApp(page)
     await insertFlowchart(page)
 
-    await page.getByRole('button', { name: '导出' }).click()
+    await page.getByRole('button', { name: '文件', exact: true }).click()
     const downloadPromise = page.waitForEvent('download')
-    await page.getByRole('button', { name: 'JSON 备份' }).click()
+    await page.getByRole('button', { name: 'JSON 备份', exact: true }).click()
     const download = await downloadPromise
     const backup = JSON.parse((await downloadBuffer(download)).toString('utf8'))
 
@@ -69,7 +81,7 @@ test.describe('模板与导入导出', () => {
     await openApp(page)
     await insertFlowchart(page)
 
-    await page.getByRole('button', { name: '导出' }).click()
+    await page.getByRole('button', { name: '文件', exact: true }).click()
     const downloadPromise = page.waitForEvent('download')
     await page.getByRole('button', { name: 'PNG 图片' }).click()
     const png = await downloadBuffer(await downloadPromise)
@@ -129,6 +141,12 @@ test.describe('模板与导入导出', () => {
       buffer: Buffer.from(JSON.stringify(backup)),
     })
 
+    // Import is a destructive replacement and must be explicitly confirmed.
+    const confirmDialog = page.getByRole('dialog', { name: '确认操作' })
+    await expect(confirmDialog).toBeVisible()
+    await expect(confirmDialog).toContainText('将替换当前画板')
+    await confirmDialog.getByLabel('替换并导入').click()
+
     await expect(appStatus(page)).toContainText('1 个元素')
     await expect(appStatus(page)).toContainText('单画板')
     await expect(appStatus(page)).not.toContainText('个文档')
@@ -155,6 +173,7 @@ test.describe('模板与导入导出', () => {
     )
     await expect(page.getByRole('region', { name: '图层' })).toContainText('已选 1 个元素')
 
+    await focusCanvas(page)
     await page.keyboard.press('Delete')
     await expect(appStatus(page)).toContainText('12 个元素')
   })

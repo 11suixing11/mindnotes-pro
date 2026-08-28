@@ -64,18 +64,59 @@ describe('AppStatusBar', () => {
   })
 
   it.each([
-    ['idle', '自动保存', '自动保存已开启'],
+    ['idle', '已启用本地保存', '已启用本地保存'],
     ['saving', '保存中', '正在保存'],
     ['saved', '已保存', '已保存'],
     ['error', '保存失败', '保存失败'],
   ] as const)('shows a visible %s save state', (saveStatus, label, ariaLabel) => {
-    useAppStore.setState({ saveStatus })
+    useAppStore.setState({ saveStatus, persistenceMode: 'persistent', lastSavedAt: null })
 
     render(<AppStatusBar onOpenShortcuts={vi.fn()} />)
 
     const feedback = screen.getByLabelText(ariaLabel)
     expect(feedback.textContent).toBe(label)
     expect(feedback.classList.contains(`status-save-${saveStatus}`)).toBe(true)
+  })
+
+  it('exposes a persistent memory-only error with retry and recovery actions', () => {
+    const saveNow = vi.fn(async () => undefined)
+    useAppStore.setState({
+      saveStatus: 'error',
+      persistenceMode: 'memory-only',
+      saveError: 'quota exceeded',
+      saveNow,
+    })
+    render(<AppStatusBar onOpenShortcuts={vi.fn()} />)
+
+    expect(screen.getByText('仅保存在内存中')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '保存失败：quota exceeded' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '导出恢复备份' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '保存失败：quota exceeded' }))
+    expect(saveNow).toHaveBeenCalledTimes(1)
+  })
+
+  it('exports a recovery backup even when the current document record is missing', () => {
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:recovery')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+    useAppStore.setState({
+      currentDocId: null,
+      docs: [],
+      elements: [],
+      layers: [],
+      activeLayerId: '',
+      bgColor: '#ffffff',
+      backgroundStyle: 'plain',
+      saveStatus: 'error',
+      persistenceMode: 'memory-only',
+      saveError: 'storage unavailable',
+    })
+
+    render(<AppStatusBar onOpenShortcuts={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: '导出恢复备份' }))
+
+    expect(createObjectURL).toHaveBeenCalledOnce()
+    expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledOnce()
   })
 
   it('fits the current content from click and keyboard activation', () => {

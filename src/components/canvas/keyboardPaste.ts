@@ -7,6 +7,7 @@ import {
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { createRuntimeId } from '../../store/runtimeId'
+import { useToastStore } from '../../store/toastStore'
 
 export function getViewportCenter(): { x: number; y: number } {
   const viewBox = useViewStore.getState().viewBox
@@ -65,6 +66,7 @@ export function pasteImageAtViewportCenter(dataUrl: string): void {
 
 export async function pasteClipboardImageOrCanvasSelection(): Promise<void> {
   const store = useAppStore.getState()
+  const toast = useToastStore.getState().show
   const readClipboard = navigator.clipboard?.read?.bind(navigator.clipboard)
   if (!readClipboard) {
     store.paste()
@@ -86,6 +88,7 @@ export async function pasteClipboardImageOrCanvasSelection(): Promise<void> {
     }
     store.paste()
   } catch {
+    toast('无法读取系统剪贴板，已使用画布剪贴板', 'warning')
     store.paste()
   }
 }

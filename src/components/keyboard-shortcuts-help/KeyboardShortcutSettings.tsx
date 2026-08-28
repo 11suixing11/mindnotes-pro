@@ -24,7 +24,7 @@ interface KeyboardShortcutSettingsProps {
   onClose: () => void
 }
 
-type Message = { type: 'success' | 'error'; text: string } | null
+type Message = { type: 'status' | 'success' | 'error'; text: string } | null
 
 const CATEGORY_ORDER: ShortcutCategory[] = ['tools', 'edit', 'arrange', 'view', 'style', 'help']
 
@@ -93,6 +93,22 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
   const handleCapture = (e: ReactKeyboardEvent<HTMLButtonElement>, actionId: ShortcutActionId) => {
     if (editingAction !== actionId) return
 
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      setEditingAction(null)
+      setMessage({ type: 'success', text: '已取消快捷键录制。' })
+      return
+    }
+
+    if (e.key === 'Tab') {
+      // Let the browser move focus normally. The dialog-level focus trap still
+      // handles wrapping at the first and last controls.
+      setEditingAction(null)
+      setMessage({ type: 'success', text: '已取消快捷键录制。' })
+      return
+    }
+
     e.preventDefault()
     e.stopPropagation()
 
@@ -153,6 +169,7 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
         role="dialog"
         aria-modal="true"
         aria-labelledby="keyboard-shortcut-settings-title"
+        aria-describedby="keyboard-shortcut-settings-description shortcut-settings-status"
         tabIndex={-1}
       >
         <div className="flex items-start justify-between gap-[16px] mb-[16px]">
@@ -163,7 +180,12 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
             >
               自定义键盘快捷键
             </h2>
-            <div className="text-[12px] text-[var(--text-4)] mt-[4px]">更改仅保存在当前设备。</div>
+            <div
+              id="keyboard-shortcut-settings-description"
+              className="text-[12px] text-[var(--text-4)] mt-[4px]"
+            >
+              更改仅保存在当前设备。
+            </div>
           </div>
           <button
             onClick={closeSettings}
@@ -174,19 +196,41 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
           </button>
         </div>
 
-        {message && (
-          <div
-            className="mb-[12px] rounded-[8px] border px-[10px] py-[8px] text-[12px]"
-            style={{
-              borderColor: message.type === 'error' ? 'var(--danger)' : 'var(--success)',
-              color: message.type === 'error' ? 'var(--danger)' : 'var(--success)',
-              background:
-                message.type === 'error' ? 'rgba(200,90,90,0.08)' : 'rgba(106,154,88,0.08)',
-            }}
-          >
-            {message.text}
-          </div>
-        )}
+        <div
+          id="shortcut-settings-status"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className={
+            message ? 'mb-[12px] rounded-[8px] border px-[10px] py-[8px] text-[12px]' : 'sr-only'
+          }
+          style={
+            message
+              ? {
+                  borderColor:
+                    message.type === 'error'
+                      ? 'var(--danger)'
+                      : message.type === 'success'
+                        ? 'var(--success)'
+                        : 'var(--primary)',
+                  color:
+                    message.type === 'error'
+                      ? 'var(--danger)'
+                      : message.type === 'success'
+                        ? 'var(--success)'
+                        : 'var(--primary)',
+                  background:
+                    message.type === 'error'
+                      ? 'rgba(200,90,90,0.08)'
+                      : message.type === 'success'
+                        ? 'rgba(106,154,88,0.08)'
+                        : 'var(--primary-bg)',
+                }
+              : undefined
+          }
+        >
+          {message?.text ?? ''}
+        </div>
 
         <div className="overflow-y-auto pr-[4px] flex-1">
           {definitionsByCategory.map(({ category, items }) => (
@@ -217,12 +261,21 @@ export const KeyboardShortcutSettings = memo(function KeyboardShortcutSettings({
                       </div>
                       <button
                         onClick={() => {
-                          setEditingAction(isEditing ? null : definition.id)
-                          setMessage(null)
+                          if (isEditing) {
+                            setEditingAction(null)
+                            setMessage({ type: 'success', text: '已取消快捷键录制。' })
+                          } else {
+                            setEditingAction(definition.id)
+                            setMessage({
+                              type: 'status',
+                              text: `正在录制${definition.label}快捷键。按 Escape 或 Tab 取消。`,
+                            })
+                          }
                         }}
                         onKeyDown={(e) => handleCapture(e, definition.id)}
                         className="min-h-[34px] rounded-[8px] border border-[var(--border)] bg-[var(--bg)] px-[10px] flex items-center justify-center text-[12px] text-[var(--text)] hover:border-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                         aria-label={`设置${definition.label}快捷键`}
+                        aria-pressed={isEditing}
                       >
                         {isEditing ? (
                           <span className="font-medium text-[var(--primary)]">请按快捷键</span>

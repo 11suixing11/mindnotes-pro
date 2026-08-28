@@ -49,6 +49,21 @@ describe('Toolbar', () => {
   })
 
   it('uses a clear localized confirmation before clearing the canvas', () => {
+    useAppStore.setState({
+      elements: [
+        {
+          type: 'shape',
+          id: 'clear-test-shape',
+          kind: 'rectangle',
+          x: 0,
+          y: 0,
+          w: 20,
+          h: 20,
+          color: '#000000',
+          size: 2,
+        },
+      ],
+    })
     const details: ConfirmOptions[] = []
     const onConfirm = (event: Event) => {
       details.push((event as CustomEvent<ConfirmOptions>).detail)
@@ -59,7 +74,7 @@ describe('Toolbar', () => {
     fireEvent.click(screen.getByRole('button', { name: '清空画布' }))
 
     window.removeEventListener('app-confirm', onConfirm)
-    expect(details[0]?.message).toBe('确定清空当前画布吗？')
+    expect(details[0]?.message).toContain('确定清空当前画布吗？')
   })
 
   it('shows install as a secondary toolbar action when it is available', () => {

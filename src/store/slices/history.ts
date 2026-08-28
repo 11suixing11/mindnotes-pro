@@ -1,4 +1,4 @@
-import type { CanvasElement, UndoAction } from '../types'
+import type { CanvasElement, CanvasWorkspaceMetadata, UndoAction } from '../types'
 import { incrementSaveGeneration, scheduleSave } from '../saveManager'
 import { getContentBounds } from '../../canvas/canvasUtils'
 import { useViewStore } from '../useViewStore'
@@ -146,6 +146,44 @@ function synchronizeHistoryRuntime(state: Record<string, unknown>, elements: Can
   synchronizeElementCollection(runtime, elements)
 }
 
+function createWorkspaceHistoryPatch(
+  state: Record<string, unknown>,
+  workspace: CanvasWorkspaceMetadata,
+  elements: CanvasElement[],
+  undoStack: UndoAction[],
+  redoStack: UndoAction[]
+) {
+  const currentDocId = typeof state.currentDocId === 'string' ? state.currentDocId : null
+  const docs = Array.isArray(state.docs)
+    ? state.docs.map((doc: { id?: string }) =>
+        doc.id === currentDocId
+          ? {
+              ...doc,
+              title: workspace.title,
+              elements,
+              layers: workspace.layers,
+              activeLayerId: workspace.activeLayerId,
+              bgColor: workspace.bgColor,
+              backgroundStyle: workspace.backgroundStyle,
+              updatedAt: Date.now(),
+              undoStack,
+              redoStack,
+            }
+          : doc
+      )
+    : state.docs
+
+  return {
+    docs,
+    elements,
+    layers: workspace.layers,
+    activeLayerId: workspace.activeLayerId,
+    bgColor: workspace.bgColor,
+    backgroundStyle: workspace.backgroundStyle,
+    selectedIds: [],
+  }
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createHistorySlice(set: any, get: any): HistoryState & HistoryActions {
   return {
@@ -162,11 +200,22 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
       if (undoStack.length === 0) return
       const action: UndoAction = undoStack[undoStack.length - 1]
       const transition = createUndoTransition(elements, action)
+      const nextUndoStack = undoStack.slice(0, -1)
+      const nextRedoStack = [...redoStack, transition.inverseAction]
 
       set({
+        ...(action.type === 'snapshot' && action.workspace
+          ? createWorkspaceHistoryPatch(
+              get(),
+              action.workspace.before,
+              transition.elements,
+              nextUndoStack,
+              nextRedoStack
+            )
+          : {}),
         elements: transition.elements,
-        redoStack: [...redoStack, transition.inverseAction],
-        undoStack: undoStack.slice(0, -1),
+        redoStack: nextRedoStack,
+        undoStack: nextUndoStack,
       })
 
       focusAffectedElements(getAffectedElementIds(action), transition.elements, set)
@@ -181,11 +230,22 @@ export function createHistorySlice(set: any, get: any): HistoryState & HistoryAc
       if (redoStack.length === 0) return
       const action: UndoAction = redoStack[redoStack.length - 1]
       const transition = createRedoTransition(elements, action)
+      const nextRedoStack = redoStack.slice(0, -1)
+      const nextUndoStack = [...undoStack, transition.inverseAction]
 
       set({
+        ...(action.type === 'snapshot' && action.workspace
+          ? createWorkspaceHistoryPatch(
+              get(),
+              action.workspace.after,
+              transition.elements,
+              nextUndoStack,
+              nextRedoStack
+            )
+          : {}),
         elements: transition.elements,
-        redoStack: redoStack.slice(0, -1),
-        undoStack: [...undoStack, transition.inverseAction],
+        redoStack: nextRedoStack,
+        undoStack: nextUndoStack,
       })
 
       focusAffectedElements(getAffectedElementIds(action), transition.elements, set)

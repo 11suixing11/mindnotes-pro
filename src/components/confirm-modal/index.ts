@@ -1,2 +1,3 @@
 export { default as ConfirmModal } from './ConfirmModal'
-export { useConfirm } from './useConfirm'
+export { requestConfirmation, useConfirm } from './useConfirm'
+export { requestClearCanvas } from './requestClearCanvas'

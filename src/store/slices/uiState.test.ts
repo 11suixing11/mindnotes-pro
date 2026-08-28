@@ -17,7 +17,12 @@ describe('uiState slice', () => {
 
   function createSlice(width = 1024) {
     setViewportWidth(width)
-    state = { saveStatus: 'idle' }
+    state = {
+      saveStatus: 'idle',
+      persistenceMode: 'persistent',
+      lastSavedAt: null,
+      saveError: null,
+    }
     set = vi.fn((update: any) => {
       if (typeof update === 'function') {
         Object.assign(state, update(state))
@@ -36,6 +41,9 @@ describe('uiState slice', () => {
   describe('initial state', () => {
     it('starts with saveStatus idle', () => {
       expect(slice.saveStatus).toBe('idle')
+      expect(slice.persistenceMode).toBe('persistent')
+      expect(slice.lastSavedAt).toBeNull()
+      expect(slice.saveError).toBeNull()
     })
   })
 
@@ -68,6 +76,20 @@ describe('uiState slice', () => {
         slice.setSaveStatus(status)
         expect(set).toHaveBeenCalledWith({ saveStatus: status })
       }
+    })
+  })
+
+  it('updates persistence metadata without changing saveStatus', () => {
+    slice.setPersistenceState({
+      persistenceMode: 'memory-only',
+      lastSavedAt: 123,
+      saveError: 'quota exceeded',
+    })
+    expect(state).toMatchObject({
+      saveStatus: 'idle',
+      persistenceMode: 'memory-only',
+      lastSavedAt: 123,
+      saveError: 'quota exceeded',
     })
   })
 })

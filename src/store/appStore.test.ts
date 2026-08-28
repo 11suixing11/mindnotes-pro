@@ -77,6 +77,10 @@ describe('useAppStore', () => {
       selectedIds: [],
       undoStack: [],
       redoStack: [],
+      saveStatus: 'idle',
+      persistenceMode: 'persistent',
+      lastSavedAt: null,
+      saveError: null,
     })
   })
 
@@ -492,9 +496,94 @@ describe('useAppStore', () => {
       await vi.advanceTimersByTimeAsync(1500)
 
       expect(useAppStore.getState().saveStatus).toBe('error')
+      expect(useAppStore.getState().persistenceMode).toBe('memory-only')
+      expect(useAppStore.getState().saveError).toBe('quota exceeded')
       const toasts = useToastStore.getState().toasts
       expect(toasts[toasts.length - 1]?.message).toContain('保存失败')
       expect(localStorage.getItem(RECOVERY_DRAFT_STORAGE_KEY)).not.toBeNull()
+    })
+
+    it('keeps the persistent memory-only error visible after later edits schedule a retry', async () => {
+      await useAppStore.getState().createDoc('Persistent error')
+      vi.mocked(storageMock.update).mockRejectedValueOnce(new Error('quota exceeded'))
+
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'failed-save',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 40,
+        h: 40,
+        color: '#000000',
+        size: 2,
+      })
+      await vi.advanceTimersByTimeAsync(1500)
+
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'scheduled-retry',
+        kind: 'circle',
+        x: 50,
+        y: 50,
+        w: 40,
+        h: 40,
+        color: '#000000',
+        size: 2,
+      })
+
+      expect(useAppStore.getState()).toMatchObject({
+        saveStatus: 'error',
+        persistenceMode: 'memory-only',
+        saveError: 'quota exceeded',
+      })
+    })
+
+    it('restores clear history from a failed-save recovery draft after reload', async () => {
+      const documentId = await useAppStore.getState().createDoc('Recover clear history')
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'recoverable-shape',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 40,
+        h: 40,
+        color: '#000000',
+        size: 2,
+      })
+      await vi.advanceTimersByTimeAsync(1500)
+      vi.advanceTimersByTime(10)
+
+      vi.mocked(storageMock.update).mockRejectedValueOnce(new Error('quota exceeded'))
+      expect(useAppStore.getState().clearAll()).toBe(true)
+      await vi.advanceTimersByTimeAsync(1500)
+
+      const draft = loadRecoveryDraft(documentId)
+      expect(draft?.elements).toEqual([])
+      expect(draft?.undoStack?.[draft.undoStack.length - 1]).toMatchObject({ type: 'clear' })
+
+      clearSaveTimer()
+      resetSaveCache()
+      useAppStore.setState({
+        docs: [],
+        currentDocId: null,
+        elements: [],
+        undoStack: [],
+        redoStack: [],
+        loaded: false,
+        saveStatus: 'idle',
+        persistenceMode: 'persistent',
+        lastSavedAt: null,
+        saveError: null,
+      })
+
+      await useAppStore.getState().init()
+      expect(useAppStore.getState().elements).toEqual([])
+      useAppStore.getState().undo()
+      expect(useAppStore.getState().elements).toEqual([
+        expect.objectContaining({ id: 'recoverable-shape' }),
+      ])
     })
 
     it('preserves a rename that completes while an automatic save is waiting', async () => {

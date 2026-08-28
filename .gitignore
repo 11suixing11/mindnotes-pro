@@ -45,6 +45,9 @@ temp/
 debug-*.cjs
 debug-*.js
 
+# Performance benchmark output
+benchmark/results/
+
 # Test screenshots & PDFs (root level)
 *.pdf
 !docs/**/*.pdf
@@ -104,6 +107,7 @@ vercel.json
 stats.html
 
 # Local browser inspection artifacts
+.impeccable/
 .trace-inspect/
 .trace-lines.txt
 .trace-tool-before.txt

@@ -6,11 +6,14 @@ import { formatShortcutBinding, type ShortcutActionId } from '../../keyboard/sho
 import { useShortcutStore } from '../../store/useShortcutStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useConfirm } from '../confirm-modal'
+import { requestClearCanvas } from '../confirm-modal/requestClearCanvas'
 import { ExportMenu } from '../export-menu'
 import ToolButtons from './ToolButtons'
 import BrushSelector from './BrushSelector'
 import ColorPicker from './ColorPicker'
 import CanvasActionButtons from './CanvasActionButtons'
+import MobileSelectionActions from './MobileSelectionActions'
+import MobileToolbar from './MobileToolbar'
 import TemplateMenu from '../templates/TemplateMenu'
 import { icons } from './icons'
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
@@ -161,19 +164,21 @@ export default function Toolbar({ canInstall = false, onInstall }: ToolbarProps)
   const [historyPulse, setHistoryPulse] = useState<'undo' | 'redo' | null>(null)
   const pulseTimerRef = useRef<number | null>(null)
   const previousHistoryCountsRef = useRef<{ undoLen: number; redoLen: number } | null>(null)
-  const { tool, setTool, brush, setBrush, clearAll, undo, redo, undoLen, redoLen } = useAppStore(
-    useShallow((s) => ({
-      tool: s.tool,
-      setTool: s.setTool,
-      brush: s.brush,
-      setBrush: s.setBrush,
-      clearAll: s.clearAll,
-      undo: s.undo,
-      redo: s.redo,
-      undoLen: s.undoStack.length,
-      redoLen: s.redoStack.length,
-    }))
-  )
+  const { tool, setTool, brush, setBrush, clearAll, undo, redo, undoLen, redoLen, elementCount } =
+    useAppStore(
+      useShallow((s) => ({
+        tool: s.tool,
+        setTool: s.setTool,
+        brush: s.brush,
+        setBrush: s.setBrush,
+        clearAll: s.clearAll,
+        undo: s.undo,
+        redo: s.redo,
+        undoLen: s.undoStack.length,
+        redoLen: s.redoStack.length,
+        elementCount: s.elements.length,
+      }))
+    )
   const {
     zoomIn,
     zoomOut,
@@ -241,6 +246,8 @@ export default function Toolbar({ canInstall = false, onInstall }: ToolbarProps)
 
   return (
     <>
+      <MobileToolbar />
+      <MobileSelectionActions />
       {/* Left toolbar: tools + undo/redo/clear only */}
       <div
         ref={drawingToolbarScroll.containerRef}
@@ -272,7 +279,7 @@ export default function Toolbar({ canInstall = false, onInstall }: ToolbarProps)
           </button>
           <button
             onClick={async () => {
-              if (await confirm('确定清空当前画布吗？')) clearAll()
+              await requestClearCanvas(elementCount, confirm, clearAll)
             }}
             className="abtn"
             data-tip="清空画布"
@@ -371,11 +378,11 @@ export default function Toolbar({ canInstall = false, onInstall }: ToolbarProps)
         <button
           onClick={cycleGridSize}
           className="abtn grid-size-btn"
-          data-tip={`网格大小 ${gridSize}px`}
-          title={`网格大小 ${gridSize}px`}
-          aria-label={`网格大小 ${gridSize}px`}
+          data-tip={`网格大小 ${gridSize} px`}
+          title={`网格大小 ${gridSize} px`}
+          aria-label={`网格大小 ${gridSize} px`}
         >
-          {gridSize}
+          {gridSize} px
         </button>
         <div className="tb-sep" aria-hidden="true" />
         <ExportMenu />

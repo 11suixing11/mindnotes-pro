@@ -8,6 +8,9 @@ import type { CanvasDoc } from '../../store/types'
 import { createCanvasBackup, parseCanvasImportJSON } from '../../store/backup'
 import { CANVAS_IMPORT_MAX_JSON_BYTES } from '../../store/importLimits'
 import { getRenderableElements } from '../../store/layers'
+import { useConfirm } from '../confirm-modal'
+import { useDialogFocus } from '../useDialogFocus'
+import { OPEN_FILE_EVENT, type OpenFileEventDetail } from '../../appEvents'
 import {
   canvasToBlob,
   EmptyDocumentError,
@@ -60,7 +63,6 @@ function getExportContext(): ExportContext {
 
 const ExportMenu = memo(function ExportMenu() {
   const exportBtnRef = useRef<HTMLButtonElement>(null)
-  const dialogRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const opaqueRasterRef = useRef<Promise<RasterExport> | null>(null)
   const [showExport, setShowExport] = useState(false)
@@ -69,6 +71,7 @@ const ExportMenu = memo(function ExportMenu() {
   const [jpegEstimate, setJpegEstimate] = useState('待估算')
   const isDarkMode = useThemeStore((state) => state.isDarkMode)
   const showToast = useToastStore((state) => state.show)
+  const confirm = useConfirm()
 
   const renderRaster = useCallback(
     async (transparent: boolean): Promise<RasterExport> => {
@@ -96,32 +99,15 @@ const ExportMenu = memo(function ExportMenu() {
     return pending
   }, [renderRaster])
 
-  const closeExport = useCallback((restoreFocus = true) => {
+  const closeExport = useCallback(() => {
     setShowExport(false)
     opaqueRasterRef.current = null
-    if (restoreFocus) queueMicrotask(() => exportBtnRef.current?.focus())
   }, [])
 
-  useEffect(() => {
-    if (!showExport) return
-    const focusTimer = window.setTimeout(() => {
-      const firstButton = dialogRef.current?.querySelector<HTMLButtonElement>('button')
-      firstButton?.focus()
-    }, 0)
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      closeExport()
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      window.clearTimeout(focusTimer)
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [closeExport, showExport])
+  const dialogFocusRef = useDialogFocus<HTMLDivElement>({
+    open: showExport,
+    onClose: closeExport,
+  })
 
   useEffect(() => {
     if (!showExport) return
@@ -226,7 +212,21 @@ const ExportMenu = memo(function ExportMenu() {
         throw new Error('JSON 文件过大，无法导入')
       }
       const imported = parseCanvasImportJSON(await file.text())
-      await useAppStore.getState().replaceCurrentDoc(imported)
+      const currentState = useAppStore.getState()
+      const importedTitle = imported.title.trim() || '未命名画布'
+      const accepted = await confirm(
+        `导入文件“${file.name}”中的画板“${importedTitle}”将替换当前画板。当前画板有 ${currentState.elements.length} 个元素，导入内容有 ${imported.elements.length} 个元素。`,
+        {
+          confirmLabel: '替换并导入',
+          cancelLabel: '取消',
+          danger: true,
+        }
+      )
+      if (!accepted) {
+        showToast('已取消导入', 'info')
+        return
+      }
+      await currentState.replaceCurrentDoc(imported)
       showToast('已导入并替换当前画板', 'success')
     } catch (error) {
       const message = error instanceof Error ? error.message : '无法解析文件'
@@ -265,16 +265,50 @@ const ExportMenu = memo(function ExportMenu() {
 
   const handleToggle = useCallback(() => {
     if (showExport) {
-      closeExport(false)
+      closeExport()
       return
     }
     if (exportBtnRef.current) {
       const rect = exportBtnRef.current.getBoundingClientRect()
-      setExportPos({ top: rect.bottom + 8, right: Math.max(8, window.innerWidth - rect.right) })
+      const triggerIsVisible = rect.width > 0 && rect.height > 0
+      setExportPos(
+        triggerIsVisible
+          ? { top: rect.bottom + 8, right: Math.max(8, window.innerWidth - rect.right) }
+          : { top: 8, right: 8 }
+      )
+      // Keep the trigger as the restoration target for desktop clicks. On
+      // mobile the desktop trigger is display:none and focusing it would
+      // steal focus from the mobile file button that opened this dialog.
+      const activeElement = document.activeElement
+      if (
+        triggerIsVisible ||
+        activeElement === document.body ||
+        activeElement === document.documentElement
+      ) {
+        exportBtnRef.current.focus()
+      }
     }
     opaqueRasterRef.current = null
     setShowExport(true)
   }, [closeExport, showExport])
+
+  useEffect(() => {
+    const openFile = (event: Event) => {
+      const detail = (event as CustomEvent<OpenFileEventDetail>).detail
+      if (detail?.intent === 'import') {
+        // Keep the import action direct for the empty-canvas recovery path.
+        // There is intentionally only one file-input click in this handler;
+        // no second listener or synthetic menu click can open the picker again.
+        if (showExport) closeExport()
+        fileRef.current?.click()
+        return
+      }
+      if (!showExport) handleToggle()
+    }
+
+    window.addEventListener(OPEN_FILE_EVENT, openFile)
+    return () => window.removeEventListener(OPEN_FILE_EVENT, openFile)
+  }, [closeExport, handleToggle, showExport])
 
   const renderExportItem = (item: (typeof exports)[number]) => (
     <ExportItemButton
@@ -293,52 +327,65 @@ const ExportMenu = memo(function ExportMenu() {
         type="button"
         onClick={handleToggle}
         className="pill-btn primary"
-        aria-label="导出"
+        aria-label="文件"
         aria-haspopup="dialog"
         aria-expanded={showExport}
-        title="导出或导入画布"
+        title="导入或导出画布文件"
       >
         <Download size={14} />
-        <span>导出</span>
+        <span>文件</span>
       </button>
 
       {showExport &&
         createPortal(
           <>
             <div
-              ref={dialogRef}
-              className="panel em-menu"
+              ref={dialogFocusRef}
+              className="panel em-menu em-file-menu"
               role="dialog"
               aria-modal="true"
-              aria-label="导出选项"
+              aria-labelledby="file-menu-title"
+              aria-describedby="file-menu-description"
               style={{ top: exportPos.top, right: exportPos.right }}
             >
-              {exports.slice(0, 1).map(renderExportItem)}
-              <JpegExportPanel
-                quality={jpegQuality}
-                estimate={jpegEstimate}
-                onExport={() => runExport(exportJPEG)}
-                onQualityChange={setJpegQuality}
-              />
-              {exports.slice(1).map(renderExportItem)}
+              <div id="file-menu-title" className="em-section-title">
+                文件操作
+              </div>
+              <p id="file-menu-description" className="sr-only">
+                导出当前画板或导入备份文件。导入备份会替换当前画板。
+              </p>
+              <div className="em-section-title">导出文件</div>
+              <div role="group" aria-label="导出文件">
+                {exports.slice(0, 1).map(renderExportItem)}
+                <JpegExportPanel
+                  quality={jpegQuality}
+                  estimate={jpegEstimate}
+                  onExport={() => runExport(exportJPEG)}
+                  onQualityChange={setJpegQuality}
+                />
+                {exports.slice(1).map(renderExportItem)}
+              </div>
               <div className="dsep" />
-              <button
-                type="button"
-                onClick={() => {
-                  fileRef.current?.click()
-                  closeExport(false)
-                }}
-                className="ditem"
-                aria-label="导入 JSON"
-              >
-                <span className="di em-icon">
-                  <FileUp size={16} />
-                </span>
-                <span className="em-labels">
-                  <span className="dl">导入 JSON</span>
-                  <span className="dd">导入 v4、v3 或旧版文件，替换当前画板</span>
-                </span>
-              </button>
+              <div className="em-section-title">导入备份</div>
+              <div role="group" aria-label="导入备份">
+                <button
+                  type="button"
+                  onClick={() => {
+                    fileRef.current?.click()
+                    closeExport()
+                  }}
+                  className="ditem"
+                  aria-label="导入 JSON 备份"
+                >
+                  <span className="di em-icon">
+                    <FileUp size={16} />
+                  </span>
+                  <span className="em-labels">
+                    <span className="dl">导入 JSON 备份</span>
+                    <span className="dd">导入 v4、v3 或旧版文件，替换当前画板</span>
+                  </span>
+                </button>
+              </div>
             </div>
             <div className="em-overlay" onClick={() => closeExport()} />
           </>,
@@ -348,6 +395,7 @@ const ExportMenu = memo(function ExportMenu() {
       <input
         ref={fileRef}
         type="file"
+        tabIndex={-1}
         accept="application/json,.json"
         onChange={importJSON}
         className="em-hidden-input"

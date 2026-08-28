@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as DocumentExportModule from '../../canvas/documentExport'
+import { createOpenFileEvent } from '../../appEvents'
 import { CANVAS_IMPORT_MAX_JSON_BYTES } from '../../store/importLimits'
 import ExportMenu from './ExportMenu'
 
@@ -9,6 +10,7 @@ const {
   baseElement,
   baseLayer,
   canvasToBlobMock,
+  confirmMock,
   replaceCurrentDocMock,
   renderDocumentMock,
   showToastMock,
@@ -64,6 +66,7 @@ const {
     baseElement: element,
     baseLayer: layer,
     canvasToBlobMock: vi.fn(async () => new Blob(['jpeg'], { type: 'image/jpeg' })),
+    confirmMock: vi.fn(async () => true),
     replaceCurrentDocMock: replaceCurrentDoc,
     renderDocumentMock: vi.fn(async () => ({
       canvas: document.createElement('canvas'),
@@ -86,6 +89,10 @@ vi.mock('../../store/useThemeStore', () => ({
 vi.mock('../../store/toastStore', () => ({
   useToastStore: (selector: (state: { show: typeof showToastMock }) => unknown) =>
     selector({ show: showToastMock }),
+}))
+
+vi.mock('../confirm-modal', () => ({
+  useConfirm: () => confirmMock,
 }))
 
 vi.mock('../../canvas/documentExport', async (importOriginal) => {
@@ -120,6 +127,8 @@ describe('ExportMenu', () => {
     appState.bgColor = '#ffffff'
     appState.backgroundStyle = 'plain'
     showToastMock.mockReset()
+    confirmMock.mockReset()
+    confirmMock.mockResolvedValue(true)
     replaceCurrentDocMock.mockClear()
     renderDocumentMock.mockClear()
     canvasToBlobMock.mockClear()
@@ -150,9 +159,11 @@ describe('ExportMenu', () => {
 
   it('offers the supported formats without the fake Word export', () => {
     render(<ExportMenu />)
-    fireEvent.click(screen.getByRole('button', { name: '导出' }))
+    fireEvent.click(screen.getByRole('button', { name: '文件' }))
 
-    expect(screen.getByRole('dialog', { name: '导出选项' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: '文件操作' })).toBeTruthy()
+    expect(screen.getByText('导出文件')).toBeTruthy()
+    expect(screen.getByText('导入备份')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'PNG 图片' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'JPEG 图片' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'PDF 文档' })).toBeTruthy()
@@ -163,7 +174,7 @@ describe('ExportMenu', () => {
 
   it('focuses the export dialog and restores focus when Escape closes it', async () => {
     render(<ExportMenu />)
-    const trigger = screen.getByRole('button', { name: '导出' })
+    const trigger = screen.getByRole('button', { name: '文件' })
     fireEvent.click(trigger)
 
     const firstAction = screen.getByRole('button', { name: 'PNG 图片' })
@@ -171,13 +182,52 @@ describe('ExportMenu', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' })
 
-    expect(screen.queryByRole('dialog', { name: '导出选项' })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: '文件操作' })).toBeNull()
     await waitFor(() => expect(document.activeElement).toBe(trigger))
+  })
+
+  it('keeps keyboard focus inside the file dialog', async () => {
+    render(<ExportMenu />)
+    fireEvent.click(screen.getByRole('button', { name: '文件' }))
+
+    const firstAction = screen.getByRole('button', { name: 'PNG 图片' })
+    const importAction = screen.getByRole('button', { name: '导入 JSON 备份' })
+    await waitFor(() => expect(document.activeElement).toBe(firstAction))
+
+    importAction.focus()
+    fireEvent.keyDown(window, { key: 'Tab' })
+    expect(document.activeElement).toBe(firstAction)
+
+    firstAction.focus()
+    fireEvent.keyDown(window, { key: 'Tab', shiftKey: true })
+    expect(document.activeElement).toBe(importAction)
+  })
+
+  it('uses one event handler to open the file menu without opening the picker', async () => {
+    render(<ExportMenu />)
+    const input = screen.getByLabelText('选择 JSON 文件') as HTMLInputElement
+    const inputClick = vi.spyOn(input, 'click')
+
+    window.dispatchEvent(createOpenFileEvent('menu'))
+
+    await waitFor(() => expect(screen.getByRole('dialog', { name: '文件操作' })).toBeTruthy())
+    expect(inputClick).not.toHaveBeenCalled()
+  })
+
+  it('opens the import picker exactly once for the import intent', () => {
+    render(<ExportMenu />)
+    const input = screen.getByLabelText('选择 JSON 文件') as HTMLInputElement
+    const inputClick = vi.spyOn(input, 'click').mockImplementation(() => undefined)
+
+    window.dispatchEvent(createOpenFileEvent('import'))
+
+    expect(inputClick).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('dialog', { name: '文件操作' })).toBeNull()
   })
 
   it('renders the full document and applies the selected JPEG quality', async () => {
     render(<ExportMenu />)
-    fireEvent.click(screen.getByRole('button', { name: '导出' }))
+    fireEvent.click(screen.getByRole('button', { name: '文件' }))
     const slider = screen.getByLabelText('JPEG 质量') as HTMLInputElement
     fireEvent.change(slider, { target: { value: '60' } })
     fireEvent.click(screen.getByRole('button', { name: 'JPEG 图片' }))
@@ -192,7 +242,7 @@ describe('ExportMenu', () => {
 
   it('reuses the opaque render while estimating and exporting JPEG', async () => {
     render(<ExportMenu />)
-    fireEvent.click(screen.getByRole('button', { name: '导出' }))
+    fireEvent.click(screen.getByRole('button', { name: '文件' }))
 
     await waitFor(() => expect(canvasToBlobMock).toHaveBeenCalledTimes(1))
     expect(renderDocumentMock).toHaveBeenCalledTimes(1)
@@ -218,7 +268,7 @@ describe('ExportMenu', () => {
     appState.elements = []
 
     render(<ExportMenu />)
-    fireEvent.click(screen.getByRole('button', { name: '导出' }))
+    fireEvent.click(screen.getByRole('button', { name: '文件' }))
     fireEvent.click(screen.getByRole('button', { name: 'PNG 图片' }))
 
     await waitFor(() =>
@@ -251,7 +301,38 @@ describe('ExportMenu', () => {
 
     await waitFor(() => expect(replaceCurrentDocMock).toHaveBeenCalledTimes(1))
     expect(replaceCurrentDocMock.mock.calls[0][0]).toMatchObject({ title: '导入测试' })
+    expect(confirmMock).toHaveBeenCalledWith(
+      expect.stringContaining('将替换当前画板'),
+      expect.objectContaining({ confirmLabel: '替换并导入' })
+    )
     expect(showToastMock).toHaveBeenCalledWith('已导入并替换当前画板', 'success')
+  })
+
+  it('keeps the current board unchanged when import replacement is cancelled', async () => {
+    confirmMock.mockResolvedValueOnce(false)
+    render(<ExportMenu />)
+    const input = screen.getByLabelText('选择 JSON 文件') as HTMLInputElement
+    const serialized = JSON.stringify({
+      format: 'mindnotes-pro-backup',
+      version: 4,
+      exportedAt: '2026-07-31T00:00:00.000Z',
+      document: {
+        title: '取消导入',
+        elements: appState.elements,
+        layers: appState.layers,
+        activeLayerId: appState.activeLayerId,
+        bgColor: '#ffffff',
+        backgroundStyle: 'plain',
+      },
+    })
+    const file = new File([serialized], 'cancel.json', { type: 'application/json' })
+    Object.defineProperty(file, 'text', { value: vi.fn(async () => serialized) })
+
+    fireEvent.change(input, { target: { files: [file] } })
+
+    await waitFor(() => expect(confirmMock).toHaveBeenCalledTimes(1))
+    expect(replaceCurrentDocMock).not.toHaveBeenCalled()
+    expect(showToastMock).toHaveBeenCalledWith('已取消导入', 'info')
   })
 
   it('rejects oversized JSON files before reading them', async () => {

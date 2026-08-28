@@ -37,16 +37,14 @@ describe('document recovery reconciliation', () => {
     expect(result.draftsToClear).toEqual([{ documentId: 'persisted', savedAt: 20 }])
   })
 
-  it('clears orphan drafts with an unbounded timestamp', () => {
+  it('restores drafts that are not yet present in persistent storage', () => {
     const draft = { ...createBlankDocument(100), id: 'orphan', updatedAt: 20 }
 
     const result = reconcileDocumentRecovery([], [draft])
 
-    expect(result.docs).toEqual([])
-    expect(result.recoveredDocumentIds).toEqual([])
-    expect(result.draftsToClear).toEqual([
-      { documentId: 'orphan', savedAt: Number.POSITIVE_INFINITY },
-    ])
+    expect(result.docs).toEqual([draft])
+    expect(result.recoveredDocumentIds).toEqual(['orphan'])
+    expect(result.draftsToClear).toEqual([])
   })
 
   it('keeps recovered documents sorted by update time', () => {

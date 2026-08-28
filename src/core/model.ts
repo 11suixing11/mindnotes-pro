@@ -130,6 +130,14 @@ export interface CanvasLayer {
   updatedAt: number
 }
 
+export interface CanvasWorkspaceMetadata {
+  title: string
+  layers: CanvasLayer[]
+  activeLayerId: string
+  bgColor: string
+  backgroundStyle: CanvasBackgroundStyle
+}
+
 export type UndoAction =
   | { type: 'add'; ids: string[]; els?: CanvasElement[] }
   | { type: 'remove'; items: { el: CanvasElement; index: number }[] }
@@ -140,6 +148,10 @@ export type UndoAction =
       after: CanvasElement[]
       label: string
       affectedIds: string[]
+      workspace?: {
+        before: CanvasWorkspaceMetadata
+        after: CanvasWorkspaceMetadata
+      }
     }
   | { type: 'move'; deltas: { id: string; dx: number; dy: number }[] }
   | { type: 'erase'; before: CanvasElement[]; after: CanvasElement[] }

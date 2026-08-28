@@ -47,6 +47,7 @@ describe('LayersPanel', () => {
 
   afterEach(() => {
     cleanup()
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
     vi.useRealTimers()
   })
 
@@ -110,5 +111,18 @@ describe('LayersPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '将所选元素移到 Target' }))
 
     expect(useAppStore.getState().elements[0].layerId).toBe(targetLayerId)
+  })
+
+  it('blocks the mobile canvas behind the expanded layer sheet and closes from the overlay', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
+    render(<LayersPanel />)
+    expandLayers()
+
+    const dialog = screen.getByRole('dialog', { name: '图层' })
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
+    const overlay = document.querySelector<HTMLButtonElement>('.layers-sheet-overlay')
+    expect(overlay).toBeTruthy()
+    fireEvent.click(overlay!)
+    expect(screen.queryByRole('dialog', { name: '图层' })).toBeNull()
   })
 })

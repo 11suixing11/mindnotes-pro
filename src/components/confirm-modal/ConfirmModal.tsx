@@ -33,24 +33,32 @@ const ConfirmModal = memo(function ConfirmModal() {
   if (!opts) return null
 
   return (
-    <div className="confirm-modal" role="presentation">
+    <div className="confirm-modal" role="presentation" data-modal-layer="true">
       <div className="confirm-modal-bg" aria-hidden="true" onClick={() => close(false)} />
       <div
         ref={dialogRef}
         className="confirm-modal-box"
         role="dialog"
         aria-modal="true"
-        aria-label="确认操作"
+        aria-labelledby="confirm-modal-title"
+        aria-describedby="confirm-modal-message"
         tabIndex={-1}
       >
-        <p>{opts.message}</p>
+        <h2 id="confirm-modal-title" className="sr-only">
+          确认操作
+        </h2>
+        <p id="confirm-modal-message">{opts.message}</p>
         <div className="confirm-modal-actions">
-          <button className="btn-cancel" aria-label="取消" onClick={() => close(false)}>
+          <button
+            className="btn-cancel"
+            aria-label={opts.cancelLabel ?? '取消'}
+            onClick={() => close(false)}
+          >
             {opts.cancelLabel ?? '取消'}
           </button>
           <button
             className={opts.danger !== false ? 'btn-danger' : 'btn-cancel'}
-            aria-label="确认"
+            aria-label={opts.confirmLabel ?? '确定'}
             onClick={() => close(true)}
           >
             {opts.confirmLabel ?? '确定'}

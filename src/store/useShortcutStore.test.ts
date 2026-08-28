@@ -45,6 +45,15 @@ describe('useShortcutStore', () => {
     expect(useShortcutStore.getState().bindings).toEqual(DEFAULT_SHORTCUT_BINDINGS)
   })
 
+  it('rejects imported Tab bindings without changing active shortcuts', () => {
+    const result = useShortcutStore
+      .getState()
+      .importShortcuts(JSON.stringify({ version: 1, bindings: { 'tool.pen': { key: 'Tab' } } }))
+
+    expect(result.ok).toBe(false)
+    expect(useShortcutStore.getState().bindings).toEqual(DEFAULT_SHORTCUT_BINDINGS)
+  })
+
   it('resets shortcuts and clears persisted configuration', () => {
     useShortcutStore.getState().setShortcut('tool.pen', { key: 'P' })
 

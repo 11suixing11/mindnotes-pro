@@ -97,7 +97,12 @@ export function createCanvasElementLayerActions(
     setActiveLayer: (id) => {
       const state = get()
       if (!isLayerWritable(state.layers, id) || state.activeLayerId === id) return
+      // The active layer is part of the persisted workspace metadata. Treat
+      // switching it as a document mutation so a refresh does not silently
+      // revert the user's next drawing target.
+      incrementSaveGeneration()
       set({ activeLayerId: id })
+      scheduleSave()
     },
 
     setLayerVisibility: (id, visible) => {

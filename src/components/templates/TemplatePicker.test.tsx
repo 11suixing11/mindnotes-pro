@@ -12,7 +12,7 @@ function renderPicker(overrides: Partial<ComponentProps<typeof TemplatePicker>> 
     sourceElementCount: 1,
     onClose: vi.fn(),
     onInsert: vi.fn(),
-    onSaveCustom: vi.fn(),
+    onSaveCustom: vi.fn(() => true),
     onDeleteCustom: vi.fn(),
     ...overrides,
   }
@@ -55,6 +55,20 @@ describe('TemplatePicker', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存为模板' }))
 
     expect(props.onSaveCustom).toHaveBeenCalledWith('Decision tree')
+    expect((screen.getByLabelText('自定义模板名称') as HTMLInputElement).value).toBe('')
+  })
+
+  it('preserves the name when saving a custom template fails', () => {
+    renderPicker({ onSaveCustom: vi.fn(() => false) })
+
+    fireEvent.change(screen.getByLabelText('自定义模板名称'), {
+      target: { value: '需要重试的模板' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '保存为模板' }))
+
+    expect((screen.getByLabelText('自定义模板名称') as HTMLInputElement).value).toBe(
+      '需要重试的模板'
+    )
   })
 
   it('disables saving when the canvas has no source elements', () => {
@@ -100,7 +114,7 @@ describe('TemplatePicker', () => {
       sourceElementCount: 1,
       onClose: vi.fn(),
       onInsert: vi.fn(),
-      onSaveCustom: vi.fn(),
+      onSaveCustom: vi.fn(() => true),
       onDeleteCustom: vi.fn(),
     }
     const view = render(<TemplatePicker {...props} />)

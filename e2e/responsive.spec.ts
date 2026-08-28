@@ -4,9 +4,16 @@ import { expect, insertFlowchart, openApp, test } from './helpers'
 async function visibleCanvasContent(page: Page) {
   return page.locator('#main-canvas').evaluate((canvasElement) => {
     const canvas = canvasElement as HTMLCanvasElement
-    const context = canvas.getContext('2d')
+    // Probe a separate readback surface. The app's render context is created
+    // for GPU drawing, so repeatedly calling getImageData on it would emit a
+    // browser advisory and distort the diagnostics collected by the test.
+    const probe = document.createElement('canvas')
+    probe.width = canvas.width
+    probe.height = canvas.height
+    const context = probe.getContext('2d', { willReadFrequently: true })
     if (!context) return 0
-    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
+    context.drawImage(canvas, 0, 0)
+    const pixels = context.getImageData(0, 0, probe.width, probe.height).data
     let visible = 0
     for (let index = 0; index < pixels.length; index += 16) {
       const red = pixels[index]
@@ -33,7 +40,7 @@ async function scrollToolbarUntilVisible({
   targetButtonName: string
 }) {
   const toolbar = page.locator(toolbarSelector)
-  const target = page.getByRole('button', { name: targetButtonName })
+  const target = page.getByRole('button', { name: targetButtonName, exact: true })
 
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const isTargetVisible = await target.evaluate((element, selector) => {
@@ -58,81 +65,80 @@ async function scrollToolbarUntilVisible({
   throw new Error(`Could not reveal ${targetButtonName} after scrolling ${toolbarSelector}`)
 }
 
-test('桌面内容缩到手机宽度后仍在视口内且品牌完整', async ({ page }) => {
+test('手机和平板目标视口无页面溢出且画布内容保持可见', async ({ page }) => {
   await openApp(page)
   await insertFlowchart(page)
-  await page.setViewportSize({ width: 390, height: 844 })
 
-  await expect(page.locator('#main-canvas')).toHaveCSS('width', '390px')
-  await expect.poll(() => visibleCanvasContent(page)).toBeGreaterThan(250)
-  await expect(page.locator('.sidebar')).toHaveCSS('transform', 'none')
-
-  const brand = page.locator('.toolbar-brand')
-  await expect(brand).toContainText('MindNotes Pro')
-  const brandBox = await brand.boundingBox()
-  expect(brandBox).not.toBeNull()
-  expect(brandBox!.x).toBeGreaterThanOrEqual(0)
-  expect(brandBox!.x + brandBox!.width).toBeLessThanOrEqual(390)
-
-  const hasHorizontalPageOverflow = await page.evaluate(
-    () => document.documentElement.scrollWidth > window.innerWidth
-  )
-  expect(hasHorizontalPageOverflow).toBe(false)
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 375, height: 812 },
+    { width: 390, height: 844 },
+    { width: 768, height: 1024 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await expect(page.locator('#main-canvas')).toHaveCSS('width', `${viewport.width}px`)
+    await expect.poll(() => visibleCanvasContent(page)).toBeGreaterThan(250)
+    await expect(page.locator('.mobile-toolbar')).toBeVisible()
+    await expect(page.locator('.sidebar')).toBeHidden()
+    await expect(page.locator('.topbar')).toBeHidden()
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth))
+      .toBe(false)
+  }
 })
 
-test('窄手机视口仍完整展示 MindNotes Pro 标识且不产生页面溢出', async ({ page }) => {
+test('窄手机固定展示核心操作且触控目标不小于 44px', async ({ page }) => {
   await openApp(page)
   await page.setViewportSize({ width: 320, height: 568 })
 
-  const brand = page.locator('.toolbar-brand')
-  await expect(brand).toContainText('MindNotes Pro')
-  const brandBox = await brand.boundingBox()
-  expect(brandBox).not.toBeNull()
-  expect(brandBox!.x).toBeGreaterThanOrEqual(0)
-  expect(brandBox!.x + brandBox!.width).toBeLessThanOrEqual(320)
+  const toolbar = page.getByRole('navigation', { name: '移动绘图工具' })
+  await expect(toolbar).toBeVisible()
+  for (const label of ['选择', '画笔', '橡皮擦', '文字', '撤销', '重做', '文件', '更多工具']) {
+    const button = toolbar.getByRole('button', { name: label, exact: true })
+    await expect(button).toBeVisible()
+    const box = await button.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.width).toBeGreaterThanOrEqual(44)
+    expect(box!.height).toBeGreaterThanOrEqual(44)
+  }
 
-  await expect(page.locator('#main-canvas')).toHaveCSS('width', '320px')
-  const hasHorizontalPageOverflow = await page.evaluate(
-    () => document.documentElement.scrollWidth > window.innerWidth
-  )
-  expect(hasHorizontalPageOverflow).toBe(false)
+  await expect(page.locator('.toolbar-scroll-control:visible')).toHaveCount(0)
 })
 
-test('窄屏工具带提供可操作的横向导航提示', async ({ page }) => {
+test('手机端次级工具和图层无需横向翻找', async ({ page }) => {
   await openApp(page)
   await page.setViewportSize({ width: 390, height: 844 })
 
-  await scrollToolbarUntilVisible({
-    page,
-    toolbarSelector: '.topbar',
-    forwardButtonName: '向右查看更多画布工具',
-    targetButtonName: '导出',
-  })
-  await expect(page.getByRole('button', { name: '导出' })).toBeInViewport()
+  const toolbar = page.getByRole('navigation', { name: '移动绘图工具' })
+  await toolbar.getByRole('button', { name: '更多工具' }).click()
+  const more = page.getByRole('dialog', { name: '更多工具' })
+  await expect(more).toBeVisible()
+  await expect(more.getByRole('button', { name: '矩形' })).toBeVisible()
+  await expect(more.getByRole('button', { name: '显示网格' })).toBeVisible()
+  await expect(more.getByRole('button', { name: '图层' })).toBeVisible()
 
-  await scrollToolbarUntilVisible({
-    page,
-    toolbarSelector: '.sidebar',
-    forwardButtonName: '向右查看更多绘图工具',
-    targetButtonName: '清空画布',
-  })
-  await expect(page.getByRole('button', { name: '清空画布' })).toBeInViewport()
+  await more.getByRole('button', { name: '图层' }).click()
+  await expect(page.locator('.layers-panel-expanded')).toBeVisible()
+  const layersBox = await page.locator('.layers-dock').boundingBox()
+  expect(layersBox).not.toBeNull()
+  expect(layersBox!.height).toBeLessThanOrEqual(844 * 0.45 + 1)
 
-  await expect(page.getByRole('button', { name: '向左查看更多画布工具' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '向左查看更多绘图工具' })).toBeVisible()
+  await expect(page.locator('.toolbar-scroll-control:visible')).toHaveCount(0)
 })
 
 test('平板宽度的顶栏仍提供横向导航提示', async ({ page }) => {
   await openApp(page)
   await page.setViewportSize({ width: 900, height: 700 })
 
+  await expect(page.getByRole('status', { name: '应用状态' })).toBeVisible()
+
   await scrollToolbarUntilVisible({
     page,
     toolbarSelector: '.topbar',
     forwardButtonName: '向右查看更多画布工具',
-    targetButtonName: '导出',
+    targetButtonName: '文件',
   })
-  await expect(page.getByRole('button', { name: '导出' })).toBeInViewport()
+  await expect(page.getByRole('button', { name: '文件', exact: true })).toBeInViewport()
   await expect(page.getByRole('button', { name: '向左查看更多画布工具' })).toBeVisible()
   await expect(page.getByRole('button', { name: '向右查看更多绘图工具' })).toBeHidden()
 })

@@ -1,9 +1,11 @@
-import type { CanvasDoc } from '../types'
+import type { CanvasDoc, CanvasWorkspaceMetadata, CurrentCanvasDoc, UndoAction } from '../types'
 import { getDocumentRepository } from '../documentRepository'
 import { useViewStore } from '../useViewStore'
 import {
   saveDocNow,
   clearSaveTimer,
+  getSaveGeneration,
+  incrementSaveGeneration,
   markDocumentDeleted,
   unmarkDocumentDeleted,
 } from '../saveManager'
@@ -23,6 +25,8 @@ import {
 } from './documentRecords'
 import { rebuildDocumentRuntimeIndexes } from './documentRuntimeIndexes'
 import { createDocumentWorkspaceState } from './documentWorkspace'
+import { appendUndoAction } from './canvasElementCommit'
+import { snapshot } from '../helpers'
 import {
   createDocumentInitializationFallback,
   initializeDocuments,
@@ -54,6 +58,27 @@ export interface DocManagementActions {
   saveNow: () => Promise<void>
 }
 
+function createWorkspaceMetadata(
+  title: string,
+  source: Pick<CanvasWorkspaceMetadata, 'layers' | 'activeLayerId' | 'bgColor' | 'backgroundStyle'>
+): CanvasWorkspaceMetadata {
+  return {
+    title,
+    layers: source.layers.map((layer) => ({ ...layer })),
+    activeLayerId: source.activeLayerId,
+    bgColor: source.bgColor,
+    backgroundStyle: source.backgroundStyle,
+  }
+}
+
+function normalizeCurrentDocument(document: CanvasDoc): CurrentCanvasDoc {
+  const normalized = normalizeCanvasDocLayers(document)
+  return {
+    ...normalized,
+    schemaVersion: CANVAS_SCHEMA_VERSION,
+  }
+}
+
 export function createDocManagementSlice(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   set: any,
@@ -78,6 +103,9 @@ export function createDocManagementSlice(
           ...createDocumentWorkspaceState(current),
           loaded: true,
           saveStatus: 'idle',
+          persistenceMode: 'persistent',
+          lastSavedAt: current?.updatedAt ?? null,
+          saveError: null,
         })
 
         rebuildDocumentRuntimeIndexes(get(), current?.elements ?? [])
@@ -93,6 +121,9 @@ export function createDocManagementSlice(
           ...createDocumentWorkspaceState(fallback),
           loaded: true,
           saveStatus: 'error',
+          persistenceMode: 'memory-only',
+          lastSavedAt: null,
+          saveError: error instanceof Error ? error.message : '浏览器存储初始化失败',
         })
         rebuildDocumentRuntimeIndexes(get(), fallback.elements)
         useToastStore
@@ -155,6 +186,7 @@ export function createDocManagementSlice(
 
       const updatedDoc = { ...doc, title: nextTitle, updatedAt: Date.now() }
       const previousDocs = state.docs
+      if (state.currentDocId === id) incrementSaveGeneration()
       set({
         docs: previousDocs
           .map((item: CanvasDoc) => (item.id === id ? updatedDoc : item))
@@ -228,28 +260,100 @@ export function createDocManagementSlice(
 
     replaceCurrentDoc: async (document) => {
       clearSaveTimer()
-      const state = get()
-      if (state.currentDocId && !(await saveDocNow())) {
+      if (get().currentDocId && !(await saveDocNow())) {
         throw new Error('Current document could not be saved')
       }
 
+      // Saving can yield to edits. Import history must capture the latest
+      // workspace after that await so undo never drops concurrent changes.
+      const state = get()
+      const importIdentity = state.currentDocId
+      const importGeneration = getSaveGeneration(importIdentity)
+      const importDocs = state.docs
       const existing =
         state.docs.find((item: CanvasDoc) => item.id === state.currentDocId) ??
         selectCanonicalDocument(state.docs)
       const replaced = createReplacedDocument(document, existing)
+      const importAction: UndoAction = {
+        type: 'snapshot',
+        before: snapshot(state.elements),
+        after: snapshot(replaced.elements),
+        label: 'Import canvas',
+        affectedIds: [
+          ...new Set([...state.elements, ...replaced.elements].map((element) => element.id)),
+        ],
+        workspace: {
+          before: createWorkspaceMetadata(existing?.title ?? '未命名画布', state),
+          after: createWorkspaceMetadata(replaced.title, {
+            layers: replaced.layers ?? [],
+            activeLayerId: replaced.activeLayerId ?? '',
+            bgColor: replaced.bgColor,
+            backgroundStyle: replaced.backgroundStyle ?? 'plain',
+          }),
+        },
+      }
+      const undoStack = appendUndoAction(state.undoStack, importAction)
+      const replacedWithHistory: CanvasDoc = { ...replaced, undoStack, redoStack: [] }
 
       const repository = getDocumentRepository()
-      await repository.saveDocument({ ...replaced, schemaVersion: CANVAS_SCHEMA_VERSION })
+      await repository.saveDocument({
+        ...replacedWithHistory,
+        schemaVersion: CANVAS_SCHEMA_VERSION,
+      })
+
+      const latestState = get()
+      const identityChanged = latestState.currentDocId !== importIdentity
+      const generationChanged = getSaveGeneration(importIdentity) !== importGeneration
+      const docsChanged = latestState.docs !== importDocs
+
+      if (identityChanged || generationChanged || docsChanged) {
+        // The write completed after another command changed the live board.
+        // Never replace that newer workspace with the imported snapshot. Put
+        // the persisted record back in the same state the user is still
+        // editing (or remove a newly-created import when the old record no
+        // longer exists), then reject so the UI reports a retryable import.
+        try {
+          if (!identityChanged && importIdentity === replaced.id) {
+            // saveDocNow also updates the save-generation cache/status after
+            // restoring the latest live workspace. It captures edits that
+            // landed while the import write was in flight.
+            if (!(await saveDocNow({ force: true }))) throw new Error('原画板保存失败')
+          } else if (existing && existing.id === replaced.id) {
+            const oldDocumentIsStillOpen = latestState.docs.some(
+              (item: CanvasDoc) => item.id === replaced.id
+            )
+            if (!oldDocumentIsStillOpen) {
+              await repository.deleteDocument(replaced.id)
+            } else {
+              const latestDocument =
+                latestState.docs.find((item: CanvasDoc) => item.id === replaced.id) ?? existing
+              await repository.saveDocument(normalizeCurrentDocument(latestDocument))
+            }
+          } else {
+            await repository.deleteDocument(replaced.id)
+          }
+        } catch (rollbackError) {
+          console.error('[documents] Failed to roll back a conflicting import', rollbackError)
+          const recoveryError = new Error('导入已取消，但原画板恢复失败，请导出恢复备份后重试')
+          Object.assign(recoveryError, { cause: rollbackError })
+          throw recoveryError
+        }
+
+        throw new Error('导入已取消：导入期间画布发生变化，请重试')
+      }
 
       set({
-        docs: [replaced],
-        ...createDocumentWorkspaceState(replaced, { history: 'empty' }),
+        docs: [replacedWithHistory],
+        ...createDocumentWorkspaceState(replacedWithHistory),
         selectedIds: [],
         saveStatus: 'saved',
+        persistenceMode: 'persistent',
+        lastSavedAt: replaced.updatedAt,
+        saveError: null,
       })
-      rebuildDocumentRuntimeIndexes(get(), replaced.elements)
+      rebuildDocumentRuntimeIndexes(get(), replacedWithHistory.elements)
       useViewStore.getState().resetView()
-      return replaced.id
+      return replacedWithHistory.id
     },
 
     // Importing always replaces the current single board rather than

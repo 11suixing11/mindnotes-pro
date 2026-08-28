@@ -123,8 +123,8 @@ describe('ColorPicker', () => {
 
   it('renders hidden file inputs', () => {
     render(<ColorPicker />)
-    expect(screen.getByLabelText('选择颜色')).toBeTruthy()
-    expect(screen.getByLabelText('选择填充颜色')).toBeTruthy()
+    expect(screen.getByLabelText('选择颜色').getAttribute('tabindex')).toBe('-1')
+    expect(screen.getByLabelText('选择填充颜色').getAttribute('tabindex')).toBe('-1')
   })
 
   it('shows color history when available', () => {
@@ -147,6 +147,7 @@ describe('ColorPicker', () => {
 
     fireEvent.click(screen.getByLabelText('红色'))
 
+    fireEvent.click(screen.getByLabelText('颜色'))
     expect(screen.getByLabelText('最近使用的颜色')).toBeTruthy()
     expect(screen.getByLabelText('最近颜色 #E03131')).toBeTruthy()
     expect(JSON.parse(localStorage.getItem(COLOR_HISTORY_KEY) ?? '[]')).toEqual(['#E03131'])

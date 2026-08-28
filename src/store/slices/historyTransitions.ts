@@ -1,4 +1,4 @@
-import type { CanvasElement, UndoAction } from '../types'
+import type { CanvasElement, CanvasWorkspaceMetadata, UndoAction } from '../types'
 import { applyMoveDelta, reverseMoveDelta, shallowClone, snapshot } from '../helpers'
 
 export interface HistoryTransition {
@@ -60,6 +60,14 @@ function cloneSnapshotAction(action: Extract<UndoAction, { type: 'snapshot' }>):
     after: snapshot(action.after),
     label: action.label,
     affectedIds: [...action.affectedIds],
+    ...(action.workspace
+      ? {
+          workspace: {
+            before: cloneWorkspaceMetadata(action.workspace.before),
+            after: cloneWorkspaceMetadata(action.workspace.after),
+          },
+        }
+      : {}),
   }
 }
 
@@ -92,6 +100,13 @@ function cloneLockAction(action: Extract<UndoAction, { type: 'lock' | 'unlock' }
     type: 'unlock',
     elementIds: [...action.elementIds],
     beforeUnlock: action.beforeUnlock.map((item) => ({ ...item })),
+  }
+}
+
+function cloneWorkspaceMetadata(metadata: CanvasWorkspaceMetadata): CanvasWorkspaceMetadata {
+  return {
+    ...metadata,
+    layers: metadata.layers.map((layer) => ({ ...layer })),
   }
 }
 

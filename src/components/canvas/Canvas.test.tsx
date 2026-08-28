@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import Canvas from './Canvas'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { createDefaultLayer, DEFAULT_LAYER_ID } from '../../store/layers'
 import { loadRecoveryDraft } from '../../store/recovery'
 import { resetSaveCache } from '../../store/saveManager'
+import type { CanvasElement } from '../../store/types'
 
 // Mock browser APIs missing from jsdom
 globalThis.ResizeObserver = class ResizeObserver {
@@ -194,6 +195,153 @@ describe('Canvas', () => {
     expect(canvas?.getAttribute('tabindex')).toBe('0')
   })
 
+  it('exposes a named canvas region, live state, and synchronized element summaries', () => {
+    const visibleLayer = {
+      ...createDefaultLayer(1),
+      id: 'layer-visible',
+      name: '正文',
+    }
+    const hiddenLayer = {
+      ...createDefaultLayer(2),
+      id: 'layer-hidden',
+      name: '参考',
+      visible: false,
+      locked: true,
+    }
+    const elements: CanvasElement[] = [
+      {
+        type: 'text',
+        id: 'text-1',
+        layerId: visibleLayer.id,
+        x: 10,
+        y: 20,
+        width: 120,
+        height: 28,
+        content: '会议结论',
+        fontSize: 16,
+        color: '#111827',
+      },
+      {
+        type: 'shape',
+        id: 'shape-1',
+        layerId: hiddenLayer.id,
+        kind: 'rectangle',
+        x: 20,
+        y: 30,
+        w: 80,
+        h: 60,
+        color: '#111827',
+        size: 2,
+      },
+    ]
+    useAppStore.setState({
+      elements,
+      layers: [visibleLayer, hiddenLayer],
+      activeLayerId: visibleLayer.id,
+      selectedIds: ['text-1'],
+      tool: 'select',
+      _indexDirty: true,
+    })
+
+    render(<Canvas />)
+
+    const canvas = screen.getByRole('region', { name: '交互式绘图画布' })
+    expect(canvas.getAttribute('aria-describedby')).toBe(
+      'canvas-keyboard-instructions canvas-accessibility-status'
+    )
+    expect(screen.getByRole('status').textContent).toContain(
+      '当前工具：选择；画布中有 2 个元素；已选择 1 个元素。'
+    )
+    expect(screen.getByRole('list', { name: '画布元素列表' })).toBeTruthy()
+    expect(screen.getByText('会议结论，图层：正文，已选中')).toBeTruthy()
+    expect(screen.getByText('矩形，图层：参考，未选中，已隐藏，已锁定')).toBeTruthy()
+  })
+
+  it('lets keyboard users select, move, delete, undo, and edit accessible elements', async () => {
+    const visibleLayer = {
+      ...createDefaultLayer(1),
+      id: 'layer-visible',
+      name: '正文',
+    }
+    const textElement: CanvasElement = {
+      type: 'text',
+      id: 'text-1',
+      layerId: visibleLayer.id,
+      x: 10,
+      y: 20,
+      width: 120,
+      height: 28,
+      content: '会议结论',
+      fontSize: 16,
+      color: '#111827',
+    }
+    useAppStore.setState({
+      elements: [textElement],
+      layers: [visibleLayer],
+      activeLayerId: visibleLayer.id,
+      selectedIds: [],
+      tool: 'select',
+      _indexDirty: true,
+    })
+
+    const { container } = render(<Canvas />)
+    const canvas = container.querySelector('canvas')
+    if (!canvas) throw new Error('Expected canvas')
+    mockCanvasRect(canvas)
+
+    const elementButton = screen.getByRole('button', { name: /文字：会议结论/ })
+    fireEvent.click(elementButton)
+    expect(useAppStore.getState().selectedIds).toEqual(['text-1'])
+
+    fireEvent.keyDown(elementButton, { key: 'ArrowRight' })
+    expect(useAppStore.getState().elements[0]).toMatchObject({ x: 11, y: 20 })
+
+    fireEvent.keyDown(elementButton, { key: 'Delete' })
+    expect(useAppStore.getState().elements).toEqual([])
+
+    fireEvent.keyDown(window, { key: 'z', ctrlKey: true })
+    expect(useAppStore.getState().elements).toHaveLength(1)
+
+    const restoredButton = screen.getByRole('button', { name: /文字：会议结论/ })
+    fireEvent.keyDown(restoredButton, { key: 'F2' })
+    await flushAnimationFrames()
+    expect((screen.getByTestId('canvas-text-editor') as HTMLTextAreaElement).value).toBe('会议结论')
+  })
+
+  it('moves accessible-list focus to the next element after deletion', async () => {
+    const visibleLayer = { ...createDefaultLayer(1), id: 'layer-visible', name: '正文' }
+    const first: CanvasElement = {
+      type: 'text',
+      id: 'text-1',
+      layerId: visibleLayer.id,
+      x: 10,
+      y: 20,
+      width: 120,
+      height: 28,
+      content: '第一项',
+      fontSize: 16,
+      color: '#111827',
+    }
+    const second: CanvasElement = { ...first, id: 'text-2', y: 60, content: '第二项' }
+    useAppStore.setState({
+      elements: [first, second],
+      layers: [visibleLayer],
+      activeLayerId: visibleLayer.id,
+      selectedIds: [],
+      tool: 'select',
+      _indexDirty: true,
+    })
+
+    render(<Canvas />)
+    const firstButton = screen.getByRole('button', { name: /文字：第一项/ })
+    firstButton.focus()
+    fireEvent.keyDown(firstButton, { key: 'Delete' })
+
+    const secondButton = await screen.findByRole('button', { name: /文字：第二项/ })
+    await waitFor(() => expect(document.activeElement).toBe(secondButton))
+    expect(secondButton.closest('.canvas-accessibility')).toBeTruthy()
+  })
+
   it('should not render text editor initially', () => {
     const { container } = render(<Canvas />)
     expect(container.querySelector('textarea')).toBeNull()
@@ -243,6 +391,18 @@ describe('Canvas', () => {
     expect(editor.value).toBe('first line\nsecond line')
     expect(storedTextContents()).toEqual(['first line\nsecond line'])
     expect(useAppStore.getState().undoStack).toEqual([])
+  })
+
+  it('leaves Space input to the active text editor instead of starting canvas pan', () => {
+    const { canvas } = renderTextCanvas()
+    const editor = startTextEditor(canvas)
+
+    expect(fireEvent.keyDown(editor, { key: ' ', code: 'Space', keyCode: 32 })).toBe(true)
+    expect(useAppStore.getState().tool).toBe('text')
+
+    fireEvent.change(editor, { target: { value: 'hello world' } })
+    expect(editor.value).toBe('hello world')
+    expect(storedTextContents()).toEqual(['hello world'])
   })
 
   it.each([

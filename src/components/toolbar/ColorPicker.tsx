@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, memo } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore } from '../../store/appStore'
 import { useShallow } from 'zustand/react/shallow'
+import { useDialogFocus } from '../useDialogFocus'
 
 // 扩展调色板 - 基于 tldraw #1665 用户需求
 // 灰度色系 (5)
@@ -79,14 +80,21 @@ const ColorPicker = memo(function ColorPicker() {
   const colorRef = useRef<HTMLInputElement>(null)
   const fillColorRef = useRef<HTMLInputElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
-  const popoverRef = useRef<HTMLDivElement>(null)
   const paletteTriggerRef = useRef<HTMLButtonElement>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
 
-  const closePalette = useCallback((restoreFocus = false) => {
-    setPaletteOpen(false)
-    if (restoreFocus) queueMicrotask(() => paletteTriggerRef.current?.focus())
-  }, [])
+  const closePalette = useCallback(() => setPaletteOpen(false), [])
+  const selectPaletteColor = useCallback(
+    (hex: string) => {
+      setColor(hex)
+      closePalette()
+    },
+    [closePalette, setColor]
+  )
+  const popoverRef = useDialogFocus<HTMLDivElement>({
+    open: paletteOpen,
+    onClose: closePalette,
+  })
 
   useEffect(() => {
     if (!paletteOpen) return
@@ -96,19 +104,11 @@ const ColorPicker = memo(function ColorPicker() {
         setPaletteOpen(false)
       }
     }
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      closePalette(true)
-    }
-    popoverRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
     window.addEventListener('pointerdown', closeOnOutsideClick)
-    window.addEventListener('keydown', closeOnEscape)
     return () => {
       window.removeEventListener('pointerdown', closeOnOutsideClick)
-      window.removeEventListener('keydown', closeOnEscape)
     }
-  }, [closePalette, paletteOpen])
+  }, [paletteOpen, popoverRef])
 
   return (
     <>
@@ -120,51 +120,64 @@ const ColorPicker = memo(function ColorPicker() {
           aria-label="颜色"
           aria-expanded={paletteOpen}
           aria-haspopup="dialog"
-          onClick={() => setPaletteOpen((open) => !open)}
+          onClick={() => {
+            if (!paletteOpen) paletteTriggerRef.current?.focus()
+            setPaletteOpen((open) => !open)
+          }}
         >
           <span className="color-trigger-swatch" style={{ backgroundColor: color }} />
         </button>
 
         {paletteOpen &&
           createPortal(
-            <div
-              ref={popoverRef}
-              className="color-popover panel"
-              role="dialog"
-              aria-label="颜色面板"
-            >
-              {colorHistory.length > 0 && (
-                <div className="color-popover-section" aria-label="最近使用的颜色">
-                  {colorHistory.map((hex) => (
+            <>
+              <div className="em-overlay" aria-hidden="true" onClick={closePalette} />
+              <div
+                ref={popoverRef}
+                className="color-popover panel"
+                role="dialog"
+                aria-label="颜色面板"
+                aria-modal="true"
+                tabIndex={-1}
+              >
+                {colorHistory.length > 0 && (
+                  <div className="color-popover-section" aria-label="最近使用的颜色">
+                    {colorHistory.map((hex) => (
+                      <button
+                        key={`history-${hex}`}
+                        onClick={() => selectPaletteColor(hex)}
+                        type="button"
+                        className={`cdot ${color === hex ? 'on' : ''}`}
+                        style={{ backgroundColor: hex }}
+                        aria-label={`最近颜色 ${hex}`}
+                        aria-pressed={color === hex}
+                      />
+                    ))}
+                  </div>
+                )}
+                <div className="color-popover-grid">
+                  {COLORS.map((hex) => (
                     <button
-                      key={`history-${hex}`}
-                      onClick={() => setColor(hex)}
+                      key={hex}
+                      onClick={() => selectPaletteColor(hex)}
+                      type="button"
                       className={`cdot ${color === hex ? 'on' : ''}`}
                       style={{ backgroundColor: hex }}
-                      aria-label={`最近颜色 ${hex}`}
+                      aria-label={COLOR_NAMES[hex] ?? hex}
+                      aria-pressed={color === hex}
                     />
                   ))}
-                </div>
-              )}
-              <div className="color-popover-grid">
-                {COLORS.map((hex) => (
                   <button
-                    key={hex}
-                    onClick={() => setColor(hex)}
-                    className={`cdot ${color === hex ? 'on' : ''}`}
-                    style={{ backgroundColor: hex }}
-                    aria-label={COLOR_NAMES[hex] ?? hex}
-                  />
-                ))}
-                <button
-                  onClick={() => colorRef.current?.click()}
-                  className="cdot custom-color-button"
-                  aria-label="自定义颜色"
-                >
-                  +
-                </button>
+                    onClick={() => colorRef.current?.click()}
+                    type="button"
+                    className="cdot custom-color-button"
+                    aria-label="自定义颜色"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-            </div>,
+            </>,
             document.body
           )}
       </div>
@@ -178,6 +191,7 @@ const ColorPicker = memo(function ColorPicker() {
             onClick={() => setSize(s.value)}
             className={`szbtn ${size === s.value ? 'on' : ''}`}
             aria-label={`${SIZE_LABELS[s.value] ?? ''} ${s.value}像素`}
+            aria-pressed={size === s.value}
           >
             <span className="dot" style={{ width: s.dot, height: s.dot }} />
           </button>
@@ -196,6 +210,7 @@ const ColorPicker = memo(function ColorPicker() {
             data-tip={fillColor === 'transparent' ? '无填充' : '有填充'}
             title={fillColor === 'transparent' ? '无填充' : '有填充'}
             aria-label={fillColor === 'transparent' ? '无填充' : '有填充'}
+            aria-pressed={fillColor !== 'transparent'}
           >
             <span
               className="inline-block w-[14px] h-[14px] rounded-[4px] border-[1.5px] border-[var(--border)] relative overflow-hidden"
@@ -221,6 +236,7 @@ const ColorPicker = memo(function ColorPicker() {
       <input
         ref={colorRef}
         type="color"
+        tabIndex={-1}
         value={color}
         onChange={(e) => setColor(e.target.value)}
         aria-label="选择颜色"
@@ -229,6 +245,7 @@ const ColorPicker = memo(function ColorPicker() {
       <input
         ref={fillColorRef}
         type="color"
+        tabIndex={-1}
         value={fillColor === 'transparent' ? '#ffffff' : fillColor}
         onChange={(e) => setFillColor(e.target.value)}
         aria-label="选择填充颜色"

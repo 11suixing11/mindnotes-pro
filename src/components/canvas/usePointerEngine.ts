@@ -36,6 +36,7 @@ import {
 import { bindCanvasPinchZoom } from './touchGestures'
 import { useDrawingPointerHandlers } from './useDrawingPointerHandlers'
 import { useSelectPointerHandlers } from './useSelectPointerHandlers'
+import { useToastStore } from '../../store/toastStore'
 
 // 模块级常量，避免每次渲染重建
 const CURSOR_MAP: Record<string, string> = {
@@ -71,6 +72,7 @@ export function usePointerEngine(opts: {
   ) => { dx: number; dy: number; linesX: number[]; linesY: number[] }
   snapLinesRef: React.MutableRefObject<{ x: number[]; y: number[] }>
 }) {
+  const toast = useToastStore((state) => state.show)
   const {
     canvasRef,
     cachedBounds,
@@ -666,7 +668,8 @@ export function usePointerEngine(opts: {
     const selEls = els.filter((e) => selSet.has(e.id) && isElementLayerVisible(e, st.layers))
     if (selEls.length === 0) return
     const dark = useThemeStore.getState().isDarkMode
-    await copyElementsToSystemClipboard(selEls, { isDarkMode: dark })
+    const copied = await copyElementsToSystemClipboard(selEls, { isDarkMode: dark })
+    if (!copied) toast('复制到系统剪贴板失败，请检查浏览器权限', 'error')
   }
 
   // getDrawState for renderer

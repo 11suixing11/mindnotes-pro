@@ -40,7 +40,6 @@ vi.mock('../storage', () => {
     __store: store,
   }
 })
-
 // Mock migration
 vi.mock('../migration', () => ({
   migrateOld: vi.fn(() => null),
@@ -81,6 +80,10 @@ describe('docManagement slice', () => {
       undoStack: [],
       redoStack: [],
       selectedIds: [],
+      saveStatus: 'idle',
+      persistenceMode: 'persistent',
+      lastSavedAt: null,
+      saveError: null,
     } satisfies Partial<AppStore>)
   })
 
@@ -99,6 +102,39 @@ describe('docManagement slice', () => {
       expect(state.docs[0].title).toBe('未命名画布')
       expect(state.docs[0].elements).toEqual([])
       expect(state.elements).toEqual([])
+    })
+
+    it('restores a memory-only draft that is not present in IndexedDB', async () => {
+      saveRecoveryDraft({
+        schemaVersion: 5,
+        id: 'memory-only-doc',
+        title: '仅内存草稿',
+        elements: [
+          {
+            type: 'shape',
+            id: 'memory-only-shape',
+            kind: 'rectangle',
+            x: 10,
+            y: 20,
+            w: 40,
+            h: 30,
+            color: '#0f766e',
+            size: 2,
+          },
+        ],
+        bgColor: '#ffffff',
+        folderId: null,
+        createdAt: 1,
+        updatedAt: 2,
+      })
+
+      await useAppStore.getState().init()
+
+      const state = useAppStore.getState()
+      expect(state.currentDocId).toBe('memory-only-doc')
+      expect(state.docs[0]?.title).toBe('仅内存草稿')
+      expect(state.elements).toEqual([expect.objectContaining({ id: 'memory-only-shape' })])
+      expect(loadRecoveryDraft('memory-only-doc')).not.toBeNull()
     })
 
     it('imports the canonical document from the previous IndexedDB database once', async () => {
@@ -611,6 +647,290 @@ describe('docManagement slice', () => {
       expect(useAppStore.getState().elements[0]).toMatchObject({
         id: 'text-imported',
         content: '可编辑内容',
+      })
+    })
+
+    it('records an undo step that restores the full workspace after import', async () => {
+      const existingId = await useAppStore.getState().createDoc('原始画布')
+      const originalLayer = useAppStore.getState().layers[0]
+      const originalElement = {
+        type: 'shape' as const,
+        id: 'original-shape',
+        layerId: originalLayer.id,
+        kind: 'rectangle' as const,
+        x: 1,
+        y: 2,
+        w: 30,
+        h: 40,
+        color: '#111111',
+        size: 3,
+      }
+      useAppStore.getState().addElement(originalElement)
+      await saveDocNow()
+
+      const importedLayer = {
+        id: 'layer-new',
+        name: '导入层',
+        visible: true,
+        locked: false,
+        order: 0,
+        createdAt: 10,
+        updatedAt: 10,
+      }
+      await useAppStore.getState().replaceCurrentDoc({
+        title: '导入后',
+        elements: [
+          {
+            type: 'shape',
+            id: 'imported-shape',
+            layerId: importedLayer.id,
+            kind: 'circle',
+            x: 10,
+            y: 20,
+            w: 50,
+            h: 60,
+            color: '#222222',
+            size: 4,
+          },
+        ],
+        layers: [importedLayer],
+        activeLayerId: importedLayer.id,
+        bgColor: '#eeeeee',
+        backgroundStyle: 'dots',
+      })
+
+      const importAction =
+        useAppStore.getState().undoStack[useAppStore.getState().undoStack.length - 1]
+      expect(importAction).toMatchObject({
+        type: 'snapshot',
+        label: 'Import canvas',
+        workspace: {
+          before: { title: '原始画布' },
+          after: { title: '导入后' },
+        },
+      })
+      useAppStore.getState().undo()
+
+      const undone = useAppStore.getState()
+      expect(undone.currentDocId).toBe(existingId)
+      expect(undone.docs[0]?.title).toBe('原始画布')
+      expect(undone.elements).toEqual([expect.objectContaining({ id: 'original-shape' })])
+      expect(undone.layers).toEqual([expect.objectContaining({ id: originalLayer.id })])
+      expect(undone.activeLayerId).toBe(originalLayer.id)
+      expect(undone.bgColor).toBe('#ffffff')
+      expect(undone.backgroundStyle).toBe('plain')
+      expect(undone.docs[0]?.undoStack).toEqual(undone.undoStack)
+      expect(undone.docs[0]?.redoStack).toEqual(undone.redoStack)
+
+      useAppStore.getState().redo()
+      const redone = useAppStore.getState()
+      expect(redone.docs[0]?.title).toBe('导入后')
+      expect(redone.elements).toEqual([expect.objectContaining({ id: 'imported-shape' })])
+      expect(redone.layers).toEqual([expect.objectContaining({ id: importedLayer.id })])
+      expect(redone.activeLayerId).toBe(importedLayer.id)
+      expect(redone.bgColor).toBe('#eeeeee')
+      expect(redone.backgroundStyle).toBe('dots')
+      expect(redone.docs[0]?.undoStack).toEqual(redone.undoStack)
+      expect(redone.docs[0]?.redoStack).toEqual(redone.redoStack)
+    })
+
+    it('captures edits made while the pre-import save is pending', async () => {
+      await useAppStore.getState().createDoc('并发导入')
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'before-save',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 20,
+        h: 20,
+        color: '#111111',
+        size: 2,
+      })
+
+      let releaseSave: (() => void) | undefined
+      const saveGate = new Promise<void>((resolve) => {
+        releaseSave = resolve
+      })
+      const defaultUpdate = vi.mocked(storageMock.update).getMockImplementation()
+      if (!defaultUpdate) throw new Error('Expected an update mock implementation')
+      vi.mocked(storageMock.update).mockImplementationOnce(async (...args) => {
+        await saveGate
+        return defaultUpdate(...args)
+      })
+
+      const replacePromise = useAppStore.getState().replaceCurrentDoc({
+        title: '导入结果',
+        elements: [],
+        layers: [useAppStore.getState().layers[0]],
+        activeLayerId: useAppStore.getState().activeLayerId,
+        bgColor: '#ffffff',
+        backgroundStyle: 'plain',
+      })
+      await vi.waitFor(() => expect(storageMock.update).toHaveBeenCalledTimes(1))
+
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'during-save',
+        kind: 'circle',
+        x: 30,
+        y: 30,
+        w: 20,
+        h: 20,
+        color: '#222222',
+        size: 2,
+      })
+      releaseSave?.()
+      await replacePromise
+
+      useAppStore.getState().undo()
+      expect(useAppStore.getState().elements).toEqual([
+        expect.objectContaining({ id: 'before-save' }),
+        expect.objectContaining({ id: 'during-save' }),
+      ])
+    })
+
+    it('cancels the import when the workspace changes while the import write is pending', async () => {
+      const existingId = await useAppStore.getState().createDoc('并发写入')
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'before-import-write',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 20,
+        h: 20,
+        color: '#111111',
+        size: 2,
+      })
+
+      let releaseImportWrite: (() => void) | undefined
+      const importWriteGate = new Promise<void>((resolve) => {
+        releaseImportWrite = resolve
+      })
+      const defaultPut = vi.mocked(storageMock.put).getMockImplementation()
+      if (!defaultPut) throw new Error('Expected a put mock implementation')
+      vi.mocked(storageMock.put).mockImplementationOnce(async (...args) => {
+        await importWriteGate
+        return defaultPut(...args)
+      })
+
+      const replacePromise = useAppStore.getState().replaceCurrentDoc({
+        title: '导入中',
+        elements: [],
+        layers: [useAppStore.getState().layers[0]],
+        activeLayerId: useAppStore.getState().activeLayerId,
+        bgColor: '#ffffff',
+        backgroundStyle: 'plain',
+      })
+
+      await vi.waitFor(() =>
+        expect(
+          vi
+            .mocked(storageMock.put)
+            .mock.calls.some(
+              ([, record]) =>
+                !!record &&
+                typeof record === 'object' &&
+                (record as { title?: unknown }).title === '导入中'
+            )
+        ).toBe(true)
+      )
+
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'during-import-write',
+        kind: 'circle',
+        x: 30,
+        y: 30,
+        w: 20,
+        h: 20,
+        color: '#222222',
+        size: 2,
+      })
+      releaseImportWrite?.()
+
+      await expect(replacePromise).rejects.toThrow('导入已取消：导入期间画布发生变化，请重试')
+
+      const current = useAppStore.getState()
+      expect(current.currentDocId).toBe(existingId)
+      expect(current.docs[0]?.title).toBe('并发写入')
+      expect(current.elements).toEqual([
+        expect.objectContaining({ id: 'before-import-write' }),
+        expect.objectContaining({ id: 'during-import-write' }),
+      ])
+      expect(storageMock.__store.docs[existingId]).toMatchObject({
+        title: '并发写入',
+        elements: [
+          expect.objectContaining({ id: 'before-import-write' }),
+          expect.objectContaining({ id: 'during-import-write' }),
+        ],
+      })
+    })
+
+    it('restores persistence when an automatic save finishes before the import write', async () => {
+      const existingId = await useAppStore.getState().createDoc('自动保存竞态')
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'before-automatic-save',
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: 20,
+        h: 20,
+        color: '#111111',
+        size: 2,
+      })
+      await saveDocNow()
+
+      let releaseImportWrite: (() => void) | undefined
+      const importWriteGate = new Promise<void>((resolve) => {
+        releaseImportWrite = resolve
+      })
+      const defaultPut = vi.mocked(storageMock.put).getMockImplementation()
+      if (!defaultPut) throw new Error('Expected a put mock implementation')
+      vi.mocked(storageMock.put).mockImplementationOnce(async (...args) => {
+        await importWriteGate
+        return defaultPut(...args)
+      })
+
+      const replacePromise = useAppStore.getState().replaceCurrentDoc({
+        title: '自动保存导入',
+        elements: [],
+        layers: [useAppStore.getState().layers[0]],
+        activeLayerId: useAppStore.getState().activeLayerId,
+        bgColor: '#ffffff',
+        backgroundStyle: 'plain',
+      })
+      await vi.waitFor(() => expect(storageMock.put).toHaveBeenCalledTimes(2))
+
+      useAppStore.getState().addElement({
+        type: 'shape',
+        id: 'during-automatic-save',
+        kind: 'circle',
+        x: 30,
+        y: 30,
+        w: 20,
+        h: 20,
+        color: '#222222',
+        size: 2,
+      })
+      await vi.advanceTimersByTimeAsync(1500)
+      expect(storageMock.__store.docs[existingId]).toMatchObject({
+        elements: [
+          expect.objectContaining({ id: 'before-automatic-save' }),
+          expect.objectContaining({ id: 'during-automatic-save' }),
+        ],
+      })
+
+      releaseImportWrite?.()
+      await expect(replacePromise).rejects.toThrow('导入已取消：导入期间画布发生变化，请重试')
+      expect(storageMock.__store.docs[existingId]).toMatchObject({
+        title: '自动保存竞态',
+        elements: [
+          expect.objectContaining({ id: 'before-automatic-save' }),
+          expect.objectContaining({ id: 'during-automatic-save' }),
+        ],
       })
     })
   })

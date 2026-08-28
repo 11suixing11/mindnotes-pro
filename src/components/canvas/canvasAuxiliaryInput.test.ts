@@ -138,6 +138,53 @@ describe('createCanvasAuxiliaryInputHandlers', () => {
     expect(scheduleRedraw).toHaveBeenCalledTimes(2)
   })
 
+  it('leaves Space available to focused text controls and buttons', () => {
+    const { handlers, spacePanRef, setTool, scheduleRedraw } = createHarness({
+      tool: 'rectangle',
+    })
+    const textarea = document.createElement('textarea')
+    const keyDown = new KeyboardEvent('keydown', {
+      key: ' ',
+      code: 'Space',
+      isComposing: true,
+      cancelable: true,
+    })
+    Object.defineProperty(keyDown, 'target', { value: textarea })
+
+    handlers.onKeyDown(keyDown)
+
+    expect(keyDown.defaultPrevented).toBe(false)
+    expect(spacePanRef.current.isActive).toBe(false)
+    expect(setTool).not.toHaveBeenCalled()
+    expect(scheduleRedraw).not.toHaveBeenCalled()
+
+    const button = document.createElement('button')
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    button.append(icon)
+    const buttonKeyDown = new KeyboardEvent('keydown', {
+      key: ' ',
+      code: 'Space',
+      cancelable: true,
+    })
+    Object.defineProperty(buttonKeyDown, 'target', { value: icon })
+
+    handlers.onKeyDown(buttonKeyDown)
+
+    expect(buttonKeyDown.defaultPrevented).toBe(false)
+    expect(spacePanRef.current.isActive).toBe(false)
+    expect(setTool).not.toHaveBeenCalled()
+  })
+
+  it('ignores Space keyup when no canvas Space pan session was started', () => {
+    const { handlers, setTool, endPan, scheduleRedraw } = createHarness({ tool: 'circle' })
+
+    handlers.onKeyUp(new KeyboardEvent('keyup', { key: ' ', code: 'Space' }))
+
+    expect(setTool).not.toHaveBeenCalled()
+    expect(endPan).not.toHaveBeenCalled()
+    expect(scheduleRedraw).not.toHaveBeenCalled()
+  })
+
   it('suppresses the context menu only during or after right-click panning', () => {
     const { handlers, rightClickPanRef } = createHarness()
     const idleEvent = new MouseEvent('contextmenu', { cancelable: true })

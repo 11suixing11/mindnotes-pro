@@ -7,14 +7,18 @@ import {
   pasteClipboardImageOrCanvasSelection,
   pastePlainTextAtViewportCenter,
 } from './keyboardPaste'
+import { useToastStore } from '../../store/toastStore'
 
 interface MutableValue<T> {
   current: T
 }
 
+type ClearConfirmation = (elementCount: number, clearAll: () => boolean) => Promise<boolean>
+
 export interface KeyboardBindingOptions {
   copySelectedToSystemClipboard?: () => void
   hoveredElementIdRef?: MutableValue<string | null>
+  requestClearCanvas?: ClearConfirmation
 }
 
 export const TOOL_BY_ACTION: Partial<Record<ShortcutActionId, ToolType>> = {
@@ -139,12 +143,16 @@ export function executeShortcutAction(
       return true
     case 'edit.pastePlainText': {
       event.preventDefault()
+      const toast = useToastStore.getState().show
       const readText = navigator.clipboard?.readText?.bind(navigator.clipboard)
-      if (!readText) return true
+      if (!readText) {
+        toast('浏览器不支持读取系统剪贴板', 'warning')
+        return true
+      }
       readText()
         .then(pastePlainTextAtViewportCenter)
         .catch(() => {
-          // Clipboard access can be denied by the browser.
+          toast('无法读取系统剪贴板，请检查浏览器权限', 'error')
         })
       return true
     }
@@ -158,7 +166,17 @@ export function executeShortcutAction(
       return true
     case 'edit.delete':
       event.preventDefault()
-      if (store.selectedIds.length > 0) store.removeElements(store.selectedIds)
+      if (store.selectedIds.length > 0) {
+        const selectedIds = new Set(store.selectedIds)
+        const isWholeCanvasSelection =
+          selectedIds.size === store.elements.length &&
+          store.elements.every((element) => selectedIds.has(element.id))
+        if (isWholeCanvasSelection && optionsRef.current.requestClearCanvas) {
+          void optionsRef.current.requestClearCanvas(store.elements.length, store.clearAll)
+        } else {
+          store.removeElements(store.selectedIds)
+        }
+      }
       return true
     case 'edit.duplicate':
       event.preventDefault()

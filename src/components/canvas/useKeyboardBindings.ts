@@ -1,6 +1,8 @@
-import { useEffect, useRef } from 'react'
-import { findShortcutAction, isEditableShortcutTarget } from '../../keyboard/shortcuts'
+import { useCallback, useEffect, useRef } from 'react'
+import { findShortcutAction, isInteractiveShortcutTarget } from '../../keyboard/shortcuts'
 import { useShortcutStore } from '../../store/useShortcutStore'
+import { requestClearCanvas } from '../confirm-modal/requestClearCanvas'
+import { useConfirm } from '../confirm-modal/useConfirm'
 import {
   executeShortcutAction,
   handleEscapeShortcut,
@@ -10,12 +12,21 @@ import {
 } from './keyboardShortcutActions'
 
 export function useKeyboardBindings(options: KeyboardBindingOptions = {}) {
+  const confirm = useConfirm()
+  const requestClear = useCallback(
+    (elementCount: number, clearAll: () => boolean) =>
+      requestClearCanvas(elementCount, confirm, clearAll),
+    [confirm]
+  )
   const optionsRef = useRef(options)
-  optionsRef.current = options
+  optionsRef.current = {
+    ...options,
+    requestClearCanvas: options.requestClearCanvas ?? requestClear,
+  }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isEditableShortcutTarget(e.target)) return
+      if (isInteractiveShortcutTarget(e.target)) return
 
       if (handleEscapeShortcut(e)) return
 

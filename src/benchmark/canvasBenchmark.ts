@@ -122,3 +122,21 @@ export function runCanvasSpatialBenchmark(
     indexedMatchesLinear,
   }
 }
+
+// The release baseline lives in a separate module so the original spatial
+// index benchmark remains backwards-compatible for focused tests and tools.
+export {
+  PERFORMANCE_DATASET_SIZES,
+  createPerformanceDataset,
+  runBrowserExportBenchmark,
+  runPerformanceBenchmark,
+  runPerformanceBenchmarks,
+} from './performanceBenchmark'
+export type {
+  BrowserExportBenchmarkOptions,
+  BrowserExportBenchmarkReport,
+  PerformanceBenchmarkOptions,
+  PerformanceBenchmarkReport,
+  PerformanceDataset,
+  PerformanceDatasetSize,
+} from './performanceBenchmark'

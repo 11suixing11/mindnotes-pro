@@ -62,6 +62,11 @@ export interface ShortcutExportPayload {
 }
 
 const MODIFIER_KEYS = new Set(['Alt', 'Control', 'Meta', 'Shift'])
+// These keys have browser/application-level semantics and must never be
+// persisted as a user shortcut on their own. In particular, allowing Tab or
+// Escape through an imported configuration can break focus navigation and
+// modal dismissal even though the recorder itself filters them.
+const NON_ASSIGNABLE_KEYS = new Set([...MODIFIER_KEYS, 'Ctrl', 'Command', 'Tab', 'Escape'])
 const CATEGORY_LABELS: Record<ShortcutCategory, string> = {
   tools: '工具',
   edit: '编辑',
@@ -263,6 +268,42 @@ export function isEditableShortcutTarget(target: EventTarget | null): boolean {
   )
 }
 
+/**
+ * Return whether a keyboard event originated in a control that owns normal
+ * browser keyboard behaviour. Canvas-level shortcuts must not cancel these
+ * events (for example, Space in a textarea or Space activating a button).
+ *
+ * The event target can be a descendant of the interactive control (such as an
+ * SVG path inside a button), so walk up through its parent elements as well.
+ */
+export function isInteractiveShortcutTarget(target: EventTarget | null): boolean {
+  let element = target as (HTMLElement & { parentElement: HTMLElement | null }) | null
+  let editableBoundary = false
+
+  while (element) {
+    const tagName = element.tagName
+    if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') return true
+    if (tagName === 'BUTTON' || tagName === 'A') return true
+
+    // jsdom and some browsers do not consistently expose isContentEditable for
+    // an explicitly marked contenteditable element, so inspect the attribute
+    // as a fallback. A "false" boundary opts nested content out even when an
+    // ancestor is editable, while still allowing an ancestor button or link to
+    // remain interactive.
+    const contentEditable = element.getAttribute?.('contenteditable')
+    if (contentEditable !== null && contentEditable !== undefined) {
+      if (contentEditable.trim().toLowerCase() === 'false') editableBoundary = true
+      else if (!editableBoundary) return true
+    } else if (!editableBoundary && element.isContentEditable) {
+      return true
+    }
+
+    element = element.parentElement
+  }
+
+  return false
+}
+
 function keyEncodesShift(key: string): boolean {
   return key.length === 1 && !/^[A-Z0-9]$/.test(key)
 }
@@ -270,7 +311,7 @@ function keyEncodesShift(key: string): boolean {
 export function shortcutBindingFromEvent(
   event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'>
 ): ShortcutBinding | null {
-  if (MODIFIER_KEYS.has(event.key)) return null
+  if (MODIFIER_KEYS.has(event.key) || event.key === 'Tab' || event.key === 'Escape') return null
 
   const key = normalizeKey(event.key)
   const binding: ShortcutBinding = { key }
@@ -362,7 +403,11 @@ export function getDefinition(actionId: ShortcutActionId): ShortcutActionDefinit
 function getReservedShortcutConflict(binding: ShortcutBinding): ShortcutConflict | null {
   const normalized = normalizeShortcutBinding(binding)
 
-  if (normalized.key === 'Escape') return { label: '取消当前模式' }
+  if (NON_ASSIGNABLE_KEYS.has(normalized.key)) {
+    if (normalized.key === 'Tab') return { label: '浏览器焦点移动' }
+    if (normalized.key === 'Escape') return { label: '取消当前模式' }
+    return { label: '不能只使用修饰键' }
+  }
   if (normalized.key.startsWith('Arrow')) return { label: '移动所选元素' }
   if (normalized.alt && /^[1-8]$/.test(normalized.key)) return { label: '快速颜色预设' }
   if (normalized.shift && /^[0-9]$/.test(normalized.key)) return { label: '快速调色板' }
@@ -433,12 +478,13 @@ function parseBinding(value: unknown): ShortcutBinding | null | undefined {
   const candidate = value as Partial<ShortcutBinding>
   if (typeof candidate.key !== 'string' || candidate.key.trim() === '') return undefined
 
-  return normalizeShortcutBinding({
+  const binding = normalizeShortcutBinding({
     key: candidate.key,
     mod: candidate.mod === true,
     shift: candidate.shift === true,
     alt: candidate.alt === true,
   })
+  return getReservedShortcutConflict(binding) ? undefined : binding
 }
 
 export function parseShortcutExport(json: string): ShortcutExportPayload | null {
@@ -455,7 +501,10 @@ export function parseShortcutExport(json: string): ShortcutExportPayload | null 
     for (const [actionId, rawBinding] of Object.entries(payload.bindings)) {
       if (!isShortcutActionId(actionId)) continue
       const binding = parseBinding(rawBinding)
-      if (binding !== undefined) bindings[actionId] = binding
+      // A malformed or reserved binding should reject the import rather than
+      // silently falling back to a default that the user did not request.
+      if (binding === undefined) return null
+      bindings[actionId] = binding
     }
 
     return { version: 1, bindings }

@@ -49,7 +49,7 @@ test('v5 imports v4 documents without deleting the source database', async ({ pa
 
   await openApp(page)
   await expect(page.getByRole('button', { name: '打开文档面板' })).toHaveCount(0)
-  await expect(page.getByRole('application', { name: 'MindNotes Pro 白板' })).toBeVisible()
+  await expect(page.getByRole('region', { name: '交互式绘图画布' })).toBeVisible()
 
   const persisted = await page.evaluate(
     () =>

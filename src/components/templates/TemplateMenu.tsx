@@ -18,6 +18,7 @@ import { getMainCanvas, getVisibleCanvasViewport } from '../canvas/viewport'
 import { CANVAS_INVALIDATED_EVENT } from '../canvas/renderEvents'
 import { icons } from '../toolbar/icons'
 import TemplatePicker from './TemplatePicker'
+import { OPEN_TEMPLATES_EVENT } from '../../appEvents'
 
 const TemplateMenu = memo(function TemplateMenu() {
   const toast = useToastStore((state) => state.show)
@@ -38,6 +39,12 @@ const TemplateMenu = memo(function TemplateMenu() {
   useEffect(() => {
     if (showTemplates) setCustomTemplates(loadCustomTemplates())
   }, [showTemplates])
+
+  useEffect(() => {
+    const openTemplates = () => setShowTemplates(true)
+    window.addEventListener(OPEN_TEMPLATES_EVENT, openTemplates)
+    return () => window.removeEventListener(OPEN_TEMPLATES_EVENT, openTemplates)
+  }, [])
 
   const getTemplateSourceElements = useCallback(() => {
     const state = useAppStore.getState()
@@ -78,14 +85,16 @@ const TemplateMenu = memo(function TemplateMenu() {
       const template = createTemplateFromElements(name, getTemplateSourceElements())
       if (!template) {
         toast('没有可保存的元素', 'warning')
-        return
+        return false
       }
 
       try {
         setCustomTemplates(saveCustomTemplate(template))
         toast(`已保存 ${template.name}`, 'success')
+        return true
       } catch {
         toast('模板保存失败，请检查浏览器存储权限', 'error')
+        return false
       }
     },
     [getTemplateSourceElements, toast]
