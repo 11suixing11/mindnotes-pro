@@ -93,7 +93,7 @@
     "@vitest/coverage-v8": "^4.1.11",
     "autoprefixer": "^10.4.20",
     "concurrently": "^10.0.5",
-    "electron": "^43.4.1",
+    "electron": "^44.0.0",
     "electron-builder": "^26.15.3",
     "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",
