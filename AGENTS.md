@@ -41,6 +41,14 @@ npm run test:run     # vitest (single run)
 npm run lint         # eslint src --ext .ts,.tsx
 ```
 
+## Environment Notes
+
+- Run tests with `NODE_ENV=test` on machines where `NODE_ENV=production` is set globally;
+  otherwise React loads its production build and every component test fails with
+  `React.act is not a function`.
+- If the user-level `.npmrc` sets `omit=dev`, install with `npm ci --include=dev`, or the
+  dev toolchain (vite, vitest, playwright) will be missing.
+
 ## Architecture
 
 - **State**: Zustand store with 5 slices; the canonical board is auto-persisted to IndexedDB via saveManager

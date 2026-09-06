@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No unreleased changes.
 
+## [5.1.0] - 2026-09-06
+
+### Added
+
+- First-use notice explaining local-only storage, plus empty-canvas entry actions for starting, templates, and backup import.
+- Mobile toolbar with direct tool access, touch-sized targets, and dedicated selection actions.
+- Screen-reader canvas summary, a main landmark, and dialog focus management.
+- Clear-canvas and import confirmations before destructive or document-replacing actions.
+- Save failures are now visible in the status bar with a manual retry and a recovery-backup export.
+- Repeatable 100/1,000/5,000-element performance benchmarks with a comparison runner.
+- VPS publish and verification scripts with an atomic-rollback static layout.
+
+### Changed
+
+- Text and naming inputs preserve spaces, and focused controls keep normal Space activation.
+- Layers, shortcut help, and template flows are reorganized for touch and keyboard use.
+- Reduced-motion preferences now disable non-essential animation.
+
 ## [5.0.1] - 2026-08-24
 
 ### Fixed
@@ -314,6 +332,7 @@ No unreleased changes.
 - Basic canvas with undo/redo
 - LocalStorage persistence
 
+[5.1.0]: https://github.com/11suixing11/mindnotes-pro/compare/v5.0.1...v5.1.0
 [5.0.1]: https://github.com/11suixing11/mindnotes-pro/compare/v5.0.0...v5.0.1
 [5.0.0]: https://github.com/11suixing11/mindnotes-pro/compare/v4.0.0...v5.0.0
 [4.0.0]: https://github.com/11suixing11/mindnotes-pro/compare/v3.3.0...v4.0.0

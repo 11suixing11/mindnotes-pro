@@ -86,6 +86,8 @@ page-content.pdf
 
 # AI assistant config
 CLAUDE.md
+CODELY.md
+.codely-cli/
 
 # Internal docs (not for distribution)
 docs/POSTING_CHECKLIST.md

@@ -12,7 +12,7 @@
   </p>
   <p>
     <a href="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml"><img src="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
-    <img src="https://img.shields.io/badge/version-5.0.1-0f766e" alt="Version 5.0.1" />
+    <img src="https://img.shields.io/badge/version-5.1.0-0f766e" alt="Version 5.1.0" />
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2563eb" alt="MIT License" /></a>
     <img src="https://img.shields.io/badge/storage-local--first-16a34a" alt="Local-first storage" />
   </p>
