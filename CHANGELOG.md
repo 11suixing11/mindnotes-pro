@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No unreleased changes.
 
+## [5.1.1] - 2026-09-06
+
+### Fixed
+
+- Right-button menus no longer flash when right-drag panning on platforms where `contextmenu` fires at pointer-down time (Linux). The canvas menu is now decided on the right-pointer-up path: a plain right-click opens it, a right-drag pans without a menu, consistently on every platform.
+
+### Security
+
+- Pinned transitive development dependencies: fast-uri 3.1.7, @xmldom/xmldom 0.8.15, and browserslist 4.28.9 (#154, #155, #156).
+
 ## [5.1.0] - 2026-09-06
 
 ### Added
@@ -332,6 +342,7 @@ No unreleased changes.
 - Basic canvas with undo/redo
 - LocalStorage persistence
 
+[5.1.1]: https://github.com/11suixing11/mindnotes-pro/compare/v5.1.0...v5.1.1
 [5.1.0]: https://github.com/11suixing11/mindnotes-pro/compare/v5.0.1...v5.1.0
 [5.0.1]: https://github.com/11suixing11/mindnotes-pro/compare/v5.0.0...v5.0.1
 [5.0.0]: https://github.com/11suixing11/mindnotes-pro/compare/v4.0.0...v5.0.0
