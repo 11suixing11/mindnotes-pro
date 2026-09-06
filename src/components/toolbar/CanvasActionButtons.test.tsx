@@ -18,12 +18,16 @@ describe('CanvasActionButtons', () => {
     useToastStore.setState({ toasts: [] })
   })
 
-  it('renders canvas-level actions separately from color controls', () => {
+  it('keeps image insertion visible and moves low-frequency controls into More', () => {
     render(<CanvasActionButtons />)
 
-    expect(screen.getByLabelText('背景设置')).toBeTruthy()
     expect(screen.getByLabelText('插入图片')).toBeTruthy()
-    expect(screen.getByLabelText('进入全屏')).toBeTruthy()
+    expect(screen.getByLabelText('画布更多')).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: '进入全屏' })).toBeNull()
+
+    fireEvent.click(screen.getByLabelText('画布更多'))
+    expect(screen.getByRole('menuitem', { name: '进入全屏' })).toBeTruthy()
+    expect(screen.getByRole('menuitemcheckbox', { name: '显示网格' })).toBeTruthy()
   })
 
   it('updates the fullscreen action label and reports failed requests', async () => {
@@ -34,7 +38,8 @@ describe('CanvasActionButtons', () => {
     })
 
     render(<CanvasActionButtons />)
-    fireEvent.click(screen.getByLabelText('进入全屏'))
+    fireEvent.click(screen.getByLabelText('画布更多'))
+    fireEvent.click(screen.getByRole('menuitem', { name: '进入全屏' }))
 
     await vi.waitFor(() => {
       expect(requestFullscreen).toHaveBeenCalledOnce()
@@ -46,7 +51,7 @@ describe('CanvasActionButtons', () => {
   it('changes the document background style', () => {
     render(<CanvasActionButtons />)
 
-    fireEvent.click(screen.getByLabelText('背景设置'))
+    fireEvent.click(screen.getByLabelText('画布更多'))
     fireEvent.click(screen.getByRole('menuitemradio', { name: /点阵/ }))
 
     expect(useAppStore.getState().backgroundStyle).toBe('dots')
@@ -55,7 +60,11 @@ describe('CanvasActionButtons', () => {
   it('renders hidden inputs for image import and custom background color', () => {
     render(<CanvasActionButtons />)
 
-    expect(screen.getByLabelText('选择图片文件').getAttribute('tabindex')).toBe('-1')
-    expect(screen.getByLabelText('选择背景颜色').getAttribute('tabindex')).toBe('-1')
+    const imageInput = screen.getByLabelText('选择图片文件')
+    const backgroundInput = screen.getByLabelText('选择背景颜色')
+    expect(imageInput.getAttribute('tabindex')).toBe('-1')
+    expect(imageInput.getAttribute('aria-hidden')).toBe('true')
+    expect(backgroundInput.getAttribute('tabindex')).toBe('-1')
+    expect(backgroundInput.getAttribute('aria-hidden')).toBe('true')
   })
 })

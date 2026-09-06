@@ -22,6 +22,15 @@ export function getEditableIds(ids: string[], context: CanvasElementRuleContext)
   })
 }
 
+export function getAtomicEditableIds(
+  ids: string[],
+  context: CanvasElementRuleContext
+): string[] {
+  const uniqueIds = [...new Set(ids)]
+  const editableIds = getEditableIds(uniqueIds, context)
+  return editableIds.length === uniqueIds.length ? editableIds : []
+}
+
 export function getSelectableIds(ids: string[], context: CanvasElementRuleContext): string[] {
   return ids.filter((id) => {
     const element =

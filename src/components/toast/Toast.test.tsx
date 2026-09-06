@@ -43,11 +43,14 @@ describe('ToastContainer', () => {
     expect(screen.getByText('ℹ')).toBeTruthy()
   })
 
-  it('dismisses toast on click', () => {
+  it('dismisses a toast only from its close button', () => {
     useToastStore.getState().show('Click me', 'info')
     render(<ToastContainer />)
-    const toast = screen.getByText('Click me').closest('[role="status"]')!
-    fireEvent.click(toast)
+
+    fireEvent.click(screen.getByText('Click me'))
+    expect(useToastStore.getState().toasts).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('button', { name: '关闭通知：Click me' }))
     expect(useToastStore.getState().toasts).toHaveLength(0)
   })
 
@@ -59,10 +62,18 @@ describe('ToastContainer', () => {
     expect(screen.getByText('Second')).toBeTruthy()
   })
 
-  it('has correct aria attributes', () => {
-    useToastStore.getState().show('Test', 'info')
+  it('uses one live-region role per message based on notification type', () => {
+    useToastStore.getState().show('Info', 'info')
+    useToastStore.getState().show('Success', 'success')
+    useToastStore.getState().show('Warning', 'warning')
+    useToastStore.getState().show('Error', 'error')
     render(<ToastContainer />)
-    const container = screen.getByRole('alert')
-    expect(container.getAttribute('aria-live')).toBe('polite')
+
+    expect(screen.getAllByRole('status')).toHaveLength(2)
+    expect(screen.getAllByRole('alert')).toHaveLength(2)
+    expect(document.querySelector('[aria-live]')).toBeNull()
+    for (const message of [...screen.getAllByRole('status'), ...screen.getAllByRole('alert')]) {
+      expect(message.querySelector('[role="status"], [role="alert"]')).toBeNull()
+    }
   })
 })

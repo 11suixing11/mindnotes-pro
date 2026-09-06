@@ -15,7 +15,7 @@ import { useAppLifecycle } from './components/app/useAppLifecycle'
 import FirstUseNotice from './components/app/FirstUseNotice'
 
 export default function App() {
-  const mainContentRef = useRef<HTMLDivElement>(null)
+  const mainContentRef = useRef<HTMLElement>(null)
   const loaded = useAppStore((state) => state.loaded)
   const bgColor = useAppStore((state) => state.bgColor)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
@@ -47,7 +47,15 @@ export default function App() {
         跳到画布
       </a>
       <div className="app-shell" style={{ background: bgColor }}>
-        <div ref={mainContentRef} tabIndex={-1} className="workspace-main">
+        <main
+          ref={mainContentRef}
+          tabIndex={-1}
+          className="workspace-main"
+          aria-labelledby="workspace-title"
+        >
+          <h1 id="workspace-title" className="sr-only">
+            MindNotes Pro 画板
+          </h1>
           <Canvas />
           <Toolbar canInstall={canInstall} onInstall={() => void installApp()} />
           <div className="layers-dock">
@@ -70,7 +78,7 @@ export default function App() {
             open={shortcutSettingsOpen}
             onClose={() => setShortcutSettingsOpen(false)}
           />
-        </div>
+        </main>
       </div>
     </>
   )

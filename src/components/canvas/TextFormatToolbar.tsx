@@ -100,6 +100,12 @@ function includeCurrentSize(fontSize: number): number[] {
   return [...TEXT_FONT_SIZE_OPTIONS, normalized].sort((a, b) => a - b)
 }
 
+const TEXT_ALIGN_LABELS = {
+  left: '左对齐',
+  center: '居中对齐',
+  right: '右对齐',
+} as const
+
 const TextFormatToolbar = memo(function TextFormatToolbar({
   editingText,
   toolbarRef,
@@ -119,7 +125,7 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
     <div
       ref={toolbarRef}
       role="toolbar"
-      aria-label="Text formatting"
+      aria-label="文字格式"
       style={{
         ...toolbarStyle,
         left,
@@ -152,9 +158,9 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
       <div style={groupStyle}>
         <button
           type="button"
-          aria-label="Bold"
+          aria-label="粗体"
           aria-pressed={editingText.fontWeight === 'bold'}
-          title="Bold"
+          title="粗体"
           style={editingText.fontWeight === 'bold' ? activeButtonStyle : buttonStyle}
           onClick={() => {
             onChange({ fontWeight: editingText.fontWeight === 'bold' ? 'normal' : 'bold' })
@@ -165,9 +171,9 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
         </button>
         <button
           type="button"
-          aria-label="Italic"
+          aria-label="斜体"
           aria-pressed={editingText.fontStyle === 'italic'}
-          title="Italic"
+          title="斜体"
           style={{
             ...(editingText.fontStyle === 'italic' ? activeButtonStyle : buttonStyle),
             fontStyle: 'italic',
@@ -181,9 +187,9 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
         </button>
         <button
           type="button"
-          aria-label="Underline"
+          aria-label="下划线"
           aria-pressed={editingText.textDecoration === 'underline'}
-          title="Underline"
+          title="下划线"
           style={{
             ...(editingText.textDecoration === 'underline' ? activeButtonStyle : buttonStyle),
             textDecoration: 'underline',
@@ -201,7 +207,7 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
 
       <div style={groupStyle}>
         <select
-          aria-label="Font size"
+          aria-label="字号"
           value={editingText.fontSize}
           onChange={(event) => {
             onChange({ fontSize: clampTextFontSize(Number(event.target.value)) })
@@ -231,9 +237,9 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
           <button
             key={align}
             type="button"
-            aria-label={`Align ${align}`}
+            aria-label={TEXT_ALIGN_LABELS[align]}
             aria-pressed={editingText.textAlign === align}
-            title={`Align ${align}`}
+            title={TEXT_ALIGN_LABELS[align]}
             style={editingText.textAlign === align ? activeButtonStyle : buttonStyle}
             onClick={() => {
               onChange({ textAlign: align })
@@ -247,8 +253,8 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
 
       <div style={{ ...groupStyle, borderRight: 'none', paddingRight: 0 }}>
         <input
-          aria-label="Text color"
-          title="Text color"
+          aria-label="文字颜色"
+          title="文字颜色"
           type="color"
           value={editingText.color}
           onChange={(event) => {
@@ -259,8 +265,8 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
         />
         <div style={colorInputContainerStyle}>
           <input
-            aria-label="Text background color"
-            title={hasBackgroundColor ? 'Text background color' : 'Text background color (none)'}
+            aria-label="文字背景色"
+            title={hasBackgroundColor ? '文字背景色' : '文字背景色（无）'}
             type="color"
             value={backgroundColor}
             onChange={(event) => {
@@ -279,8 +285,8 @@ const TextFormatToolbar = memo(function TextFormatToolbar({
         </div>
         <button
           type="button"
-          aria-label="Clear text background"
-          title="Clear text background"
+          aria-label="清除文字背景色"
+          title="清除文字背景色"
           style={hasBackgroundColor ? activeButtonStyle : buttonStyle}
           onClick={() => {
             onChange({ backgroundColor: undefined })

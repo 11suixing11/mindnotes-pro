@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CanvasElement, CanvasLayer, ShapeElement, UndoAction } from '../types'
+import type { CommitElementsOptions } from './canvasElementCommit'
 import { createCanvasElementArrangementActions } from './canvasElementArrangementActions'
 
 vi.mock('../saveManager', () => ({
@@ -62,8 +63,21 @@ function createHarness(initial: Partial<HarnessState> = {}) {
   const set = vi.fn((patch: Partial<HarnessState>) => Object.assign(state, patch))
   const get = vi.fn(() => state)
   const synchronizeElementGeometry = vi.fn()
-  const actions = createCanvasElementArrangementActions({ set, get, synchronizeElementGeometry })
-  return { state, synchronizeElementGeometry, actions }
+  const commitElements = vi.fn((elements: CanvasElement[], options: CommitElementsOptions = {}) => {
+    state.elements = elements
+    state.selectedIds = options.selectedIds ?? state.selectedIds
+    if (options.action) state.undoStack = [...state.undoStack, options.action]
+    if (options.clearRedo ?? Boolean(options.action)) state.redoStack = []
+    state.idToElement = new Map(elements.map((element) => [element.id, element]))
+    state.idToIndex = new Map(elements.map((element, index) => [element.id, index]))
+  })
+  const actions = createCanvasElementArrangementActions({
+    set,
+    get,
+    commitElements,
+    synchronizeElementGeometry,
+  })
+  return { state, commitElements, synchronizeElementGeometry, actions }
 }
 
 describe('canvas element arrangement actions', () => {
@@ -126,5 +140,41 @@ describe('canvas element arrangement actions', () => {
     expect(state.undoStack).toEqual([])
     expect(incrementSaveGeneration).not.toHaveBeenCalled()
     expect(scheduleSave).not.toHaveBeenCalled()
+  })
+
+  it('commits one stable reorder snapshot for a non-contiguous selection', () => {
+    const elements = [makeShape('a', 0), makeShape('b', 20), makeShape('c', 40), makeShape('d', 60)]
+    const { state, commitElements, actions } = createHarness({
+      elements,
+      selectedIds: ['a', 'c'],
+    })
+
+    const result = actions.reorderSelected('forward')
+
+    expect(result).toEqual({ status: 'applied', affectedIds: ['a', 'c'] })
+    expect(state.elements.map((element) => element.id)).toEqual(['b', 'a', 'd', 'c'])
+    expect(commitElements).toHaveBeenCalledOnce()
+    expect(state.undoStack).toHaveLength(1)
+    expect(state.undoStack[0]).toEqual(expect.objectContaining({ type: 'snapshot' }))
+  })
+
+  it('blocks a reorder atomically when any selected element is locked', () => {
+    const editable = makeShape('editable', 0)
+    const locked = makeShape('locked', 20, { locked: true })
+    const { state, commitElements, actions } = createHarness({
+      elements: [editable, locked],
+      selectedIds: [editable.id, locked.id],
+    })
+
+    const result = actions.reorderSelected('front')
+
+    expect(result).toEqual({
+      status: 'blocked',
+      reason: 'locked-selection',
+      affectedIds: [editable.id, locked.id],
+      lockedIds: [locked.id],
+    })
+    expect(state.elements.map((element) => element.id)).toEqual([editable.id, locked.id])
+    expect(commitElements).not.toHaveBeenCalled()
   })
 })

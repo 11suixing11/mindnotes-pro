@@ -84,6 +84,15 @@ export default function Canvas() {
   editingTextRef.current = editingText
   commitTextEditRef.current = commitTextEdit
 
+  useLayoutEffect(() => {
+    useAppStore.getState().setActiveTextEditingId(editingTextId ?? null)
+    return () => {
+      if (useAppStore.getState().activeTextEditingId === editingTextId) {
+        useAppStore.getState().setActiveTextEditingId(null)
+      }
+    }
+  }, [editingTextId])
+
   const clearTextRecoveryTimer = useCallback(() => {
     if (textRecoveryTimerRef.current) {
       clearTimeout(textRecoveryTimerRef.current)

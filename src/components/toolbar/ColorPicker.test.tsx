@@ -123,8 +123,26 @@ describe('ColorPicker', () => {
 
   it('renders hidden file inputs', () => {
     render(<ColorPicker />)
-    expect(screen.getByLabelText('选择颜色').getAttribute('tabindex')).toBe('-1')
-    expect(screen.getByLabelText('选择填充颜色').getAttribute('tabindex')).toBe('-1')
+    const colorInput = screen.getByLabelText('选择颜色')
+    const fillInput = screen.getByLabelText('选择填充颜色')
+    expect(colorInput.getAttribute('tabindex')).toBe('-1')
+    expect(colorInput.getAttribute('aria-hidden')).toBe('true')
+    expect(fillInput.getAttribute('tabindex')).toBe('-1')
+    expect(fillInput.getAttribute('aria-hidden')).toBe('true')
+  })
+
+  it('renders mixed color and size states without selecting an arbitrary value', () => {
+    render(
+      <ColorPicker
+        colorValue={{ kind: 'mixed' }}
+        sizeValue={{ kind: 'mixed' }}
+        showFill={false}
+      />
+    )
+
+    expect(screen.getByLabelText('颜色：多种值')).toBeTruthy()
+    expect(screen.getByRole('radiogroup', { name: '线宽，当前为多种值' })).toBeTruthy()
+    expect(screen.getAllByRole('radio').every((button) => button.getAttribute('aria-checked') === 'false')).toBe(true)
   })
 
   it('shows color history when available', () => {

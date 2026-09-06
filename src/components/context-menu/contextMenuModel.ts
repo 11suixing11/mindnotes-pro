@@ -4,6 +4,7 @@ export const MENU_WIDTH = 200
 export const MENU_ITEM_HEIGHT = 32
 export const MENU_PADDING = 4
 export const SUBMENU_OFFSET = -4
+export const VIEWPORT_MARGIN = 8
 
 export const ALIGN_ACTIONS: ReadonlyArray<{
   label: string
@@ -56,36 +57,91 @@ export function getContextMenuSelectionState(
 interface ContextMenuPositionOptions {
   x: number
   y: number
+  menuWidth: number
+  menuHeight: number
   viewportWidth: number
   viewportHeight: number
-  hasSelection: boolean
-  hasMultipleSelection: boolean
+  margin?: number
 }
 
 export interface ContextMenuPosition {
   x: number
   y: number
   menuWidth: number
+  maxHeight: number
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(Math.max(value, minimum), Math.max(minimum, maximum))
 }
 
 export function getContextMenuPosition({
   x,
   y,
+  menuWidth,
+  menuHeight,
   viewportWidth,
   viewportHeight,
-  hasSelection,
-  hasMultipleSelection,
+  margin = VIEWPORT_MARGIN,
 }: ContextMenuPositionOptions): ContextMenuPosition {
-  const menuHeight =
-    MENU_PADDING * 2 +
-    (hasSelection ? 5 : 2) * MENU_ITEM_HEIGHT +
-    (hasMultipleSelection ? 2 : 0) * MENU_ITEM_HEIGHT +
-    (hasMultipleSelection ? 1 : 0) * MENU_ITEM_HEIGHT +
-    2 * 8
+  const availableWidth = Math.max(0, viewportWidth - margin * 2)
+  const availableHeight = Math.max(0, viewportHeight - margin * 2)
+  const measuredWidth = Math.min(Math.max(0, menuWidth), availableWidth)
+  const measuredHeight = Math.min(Math.max(0, menuHeight), availableHeight)
 
   return {
-    x: x + MENU_WIDTH > viewportWidth ? Math.max(0, x - MENU_WIDTH) : x,
-    y: y + menuHeight > viewportHeight ? Math.max(0, y - menuHeight) : y,
-    menuWidth: MENU_WIDTH,
+    x: clamp(x, margin, viewportWidth - measuredWidth - margin),
+    y: clamp(y, margin, viewportHeight - measuredHeight - margin),
+    menuWidth: measuredWidth,
+    maxHeight: availableHeight,
+  }
+}
+
+interface ContextSubmenuPositionOptions {
+  anchorLeft: number
+  anchorRight: number
+  anchorTop: number
+  submenuWidth: number
+  submenuHeight: number
+  viewportWidth: number
+  viewportHeight: number
+  offset?: number
+  margin?: number
+}
+
+export interface ContextSubmenuPosition {
+  x: number
+  y: number
+  maxHeight: number
+  placement: 'left' | 'right'
+}
+
+export function getContextSubmenuPosition({
+  anchorLeft,
+  anchorRight,
+  anchorTop,
+  submenuWidth,
+  submenuHeight,
+  viewportWidth,
+  viewportHeight,
+  offset = SUBMENU_OFFSET,
+  margin = VIEWPORT_MARGIN,
+}: ContextSubmenuPositionOptions): ContextSubmenuPosition {
+  const availableWidth = Math.max(0, viewportWidth - margin * 2)
+  const availableHeight = Math.max(0, viewportHeight - margin * 2)
+  const measuredWidth = Math.min(Math.max(0, submenuWidth), availableWidth)
+  const measuredHeight = Math.min(Math.max(0, submenuHeight), availableHeight)
+  const rightX = anchorRight + offset
+  const leftX = anchorLeft - measuredWidth - offset
+  const rightFits = rightX + measuredWidth <= viewportWidth - margin
+  const leftFits = leftX >= margin
+  const placement = rightFits || !leftFits ? 'right' : 'left'
+  const preferredX = placement === 'right' ? rightX : leftX
+
+  return {
+    x: clamp(preferredX, margin, viewportWidth - measuredWidth - margin),
+    y: clamp(anchorTop, margin, viewportHeight - measuredHeight - margin),
+    maxHeight: availableHeight,
+    placement,
   }
 }

@@ -272,7 +272,15 @@ export function usePointerEngine(opts: {
       if (st.styleEyedropperActive) {
         const hitId = hitTest(pos.x, pos.y)
         if (hitId) {
-          st.applyStyleFromElement(hitId)
+          const result = st.applyStyleFromElement(hitId)
+          if (result.status === 'blocked') {
+            toast(
+              result.reason === 'locked-selection'
+                ? '所选内容包含锁定对象，未修改任何样式'
+                : '所选内容没有可共同修改的样式',
+              'warning'
+            )
+          }
         }
         return
       }
@@ -357,6 +365,7 @@ export function usePointerEngine(opts: {
       hitTest,
       startDrawing,
       snapPointIfGridEnabled,
+      toast,
     ]
   )
 

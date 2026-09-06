@@ -8,6 +8,7 @@ import {
   pastePlainTextAtViewportCenter,
 } from './keyboardPaste'
 import { useToastStore } from '../../store/toastStore'
+import type { StyleCommandResult } from '../../store/slices/toolSettings'
 
 interface MutableValue<T> {
   current: T
@@ -57,6 +58,15 @@ export const ALT_COLOR_PRESETS = [
   '#A8CCE0',
 ]
 
+function notifyBlockedStyleCommand(result: StyleCommandResult) {
+  if (result.status !== 'blocked') return
+  if (result.reason === 'locked-selection') {
+    useToastStore.getState().show('所选内容包含锁定对象，未修改任何样式', 'warning')
+  } else if (result.reason === 'incompatible') {
+    useToastStore.getState().show('所选内容没有可共同修改的颜色', 'warning')
+  }
+}
+
 export function handleQuickColorShortcut(event: KeyboardEvent): boolean {
   const store = useAppStore.getState()
 
@@ -70,14 +80,14 @@ export function handleQuickColorShortcut(event: KeyboardEvent): boolean {
     event.preventDefault()
     const index = event.key === '0' ? 9 : parseInt(event.key, 10) - 1
     const targetColor = SHIFT_COLOR_PALETTE[index]
-    if (targetColor) store.setColor(targetColor)
+    if (targetColor) notifyBlockedStyleCommand(store.applyStyle({ color: targetColor }))
     return true
   }
 
   const colorIndex = parseInt(event.key, 10) - 1
   if (event.altKey && colorIndex >= 0 && colorIndex < ALT_COLOR_PRESETS.length) {
     event.preventDefault()
-    store.setColor(ALT_COLOR_PRESETS[colorIndex])
+    notifyBlockedStyleCommand(store.applyStyle({ color: ALT_COLOR_PRESETS[colorIndex] }))
     return true
   }
 
@@ -232,7 +242,7 @@ export function executeShortcutAction(
       event.preventDefault()
       const hoveredElementId = optionsRef.current.hoveredElementIdRef?.current
       if (hoveredElementId && store.idToElement.get(hoveredElementId)) {
-        store.applyStyleFromElement(hoveredElementId)
+        notifyBlockedStyleCommand(store.applyStyleFromElement(hoveredElementId))
       } else {
         store.toggleStyleEyedropper()
       }

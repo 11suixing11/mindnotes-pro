@@ -396,6 +396,7 @@ const ExportMenu = memo(function ExportMenu() {
         ref={fileRef}
         type="file"
         tabIndex={-1}
+        aria-hidden="true"
         accept="application/json,.json"
         onChange={importJSON}
         className="em-hidden-input"

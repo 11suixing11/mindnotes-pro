@@ -24,7 +24,13 @@ import { createCanvasElementCommitPlan, type CommitElementsOptions } from './can
 import { createCanvasElementLayerActions } from './canvasElementLayerActions'
 import { createCanvasElementClipboardActions } from './canvasElementClipboardActions'
 import { createCanvasElementMetadataActions } from './canvasElementMetadataActions'
-import { createCanvasElementArrangementActions } from './canvasElementArrangementActions'
+import {
+  createCanvasElementArrangementActions,
+  type SelectionReorderResult,
+} from './canvasElementArrangementActions'
+import type { ElementReorderMode } from './canvasElementArrangement'
+import { createCanvasElementStyleActions } from './canvasElementStyleActions'
+import type { SelectionStyleApplyResult, SelectionStylePatch } from './canvasElementStyle'
 import {
   createCanvasElementMutationActions,
   type UpdateElementOptions,
@@ -37,6 +43,15 @@ import { createCanvasElementSnapshotActions } from './canvasElementSnapshotActio
 
 export type { CommitElementsOptions } from './canvasElementCommit'
 export type { MoveElementsOptions } from './canvasElementGeometryActions'
+export type { ElementReorderMode } from './canvasElementArrangement'
+export type { SelectionReorderResult } from './canvasElementArrangementActions'
+export type {
+  SelectionStyleApplyResult,
+  SelectionStyleKey,
+  SelectionStyleModel,
+  SelectionStylePatch,
+  SelectionStyleValue,
+} from './canvasElementStyle'
 
 export interface CanvasElementsState {
   elements: CanvasElement[]
@@ -98,6 +113,8 @@ export interface CanvasElementsActions {
   ungroupSelected: () => void
   alignSelected: (alignment: AlignmentType) => void
   distributeSelected: (distribution: DistributionType) => void
+  reorderSelected: (mode: ElementReorderMode) => SelectionReorderResult
+  applyStyleToSelected: (patch: SelectionStylePatch) => SelectionStyleApplyResult
   batchErase: (
     beforeSnap: CanvasElement[],
     added: CanvasElement[],
@@ -201,9 +218,11 @@ export function createCanvasElementsSlice(
     ...createCanvasElementArrangementActions({
       set,
       get,
+      commitElements,
       synchronizeElementGeometry: (elements, elementIds, state) =>
         synchronizeElementGeometry(collectionRuntime, elements, elementIds, state),
     }),
+    ...createCanvasElementStyleActions({ get, commitElements }),
     ...createCanvasElementMutationActions({
       set,
       get,

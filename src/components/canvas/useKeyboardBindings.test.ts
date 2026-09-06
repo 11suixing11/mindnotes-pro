@@ -387,7 +387,10 @@ describe('useKeyboardBindings', () => {
         size: 6,
         fillColor: '#dbeafe',
       })
-      const applySpy = vi.spyOn(useAppStore.getState(), 'applyStyleFromElement')
+      const originalApply = useAppStore.getState().applyStyleFromElement
+      const applySpy = vi
+        .spyOn(useAppStore.getState(), 'applyStyleFromElement')
+        .mockImplementation((id) => originalApply(id))
       renderHook(() => useKeyboardBindings({ hoveredElementIdRef: { current: 'hovered-shape' } }))
 
       press('q')
