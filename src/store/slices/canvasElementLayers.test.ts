@@ -113,7 +113,25 @@ describe('canvas element layer plans', () => {
     expect(plan?.every((layer) => layer.updatedAt === 300)).toBe(true)
   })
 
-  it('moves only editable elements to a writable layer', () => {
+  it('moves a fully editable selection to a writable layer', () => {
+    const source = makeLayer('source', 0)
+    const target = makeLayer('target', 1)
+    const first = makeShape('first', source.id)
+    const second = makeShape('second', source.id)
+    const context = makeContext([source, target], [first, second], source.id, [
+      first.id,
+      second.id,
+    ])
+
+    const plan = createMoveElementsToLayerPlan(context, context.selectedIds, target.id)
+
+    expect(plan?.elements[0].layerId).toBe(target.id)
+    expect(plan?.elements[1].layerId).toBe(target.id)
+    expect(plan?.updatedElements.map((element) => element.id)).toEqual([first.id, second.id])
+    expect(plan?.selectedIds).toEqual([first.id, second.id])
+  })
+
+  it('does not move a selection that contains a locked element', () => {
     const source = makeLayer('source', 0)
     const target = makeLayer('target', 1)
     const editable = makeShape('editable', source.id)
@@ -123,11 +141,6 @@ describe('canvas element layer plans', () => {
       locked.id,
     ])
 
-    const plan = createMoveElementsToLayerPlan(context, context.selectedIds, target.id)
-
-    expect(plan?.elements[0].layerId).toBe(target.id)
-    expect(plan?.elements[1].layerId).toBe(source.id)
-    expect(plan?.updatedElements.map((element) => element.id)).toEqual([editable.id])
-    expect(plan?.selectedIds).toEqual([editable.id])
+    expect(createMoveElementsToLayerPlan(context, context.selectedIds, target.id)).toBeNull()
   })
 })

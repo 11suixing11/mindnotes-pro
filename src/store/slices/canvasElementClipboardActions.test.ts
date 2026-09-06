@@ -124,24 +124,38 @@ describe('canvas element clipboard actions', () => {
     expect(scheduleSave).toHaveBeenCalledOnce()
   })
 
-  it('duplicates only editable selected elements', () => {
+  it('duplicates a fully editable selection and selects the copies', () => {
+    const first = makeShape('first')
+    const second = makeShape('second')
+    const { state, actions } = createHarness({
+      elements: [first, second],
+      selectedIds: [first.id, second.id],
+    })
+
+    actions.duplicateSelected()
+
+    expect(state.elements).toHaveLength(4)
+    const copyIds = state.elements.slice(2).map((element) => element.id)
+    expect(state.selectedIds).toEqual(copyIds)
+    expect(incrementSaveGeneration).toHaveBeenCalledOnce()
+    expect(scheduleSave).toHaveBeenCalledOnce()
+  })
+
+  it('does not duplicate a selection that contains a locked element', () => {
     const editable = makeShape('editable')
     const locked = makeShape('locked', { locked: true })
-    const { state, actions } = createHarness({
+    const { state, set, actions } = createHarness({
       elements: [editable, locked],
       selectedIds: [editable.id, locked.id],
     })
 
     actions.duplicateSelected()
 
-    expect(state.elements).toHaveLength(3)
-    expect(state.elements.map((element) => element.id)).toEqual([
-      editable.id,
-      locked.id,
-      expect.any(String),
-    ])
-    expect(state.selectedIds).toHaveLength(1)
-    expect(state.selectedIds[0]).not.toBe(editable.id)
+    expect(state.elements).toEqual([editable, locked])
+    expect(state.selectedIds).toEqual([editable.id, locked.id])
+    expect(set).not.toHaveBeenCalled()
+    expect(incrementSaveGeneration).not.toHaveBeenCalled()
+    expect(scheduleSave).not.toHaveBeenCalled()
   })
 
   it('does nothing when no source is available', () => {

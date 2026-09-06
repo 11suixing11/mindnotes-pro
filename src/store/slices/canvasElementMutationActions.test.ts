@@ -224,7 +224,29 @@ describe('canvas element mutation actions', () => {
     expect(scheduleSave).not.toHaveBeenCalled()
   })
 
-  it('removes only editable elements and marks indexes dirty', () => {
+  it('removes a fully editable batch and marks indexes dirty', () => {
+    const first = makeShape('first')
+    const second = makeShape('second')
+    const { state, context, actions } = createHarness({
+      elements: [first, second],
+      selectedIds: [first.id, second.id],
+    })
+
+    const removed = actions.removeElements([first.id, second.id])
+
+    expect(removed).toBe(true)
+    expect(state.elements).toEqual([])
+    expect(state.selectedIds).toEqual([])
+    expect(context.removeElementCollection).toHaveBeenCalledWith(
+      [first.id, second.id],
+      expect.anything()
+    )
+    expect(context.markIndexDirty).toHaveBeenCalledOnce()
+    expect(incrementSaveGeneration).toHaveBeenCalledOnce()
+    expect(scheduleSave).toHaveBeenCalledOnce()
+  })
+
+  it('refuses to remove a batch that contains a locked element', () => {
     const editable = makeShape('editable')
     const locked = makeShape('locked', { locked: true })
     const { state, context, actions } = createHarness({
@@ -232,12 +254,16 @@ describe('canvas element mutation actions', () => {
       selectedIds: [editable.id, locked.id],
     })
 
-    actions.removeElements([editable.id, locked.id])
+    const removed = actions.removeElements([editable.id, locked.id])
 
-    expect(state.elements).toEqual([locked])
-    expect(state.selectedIds).toEqual([])
-    expect(context.removeElementCollection).toHaveBeenCalledWith([editable.id], expect.anything())
-    expect(context.markIndexDirty).toHaveBeenCalledOnce()
+    expect(removed).toBe(false)
+    expect(state.elements).toEqual([editable, locked])
+    expect(state.selectedIds).toEqual([editable.id, locked.id])
+    expect(context.set).not.toHaveBeenCalled()
+    expect(context.removeElementCollection).not.toHaveBeenCalled()
+    expect(context.markIndexDirty).not.toHaveBeenCalled()
+    expect(incrementSaveGeneration).not.toHaveBeenCalled()
+    expect(scheduleSave).not.toHaveBeenCalled()
   })
 
   it('clears the collection and records an exact snapshot', () => {
