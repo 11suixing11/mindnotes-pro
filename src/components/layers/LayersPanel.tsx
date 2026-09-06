@@ -167,23 +167,16 @@ export default function LayersPanel() {
                     !layer.visible ? ' layers-row-muted' : ''
                   }`}
                 >
-                  <button
-                    type="button"
-                    className="layers-row-main"
-                    aria-current={isActive ? 'true' : undefined}
-                    disabled={!canActivate}
-                    onClick={() => setActiveLayer(layer.id)}
-                  >
-                    <span className="layers-swatch" aria-hidden="true" />
-                    <span className="layers-row-text">
-                      {renamingId === layer.id ? (
+                  {renamingId === layer.id ? (
+                    <div className="layers-row-main" style={{ cursor: 'text' }}>
+                      <span className="layers-swatch" aria-hidden="true" />
+                      <span className="layers-row-text">
                         <input
                           ref={inputRef}
                           aria-label={`重命名 ${layer.name}`}
                           className="layers-name-input"
                           value={renameValue}
                           onChange={(event) => setRenameValue(event.target.value)}
-                          onClick={(event) => event.stopPropagation()}
                           onBlur={commitRename}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter') {
@@ -195,12 +188,24 @@ export default function LayersPanel() {
                             }
                           }}
                         />
-                      ) : (
+                        <span className="layers-count">{layerElementsLabel(count)}</span>
+                      </span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="layers-row-main"
+                      aria-current={isActive ? 'true' : undefined}
+                      disabled={!canActivate}
+                      onClick={() => setActiveLayer(layer.id)}
+                    >
+                      <span className="layers-swatch" aria-hidden="true" />
+                      <span className="layers-row-text">
                         <span className="layers-name">{layer.name}</span>
-                      )}
-                      <span className="layers-count">{layerElementsLabel(count)}</span>
-                    </span>
-                  </button>
+                        <span className="layers-count">{layerElementsLabel(count)}</span>
+                      </span>
+                    </button>
+                  )}
 
                   <div className="layers-actions" aria-label={`${layer.name} 操作`}>
                     <button

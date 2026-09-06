@@ -274,6 +274,7 @@ function MobileMorePanel({ open, onClose }: MobileMorePanelProps) {
                 ref={backgroundColorRef}
                 type="color"
                 tabIndex={-1}
+                aria-hidden="true"
                 value={bgColor}
                 onChange={(event) => setBgColor(event.target.value)}
                 aria-label="自定义背景色输入"

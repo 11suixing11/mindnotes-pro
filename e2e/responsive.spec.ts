@@ -28,41 +28,28 @@ async function visibleCanvasContent(page: Page) {
   })
 }
 
-async function scrollToolbarUntilVisible({
-  page,
-  toolbarSelector,
-  forwardButtonName,
-  targetButtonName,
-}: {
-  page: Page
-  toolbarSelector: string
-  forwardButtonName: string
-  targetButtonName: string
-}) {
-  const toolbar = page.locator(toolbarSelector)
-  const target = page.getByRole('button', { name: targetButtonName, exact: true })
+async function createSelectedRectangle(page: Page) {
+  await page.getByRole('button', { name: /^矩形工具/ }).click()
+  await page.mouse.move(360, 220)
+  await page.mouse.down()
+  await page.mouse.move(540, 340, { steps: 8 })
+  await page.mouse.up()
+  await page.getByRole('button', { name: /^选择工具/ }).click()
+  await page.mouse.click(450, 280)
+  await expect(page.locator('.selection-count')).toHaveText('已选择 1 项')
+}
 
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const isTargetVisible = await target.evaluate((element, selector) => {
-      const toolbarElement = document.querySelector(selector)
-      if (!toolbarElement) return false
+async function resetToolbarScroll(page: Page) {
+  await page.locator('.toolbar-center-scroll').evaluate((element) => {
+    element.scrollLeft = 0
+    element.dispatchEvent(new Event('scroll'))
+  })
+}
 
-      const targetRect = element.getBoundingClientRect()
-      const toolbarRect = toolbarElement.getBoundingClientRect()
-      return targetRect.left >= toolbarRect.left && targetRect.right <= toolbarRect.right
-    }, toolbarSelector)
-    if (isTargetVisible) return
-
-    const previousScrollLeft = await toolbar.evaluate((element) => element.scrollLeft)
-    const forward = page.getByRole('button', { name: forwardButtonName })
-    await expect(forward).toBeVisible()
-    await forward.click()
-    await expect
-      .poll(() => toolbar.evaluate((element) => element.scrollLeft))
-      .toBeGreaterThan(previousScrollLeft)
-  }
-
-  throw new Error(`Could not reveal ${targetButtonName} after scrolling ${toolbarSelector}`)
+async function toolbarIsOverflowing(page: Page) {
+  return page
+    .locator('.toolbar-center-scroll')
+    .evaluate((element) => element.scrollWidth > element.clientWidth + 1)
 }
 
 test('手机和平板目标视口无页面溢出且画布内容保持可见', async ({ page }) => {
@@ -126,19 +113,45 @@ test('手机端次级工具和图层无需横向翻找', async ({ page }) => {
   await expect(page.locator('.toolbar-scroll-control:visible')).toHaveCount(0)
 })
 
-test('平板宽度的顶栏仍提供横向导航提示', async ({ page }) => {
+test('900px 与 1025px 只滚动中部工具，宽屏不显示溢出提示', async ({ page }) => {
   await openApp(page)
-  await page.setViewportSize({ width: 900, height: 700 })
+  await createSelectedRectangle(page)
 
-  await expect(page.getByRole('status', { name: '应用状态' })).toBeVisible()
+  for (const width of [900, 1025]) {
+    await page.setViewportSize({ width, height: 700 })
+    await resetToolbarScroll(page)
+    await expect.poll(() => toolbarIsOverflowing(page)).toBe(true)
 
-  await scrollToolbarUntilVisible({
-    page,
-    toolbarSelector: '.topbar',
-    forwardButtonName: '向右查看更多画布工具',
-    targetButtonName: '文件',
-  })
+    const fixedStart = page.locator('.toolbar-fixed-start')
+    const fixedEnd = page.locator('.toolbar-fixed-end')
+    const beforeStart = await fixedStart.boundingBox()
+    const beforeEnd = await fixedEnd.boundingBox()
+    expect(beforeStart).not.toBeNull()
+    expect(beforeEnd).not.toBeNull()
+
+    const forward = page.getByRole('button', { name: '向右查看更多画布工具' })
+    await expect(forward).toBeVisible()
+    await forward.click()
+    await expect
+      .poll(() => page.locator('.toolbar-center-scroll').evaluate((element) => element.scrollLeft))
+      .toBeGreaterThan(0)
+    await expect(page.getByRole('button', { name: '向左查看更多画布工具' })).toBeVisible()
+
+    const afterStart = await fixedStart.boundingBox()
+    const afterEnd = await fixedEnd.boundingBox()
+    expect(afterStart).not.toBeNull()
+    expect(afterEnd).not.toBeNull()
+    expect(afterStart!.x).toBeCloseTo(beforeStart!.x, 1)
+    expect(afterEnd!.x).toBeCloseTo(beforeEnd!.x, 1)
+    await expect(page.getByRole('button', { name: '文件', exact: true })).toBeInViewport()
+    await expect(page.locator('.toolbar-brand')).toBeInViewport()
+  }
+
+  await page.setViewportSize({ width: 1600, height: 900 })
+  await resetToolbarScroll(page)
+  await expect.poll(() => toolbarIsOverflowing(page)).toBe(false)
+  await expect(page.getByRole('button', { name: '向左查看更多画布工具' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '向右查看更多画布工具' })).toHaveCount(0)
+  await expect(page.locator('.toolbar-brand')).toBeInViewport()
   await expect(page.getByRole('button', { name: '文件', exact: true })).toBeInViewport()
-  await expect(page.getByRole('button', { name: '向左查看更多画布工具' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '向右查看更多绘图工具' })).toBeHidden()
 })

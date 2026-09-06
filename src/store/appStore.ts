@@ -2,7 +2,17 @@ import { create } from 'zustand'
 import { createToolSettingsSlice } from './slices/toolSettings'
 import type { ToolSettingsState, ToolSettingsActions } from './slices/toolSettings'
 import { createCanvasElementsSlice } from './slices/canvasElements'
-import type { CanvasElementsState, CanvasElementsActions } from './slices/canvasElements'
+import type {
+  CanvasElementsState,
+  CanvasElementsActions,
+  ElementReorderMode,
+  SelectionReorderResult,
+  SelectionStyleApplyResult,
+  SelectionStyleKey,
+  SelectionStyleModel,
+  SelectionStylePatch,
+  SelectionStyleValue,
+} from './slices/canvasElements'
 import { createHistorySlice } from './slices/history'
 import type { HistoryState, HistoryActions } from './slices/history'
 import { createDocManagementSlice } from './slices/docManagement'
@@ -18,6 +28,13 @@ export type {
   ToolSettingsActions,
   CanvasElementsState,
   CanvasElementsActions,
+  ElementReorderMode,
+  SelectionReorderResult,
+  SelectionStyleApplyResult,
+  SelectionStyleKey,
+  SelectionStyleModel,
+  SelectionStylePatch,
+  SelectionStyleValue,
   HistoryState,
   HistoryActions,
   DocManagementState,

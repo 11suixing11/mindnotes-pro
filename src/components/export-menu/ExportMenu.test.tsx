@@ -172,6 +172,18 @@ describe('ExportMenu', () => {
     expect(screen.queryByText('Word 文档')).toBeNull()
   })
 
+  it('hides the native file input from assistive technology and names its visible trigger', () => {
+    const { container } = render(<ExportMenu />)
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]')
+
+    expect(input).toBeTruthy()
+    expect(input?.getAttribute('aria-hidden')).toBe('true')
+    expect(input?.getAttribute('tabindex')).toBe('-1')
+
+    fireEvent.click(screen.getByRole('button', { name: '文件' }))
+    expect(screen.getByRole('button', { name: '导入 JSON 备份' })).toBeTruthy()
+  })
+
   it('focuses the export dialog and restores focus when Escape closes it', async () => {
     render(<ExportMenu />)
     const trigger = screen.getByRole('button', { name: '文件' })

@@ -1,7 +1,7 @@
 import type { CanvasElement, CanvasLayer, UndoAction } from '../types'
 import { isElementLayerEditable } from '../layers'
 import { incrementSaveGeneration, scheduleSave } from '../saveManager'
-import { getEditableIds } from './canvasElementRules'
+import { getAtomicEditableIds } from './canvasElementRules'
 import {
   createMoveElementPlan,
   createMoveElementsPlan,
@@ -95,7 +95,7 @@ export function createCanvasElementGeometryActions(
       incrementSaveGeneration()
 
       const state = get()
-      const editableIds = getEditableIds(ids, state)
+      const editableIds = getAtomicEditableIds(ids, state)
       if (editableIds.length === 0) return
       const plan = createMoveElementsPlan(
         state.elements,
@@ -166,7 +166,7 @@ export function createCanvasElementGeometryActions(
       incrementSaveGeneration()
 
       const state = get()
-      const editableIds = getEditableIds(ids, state)
+      const editableIds = getAtomicEditableIds(ids, state)
       if (editableIds.length === 0) return
       const plan = createRotateElementsPlan(
         state.elements,

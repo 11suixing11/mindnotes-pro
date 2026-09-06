@@ -6,16 +6,24 @@ import { BRUSH_PRESETS, getBrushPreset } from '../../canvas/brushPresets'
 import { useDialogFocus } from '../useDialogFocus'
 
 interface BrushSelectorProps {
-  brush: BrushType
+  brush: BrushType | null
   setBrush: (b: BrushType) => void
-  tool: ToolType
+  tool?: ToolType
+  visible?: boolean
+  disabled?: boolean
 }
 
-const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: BrushSelectorProps) {
+const BrushSelector = memo(function BrushSelector({
+  brush,
+  setBrush,
+  tool,
+  visible,
+  disabled = false,
+}: BrushSelectorProps) {
   const brushBtnRef = useRef<HTMLButtonElement>(null)
   const [showBrush, setShowBrush] = useState(false)
   const [brushPos, setBrushPos] = useState({ top: 0, left: 0 })
-  const currentBrush = getBrushPreset(brush)
+  const currentBrush = getBrushPreset(brush ?? 'pen')
   const closeBrush = useCallback(() => setShowBrush(false), [])
   const menuRef = useDialogFocus<HTMLDivElement>({
     open: showBrush,
@@ -82,7 +90,7 @@ const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: Bru
       )
     : null
 
-  if (tool !== 'pen') return null
+  if (!(visible ?? tool === 'pen')) return null
 
   return (
     <>
@@ -91,12 +99,13 @@ const BrushSelector = memo(function BrushSelector({ brush, setBrush, tool }: Bru
         onClick={handleToggle}
         className="pill-btn ghost"
         style={{ whiteSpace: 'nowrap' }}
-        aria-label={`画笔：${currentBrush.label}`}
+        aria-label={brush ? `画笔：${currentBrush.label}` : '画笔：多种值'}
         aria-haspopup="menu"
         aria-expanded={showBrush}
         aria-controls="brush-selector-menu"
+        disabled={disabled}
       >
-        <span>{currentBrush.label}</span>
+        <span>{brush ? currentBrush.label : '多种画笔'}</span>
         <ChevronDown size={12} aria-hidden="true" className="opacity-50" />
       </button>
       <div className="tb-sep" />

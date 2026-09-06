@@ -1,16 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore } from '../../store/appStore'
 import { useConfirm } from '../confirm-modal'
 import { requestClearCanvas } from '../confirm-modal/requestClearCanvas'
 import { useDialogFocus } from '../useDialogFocus'
 import type { AlignmentType, DistributionType } from '../../store/types'
+import { getSelectionCapabilities } from '../../store/slices/selectionCapabilities'
 import { AlignSubmenu, DistributeSubmenu, MenuItem, MenuSeparator } from './ContextMenuPrimitives'
 import {
   MENU_PADDING,
   MENU_WIDTH,
   getContextMenuPosition,
-  getContextMenuSelectionState,
 } from './contextMenuModel'
 
 interface ContextMenuProps {
@@ -31,19 +31,20 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
     onClose,
     additionalRef: submenuRef,
   })
+  const [pos, setPos] = useState({
+    x,
+    y,
+    menuWidth: MENU_WIDTH,
+    maxHeight: Math.max(0, window.innerHeight - 16),
+    ready: false,
+  })
 
   const selectedIds = useAppStore((s) => s.selectedIds)
   const elements = useAppStore((s) => s.elements)
-  const selectionState = getContextMenuSelectionState(elements, selectedIds)
-  const {
-    hasSelection,
-    hasMultipleSelection,
-    hasGroupableSelection,
-    hasDistributableSelection,
-    hasGroupedElements,
-    hasLockedElements,
-    hasUnlockedElements,
-  } = selectionState
+  const layers = useAppStore((s) => s.layers)
+  const idToElement = useAppStore((s) => s.idToElement)
+  const capabilities = getSelectionCapabilities({ elements, layers, selectedIds, idToElement })
+  const hasSelection = capabilities.count > 0
 
   // Actions
   const copySelected = useAppStore((s) => s.copySelected)
@@ -54,6 +55,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const ungroupSelected = useAppStore((s) => s.ungroupSelected)
   const alignSelected = useAppStore((s) => s.alignSelected)
   const distributeSelected = useAppStore((s) => s.distributeSelected)
+  const reorderSelected = useAppStore((s) => s.reorderSelected)
   const setSelectedIds = useAppStore((s) => s.setSelectedIds)
   const clearAll = useAppStore((s) => s.clearAll)
   const confirm = useConfirm()
@@ -92,14 +94,55 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
     return () => window.clearTimeout(focusTimer)
   }, [openSubmenu])
 
-  const pos = getContextMenuPosition({
-    x,
-    y,
-    viewportWidth: window.innerWidth,
-    viewportHeight: window.innerHeight,
+  const updateMenuPosition = useCallback(() => {
+    const menu = menuRef.current
+    if (!menu) return
+
+    const rect = menu.getBoundingClientRect()
+    const next = getContextMenuPosition({
+      x,
+      y,
+      menuWidth: rect.width || menu.offsetWidth || MENU_WIDTH,
+      menuHeight: menu.scrollHeight || rect.height || menu.offsetHeight,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    })
+    setPos((current) =>
+      current.x === next.x &&
+      current.y === next.y &&
+      current.menuWidth === next.menuWidth &&
+      current.maxHeight === next.maxHeight &&
+      current.ready
+        ? current
+        : { ...next, ready: true }
+    )
+  }, [menuRef, x, y])
+
+  useLayoutEffect(() => {
+    const menu = menuRef.current
+    if (!menu) return
+
+    updateMenuPosition()
+    window.addEventListener('resize', updateMenuPosition)
+    const observer =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateMenuPosition)
+    observer?.observe(menu)
+
+    return () => {
+      window.removeEventListener('resize', updateMenuPosition)
+      observer?.disconnect()
+    }
+  }, [
+    capabilities.canAlign,
+    capabilities.canDistribute,
+    capabilities.canGroup,
+    capabilities.canLock,
+    capabilities.canUnlock,
+    capabilities.canUngroup,
     hasSelection,
-    hasMultipleSelection,
-  })
+    menuRef,
+    updateMenuPosition,
+  ])
 
   const handleAction = (action: () => void) => {
     action()
@@ -142,10 +185,16 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
         left: pos.x,
         top: pos.y,
         minWidth: MENU_WIDTH,
-        background: 'var(--bg-1)',
-        border: '1px solid var(--border-1)',
+        maxWidth: 'calc(100vw - 16px)',
+        maxHeight: pos.maxHeight,
+        overflowY: 'auto',
+        boxSizing: 'border-box',
+        visibility: pos.ready ? 'visible' : 'hidden',
+        background: 'var(--card-solid)',
+        color: 'var(--text)',
+        border: '1px solid var(--border)',
         borderRadius: 8,
-        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+        boxShadow: 'var(--shadow-lg)',
         padding: MENU_PADDING,
         zIndex: 99999,
         userSelect: 'none',
@@ -153,14 +202,16 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* 剪贴板操作 */}
-      {hasSelection && (
+      {capabilities.canDelete && (
         <>
           <MenuItem onClick={handleCut} label="剪切" shortcut="Ctrl+X" />
-          <MenuItem onClick={() => handleAction(copySelected)} label="复制" shortcut="Ctrl+C" />
         </>
       )}
+      {capabilities.canCopy && (
+        <MenuItem onClick={() => handleAction(copySelected)} label="复制" shortcut="Ctrl+C" />
+      )}
       <MenuItem onClick={() => handleAction(paste)} label="粘贴" shortcut="Ctrl+V" />
-      {hasSelection && (
+      {capabilities.canDuplicate && (
         <MenuItem
           onClick={() => handleAction(duplicateSelected)}
           label="复制副本"
@@ -171,7 +222,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
       {hasSelection && <MenuSeparator />}
 
       {/* 删除操作 */}
-      {hasSelection && (
+      {capabilities.canDelete && (
         <MenuItem
           onClick={() => handleAction(() => removeElements(selectedIds))}
           label="删除"
@@ -181,17 +232,17 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
       )}
 
       {/* 锁定/解锁操作 */}
-      {hasSelection && (
+      {(capabilities.canLock || capabilities.canUnlock) && (
         <>
           <MenuSeparator />
-          {hasUnlockedElements && (
+          {capabilities.canLock && (
             <MenuItem
               onClick={() => handleAction(lockSelected)}
               label="锁定元素"
               shortcut="Ctrl+L"
             />
           )}
-          {hasLockedElements && (
+          {capabilities.canUnlock && (
             <MenuItem
               onClick={() => handleAction(unlockSelected)}
               label="解锁元素"
@@ -202,13 +253,13 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
       )}
 
       {/* 分组操作 */}
-      {hasMultipleSelection && (
+      {(capabilities.canGroup || capabilities.canUngroup) && (
         <>
           <MenuSeparator />
-          {hasGroupableSelection && !hasGroupedElements && (
+          {capabilities.canGroup && (
             <MenuItem onClick={() => handleAction(groupSelected)} label="分组" shortcut="Ctrl+G" />
           )}
-          {hasGroupedElements && (
+          {capabilities.canUngroup && (
             <MenuItem
               onClick={() => handleAction(ungroupSelected)}
               label="取消分组"
@@ -219,7 +270,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
       )}
 
       {/* 对齐子菜单 */}
-      {hasMultipleSelection && (
+      {capabilities.canAlign && (
         <>
           <MenuSeparator />
           <MenuItem
@@ -243,7 +294,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
       )}
 
       {/* 分布子菜单 */}
-      {hasDistributableSelection && (
+      {capabilities.canDistribute && (
         <>
           <MenuSeparator />
           <MenuItem
@@ -265,6 +316,32 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
               onDistribute={handleDistribute}
             />
           )}
+        </>
+      )}
+
+      {hasSelection && !capabilities.isLocked && (
+        <>
+          <MenuSeparator />
+          <MenuItem
+            onClick={() => handleAction(() => reorderSelected('front'))}
+            label="置于顶层"
+            disabled={!capabilities.canReorder.front}
+          />
+          <MenuItem
+            onClick={() => handleAction(() => reorderSelected('forward'))}
+            label="上移一层"
+            disabled={!capabilities.canReorder.forward}
+          />
+          <MenuItem
+            onClick={() => handleAction(() => reorderSelected('backward'))}
+            label="下移一层"
+            disabled={!capabilities.canReorder.backward}
+          />
+          <MenuItem
+            onClick={() => handleAction(() => reorderSelected('back'))}
+            label="置于底层"
+            disabled={!capabilities.canReorder.back}
+          />
         </>
       )}
 

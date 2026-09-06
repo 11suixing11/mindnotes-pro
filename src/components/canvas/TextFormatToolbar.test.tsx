@@ -41,14 +41,14 @@ describe('TextFormatToolbar', () => {
       />
     )
 
-    expect(screen.getByRole('toolbar', { name: 'Text formatting' })).toBeTruthy()
-    expect(screen.getByLabelText('Bold')).toBeTruthy()
-    expect(screen.getByLabelText('Italic')).toBeTruthy()
-    expect(screen.getByLabelText('Underline')).toBeTruthy()
-    expect(screen.getByLabelText('Font size')).toBeTruthy()
-    expect(screen.getByLabelText('Align left')).toBeTruthy()
-    expect(screen.getByLabelText('Text color')).toBeTruthy()
-    expect(screen.getByLabelText('Text background color')).toBeTruthy()
+    expect(screen.getByRole('toolbar', { name: '文字格式' })).toBeTruthy()
+    expect(screen.getByLabelText('粗体')).toBeTruthy()
+    expect(screen.getByLabelText('斜体')).toBeTruthy()
+    expect(screen.getByLabelText('下划线')).toBeTruthy()
+    expect(screen.getByLabelText('字号')).toBeTruthy()
+    expect(screen.getByLabelText('左对齐')).toBeTruthy()
+    expect(screen.getByLabelText('文字颜色')).toBeTruthy()
+    expect(screen.getByLabelText('文字背景色')).toBeTruthy()
   })
 
   it('toggles inline styles', () => {
@@ -65,9 +65,9 @@ describe('TextFormatToolbar', () => {
       />
     )
 
-    fireEvent.click(screen.getByLabelText('Bold'))
-    fireEvent.click(screen.getByLabelText('Italic'))
-    fireEvent.click(screen.getByLabelText('Underline'))
+    fireEvent.click(screen.getByLabelText('粗体'))
+    fireEvent.click(screen.getByLabelText('斜体'))
+    fireEvent.click(screen.getByLabelText('下划线'))
 
     expect(onChange).toHaveBeenNthCalledWith(1, { fontWeight: 'normal' })
     expect(onChange).toHaveBeenNthCalledWith(2, { fontStyle: 'italic' })
@@ -88,13 +88,13 @@ describe('TextFormatToolbar', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText('Font size'), { target: { value: '24' } })
-    fireEvent.click(screen.getByLabelText('Align center'))
-    fireEvent.change(screen.getByLabelText('Text color'), { target: { value: '#1971c2' } })
-    fireEvent.change(screen.getByLabelText('Text background color'), {
+    fireEvent.change(screen.getByLabelText('字号'), { target: { value: '24' } })
+    fireEvent.click(screen.getByLabelText('居中对齐'))
+    fireEvent.change(screen.getByLabelText('文字颜色'), { target: { value: '#1971c2' } })
+    fireEvent.change(screen.getByLabelText('文字背景色'), {
       target: { value: '#ffe066' },
     })
-    fireEvent.click(screen.getByLabelText('Clear text background'))
+    fireEvent.click(screen.getByLabelText('清除文字背景色'))
 
     expect(onChange).toHaveBeenNthCalledWith(1, { fontSize: 24 })
     expect(onChange).toHaveBeenNthCalledWith(2, { textAlign: 'center' })
@@ -117,9 +117,7 @@ describe('TextFormatToolbar', () => {
     )
 
     expect(screen.getByTestId('text-background-none-indicator')).toBeTruthy()
-    expect(screen.getByLabelText('Text background color').getAttribute('title')).toBe(
-      'Text background color (none)'
-    )
+    expect(screen.getByLabelText('文字背景色').getAttribute('title')).toBe('文字背景色（无）')
 
     rerender(
       <TextFormatToolbar
@@ -134,8 +132,6 @@ describe('TextFormatToolbar', () => {
     )
 
     expect(screen.queryByTestId('text-background-none-indicator')).toBeNull()
-    expect((screen.getByLabelText('Text background color') as HTMLInputElement).value).toBe(
-      '#ffe066'
-    )
+    expect((screen.getByLabelText('文字背景色') as HTMLInputElement).value).toBe('#ffe066')
   })
 })

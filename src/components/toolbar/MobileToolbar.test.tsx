@@ -59,7 +59,9 @@ describe('MobileToolbar', () => {
     const trigger = screen.getByRole('button', { name: '自定义背景色' })
     const input = screen.getByLabelText('自定义背景色输入')
     expect(trigger.getAttribute('type')).toBe('button')
+    expect(trigger.textContent).toContain('颜色')
     expect(input.getAttribute('tabindex')).toBe('-1')
+    expect(input.getAttribute('aria-hidden')).toBe('true')
   })
 
   it('opens the native color picker from Enter and Space', () => {

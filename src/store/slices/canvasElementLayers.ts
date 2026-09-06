@@ -1,6 +1,6 @@
 import type { CanvasElement, CanvasLayer } from '../types'
 import { getElementLayerId, getSortedLayers, getWritableLayerId, isLayerWritable } from '../layers'
-import { getEditableIds, type CanvasElementRuleContext } from './canvasElementRules'
+import { getAtomicEditableIds, type CanvasElementRuleContext } from './canvasElementRules'
 
 export interface CanvasLayerPlanContext extends CanvasElementRuleContext {
   selectedIds: string[]
@@ -143,7 +143,7 @@ export function createMoveElementsToLayerPlan(
   layerId: string
 ): CanvasElementLayerPlan | null {
   if (!isLayerWritable(context.layers, layerId)) return null
-  const editableIds = getEditableIds(elementIds, context)
+  const editableIds = getAtomicEditableIds(elementIds, context)
   if (editableIds.length === 0) return null
 
   const selected = new Set(editableIds)

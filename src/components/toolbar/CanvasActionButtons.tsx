@@ -1,14 +1,26 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import {
+  Download,
+  ImagePlus,
+  Maximize2,
+  Minimize2,
+  Moon,
+  MoreHorizontal,
+  Sun,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { sanitizeImageDataUrl } from '../../canvas/svgSanitizer'
 import { useAppStore } from '../../store/appStore'
 import { createRuntimeId } from '../../store/runtimeId'
+import { useThemeStore } from '../../store/useThemeStore'
 import type { CanvasBackgroundStyle } from '../../store/types'
+import { useViewStore } from '../../store/useViewStore'
 import { useToastStore } from '../../store/toastStore'
 import { getMainCanvas, getVisibleCanvasViewport } from '../canvas/viewport'
 import { useDialogFocus } from '../useDialogFocus'
-import { icons } from './icons'
 
 const BACKGROUND_OPTIONS: {
   value: CanvasBackgroundStyle
@@ -57,29 +69,60 @@ const BACKGROUND_OPTIONS: {
   },
 ]
 
-const CanvasActionButtons = memo(function CanvasActionButtons() {
-  const toast = useToastStore((s) => s.show)
-  const [showBackground, setShowBackground] = useState(false)
+interface CanvasActionButtonsProps {
+  canInstall?: boolean
+  onInstall?: () => void
+}
+
+const CanvasActionButtons = memo(function CanvasActionButtons({
+  canInstall = false,
+  onInstall,
+}: CanvasActionButtonsProps) {
+  const toast = useToastStore((state) => state.show)
+  const [showMore, setShowMore] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [backgroundPos, setBackgroundPos] = useState({ top: 0, left: 0 })
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 8 })
   const { canvasBg, setCanvasBg, backgroundStyle, setBackgroundStyle, addElement } = useAppStore(
-    useShallow((s) => ({
-      canvasBg: s.bgColor,
-      setCanvasBg: s.setBgColor,
-      backgroundStyle: s.backgroundStyle,
-      setBackgroundStyle: s.setBackgroundStyle,
-      addElement: s.addElement,
+    useShallow((state) => ({
+      canvasBg: state.bgColor,
+      setCanvasBg: state.setBgColor,
+      backgroundStyle: state.backgroundStyle,
+      setBackgroundStyle: state.setBackgroundStyle,
+      addElement: state.addElement,
     }))
   )
+  const {
+    zoomIn,
+    zoomOut,
+    resetView,
+    zoom,
+    showGrid,
+    toggleGrid,
+    snapToGrid,
+    toggleSnapToGrid,
+    gridSize,
+    setGridSize,
+  } = useViewStore(
+    useShallow((state) => ({
+      zoomIn: state.zoomIn,
+      zoomOut: state.zoomOut,
+      resetView: state.resetView,
+      zoom: state.viewBox.zoom,
+      showGrid: state.showGrid,
+      toggleGrid: state.toggleGrid,
+      snapToGrid: state.snapToGrid,
+      toggleSnapToGrid: state.toggleSnapToGrid,
+      gridSize: state.gridSize,
+      setGridSize: state.setGridSize,
+    }))
+  )
+  const { isDarkMode, toggleTheme } = useThemeStore()
 
   const imgRef = useRef<HTMLInputElement>(null)
   const bgRef = useRef<HTMLInputElement>(null)
-  const backgroundBtnRef = useRef<HTMLButtonElement>(null)
-  const closeBackgroundMenu = useCallback(() => setShowBackground(false), [])
-  const backgroundMenuRef = useDialogFocus<HTMLDivElement>({
-    open: showBackground,
-    onClose: closeBackgroundMenu,
-  })
+  const moreBtnRef = useRef<HTMLButtonElement>(null)
+  const closeMoreMenu = useCallback(() => setShowMore(false), [])
+  const moreMenuRef = useDialogFocus<HTMLDivElement>({ open: showMore, onClose: closeMoreMenu })
 
   useEffect(() => {
     const syncFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement))
@@ -88,54 +131,56 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
     return () => document.removeEventListener('fullscreenchange', syncFullscreen)
   }, [])
 
-  const toggleBackgroundMenu = useCallback(() => {
-    if (!showBackground && backgroundBtnRef.current) {
-      const rect = backgroundBtnRef.current.getBoundingClientRect()
-      setBackgroundPos({ top: rect.bottom + 8, left: Math.max(8, rect.left - 8) })
+  const toggleMoreMenu = useCallback(() => {
+    if (!showMore && moreBtnRef.current) {
+      const rect = moreBtnRef.current.getBoundingClientRect()
+      setMenuPos({
+        top: rect.bottom + 8,
+        right: Math.max(8, window.innerWidth - rect.right),
+      })
     }
-    setShowBackground((visible) => !visible)
-  }, [showBackground])
+    setShowMore((visible) => !visible)
+  }, [showMore])
 
   const importImage = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const f = e.target.files?.[0]
-      if (!f) return
-      const r = new FileReader()
-      r.onload = () => {
-        const dataUrl = r.result as string
-        const safeDataUrl = sanitizeImageDataUrl(dataUrl)
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = () => {
+        const safeDataUrl = sanitizeImageDataUrl(reader.result as string)
         if (!safeDataUrl) {
           toast('图片格式不受支持', 'error')
           return
         }
-        const img = new Image()
-        img.onload = () => {
-          const c = getMainCanvas()
-          if (!c) return
-          const viewport = getVisibleCanvasViewport(c)
-          const maxW = viewport.width * 0.6
-          const maxH = viewport.height * 0.6
-          const scale = Math.min(maxW / img.width, maxH / img.height, 1)
-          const w = img.width * scale
-          const h = img.height * scale
+        const image = new Image()
+        image.onload = () => {
+          const canvas = getMainCanvas()
+          if (!canvas) return
+          const viewport = getVisibleCanvasViewport(canvas)
+          const scale = Math.min(
+            (viewport.width * 0.6) / image.width,
+            (viewport.height * 0.6) / image.height,
+            1
+          )
+          const width = image.width * scale
+          const height = image.height * scale
           addElement({
             type: 'image',
             id: createRuntimeId('img'),
-            x: viewport.centerX - w / 2,
-            y: viewport.centerY - h / 2,
-            width: w,
-            height: h,
+            x: viewport.centerX - width / 2,
+            y: viewport.centerY - height / 2,
+            width,
+            height,
             dataUrl: safeDataUrl,
           })
         }
-        img.onerror = () => {
-          toast('图片加载失败', 'error')
-        }
-        img.src = safeDataUrl
+        image.onerror = () => toast('图片加载失败', 'error')
+        image.src = safeDataUrl
       }
-      r.onerror = () => toast('图片读取失败，请重试', 'error')
-      r.readAsDataURL(f)
-      e.target.value = ''
+      reader.onerror = () => toast('图片读取失败，请重试', 'error')
+      reader.readAsDataURL(file)
+      event.target.value = ''
     },
     [addElement, toast]
   )
@@ -150,124 +195,189 @@ const CanvasActionButtons = memo(function CanvasActionButtons() {
       }
     }
     void request()
-  }, [toast])
+    closeMoreMenu()
+  }, [closeMoreMenu, toast])
 
   return (
     <>
       <button
-        ref={backgroundBtnRef}
-        onClick={toggleBackgroundMenu}
-        className="abtn"
-        data-tip="背景设置"
-        title="背景设置"
-        aria-label="背景设置"
-        aria-haspopup="menu"
-        aria-expanded={showBackground}
-        aria-controls="background-style-menu"
+        type="button"
+        onClick={() => imgRef.current?.click()}
+        className="abtn toolbar-tail-button"
+        title="插入图片"
+        aria-label="插入图片"
       >
-        <span
-          className="inline-block w-[14px] h-[14px] rounded-[4px] border-[1.5px] border-[var(--border)]"
-          style={{
-            backgroundColor: canvasBg,
-            ...BACKGROUND_OPTIONS.find((option) => option.value === backgroundStyle)?.preview,
-          }}
-        />
+        <ImagePlus size={16} aria-hidden="true" />
       </button>
 
-      {showBackground &&
+      <button
+        ref={moreBtnRef}
+        type="button"
+        onClick={toggleMoreMenu}
+        className="abtn toolbar-tail-button"
+        title="画布更多"
+        aria-label="画布更多"
+        aria-haspopup="menu"
+        aria-expanded={showMore}
+      >
+        <MoreHorizontal size={17} aria-hidden="true" />
+      </button>
+
+      {showMore &&
         createPortal(
           <>
             <div
-              ref={backgroundMenuRef}
-              id="background-style-menu"
-              className="panel em-menu"
+              ref={moreMenuRef}
+              className="panel toolbar-menu canvas-more-menu"
               role="menu"
-              aria-label="背景样式"
+              aria-label="画布更多"
               tabIndex={-1}
-              style={{ top: backgroundPos.top, left: backgroundPos.left }}
+              style={{ top: menuPos.top, right: menuPos.right }}
             >
+              <div className="toolbar-menu-label">缩放</div>
+              <div className="canvas-more-zoom" role="group" aria-label="缩放">
+                <button type="button" role="menuitem" onClick={zoomOut} aria-label="缩小">
+                  <ZoomOut size={16} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={resetView}
+                  aria-label={`重置缩放，当前 ${Math.round(zoom * 100)}%`}
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+                <button type="button" role="menuitem" onClick={zoomIn} aria-label="放大">
+                  <ZoomIn size={16} aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="toolbar-menu-separator" role="separator" />
+              <button
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={showGrid}
+                className="toolbar-menu-item"
+                onClick={toggleGrid}
+              >
+                显示网格
+              </button>
+              <button
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={snapToGrid}
+                className="toolbar-menu-item"
+                onClick={toggleSnapToGrid}
+              >
+                网格吸附
+              </button>
+              <div className="toolbar-menu-label">网格大小</div>
+              <div className="canvas-more-grid-sizes" role="group" aria-label="网格大小">
+                {([10, 20, 40] as const).map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={gridSize === value}
+                    onClick={() => setGridSize(value)}
+                  >
+                    {value}px
+                  </button>
+                ))}
+              </div>
+
+              <div className="toolbar-menu-separator" role="separator" />
+              <div className="toolbar-menu-label">背景</div>
               {BACKGROUND_OPTIONS.map((option) => (
                 <button
                   key={option.value}
                   type="button"
-                  className="ditem"
+                  className="toolbar-menu-item toolbar-background-item"
                   role="menuitemradio"
                   aria-checked={backgroundStyle === option.value}
-                  onClick={() => {
-                    setBackgroundStyle(option.value)
-                    closeBackgroundMenu()
-                  }}
+                  onClick={() => setBackgroundStyle(option.value)}
                 >
                   <span
-                    className="di rounded-[3px] border border-[var(--border)]"
-                    style={{ width: 28, height: 22, backgroundColor: canvasBg, ...option.preview }}
+                    className="toolbar-background-preview"
+                    style={{ backgroundColor: canvasBg, ...option.preview }}
                   />
-                  <span className="em-labels">
-                    <span className="dl">{option.label}</span>
-                    <span className="dd">{option.description}</span>
+                  <span>
+                    <span>{option.label}</span>
+                    <small>{option.description}</small>
                   </span>
                 </button>
               ))}
-              <div className="dsep" />
               <button
                 type="button"
-                className="ditem"
+                className="toolbar-menu-item"
                 role="menuitem"
-                aria-label="自定义背景色"
-                onClick={() => {
-                  bgRef.current?.click()
-                  closeBackgroundMenu()
-                }}
+                onClick={() => bgRef.current?.click()}
               >
-                <span
-                  className="di rounded-full border border-[var(--border)]"
-                  style={{ width: 18, height: 18, backgroundColor: canvasBg }}
-                />
-                <span className="dl">自定义背景色</span>
+                自定义背景色
               </button>
+
+              <div className="toolbar-menu-separator" role="separator" />
+              <button
+                type="button"
+                className="toolbar-menu-item toolbar-menu-item-with-icon"
+                role="menuitemcheckbox"
+                aria-checked={isDarkMode}
+                onClick={toggleTheme}
+              >
+                {isDarkMode ? <Sun size={15} aria-hidden="true" /> : <Moon size={15} aria-hidden="true" />}
+                {isDarkMode ? '切换到浅色模式' : '切换到深色模式'}
+              </button>
+              <button
+                type="button"
+                className="toolbar-menu-item toolbar-menu-item-with-icon"
+                role="menuitem"
+                onClick={toggleFullscreen}
+              >
+                {isFullscreen ? (
+                  <Minimize2 size={15} aria-hidden="true" />
+                ) : (
+                  <Maximize2 size={15} aria-hidden="true" />
+                )}
+                {isFullscreen ? '退出全屏' : '进入全屏'}
+              </button>
+              {canInstall && onInstall && (
+                <button
+                  type="button"
+                  className="toolbar-menu-item toolbar-menu-item-with-icon"
+                  role="menuitem"
+                  onClick={() => {
+                    onInstall()
+                    closeMoreMenu()
+                  }}
+                >
+                  <Download size={15} aria-hidden="true" />
+                  安装 MindNotes Pro
+                </button>
+              )}
             </div>
-            <div className="em-overlay" aria-hidden="true" onClick={closeBackgroundMenu} />
+            <div className="em-overlay" aria-hidden="true" onClick={closeMoreMenu} />
           </>,
           document.body
         )}
-
-      <button
-        onClick={() => imgRef.current?.click()}
-        className="abtn"
-        data-tip="插入图片"
-        title="插入图片"
-        aria-label="插入图片"
-      >
-        {icons.image}
-      </button>
-
-      <button
-        onClick={toggleFullscreen}
-        className="abtn"
-        data-tip={isFullscreen ? '退出全屏' : '进入全屏'}
-        title={isFullscreen ? '退出全屏' : '进入全屏'}
-        aria-label={isFullscreen ? '退出全屏' : '进入全屏'}
-        aria-pressed={isFullscreen}
-      >
-        {icons.fullscreen}
-      </button>
 
       <input
         ref={imgRef}
         type="file"
         tabIndex={-1}
+        aria-hidden="true"
+        aria-label="选择图片文件"
         accept="image/*"
         onChange={importImage}
-        aria-label="选择图片文件"
         className="absolute w-0 h-0 opacity-0 pointer-events-none"
       />
       <input
         ref={bgRef}
         type="color"
         tabIndex={-1}
-        value={canvasBg}
-        onChange={(e) => setCanvasBg(e.target.value)}
+        aria-hidden="true"
         aria-label="选择背景颜色"
+        value={canvasBg}
+        onChange={(event) => setCanvasBg(event.target.value)}
         className="absolute w-0 h-0 opacity-0 pointer-events-none"
       />
     </>

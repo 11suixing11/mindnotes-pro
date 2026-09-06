@@ -22,6 +22,7 @@ describe('uiState slice', () => {
       persistenceMode: 'persistent',
       lastSavedAt: null,
       saveError: null,
+      activeTextEditingId: null,
     }
     set = vi.fn((update: any) => {
       if (typeof update === 'function') {
@@ -44,6 +45,7 @@ describe('uiState slice', () => {
       expect(slice.persistenceMode).toBe('persistent')
       expect(slice.lastSavedAt).toBeNull()
       expect(slice.saveError).toBeNull()
+      expect(slice.activeTextEditingId).toBeNull()
     })
   })
 
@@ -91,5 +93,13 @@ describe('uiState slice', () => {
       lastSavedAt: 123,
       saveError: 'quota exceeded',
     })
+  })
+
+  it('tracks the active text editing session', () => {
+    slice.setActiveTextEditingId('text-1')
+    expect(set).toHaveBeenCalledWith({ activeTextEditingId: 'text-1' })
+
+    slice.setActiveTextEditingId(null)
+    expect(set).toHaveBeenLastCalledWith({ activeTextEditingId: null })
   })
 })

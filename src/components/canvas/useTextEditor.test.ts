@@ -21,6 +21,14 @@ describe('useTextEditor', () => {
       undoStack: [],
       redoStack: [],
       selectedIds: [],
+      color: '#2c2416',
+      textDefaults: {
+        fontSize: 16,
+        fontWeight: 'normal',
+        fontStyle: 'normal',
+        textDecoration: 'none',
+        textAlign: 'left',
+      },
     })
   })
 
@@ -142,6 +150,34 @@ describe('useTextEditor', () => {
       expect(et2.textDecoration).toBe('underline')
       expect(et2.textAlign).toBe('center')
       expect(et2.backgroundColor).toBe('#ffe8a3')
+    })
+
+    it('inherits remembered text creation defaults for new text', () => {
+      useAppStore.setState({
+        textDefaults: {
+          fontSize: 28,
+          fontWeight: 'bold',
+          fontStyle: 'italic',
+          textDecoration: 'underline',
+          textAlign: 'center',
+          backgroundColor: '#fff3bf',
+        },
+      })
+      const { result } = renderHook(() => useTextEditor(createMockCanvasRef()))
+
+      act(() => {
+        result.current.startEditText(10, 20, 30, 40, '#1971c2')
+      })
+
+      expect(result.current.editingText).toMatchObject({
+        fontSize: 28,
+        color: '#1971c2',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'underline',
+        textAlign: 'center',
+        backgroundColor: '#fff3bf',
+      })
     })
   })
 
@@ -592,6 +628,10 @@ describe('useTextEditor', () => {
         originalContent: 'latest',
         fontWeight: 'bold',
         color: '#1971c2',
+      })
+      expect(useAppStore.getState()).toMatchObject({
+        color: '#1971c2',
+        textDefaults: { fontWeight: 'bold' },
       })
     })
 

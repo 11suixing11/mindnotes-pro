@@ -1,7 +1,7 @@
 import type { CanvasElement, CanvasLayer, UndoAction } from '../types'
 import { incrementSaveGeneration, scheduleSave } from '../saveManager'
 import { createRuntimeId } from '../runtimeId'
-import { getEditableIds } from './canvasElementRules'
+import { getAtomicEditableIds } from './canvasElementRules'
 import { createElementLockPlan, createGroupPlan, createUngroupPlan } from './canvasElementMetadata'
 import { appendUndoAction } from './canvasElementCommit'
 
@@ -62,7 +62,7 @@ export function createCanvasElementMetadataActions(
     groupSelected: () => {
       const state = get()
       if (state.selectedIds.length < 2) return
-      const editableIds = getEditableIds(state.selectedIds, state)
+      const editableIds = getAtomicEditableIds(state.selectedIds, state)
       if (editableIds.length < 2) return
 
       const plan = createGroupPlan(state.elements, editableIds, createRuntimeId('group'))
@@ -72,7 +72,7 @@ export function createCanvasElementMetadataActions(
     ungroupSelected: () => {
       const state = get()
       if (state.selectedIds.length === 0) return
-      const editableIds = getEditableIds(state.selectedIds, state)
+      const editableIds = getAtomicEditableIds(state.selectedIds, state)
       if (editableIds.length === 0) return
 
       const plan = createUngroupPlan(state.elements, editableIds)

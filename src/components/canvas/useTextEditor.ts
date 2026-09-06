@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback, type SetStateAction } from 'react'
 import {
-  DEFAULT_TEXT_FONT_SIZE,
   MAX_TEXT_BOX_WIDTH,
   MIN_TEXT_BOX_WIDTH,
   createTextWidthMeasurer,
@@ -338,7 +337,24 @@ export function useTextEditor(canvasRef: React.RefObject<HTMLCanvasElement | nul
         wraps: layout.wraps,
       }
       setEditingText(next)
-      return stageTextDraft(next, layout.originalContent)
+      const staged = stageTextDraft(next, layout.originalContent)
+      if (staged) {
+        const state = useAppStore.getState()
+        if (patch.color !== undefined) state.setColor(patch.color)
+        state.setTextDefaults({
+          ...(patch.fontSize !== undefined ? { fontSize: format.fontSize } : {}),
+          ...(patch.fontWeight !== undefined ? { fontWeight: format.fontWeight } : {}),
+          ...(patch.fontStyle !== undefined ? { fontStyle: format.fontStyle } : {}),
+          ...(patch.textDecoration !== undefined
+            ? { textDecoration: format.textDecoration }
+            : {}),
+          ...(patch.textAlign !== undefined ? { textAlign: format.textAlign } : {}),
+          ...(Object.prototype.hasOwnProperty.call(patch, 'backgroundColor')
+            ? { backgroundColor: format.backgroundColor }
+            : {}),
+        })
+      }
+      return staged
     },
     [measureLayout, setEditingText, stageTextDraft]
   )
@@ -477,7 +493,7 @@ export function useTextEditor(canvasRef: React.RefObject<HTMLCanvasElement | nul
         const existingIds = new Set(state.elements.map((element) => element.id))
         const id = createSessionId('text-', (candidate) => existingIds.has(candidate))
         const layerId = getWritableLayerId(state.layers, state.activeLayerId) ?? state.activeLayerId
-        const format = normalizeTextFormat({ color, fontSize: DEFAULT_TEXT_FONT_SIZE })
+        const format = normalizeTextFormat({ color, ...state.textDefaults })
         const layout = measureLayout('', format, true)
         baselineRef.current = {
           sessionId: id,

@@ -1,9 +1,42 @@
-import type { ToolType, BrushType, CanvasBackgroundStyle } from '../types'
+import { DEFAULT_TEXT_FONT_SIZE } from '../../canvas/textFormatting'
+import type {
+  ToolType,
+  BrushType,
+  CanvasBackgroundStyle,
+  TextAlign,
+  TextDecoration,
+  TextFontStyle,
+  TextFontWeight,
+} from '../types'
 import { incrementSaveGeneration, scheduleSave } from '../saveManager'
+import {
+  getStylePatchFromElement,
+  type SelectionStyleApplyResult,
+  type SelectionStyleKey,
+  type SelectionStylePatch,
+} from './canvasElementStyle'
 
 // 扩展颜色历史记录 - 基于 tldraw #1665 用户需求
 export const COLOR_HISTORY_KEY = 'mn-recent-colors'
 export const MAX_COLOR_HISTORY = 10
+
+export interface TextToolDefaults {
+  fontSize: number
+  fontWeight: TextFontWeight
+  fontStyle: TextFontStyle
+  textDecoration: TextDecoration
+  textAlign: TextAlign
+  backgroundColor?: string
+}
+
+export type StyleCommandResult =
+  | SelectionStyleApplyResult
+  | {
+      status: 'defaults-updated'
+      affectedIds: []
+      applicableKeys: SelectionStyleKey[]
+      ignoredKeys: []
+    }
 
 function loadColorHistory(): string[] {
   if (typeof localStorage === 'undefined') return []
@@ -39,6 +72,7 @@ export interface ToolSettingsState {
   bgColor: string
   backgroundStyle: CanvasBackgroundStyle
   colorHistory: string[]
+  textDefaults: TextToolDefaults
   // 样式吸管 (Eyedropper)
   // 按 Q 键激活，悬停在元素上复制其样式（颜色、大小、画笔类型）
   styleEyedropperActive: boolean
@@ -53,12 +87,14 @@ export interface ToolSettingsActions {
   setSize: (s: number) => void
   setBgColor: (c: string) => void
   setBackgroundStyle: (style: CanvasBackgroundStyle) => void
+  setTextDefaults: (patch: Partial<TextToolDefaults>) => void
+  applyStyle: (patch: SelectionStylePatch) => StyleCommandResult
   addColorToHistory: (c: string) => void
   toggleStyleEyedropper: () => void
   setStyleEyedropperPreview: (
     preview: { color: string; size: number; brush: BrushType } | null
   ) => void
-  applyStyleFromElement: (elementId: string) => void
+  applyStyleFromElement: (elementId: string) => StyleCommandResult
   // G 键循环切换几何工具
   cycleGeometryTool: () => void
 }
@@ -79,6 +115,13 @@ export function createToolSettingsSlice(
     bgColor: '#ffffff',
     backgroundStyle: 'plain',
     colorHistory: loadColorHistory(),
+    textDefaults: {
+      fontSize: DEFAULT_TEXT_FONT_SIZE,
+      fontWeight: 'normal',
+      fontStyle: 'normal',
+      textDecoration: 'none',
+      textAlign: 'left',
+    },
     // 样式吸管状态
     styleEyedropperActive: false,
     styleEyedropperPreview: null,
@@ -102,6 +145,65 @@ export function createToolSettingsSlice(
       set({ backgroundStyle })
       scheduleSave()
     },
+    setTextDefaults: (patch) => {
+      const current = _get().textDefaults as TextToolDefaults
+      set({ textDefaults: { ...current, ...patch } })
+    },
+    applyStyle: (patch) => {
+      const state = _get()
+      const requestedKeys = Object.keys(patch).filter(
+        (key) => patch[key as SelectionStyleKey] !== undefined
+      ) as SelectionStyleKey[]
+
+      const applyDefaults = () => {
+        const currentTextDefaults = state.textDefaults as TextToolDefaults
+        const nextTextDefaults: TextToolDefaults = { ...currentTextDefaults }
+        const nextState: Record<string, unknown> = {}
+
+        if (patch.color !== undefined) nextState.color = patch.color
+        if (patch.size !== undefined) nextState.size = patch.size
+        if (patch.brush !== undefined) nextState.brush = patch.brush
+        if (patch.fillColor !== undefined) nextState.fillColor = patch.fillColor
+        if (patch.fontSize !== undefined) nextTextDefaults.fontSize = patch.fontSize
+        if (patch.fontWeight !== undefined) nextTextDefaults.fontWeight = patch.fontWeight
+        if (patch.fontStyle !== undefined) nextTextDefaults.fontStyle = patch.fontStyle
+        if (patch.textDecoration !== undefined) {
+          nextTextDefaults.textDecoration = patch.textDecoration
+        }
+        if (patch.textAlign !== undefined) nextTextDefaults.textAlign = patch.textAlign
+        if (patch.backgroundColor !== undefined) {
+          nextTextDefaults.backgroundColor = patch.backgroundColor ?? undefined
+        }
+
+        if (
+          nextTextDefaults.fontSize !== currentTextDefaults.fontSize ||
+          nextTextDefaults.fontWeight !== currentTextDefaults.fontWeight ||
+          nextTextDefaults.fontStyle !== currentTextDefaults.fontStyle ||
+          nextTextDefaults.textDecoration !== currentTextDefaults.textDecoration ||
+          nextTextDefaults.textAlign !== currentTextDefaults.textAlign ||
+          nextTextDefaults.backgroundColor !== currentTextDefaults.backgroundColor
+        ) {
+          nextState.textDefaults = nextTextDefaults
+        }
+
+        if (Object.keys(nextState).length > 0) set(nextState)
+        if (patch.color !== undefined) _get().addColorToHistory(patch.color)
+      }
+
+      if ((state.selectedIds as string[]).length === 0) {
+        applyDefaults()
+        return {
+          status: 'defaults-updated',
+          affectedIds: [],
+          applicableKeys: requestedKeys,
+          ignoredKeys: [],
+        }
+      }
+
+      const result = state.applyStyleToSelected(patch) as SelectionStyleApplyResult
+      if (result.status === 'applied' || result.status === 'unchanged') applyDefaults()
+      return result
+    },
     addColorToHistory: (c: string) => {
       const color = c.trim()
       if (!color) return
@@ -124,35 +226,23 @@ export function createToolSettingsSlice(
     applyStyleFromElement: (elementId: string) => {
       const state = _get()
       const element = state.idToElement?.get(elementId)
-      if (!element) return
-
-      if (element.type === 'stroke') {
-        set({
-          color: element.color,
-          size: element.size,
-          brush: element.brush,
-          styleEyedropperActive: false,
-          styleEyedropperPreview: null,
-        })
-        _get().addColorToHistory(element.color)
-      } else if (element.type === 'shape') {
-        set({
-          color: element.color,
-          size: element.size,
-          fillColor: element.fillColor || 'transparent',
-          styleEyedropperActive: false,
-          styleEyedropperPreview: null,
-        })
-        _get().addColorToHistory(element.color)
-      } else if (element.type === 'text') {
-        set({
-          color: element.color,
-          size: Math.round(element.fontSize / 4),
-          styleEyedropperActive: false,
-          styleEyedropperPreview: null,
-        })
-        _get().addColorToHistory(element.color)
+      const patch = element ? getStylePatchFromElement(element) : null
+      if (!patch) {
+        return {
+          status: 'blocked',
+          reason: 'incompatible',
+          affectedIds: [],
+          lockedIds: [],
+          applicableKeys: [],
+          ignoredKeys: [],
+        }
       }
+
+      const result = state.applyStyle(patch) as StyleCommandResult
+      if (result.status !== 'blocked') {
+        set({ styleEyedropperActive: false, styleEyedropperPreview: null })
+      }
+      return result
     },
     // G 键循环切换几何工具
     // 设计参考: tldraw, Figma, Sketch - 专业设计工具标准快捷键

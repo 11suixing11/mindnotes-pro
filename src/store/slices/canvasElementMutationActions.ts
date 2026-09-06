@@ -1,7 +1,7 @@
 import type { CanvasElement, CanvasLayer, UndoAction } from '../types'
 import { isElementLayerEditable } from '../layers'
 import { incrementSaveGeneration, scheduleSave } from '../saveManager'
-import { assignToWritableLayer, getEditableIds } from './canvasElementRules'
+import { assignToWritableLayer, getAtomicEditableIds } from './canvasElementRules'
 import {
   createElementAdditionPlan,
   createElementClearPlan,
@@ -174,7 +174,7 @@ export function createCanvasElementMutationActions(
 
     removeElements: (ids) => {
       const state = get()
-      const editableIds = getEditableIds(ids, state)
+      const editableIds = getAtomicEditableIds(ids, state)
       if (editableIds.length === 0) return false
       const plan = createElementRemovalPlan(state.elements, editableIds, state.selectedIds, true)
       if (!plan) return false

@@ -5,11 +5,13 @@ export interface UIState {
   persistenceMode: PersistenceMode
   lastSavedAt: number | null
   saveError: string | null
+  activeTextEditingId: string | null
 }
 
 export interface UIActions {
   setSaveStatus: (s: UIState['saveStatus']) => void
   setPersistenceState: (state: Partial<Omit<UIState, 'saveStatus'>>) => void
+  setActiveTextEditingId: (id: string | null) => void
 }
 
 export function createUISlice(
@@ -23,7 +25,9 @@ export function createUISlice(
     persistenceMode: 'persistent',
     lastSavedAt: null,
     saveError: null,
+    activeTextEditingId: null,
     setSaveStatus: (s) => set({ saveStatus: s }),
     setPersistenceState: (state) => set(state),
+    setActiveTextEditingId: (activeTextEditingId) => set({ activeTextEditingId }),
   }
 }

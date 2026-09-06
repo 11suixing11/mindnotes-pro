@@ -3,6 +3,7 @@ import type { CanvasElement, CanvasLayer } from '../types'
 import { createDefaultLayer } from '../layers'
 import {
   assignToWritableLayer,
+  getAtomicEditableIds,
   getEditableIds,
   getSelectableIds,
   hasBoundArrowForAny,
@@ -35,6 +36,22 @@ describe('canvas element rules', () => {
     expect(getEditableIds([shape.id], context)).toEqual([shape.id])
     expect(getSelectableIds([shape.id], context)).toEqual([shape.id])
     expect(getEditableIds(['missing'], context)).toEqual([])
+  })
+
+  it('blocks an entire batch when any requested element is locked', () => {
+    const lockedShape = { ...shape, id: 'shape-locked', locked: true }
+    const context = {
+      elements: [shape, lockedShape],
+      layers: [editableLayer],
+      activeLayerId: editableLayer.id,
+      idToElement: new Map([
+        [shape.id, shape],
+        [lockedShape.id, lockedShape],
+      ]),
+    }
+
+    expect(getAtomicEditableIds([shape.id], context)).toEqual([shape.id])
+    expect(getAtomicEditableIds([shape.id, lockedShape.id], context)).toEqual([])
   })
 
   it('assigns an element to the active writable layer', () => {

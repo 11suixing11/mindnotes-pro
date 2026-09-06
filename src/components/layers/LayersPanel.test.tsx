@@ -68,11 +68,25 @@ describe('LayersPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '重命名 图层 1' }))
     const input = screen.getByRole('textbox', { name: '重命名 图层 1' })
+    expect(input.closest('button')).toBeNull()
     fireEvent.change(input, { target: { value: 'Research' } })
     fireEvent.keyDown(input, { key: 'Enter' })
 
     expect(screen.getByText('Research')).toBeTruthy()
     expect(useAppStore.getState().layers[0].name).toBe('Research')
+  })
+
+  it('cancels an inline rename without changing the layer name', () => {
+    render(<LayersPanel />)
+    expandLayers()
+
+    fireEvent.click(screen.getByRole('button', { name: '重命名 图层 1' }))
+    const input = screen.getByRole('textbox', { name: '重命名 图层 1' })
+    fireEvent.change(input, { target: { value: 'Project Layer' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+
+    expect(screen.queryByRole('textbox', { name: '重命名 图层 1' })).toBeNull()
+    expect(useAppStore.getState().layers[0].name).toBe('图层 1')
   })
 
   it('hides a layer and clears selected elements on that layer', () => {

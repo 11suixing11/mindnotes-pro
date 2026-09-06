@@ -1,22 +1,47 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { useAppStore } from '../../store/appStore'
-import { useViewStore } from '../../store/useViewStore'
-import { useThemeStore } from '../../store/useThemeStore'
-import { formatShortcutBinding, type ShortcutActionId } from '../../keyboard/shortcuts'
-import { useShortcutStore } from '../../store/useShortcutStore'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  CopyPlus,
+  Lock,
+  Trash2,
+  Type,
+  Unlock,
+} from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
+import { formatShortcutBinding, type ShortcutActionId } from '../../keyboard/shortcuts'
+import { useAppStore } from '../../store/appStore'
+import {
+  getSelectionStyleModel,
+  type SelectionStylePatch,
+  type SelectionStyleValue,
+} from '../../store/slices/canvasElementStyle'
+import { getSelectionCapabilities } from '../../store/slices/selectionCapabilities'
+import type { BrushType } from '../../store/types'
+import { useShortcutStore } from '../../store/useShortcutStore'
+import { useToastStore } from '../../store/toastStore'
 import { useConfirm } from '../confirm-modal'
 import { requestClearCanvas } from '../confirm-modal/requestClearCanvas'
 import { ExportMenu } from '../export-menu'
-import ToolButtons from './ToolButtons'
+import TemplateMenu from '../templates/TemplateMenu'
+import ArrangeMenu from './ArrangeMenu'
 import BrushSelector from './BrushSelector'
-import ColorPicker from './ColorPicker'
 import CanvasActionButtons from './CanvasActionButtons'
+import ColorPicker from './ColorPicker'
 import MobileSelectionActions from './MobileSelectionActions'
 import MobileToolbar from './MobileToolbar'
-import TemplateMenu from '../templates/TemplateMenu'
+import TextStyleControls from './TextStyleControls'
+import ToolButtons from './ToolButtons'
 import { icons } from './icons'
-import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
+import { getStyleCommandMessage } from './styleCommandFeedback'
 
 interface ToolbarProps {
   canInstall?: boolean
@@ -27,21 +52,24 @@ type HorizontalScrollDirection = -1 | 1
 
 function useHorizontalToolbarScroll() {
   const containerRef = useRef<HTMLDivElement>(null)
-  // Start with forward navigation available so asynchronously mounted toolbar
-  // actions remain discoverable before the first layout measurement settles.
-  const [scrollState, setScrollState] = useState({ canScrollBack: false, canScrollForward: true })
+  const [scrollState, setScrollState] = useState({
+    canScrollBack: false,
+    canScrollForward: false,
+  })
 
   const updateScrollState = useCallback(() => {
     const container = containerRef.current
     if (!container) return
-
-    const canScrollBack = container.scrollLeft > 2
-    const canScrollForward =
-      container.scrollLeft + container.clientWidth < container.scrollWidth - 2
+    const next = {
+      canScrollBack: container.scrollLeft > 2,
+      canScrollForward:
+        container.scrollLeft + container.clientWidth < container.scrollWidth - 2,
+    }
     setScrollState((current) =>
-      current.canScrollBack === canScrollBack && current.canScrollForward === canScrollForward
+      current.canScrollBack === next.canScrollBack &&
+      current.canScrollForward === next.canScrollForward
         ? current
-        : { canScrollBack, canScrollForward }
+        : next
     )
   }, [])
 
@@ -52,173 +80,211 @@ function useHorizontalToolbarScroll() {
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
-
-    let active = true
-    let frame = 0
-    const resizeObserver =
-      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => updateScrollState())
-    const observeToolbarChildren = () => {
-      resizeObserver?.observe(container)
-      container.querySelectorAll(':scope > *').forEach((child) => resizeObserver?.observe(child))
-    }
+    const observer =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateScrollState)
     const mutationObserver =
       typeof MutationObserver === 'undefined'
         ? null
-        : new MutationObserver(() => {
-            observeToolbarChildren()
-            updateScrollState()
-            cancelAnimationFrame(frame)
-            frame = requestAnimationFrame(() => {
-              if (active) updateScrollState()
-            })
-          })
+        : new MutationObserver(updateScrollState)
+    const observeChildren = () => {
+      observer?.observe(container)
+      container.querySelectorAll(':scope > *').forEach((child) => observer?.observe(child))
+    }
 
     container.addEventListener('scroll', updateScrollState, { passive: true })
     window.addEventListener('resize', updateScrollState)
-    resizeObserver?.observe(container)
-    mutationObserver?.observe(container, {
-      attributes: true,
-      characterData: true,
-      childList: true,
-      subtree: true,
-    })
-    observeToolbarChildren()
+    mutationObserver?.observe(container, { childList: true, subtree: true })
+    observeChildren()
     updateScrollState()
 
-    const settleTimers = [0, 50, 120, 250, 500, 1000].map((delay) =>
-      window.setTimeout(updateScrollState, delay)
-    )
-    const fontReady = document.fonts?.ready.then(() => {
-      if (active) updateScrollState()
-    })
-
     return () => {
-      active = false
       container.removeEventListener('scroll', updateScrollState)
       window.removeEventListener('resize', updateScrollState)
-      resizeObserver?.disconnect()
+      observer?.disconnect()
       mutationObserver?.disconnect()
-      cancelAnimationFrame(frame)
-      settleTimers.forEach((timer) => window.clearTimeout(timer))
-      void fontReady
     }
   }, [updateScrollState])
 
   const scrollByPage = useCallback((direction: HorizontalScrollDirection) => {
     const container = containerRef.current
     if (!container) return
-
     container.scrollBy({
       left: direction * Math.max(160, container.clientWidth * 0.72),
       behavior: 'auto',
     })
   }, [])
 
-  return { containerRef, scrollState, scrollByPage }
+  const resetScroll = useCallback(() => {
+    if (containerRef.current) containerRef.current.scrollLeft = 0
+    updateScrollState()
+  }, [updateScrollState])
+
+  return { containerRef, scrollState, scrollByPage, resetScroll }
 }
 
-interface ToolbarScrollControlsProps {
-  placement: 'top' | 'bottom'
-  label: string
-  canScrollBack: boolean
-  canScrollForward: boolean
-  onScroll: (direction: HorizontalScrollDirection) => void
+function valueState<T>(value: T): SelectionStyleValue<T> {
+  return { kind: 'value', value }
 }
 
-function ToolbarScrollControls({
-  placement,
-  label,
-  canScrollBack,
-  canScrollForward,
-  onScroll,
-}: ToolbarScrollControlsProps) {
-  return (
-    <>
-      {canScrollBack && (
-        <button
-          type="button"
-          className={`toolbar-scroll-control toolbar-scroll-control-${placement} toolbar-scroll-control-back`}
-          onClick={() => onScroll(-1)}
-          aria-label={`向左查看更多${label}`}
-          title={`向左查看更多${label}`}
-        >
-          <ChevronLeft size={18} aria-hidden="true" />
-        </button>
-      )}
-      {canScrollForward && (
-        <button
-          type="button"
-          className={`toolbar-scroll-control toolbar-scroll-control-${placement} toolbar-scroll-control-forward`}
-          onClick={() => onScroll(1)}
-          aria-label={`向右查看更多${label}`}
-          title={`向右查看更多${label}`}
-        >
-          <ChevronRight size={18} aria-hidden="true" />
-        </button>
-      )}
-    </>
-  )
+interface CreationStyleControlsProps {
+  tool: ReturnType<typeof useAppStore.getState>['tool']
+  brush: BrushType
+  color: string
+  fillColor: string
+  size: number
+  textDefaults: ReturnType<typeof useAppStore.getState>['textDefaults']
+  onChange: (patch: SelectionStylePatch) => void
+}
+
+function CreationStyleControls({
+  tool,
+  brush,
+  color,
+  fillColor,
+  size,
+  textDefaults,
+  onChange,
+}: CreationStyleControlsProps) {
+  if (tool === 'pen') {
+    return (
+      <>
+        <BrushSelector brush={brush} setBrush={(next) => onChange({ brush: next })} visible />
+        <ColorPicker
+          colorValue={valueState(color)}
+          sizeValue={valueState(size)}
+          showFill={false}
+          onChange={onChange}
+        />
+      </>
+    )
+  }
+
+  if (tool === 'rectangle' || tool === 'circle' || tool === 'line' || tool === 'arrow') {
+    return (
+      <ColorPicker
+        colorValue={valueState(color)}
+        sizeValue={valueState(size)}
+        fillColorValue={valueState(fillColor)}
+        showFill={tool === 'rectangle' || tool === 'circle'}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (tool === 'text') {
+    return (
+      <>
+        <ColorPicker
+          colorValue={valueState(color)}
+          showSize={false}
+          showFill={false}
+          onChange={onChange}
+        />
+        <div className="tb-sep" role="separator" />
+        <TextStyleControls
+          fontSize={valueState(textDefaults.fontSize)}
+          fontWeight={valueState(textDefaults.fontWeight)}
+          fontStyle={valueState(textDefaults.fontStyle)}
+          textDecoration={valueState(textDefaults.textDecoration)}
+          textAlign={valueState(textDefaults.textAlign)}
+          backgroundColor={valueState(textDefaults.backgroundColor ?? null)}
+          onChange={onChange}
+        />
+      </>
+    )
+  }
+
+  return null
 }
 
 export default function Toolbar({ canInstall = false, onInstall }: ToolbarProps) {
   const [historyPulse, setHistoryPulse] = useState<'undo' | 'redo' | null>(null)
   const pulseTimerRef = useRef<number | null>(null)
   const previousHistoryCountsRef = useRef<{ undoLen: number; redoLen: number } | null>(null)
-  const { tool, setTool, brush, setBrush, clearAll, undo, redo, undoLen, redoLen, elementCount } =
-    useAppStore(
-      useShallow((s) => ({
-        tool: s.tool,
-        setTool: s.setTool,
-        brush: s.brush,
-        setBrush: s.setBrush,
-        clearAll: s.clearAll,
-        undo: s.undo,
-        redo: s.redo,
-        undoLen: s.undoStack.length,
-        redoLen: s.redoStack.length,
-        elementCount: s.elements.length,
-      }))
-    )
   const {
-    zoomIn,
-    zoomOut,
-    resetView,
-    zoom,
-    showGrid,
-    toggleGrid,
-    snapToGrid,
-    toggleSnapToGrid,
-    gridSize,
-    cycleGridSize,
-  } = useViewStore(
-    useShallow((s) => ({
-      zoomIn: s.zoomIn,
-      zoomOut: s.zoomOut,
-      resetView: s.resetView,
-      zoom: s.viewBox.zoom,
-      showGrid: s.showGrid,
-      toggleGrid: s.toggleGrid,
-      snapToGrid: s.snapToGrid,
-      toggleSnapToGrid: s.toggleSnapToGrid,
-      gridSize: s.gridSize,
-      cycleGridSize: s.cycleGridSize,
+    tool,
+    setTool,
+    brush,
+    color,
+    fillColor,
+    size,
+    textDefaults,
+    activeTextEditingId,
+    elements,
+    layers,
+    selectedIds,
+    idToElement,
+    applyStyle,
+    copySelected,
+    duplicateSelected,
+    lockSelected,
+    unlockSelected,
+    removeElements,
+    clearAll,
+    undo,
+    redo,
+    undoLen,
+    redoLen,
+  } = useAppStore(
+    useShallow((state) => ({
+      tool: state.tool,
+      setTool: state.setTool,
+      brush: state.brush,
+      color: state.color,
+      fillColor: state.fillColor,
+      size: state.size,
+      textDefaults: state.textDefaults,
+      activeTextEditingId: state.activeTextEditingId,
+      elements: state.elements,
+      layers: state.layers,
+      selectedIds: state.selectedIds,
+      idToElement: state.idToElement,
+      applyStyle: state.applyStyle,
+      copySelected: state.copySelected,
+      duplicateSelected: state.duplicateSelected,
+      lockSelected: state.lockSelected,
+      unlockSelected: state.unlockSelected,
+      removeElements: state.removeElements,
+      clearAll: state.clearAll,
+      undo: state.undo,
+      redo: state.redo,
+      undoLen: state.undoStack.length,
+      redoLen: state.redoStack.length,
     }))
   )
-  const { isDarkMode, toggleTheme } = useThemeStore()
-  const shortcutBindings = useShortcutStore((s) => s.bindings)
+  const toast = useToastStore((state) => state.show)
+  const shortcutBindings = useShortcutStore((state) => state.bindings)
   const confirm = useConfirm()
-  const drawingToolbarScroll = useHorizontalToolbarScroll()
-  const canvasToolbarScroll = useHorizontalToolbarScroll()
+  const centerScroll = useHorizontalToolbarScroll()
+
+  const selectionStyle = useMemo(
+    () => getSelectionStyleModel({ elements, layers, selectedIds, idToElement }),
+    [elements, idToElement, layers, selectedIds]
+  )
+  const capabilities = useMemo(
+    () => getSelectionCapabilities({ elements, layers, selectedIds, idToElement }),
+    [elements, idToElement, layers, selectedIds]
+  )
+  const mode = activeTextEditingId ? 'text-editing' : selectedIds.length > 0 ? 'selection' : 'creation'
+
+  useLayoutEffect(() => {
+    centerScroll.resetScroll()
+  }, [centerScroll.resetScroll, mode, tool])
 
   const shortcut = useCallback(
     (actionId: ShortcutActionId) => formatShortcutBinding(shortcutBindings[actionId]),
     [shortcutBindings]
   )
+  const runStyle = useCallback(
+    (patch: SelectionStylePatch) => {
+      const message = getStyleCommandMessage(applyStyle(patch))
+      if (message) toast(message, 'warning')
+    },
+    [applyStyle, toast]
+  )
 
   const pulseHistoryButton = useCallback((kind: 'undo' | 'redo') => {
-    if (pulseTimerRef.current !== null) {
-      window.clearTimeout(pulseTimerRef.current)
-    }
+    if (pulseTimerRef.current !== null) window.clearTimeout(pulseTimerRef.current)
     setHistoryPulse(kind)
     pulseTimerRef.current = window.setTimeout(() => {
       setHistoryPulse(null)
@@ -230,7 +296,6 @@ export default function Toolbar({ canInstall = false, onInstall }: ToolbarProps)
     const previous = previousHistoryCountsRef.current
     previousHistoryCountsRef.current = { undoLen, redoLen }
     if (!previous) return
-
     if (undoLen === previous.undoLen - 1 && redoLen === previous.redoLen + 1) {
       pulseHistoryButton('undo')
     } else if (redoLen === previous.redoLen - 1 && undoLen === previous.undoLen + 1) {
@@ -238,19 +303,106 @@ export default function Toolbar({ canInstall = false, onInstall }: ToolbarProps)
     }
   }, [pulseHistoryButton, redoLen, undoLen])
 
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       if (pulseTimerRef.current !== null) window.clearTimeout(pulseTimerRef.current)
-    }
-  }, [])
+    },
+    []
+  )
+
+  const selectionControls = capabilities.isLocked ? (
+    <>
+      <span className="selection-count">已选择 {capabilities.count} 项</span>
+      <button
+        type="button"
+        className="abtn"
+        aria-label="复制"
+        title="复制"
+        onClick={copySelected}
+      >
+        <Copy size={16} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="pill-btn ghost"
+        aria-label="解锁"
+        onClick={unlockSelected}
+      >
+        <Unlock size={15} aria-hidden="true" />
+        <span>解锁</span>
+      </button>
+    </>
+  ) : (
+    <>
+      <span className="selection-count">已选择 {capabilities.count} 项</span>
+      {selectionStyle.brush.kind !== 'unsupported' && (
+        <BrushSelector
+          brush={selectionStyle.brush.kind === 'value' ? selectionStyle.brush.value : null}
+          setBrush={(next) => runStyle({ brush: next })}
+          visible
+        />
+      )}
+      {selectionStyle.color.kind !== 'unsupported' && (
+        <ColorPicker
+          colorValue={selectionStyle.color}
+          sizeValue={selectionStyle.size}
+          fillColorValue={selectionStyle.fillColor}
+          showSize={selectionStyle.size.kind !== 'unsupported'}
+          showFill={selectionStyle.fillColor.kind !== 'unsupported'}
+          onChange={runStyle}
+        />
+      )}
+      {selectionStyle.fontSize.kind !== 'unsupported' && (
+        <>
+          <div className="tb-sep" role="separator" />
+          <TextStyleControls
+            fontSize={selectionStyle.fontSize}
+            fontWeight={selectionStyle.fontWeight}
+            fontStyle={selectionStyle.fontStyle}
+            textDecoration={selectionStyle.textDecoration}
+            textAlign={selectionStyle.textAlign}
+            backgroundColor={selectionStyle.backgroundColor}
+            onChange={runStyle}
+          />
+        </>
+      )}
+      <div className="tb-sep" role="separator" />
+      <button
+        type="button"
+        className="abtn"
+        aria-label="复制副本"
+        title="复制副本"
+        onClick={duplicateSelected}
+      >
+        <CopyPlus size={16} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="abtn"
+        aria-label="锁定"
+        title="锁定"
+        onClick={lockSelected}
+      >
+        <Lock size={15} aria-hidden="true" />
+      </button>
+      <ArrangeMenu capabilities={capabilities} />
+      <button
+        type="button"
+        className="abtn danger-action"
+        aria-label="删除选中内容"
+        title="删除"
+        onClick={() => removeElements(selectedIds)}
+      >
+        <Trash2 size={16} aria-hidden="true" />
+      </button>
+    </>
+  )
 
   return (
     <>
       <MobileToolbar />
       <MobileSelectionActions />
-      {/* Left toolbar: tools + undo/redo/clear only */}
       <div
-        ref={drawingToolbarScroll.containerRef}
         className="sidebar panel"
         role="toolbar"
         aria-label="绘图工具"
@@ -279,7 +431,7 @@ export default function Toolbar({ canInstall = false, onInstall }: ToolbarProps)
           </button>
           <button
             onClick={async () => {
-              await requestClearCanvas(elementCount, confirm, clearAll)
+              await requestClearCanvas(elements.length, confirm, clearAll)
             }}
             className="abtn"
             data-tip="清空画布"
@@ -289,126 +441,83 @@ export default function Toolbar({ canInstall = false, onInstall }: ToolbarProps)
           </button>
         </div>
       </div>
-      <ToolbarScrollControls
-        placement="bottom"
-        label="绘图工具"
-        canScrollBack={drawingToolbarScroll.scrollState.canScrollBack}
-        canScrollForward={drawingToolbarScroll.scrollState.canScrollForward}
-        onScroll={drawingToolbarScroll.scrollByPage}
-      />
 
-      {/* Top toolbar: brush + color + zoom + theme + grid + export */}
       <div
-        ref={canvasToolbarScroll.containerRef}
         className="topbar panel"
         role="toolbar"
         aria-label="画布工具"
         aria-orientation="horizontal"
       >
-        <div className="toolbar-brand" aria-label="MindNotes Pro">
-          <div className="brand-icon" aria-hidden="true">
-            M
+        <div className="toolbar-fixed-start" role="group" aria-label="品牌">
+          <div className="toolbar-brand" aria-label="MindNotes Pro">
+            <div className="brand-icon" aria-hidden="true">
+              M
+            </div>
+            <span className="brand-text">MindNotes Pro</span>
           </div>
-          <span className="brand-text">MindNotes Pro</span>
         </div>
-        <div className="tb-sep" aria-hidden="true" />
-        <BrushSelector brush={brush} setBrush={setBrush} tool={tool} />
-        <TemplateMenu />
-        <div className="tb-sep" aria-hidden="true" />
-        <ColorPicker />
-        <div className="tb-sep" aria-hidden="true" />
-        <CanvasActionButtons />
-        <div className="tb-sep" aria-hidden="true" />
-        <button onClick={zoomIn} className="abtn" data-tip="放大" title="放大" aria-label="放大">
-          {icons.zoomIn}
-        </button>
-        <button
-          onClick={resetView}
-          className="abtn"
-          data-tip={`${Math.round(zoom * 100)}%`}
-          title={`${Math.round(zoom * 100)}%`}
-          style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-3)' }}
-          aria-label={`重置缩放，当前 ${Math.round(zoom * 100)}%`}
-        >
-          {Math.round(zoom * 100)}
-        </button>
-        <button onClick={zoomOut} className="abtn" data-tip="缩小" title="缩小" aria-label="缩小">
-          {icons.zoomOut}
-        </button>
-        <div className="tb-sep" aria-hidden="true" />
-        <button
-          onClick={toggleTheme}
-          className="abtn"
-          data-tip={isDarkMode ? '浅色模式' : '深色模式'}
-          title={isDarkMode ? '浅色模式' : '深色模式'}
-          aria-label={isDarkMode ? '切换到浅色模式' : '切换到深色模式'}
-        >
-          {isDarkMode ? icons.sun : icons.moon}
-        </button>
-        <button
-          onClick={toggleGrid}
-          className="abtn"
-          data-tip={showGrid ? '隐藏网格' : `显示网格（${shortcut('view.toggleGrid')}）`}
-          title={showGrid ? '隐藏网格' : `显示网格（${shortcut('view.toggleGrid')}）`}
-          style={showGrid ? { color: 'var(--primary)', opacity: 1 } : undefined}
-          aria-label={showGrid ? '隐藏网格' : '显示网格'}
-          aria-pressed={showGrid}
-        >
-          {icons.grid}
-        </button>
-        <button
-          onClick={toggleSnapToGrid}
-          className="abtn"
-          data-tip={
-            snapToGrid
-              ? `关闭网格吸附（${shortcut('view.toggleGridSnap')}）`
-              : `开启网格吸附（${shortcut('view.toggleGridSnap')}）`
-          }
-          title={
-            snapToGrid
-              ? `关闭网格吸附（${shortcut('view.toggleGridSnap')}）`
-              : `开启网格吸附（${shortcut('view.toggleGridSnap')}）`
-          }
-          style={snapToGrid ? { color: 'var(--primary)', opacity: 1 } : undefined}
-          aria-label={snapToGrid ? '关闭网格吸附' : '开启网格吸附'}
-          aria-pressed={snapToGrid}
-        >
-          {icons.snap}
-        </button>
-        <button
-          onClick={cycleGridSize}
-          className="abtn grid-size-btn"
-          data-tip={`网格大小 ${gridSize} px`}
-          title={`网格大小 ${gridSize} px`}
-          aria-label={`网格大小 ${gridSize} px`}
-        >
-          {gridSize} px
-        </button>
-        <div className="tb-sep" aria-hidden="true" />
-        <ExportMenu />
-        {canInstall && onInstall && (
-          <>
-            <div className="tb-sep" aria-hidden="true" />
+
+        <div className="toolbar-center-shell">
+          {centerScroll.scrollState.canScrollBack && (
             <button
               type="button"
-              onClick={onInstall}
-              className="install-btn"
-              aria-label="安装 MindNotes Pro"
-              title="安装 MindNotes Pro"
+              className="toolbar-center-scroll-button toolbar-center-scroll-back"
+              onClick={() => centerScroll.scrollByPage(-1)}
+              aria-label="向左查看更多画布工具"
             >
-              <Download size={15} aria-hidden="true" />
-              <span className="install-btn-label">安装应用</span>
+              <ChevronLeft size={17} aria-hidden="true" />
             </button>
-          </>
-        )}
+          )}
+          <div
+            ref={centerScroll.containerRef}
+            className="toolbar-center-scroll"
+            role="group"
+            aria-label="当前工具与选择"
+          >
+            {mode === 'text-editing' ? (
+              <div className="toolbar-editing-status">
+                <Type size={15} aria-hidden="true" />
+                <span>正在编辑文字</span>
+              </div>
+            ) : mode === 'selection' ? (
+              selectionControls
+            ) : (
+              <CreationStyleControls
+                tool={tool}
+                brush={brush}
+                color={color}
+                fillColor={fillColor}
+                size={size}
+                textDefaults={textDefaults}
+                onChange={runStyle}
+              />
+            )}
+          </div>
+          {centerScroll.scrollState.canScrollForward && (
+            <button
+              type="button"
+              className="toolbar-center-scroll-button toolbar-center-scroll-forward"
+              onClick={() => centerScroll.scrollByPage(1)}
+              aria-label="向右查看更多画布工具"
+            >
+              <ChevronRight size={17} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+
+        <div className="toolbar-fixed-end" role="group" aria-label="模板与文件">
+          <TemplateMenu />
+          <CanvasActionButtons canInstall={canInstall} onInstall={onInstall} />
+          <ExportMenu />
+        </div>
+        <span className="sr-only" role="status" aria-live="polite">
+          {mode === 'text-editing'
+            ? '正在编辑文字'
+            : mode === 'selection'
+              ? `已选择 ${capabilities.count} 项`
+              : `当前工具 ${tool}`}
+        </span>
       </div>
-      <ToolbarScrollControls
-        placement="top"
-        label="画布工具"
-        canScrollBack={canvasToolbarScroll.scrollState.canScrollBack}
-        canScrollForward={canvasToolbarScroll.scrollState.canScrollForward}
-        onScroll={canvasToolbarScroll.scrollByPage}
-      />
     </>
   )
 }

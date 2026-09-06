@@ -495,7 +495,7 @@ describe('Canvas', () => {
     const editor = startTextEditor(canvas)
     fireEvent.change(editor, { target: { value: 'Formatted in place' } })
 
-    const boldButton = screen.getByLabelText('Bold')
+    const boldButton = screen.getByLabelText('粗体')
     fireEvent.pointerDown(boldButton)
     fireEvent.mouseDown(boldButton)
     fireEvent.click(boldButton)
@@ -510,7 +510,7 @@ describe('Canvas', () => {
     })
     expect(useAppStore.getState().undoStack).toEqual([])
 
-    const colorInput = screen.getByLabelText('Text color') as HTMLInputElement
+    const colorInput = screen.getByLabelText('文字颜色') as HTMLInputElement
     fireEvent.pointerDown(colorInput)
     colorInput.focus()
     act(() => window.dispatchEvent(new Event('blur')))

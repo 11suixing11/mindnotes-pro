@@ -1,7 +1,7 @@
 import type { CanvasElement, CanvasLayer, UndoAction } from '../types'
 import { shallowClone } from '../helpers'
 import { incrementSaveGeneration, scheduleSave } from '../saveManager'
-import { getEditableIds } from './canvasElementRules'
+import { getAtomicEditableIds } from './canvasElementRules'
 import { copySelectedElements, createOffsetCopyPlan } from './canvasElementClipboard'
 import { createElementAdditionPlan } from './canvasElementMutations'
 import { appendUndoAction } from './canvasElementCommit'
@@ -100,7 +100,7 @@ export function createCanvasElementClipboardActions(
       const state = get()
       if (state.selectedIds.length === 0) return
 
-      const editableIds = getEditableIds(state.selectedIds, state)
+      const editableIds = getAtomicEditableIds(state.selectedIds, state)
       if (editableIds.length === 0) return
       const selected = new Set(editableIds)
       appendCopies(

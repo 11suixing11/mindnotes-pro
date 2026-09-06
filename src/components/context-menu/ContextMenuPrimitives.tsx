@@ -8,6 +8,7 @@ import {
   MENU_ITEM_HEIGHT,
   MENU_PADDING,
   SUBMENU_OFFSET,
+  getContextSubmenuPosition,
 } from './contextMenuModel'
 
 interface MenuItemProps {
@@ -17,10 +18,11 @@ interface MenuItemProps {
   danger?: boolean
   hasSubmenu?: boolean
   ariaExpanded?: boolean
+  disabled?: boolean
 }
 
 export const MenuItem = React.forwardRef<HTMLButtonElement, MenuItemProps>(
-  ({ onClick, label, shortcut, danger, hasSubmenu, ariaExpanded }, ref) => (
+  ({ onClick, label, shortcut, danger, hasSubmenu, ariaExpanded, disabled = false }, ref) => (
     <button
       ref={ref}
       type="button"
@@ -29,6 +31,8 @@ export const MenuItem = React.forwardRef<HTMLButtonElement, MenuItemProps>(
       role="menuitem"
       aria-haspopup={hasSubmenu ? 'menu' : undefined}
       aria-expanded={hasSubmenu ? ariaExpanded : undefined}
+      aria-disabled={disabled}
+      disabled={disabled}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -39,14 +43,15 @@ export const MenuItem = React.forwardRef<HTMLButtonElement, MenuItemProps>(
         border: 'none',
         background: 'transparent',
         borderRadius: 6,
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
         fontSize: 14,
-        color: danger ? 'var(--danger)' : 'var(--text-1)',
+        color: danger ? 'var(--danger)' : 'var(--text)',
         textAlign: 'left',
         transition: 'background 0.1s',
+        opacity: disabled ? 0.38 : 1,
       }}
       onMouseEnter={(event) => {
-        event.currentTarget.style.background = 'var(--bg-2)'
+        if (!disabled) event.currentTarget.style.background = 'var(--primary-bg)'
       }}
       onMouseLeave={(event) => {
         event.currentTarget.style.background = 'transparent'
@@ -79,7 +84,7 @@ export function MenuSeparator() {
       role="separator"
       style={{
         height: 1,
-        background: 'var(--border-1)',
+        background: 'var(--border)',
         margin: '4px 8px',
       }}
     />
@@ -104,26 +109,94 @@ interface ContextMenuSubmenuProps {
 
 const ContextMenuSubmenu = React.forwardRef<HTMLDivElement, ContextMenuSubmenuProps>(
   ({ menuX, menuY, menuWidth, topOffset, actions, anchorRef, ariaLabel }, ref) => {
-    const anchorRect = anchorRef?.current?.getBoundingClientRect()
-    const left = anchorRect ? anchorRect.right + SUBMENU_OFFSET : menuX + menuWidth + SUBMENU_OFFSET
-    const top = anchorRect ? anchorRect.top : menuY + topOffset
+    const submenuRef = React.useRef<HTMLDivElement>(null)
+    const [position, setPosition] = React.useState<{
+      x: number
+      y: number
+      maxHeight: number
+      placement: 'left' | 'right'
+      ready: boolean
+    }>({
+      x: menuX + menuWidth + SUBMENU_OFFSET,
+      y: menuY + topOffset,
+      maxHeight: Math.max(0, window.innerHeight - 16),
+      placement: 'right' as const,
+      ready: false,
+    })
+    const setRefs = React.useCallback(
+      (node: HTMLDivElement | null) => {
+        submenuRef.current = node
+        if (typeof ref === 'function') ref(node)
+        else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node
+      },
+      [ref]
+    )
+    const updatePosition = React.useCallback(() => {
+      const submenu = submenuRef.current
+      if (!submenu) return
+
+      const submenuRect = submenu.getBoundingClientRect()
+      const anchorRect = anchorRef?.current?.getBoundingClientRect()
+      const next = getContextSubmenuPosition({
+        anchorLeft: anchorRect?.left ?? menuX,
+        anchorRight: anchorRect?.right ?? menuX + menuWidth,
+        anchorTop: anchorRect?.top ?? menuY + topOffset,
+        submenuWidth: submenuRect.width || submenu.offsetWidth || 140,
+        submenuHeight: submenu.scrollHeight || submenuRect.height || submenu.offsetHeight,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+      })
+      setPosition((current) =>
+        current.x === next.x &&
+        current.y === next.y &&
+        current.maxHeight === next.maxHeight &&
+        current.placement === next.placement &&
+        current.ready
+          ? current
+          : { ...next, ready: true }
+      )
+    }, [anchorRef, menuWidth, menuX, menuY, topOffset])
+
+    React.useLayoutEffect(() => {
+      const submenu = submenuRef.current
+      if (!submenu) return
+
+      updatePosition()
+      window.addEventListener('resize', updatePosition)
+      const observer =
+        typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updatePosition)
+      observer?.observe(submenu)
+      if (anchorRef?.current) observer?.observe(anchorRef.current)
+
+      return () => {
+        window.removeEventListener('resize', updatePosition)
+        observer?.disconnect()
+      }
+    }, [anchorRef, updatePosition])
 
     return createPortal(
       <div
-        ref={ref}
+        ref={setRefs}
         className="context-menu-submenu"
         role="menu"
         aria-label={ariaLabel}
         tabIndex={-1}
+        data-placement={position.placement}
         style={{
           position: 'fixed',
-          left,
-          top,
+          left: position.x,
+          top: position.y,
           minWidth: 140,
-          background: 'var(--bg-1)',
-          border: '1px solid var(--border-1)',
+          maxWidth: 'calc(100vw - 16px)',
+          maxHeight: position.maxHeight,
+          overflowY: 'auto',
+          boxSizing: 'border-box',
+          visibility: position.ready ? 'visible' : 'hidden',
+          background: 'var(--card-solid)',
+          color: 'var(--text)',
+          border: '1px solid var(--border)',
           borderRadius: 8,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+          boxShadow: 'var(--shadow-lg)',
           padding: MENU_PADDING,
           zIndex: 100000,
         }}
@@ -146,12 +219,12 @@ const ContextMenuSubmenu = React.forwardRef<HTMLDivElement, ContextMenuSubmenuPr
               borderRadius: 6,
               cursor: 'pointer',
               fontSize: 14,
-              color: 'var(--text-1)',
+              color: 'var(--text)',
               textAlign: 'left',
               transition: 'background 0.1s',
             }}
             onMouseEnter={(event) => {
-              event.currentTarget.style.background = 'var(--bg-2)'
+              event.currentTarget.style.background = 'var(--primary-bg)'
             }}
             onMouseLeave={(event) => {
               event.currentTarget.style.background = 'transparent'
