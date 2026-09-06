@@ -217,6 +217,7 @@ export default function Canvas() {
       textRef,
       findSnaps,
       snapLinesRef,
+      openContextMenu: (x, y) => setContextMenu({ x, y }),
     })
 
   const editTextFromAccessibility = useCallback(

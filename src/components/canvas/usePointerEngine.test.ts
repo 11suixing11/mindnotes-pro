@@ -51,6 +51,7 @@ function createMockTextRef(): React.RefObject<HTMLTextAreaElement | null> {
 function renderPointerEngineHarness() {
   const canvasRef = createMockCanvasRef()
   const scheduleRedraw = vi.fn()
+  const openContextMenu = vi.fn()
   renderHook(() =>
     usePointerEngine({
       canvasRef,
@@ -60,12 +61,13 @@ function renderPointerEngineHarness() {
       textRef: createMockTextRef(),
       findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
       snapLinesRef: { current: { x: [], y: [] } },
+      openContextMenu,
     })
   )
 
   const canvas = canvasRef.current
   if (!canvas) throw new Error('Expected mock canvas ref to be initialized')
-  return { canvas, scheduleRedraw }
+  return { canvas, scheduleRedraw, openContextMenu }
 }
 
 function createMockTouch(
@@ -181,6 +183,7 @@ describe('usePointerEngine', () => {
         textRef: createMockTextRef(),
         findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
         snapLinesRef: { current: { x: [], y: [] } },
+        openContextMenu: vi.fn(),
       })
     )
     expect(result.current.getCursor).toBeTypeOf('function')
@@ -196,6 +199,7 @@ describe('usePointerEngine', () => {
         textRef: createMockTextRef(),
         findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
         snapLinesRef: { current: { x: [], y: [] } },
+        openContextMenu: vi.fn(),
       })
     )
     expect(result.current.copySelectedToSystemClipboard).toBeTypeOf('function')
@@ -211,6 +215,7 @@ describe('usePointerEngine', () => {
         textRef: createMockTextRef(),
         findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
         snapLinesRef: { current: { x: [], y: [] } },
+        openContextMenu: vi.fn(),
       })
     )
     expect(result.current.getDrawState).toBeTypeOf('function')
@@ -226,6 +231,7 @@ describe('usePointerEngine', () => {
         textRef: createMockTextRef(),
         findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
         snapLinesRef: { current: { x: [], y: [] } },
+        openContextMenu: vi.fn(),
       })
     )
 
@@ -248,6 +254,7 @@ describe('usePointerEngine', () => {
           textRef: createMockTextRef(),
           findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
           snapLinesRef: { current: { x: [], y: [] } },
+          openContextMenu: vi.fn(),
         })
       )
       expect(result.current.getCursor()).toBe('crosshair')
@@ -264,6 +271,7 @@ describe('usePointerEngine', () => {
           textRef: createMockTextRef(),
           findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
           snapLinesRef: { current: { x: [], y: [] } },
+          openContextMenu: vi.fn(),
         })
       )
       expect(result.current.getCursor()).toBe('default')
@@ -280,6 +288,7 @@ describe('usePointerEngine', () => {
           textRef: createMockTextRef(),
           findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
           snapLinesRef: { current: { x: [], y: [] } },
+          openContextMenu: vi.fn(),
         })
       )
       expect(result.current.getCursor()).toBe('none')
@@ -296,6 +305,7 @@ describe('usePointerEngine', () => {
           textRef: createMockTextRef(),
           findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
           snapLinesRef: { current: { x: [], y: [] } },
+          openContextMenu: vi.fn(),
         })
       )
       expect(result.current.getCursor()).toBe('grab')
@@ -312,6 +322,7 @@ describe('usePointerEngine', () => {
           textRef: createMockTextRef(),
           findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
           snapLinesRef: { current: { x: [], y: [] } },
+          openContextMenu: vi.fn(),
         })
       )
       expect(result.current.getCursor()).toBe('text')
@@ -329,6 +340,7 @@ describe('usePointerEngine', () => {
             textRef: createMockTextRef(),
             findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
             snapLinesRef: { current: { x: [], y: [] } },
+            openContextMenu: vi.fn(),
           })
         )
         expect(result.current.getCursor()).toBe('crosshair')
@@ -347,6 +359,7 @@ describe('usePointerEngine', () => {
           textRef: createMockTextRef(),
           findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
           snapLinesRef: { current: { x: [], y: [] } },
+          openContextMenu: vi.fn(),
         })
       )
       expect(result.current.getCursor()).toBe('grabbing')
@@ -379,6 +392,7 @@ describe('usePointerEngine', () => {
           textRef: createMockTextRef(),
           findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
           snapLinesRef: { current: { x: [], y: [] } },
+          openContextMenu: vi.fn(),
         })
       )
       // Without mouse position, should return default
@@ -397,6 +411,7 @@ describe('usePointerEngine', () => {
           textRef: createMockTextRef(),
           findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
           snapLinesRef: { current: { x: [], y: [] } },
+          openContextMenu: vi.fn(),
         })
       )
       const state = result.current.getDrawState()
@@ -425,6 +440,7 @@ describe('usePointerEngine', () => {
           textRef: createMockTextRef(),
           findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
           snapLinesRef: { current: { x: [], y: [] } },
+          openContextMenu: vi.fn(),
         })
       )
       const state = result.current.getDrawState()
@@ -489,6 +505,71 @@ describe('usePointerEngine', () => {
       const copy = state.elements.find((element) => element.id !== 'alt-source')
       expect(copy).toMatchObject({ type: 'shape', x: 100, y: 100 })
       expect(state.selectedIds).toEqual([copy?.id])
+    })
+
+    it('opens the context menu on a plain right click and not after a right-drag pan', () => {
+      const { canvas, openContextMenu } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 51,
+          pointerType: 'mouse',
+          button: 2,
+          buttons: 2,
+          clientX: 200,
+          clientY: 150,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 51,
+          pointerType: 'mouse',
+          button: 2,
+          buttons: 0,
+          clientX: 200,
+          clientY: 150,
+        })
+      )
+      expect(openContextMenu).toHaveBeenCalledTimes(1)
+      expect(openContextMenu).toHaveBeenCalledWith(200, 150)
+      openContextMenu.mockClear()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 51,
+          pointerType: 'mouse',
+          button: 2,
+          buttons: 2,
+          clientX: 200,
+          clientY: 150,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 51,
+          pointerType: 'mouse',
+          button: 2,
+          buttons: 2,
+          clientX: 320,
+          clientY: 230,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 51,
+          pointerType: 'mouse',
+          button: 2,
+          buttons: 0,
+          clientX: 320,
+          clientY: 230,
+        })
+      )
+      expect(openContextMenu).not.toHaveBeenCalled()
     })
 
     it('selects editable elements intersecting a marquee and skips locked elements', () => {
@@ -1091,6 +1172,7 @@ describe('usePointerEngine', () => {
           textRef: createMockTextRef(),
           findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
           snapLinesRef,
+          openContextMenu: vi.fn(),
         })
       )
 
@@ -1319,6 +1401,7 @@ describe('usePointerEngine', () => {
           textRef: createMockTextRef(),
           findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
           snapLinesRef: { current: { x: [], y: [] } },
+          openContextMenu: vi.fn(),
         })
       )
       // Should not throw
@@ -1339,6 +1422,7 @@ describe('usePointerEngine', () => {
           textRef: createMockTextRef(),
           findSnaps: vi.fn().mockReturnValue({ dx: 0, dy: 0, linesX: [], linesY: [] }),
           snapLinesRef: { current: { x: [], y: [] } },
+          openContextMenu: vi.fn(),
         })
       )
       await result.current.copySelectedToSystemClipboard()

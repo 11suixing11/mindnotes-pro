@@ -185,17 +185,27 @@ describe('createCanvasAuxiliaryInputHandlers', () => {
     expect(scheduleRedraw).not.toHaveBeenCalled()
   })
 
-  it('suppresses the context menu only during or after right-click panning', () => {
+  it('suppresses every right-button context menu and leaves keyboard menus alone', () => {
     const { handlers, rightClickPanRef } = createHarness()
-    const idleEvent = new MouseEvent('contextmenu', { cancelable: true })
-    handlers.onContextMenu(idleEvent)
+    const rightButtonEvent = new MouseEvent('contextmenu', {
+      button: 2,
+      cancelable: true,
+    })
+    handlers.onContextMenu(rightButtonEvent)
 
-    rightClickPanRef.current.moved = true
-    const movedEvent = new MouseEvent('contextmenu', { cancelable: true })
-    handlers.onContextMenu(movedEvent)
+    rightClickPanRef.current.enabled = false
+    const disabledEvent = new MouseEvent('contextmenu', {
+      button: 2,
+      cancelable: true,
+    })
+    handlers.onContextMenu(disabledEvent)
 
-    expect(idleEvent.defaultPrevented).toBe(false)
-    expect(movedEvent.defaultPrevented).toBe(true)
+    const keyboardEvent = new MouseEvent('contextmenu', { cancelable: true })
+    handlers.onContextMenu(keyboardEvent)
+
+    expect(rightButtonEvent.defaultPrevented).toBe(true)
+    expect(disabledEvent.defaultPrevented).toBe(false)
+    expect(keyboardEvent.defaultPrevented).toBe(false)
   })
 
   it('opens an existing text element at its client position', () => {

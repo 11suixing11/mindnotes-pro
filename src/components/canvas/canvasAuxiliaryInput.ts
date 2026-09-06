@@ -136,12 +136,11 @@ export function createCanvasAuxiliaryInputHandlers(
 
   const onContextMenu = (event: MouseEvent) => {
     const state = rightClickPanRef.current
-    if (state.isPanning || state.moved) {
-      event.preventDefault()
-      if (getIsPanning()) endPan()
-      state.isPanning = false
-      state.moved = false
-    }
+    if (!state.enabled || event.button !== 2) return
+    // 右键菜单一律由右键抬起路径决策：拖拽平移后不弹菜单，纯点击在
+    // handleEnd 中以编程方式打开。部分平台（如 Linux）的 contextmenu 在
+    // 按下时机触发，此时拖拽距离尚未产生，无法在这里区分点击与拖拽。
+    event.preventDefault()
   }
 
   const focusAfterStartingEdit = () => {

@@ -71,6 +71,7 @@ export function usePointerEngine(opts: {
     exclude: Set<string>
   ) => { dx: number; dy: number; linesX: number[]; linesY: number[] }
   snapLinesRef: React.MutableRefObject<{ x: number[]; y: number[] }>
+  openContextMenu: (x: number, y: number) => void
 }) {
   const toast = useToastStore((state) => state.show)
   const {
@@ -81,6 +82,7 @@ export function usePointerEngine(opts: {
     textRef,
     findSnaps,
     snapLinesRef,
+    openContextMenu,
   } = opts
 
   const { startPan, updatePan, endPan } = useViewStore(
@@ -487,14 +489,21 @@ export function usePointerEngine(opts: {
       }
 
       // 右键拖拽平移画布
-      // 处理右键释放
+      // 处理右键释放：拖拽过则结束平移且不弹菜单；纯点击则以编程方式
+      // 打开菜单（原生 contextmenu 已在按下/抬起时机被统一抑制）
       if ('button' in e && (e as MouseEvent).button === 2 && rightClickPanRef.current.enabled) {
+        const wasMoved = rightClickPanRef.current.moved
         if (useViewStore.getState().isPanning) endPan()
         rightClickPanRef.current = {
           ...rightClickPanRef.current,
           isPanning: false,
+          moved: false,
         }
         clearEndedTouch()
+        if (!wasMoved) {
+          const upEvent = e as MouseEvent
+          openContextMenu(upEvent.clientX, upEvent.clientY)
+        }
         return
       }
 
@@ -515,7 +524,7 @@ export function usePointerEngine(opts: {
       }
       clearEndedTouch()
     },
-    [endPan, finishDrawing, handleSelectEnd]
+    [endPan, finishDrawing, handleSelectEnd, openContextMenu]
   )
 
   const cancelActiveInput = useCallback(
