@@ -1,8 +1,8 @@
 <div align="center">
   <img src="public/icons/icon-192x192.png" width="88" alt="MindNotes Pro 图标" />
   <h1>MindNotes Pro</h1>
-  <p><strong>用于绘图、可编辑模板和可迁移导出的本地优先白板。</strong></p>
-  <p>不要求账号，不依赖云端工作区，不分析画布内容。打开就能画。</p>
+  <p><strong>本地优先白板。无账号，数据在浏览器本地，离线可用。</strong></p>
+  <p>打开就能画。首屏 183kB gzip。MIT 开源。先名后利，诚实做产品。</p>
   <p>
     <a href="https://11suixing11.github.io/mindnotes-pro"><strong>打开在线版</strong></a>
     ·

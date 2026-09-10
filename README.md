@@ -1,8 +1,8 @@
 <div align="center">
   <img src="public/icons/icon-192x192.png" width="88" alt="MindNotes Pro icon" />
   <h1>MindNotes Pro</h1>
-  <p><strong>A local-first whiteboard for drawing, editable templates, and portable exports.</strong></p>
-  <p>No account, cloud workspace, or drawing analytics. Open the canvas and work.</p>
+  <p><strong>A local-first whiteboard. No account. Data stays in your browser. Works offline.</strong></p>
+  <p>Open the canvas and work. 183kB gzip first paint. MIT licensed.</p>
   <p>
     <a href="https://11suixing11.github.io/mindnotes-pro"><strong>Open the web app</strong></a>
     ·
@@ -15,12 +15,29 @@
     <img src="https://img.shields.io/badge/version-5.1.1-0f766e" alt="Version 5.1.1" />
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2563eb" alt="MIT License" /></a>
     <img src="https://img.shields.io/badge/storage-local--first-16a34a" alt="Local-first storage" />
+    <img src="https://img.shields.io/badge/bundle-183kB_gzip-8b5cf6" alt="183kB gzip" />
+    <img src="https://img.shields.io/badge/offline-PWA-0ea5e9" alt="Offline PWA" />
+  </p>
+  <p>
+    <em>Not trying to replace Miro or Excalidraw. Validating if a private, single-board whiteboard is useful for quick sketches, class notes, and visual thinking.</em><br/>
+    Feedback wanted: <a href="https://github.com/11suixing11/mindnotes-pro/discussions/97">Discussions #97</a>
   </p>
 </div>
 
 <p align="center">
   <img src=".github/mindnotes-pro-v5.png" width="900" alt="MindNotes Pro v5 with an editable flowchart selected on the canvas" />
 </p>
+
+## Why this exists after tldraw went paid
+
+In Sep 2025, tldraw SDK moved to a paid commercial license for production use. Excalidraw stays MIT with 90k+ stars. MindNotes Pro explores a third path: **a super focused, single-board, 100% local whiteboard** – not a collaboration suite.
+
+- No account, no cloud, no tracking – data in `mindnotes-pro-v5` IndexedDB
+- Offline PWA after first load, plus sandboxed Electron shell
+- Honest bundle: ~183kB gzip first paint, jspdf lazy-loaded
+- MIT, self-hostable with just static files
+
+If you need team collaboration, use Excalidraw. If you need a private scratchpad that opens in <1s and never phones home, try this.
 
 ## What v5 delivers
 
