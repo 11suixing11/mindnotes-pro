@@ -412,30 +412,36 @@ export default function Toolbar({ canInstall = false, onInstall }: ToolbarProps)
         <div className="sb-sep" role="separator" />
         <div className="sb-group">
           <button
+            type="button"
             onClick={undo}
             disabled={undoLen === 0}
             className={`abtn ${historyPulse === 'undo' ? 'history-pulse' : ''}`}
             data-tip={`撤销 ${shortcut('edit.undo')}`}
             aria-label="撤销"
+            title="撤销"
           >
             {icons.undo}
           </button>
           <button
+            type="button"
             onClick={redo}
             disabled={redoLen === 0}
             className={`abtn ${historyPulse === 'redo' ? 'history-pulse' : ''}`}
             data-tip={`重做 ${shortcut('edit.redo')}`}
             aria-label="重做"
+            title="重做"
           >
             {icons.redo}
           </button>
           <button
+            type="button"
             onClick={async () => {
               await requestClearCanvas(elements.length, confirm, clearAll)
             }}
             className="abtn"
             data-tip="清空画布"
             aria-label="清空画布"
+            title="清空画布"
           >
             {icons.trash}
           </button>

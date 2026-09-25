@@ -89,6 +89,26 @@ describe('Toolbar', () => {
     expect(within(tail).getByRole('button', { name: '文件' })).toBeTruthy()
   })
 
+  it('keeps accessible names and tooltips on the icon-only history buttons', () => {
+    render(<Toolbar />)
+    const sidebar = screen.getByRole('toolbar', { name: '绘图工具' })
+
+    // 初始 undoStack/redoStack 为空：撤销/重做处于禁用态，aria-label 与
+    // title 必须仍然存在，屏幕阅读器和自动化才能按名称定位。
+    for (const name of ['撤销', '重做', '清空画布']) {
+      const button = within(sidebar).getByRole('button', { name })
+      expect(button.getAttribute('aria-label')).toBe(name)
+      expect(button.getAttribute('title')).toBe(name)
+      expect(button.getAttribute('type')).toBe('button')
+    }
+    expect(within(sidebar).getByRole('button', { name: '撤销' }).hasAttribute('disabled')).toBe(
+      true
+    )
+    expect(within(sidebar).getByRole('button', { name: '重做' }).hasAttribute('disabled')).toBe(
+      true
+    )
+  })
+
   it('shows creation styles for the active drawing tool', () => {
     render(<Toolbar />)
     const toolbar = screen.getByRole('toolbar', { name: '画布工具' })
