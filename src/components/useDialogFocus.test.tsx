@@ -132,6 +132,32 @@ describe('useDialogFocus', () => {
     await waitFor(() => expect(document.activeElement).toBe(childTrigger))
   })
 
+  it('hands focus to the app canvas when a top-level dialog closes', async () => {
+    const canvas = document.createElement('canvas')
+    canvas.id = 'main-canvas'
+    canvas.tabIndex = 0
+    document.body.appendChild(canvas)
+
+    try {
+      render(<DialogHarness />)
+      const trigger = screen.getByRole('button', { name: 'Open dialog' })
+      trigger.focus()
+      fireEvent.click(trigger)
+
+      const first = screen.getByRole('button', { name: 'First action' })
+      await waitFor(() => expect(document.activeElement).toBe(first))
+
+      // Escape 路径：对话框关闭后焦点必须回到画布，否则画布快捷键会因
+      // BUTTON 目标守卫而静默失效。
+      fireEvent.keyDown(window, { key: 'Escape' })
+      expect(screen.queryByRole('dialog', { name: 'Test dialog' })).toBeNull()
+      await waitFor(() => expect(document.activeElement).toBe(canvas))
+      expect(document.activeElement).not.toBe(trigger)
+    } finally {
+      canvas.remove()
+    }
+  })
+
   it('supports arrow, Home, and End navigation for menu roles', async () => {
     render(<MenuHarness />)
     fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))

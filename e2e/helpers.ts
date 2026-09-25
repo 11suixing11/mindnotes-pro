@@ -70,6 +70,16 @@ export async function insertFlowchart(page: Page) {
   await expect(appStatus(page)).toContainText('13 个元素')
 }
 
+/** 读取插入模板后自适应视口的缩放比例，用于世界坐标到屏幕坐标的换算。 */
+export async function getFittedZoom(page: Page) {
+  await page.getByRole('button', { name: '画布更多', exact: true }).click()
+  const zoomLabel = await page
+    .getByRole('menuitem', { name: /重置缩放，当前/ })
+    .getAttribute('aria-label')
+  await page.keyboard.press('Escape')
+  return Number(zoomLabel?.match(/(\d+)%/)?.[1] ?? 100) / 100
+}
+
 export async function downloadBuffer(download: Download) {
   const path = await download.path()
   expect(path).toBeTruthy()

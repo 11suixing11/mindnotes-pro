@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react'
+import { getMainCanvas } from './canvas/viewport'
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -21,7 +22,7 @@ interface UseDialogFocusOptions {
   additionalRef?: RefObject<HTMLElement | null>
 }
 
-/** Keep keyboard focus inside an open dialog and return it to the trigger on close. */
+/** Keep keyboard focus inside an open dialog; on close, hand focus back to the canvas. */
 export function useDialogFocus<T extends HTMLElement>({
   open,
   onClose,
@@ -155,6 +156,20 @@ export function useDialogFocus<T extends HTMLElement>({
       if (scopeIndex >= 0) focusScopeStack.splice(scopeIndex, 1)
       const previousFocus = previousFocusRef.current
       previousFocusRef.current = null
+      // A closed top-level surface must not park focus on its trigger button:
+      // the canvas shortcut guard skips BUTTON/A targets, so every canvas
+      // shortcut would silently die until the user clicks the canvas. Hand
+      // focus back to the app canvas instead. Nested surfaces (a child dialog
+      // closing while its parent stays open) still restore the inner trigger.
+      if (focusScopeStack.length === 0) {
+        const canvas = getMainCanvas()
+        if (canvas) {
+          queueMicrotask(() => {
+            if (canvas.isConnected) canvas.focus()
+          })
+          return
+        }
+      }
       if (previousFocus?.isConnected) queueMicrotask(() => previousFocus.focus())
     }
   }, [additionalRef, open])

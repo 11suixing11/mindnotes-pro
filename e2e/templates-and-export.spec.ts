@@ -3,6 +3,7 @@ import {
   downloadBuffer,
   expect,
   focusCanvas,
+  getFittedZoom,
   insertFlowchart,
   openApp,
   test,
@@ -23,6 +24,16 @@ test.describe('模板与导入导出', () => {
     await expect(appStatus(page)).toContainText('13 个元素')
   })
 
+  test('插入模板后不点击画布也能直接撤销', async ({ page }) => {
+    await openApp(page)
+    await insertFlowchart(page)
+
+    // 模板库关闭后浏览器焦点曾停留在"模板"按钮上，画布快捷键会被
+    // 交互目标守卫拦下；关闭后焦点必须已交还画布，Ctrl+Z 才能生效。
+    await page.keyboard.press('Control+z')
+    await expect(appStatus(page)).toContainText('0 个元素')
+  })
+
   test('插入模板后可以直接编辑其中的文本节点', async ({ page }) => {
     await openApp(page)
     await insertFlowchart(page)
@@ -30,10 +41,7 @@ test.describe('模板与导入导出', () => {
     const canvas = page.locator('#main-canvas')
     const box = await canvas.boundingBox()
     expect(box).not.toBeNull()
-    const zoomLabel = await page
-      .getByRole('button', { name: /重置缩放，当前/ })
-      .getAttribute('aria-label')
-    const zoom = Number(zoomLabel?.match(/(\d+)%/)?.[1] ?? 100) / 100
+    const zoom = await getFittedZoom(page)
 
     // The process text is a stable point in the built-in flowchart. Use the
     // current fitted zoom so the assertion remains valid across viewports.
@@ -160,10 +168,7 @@ test.describe('模板与导入导出', () => {
     const canvas = page.locator('#main-canvas')
     const box = await canvas.boundingBox()
     expect(box).not.toBeNull()
-    const zoomLabel = await page
-      .getByRole('button', { name: /重置缩放，当前/ })
-      .getAttribute('aria-label')
-    const zoom = Number(zoomLabel?.match(/(\d+)%/)?.[1] ?? 100) / 100
+    const zoom = await getFittedZoom(page)
 
     // Clear the insertion selection before targeting a single template node.
     await page.mouse.click(box!.x + 120, box!.y + 120)
