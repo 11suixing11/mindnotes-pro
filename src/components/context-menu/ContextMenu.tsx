@@ -349,7 +349,9 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
 
       {/* 选择操作 */}
       <MenuItem onClick={() => handleAction(selectAll)} label="全选" shortcut="Ctrl+A" />
-      <MenuItem onClick={() => void handleClearAll()} label="清空画布" danger />
+      {/* 清空画布是画布级危险操作，只在空白处右键（无选中）时提供，
+          避免与元素菜单里的"删除"两个红色危险项同屏造成误触。 */}
+      {!hasSelection && <MenuItem onClick={() => void handleClearAll()} label="清空画布" danger />}
     </div>
   )
 

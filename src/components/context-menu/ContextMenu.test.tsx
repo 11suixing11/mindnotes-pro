@@ -84,6 +84,17 @@ describe('ContextMenu', () => {
     expect(screen.queryByRole('menuitem', { name: /删除/ })).toBeNull()
   })
 
+  it('hides the canvas-level clear action while elements are selected', () => {
+    const shapes = [makeShape('one'), makeShape('two')]
+    useAppStore.setState({ elements: shapes, selectedIds: shapes.map((shape) => shape.id) })
+    render(<ContextMenu x={20} y={30} onClose={onClose} />)
+
+    // 元素右键菜单不再出现"清空画布"，避免与"删除"两个红色危险项同屏。
+    expect(screen.queryByRole('menuitem', { name: '清空画布' })).toBeNull()
+    expect(screen.getByRole('menuitem', { name: /全选/ })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: /删除/ })).toBeTruthy()
+  })
+
   it('uses existing theme tokens and clamps the measured menu to the viewport', async () => {
     setViewport(500, 400)
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
