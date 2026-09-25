@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No unreleased changes.
 
+## [5.1.2] - 2026-09-25
+
+### Added
+
+- Selection style editing for the current selection: alignment, distribution, grouping, and layer-order actions in the arrange menu and context menu, text style controls, and dedicated mobile selection actions.
+
+### Fixed
+
+- Canvas shortcuts (undo, copy, delete, tool switches) work again immediately after closing a dialog or menu: keyboard focus now returns to the canvas instead of staying on the trigger button.
+- Double-clicking a shape node edits the text label it contains instead of creating a misplaced new text on top of it.
+- Inserting a template steers the drop point away from existing canvas content, so template lines no longer land on top of strokes already on the board.
+- The element context menu no longer offers the clear-canvas action while elements are selected; it remains available when right-clicking blank canvas.
+- Sidebar undo, redo, and clear-canvas buttons gained hover tooltips matching their accessible names, plus explicit button types.
+- Context menus clamped to the bottom of the viewport no longer overshoot the margin by the menu border width.
+- E2E journeys are back in sync with the reworked toolbar; the full Playwright baseline is green again (45/45).
+
 ## [5.1.1] - 2026-09-06
 
 ### Fixed
@@ -342,6 +358,7 @@ No unreleased changes.
 - Basic canvas with undo/redo
 - LocalStorage persistence
 
+[5.1.2]: https://github.com/11suixing11/mindnotes-pro/compare/v5.1.1...v5.1.2
 [5.1.1]: https://github.com/11suixing11/mindnotes-pro/compare/v5.1.0...v5.1.1
 [5.1.0]: https://github.com/11suixing11/mindnotes-pro/compare/v5.0.1...v5.1.0
 [5.0.1]: https://github.com/11suixing11/mindnotes-pro/compare/v5.0.0...v5.0.1
