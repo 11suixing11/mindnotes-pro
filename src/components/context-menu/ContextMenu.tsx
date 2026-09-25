@@ -103,7 +103,9 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
       x,
       y,
       menuWidth: rect.width || menu.offsetWidth || MENU_WIDTH,
-      menuHeight: menu.scrollHeight || rect.height || menu.offsetHeight,
+      // rect.height 含边框；scrollHeight 不含，用它钳制会让菜单底边
+      // 越过 viewport 边距 2px（1px 上下边框）。
+      menuHeight: rect.height || menu.offsetHeight || menu.scrollHeight,
       viewportWidth: window.innerWidth,
       viewportHeight: window.innerHeight,
     })

@@ -102,20 +102,10 @@ test.describe('v5.3 界面完整性', () => {
     await expect(canvasMore).toHaveCount(0)
 
     const viewport = page.viewportSize()!
-    await page.locator('#main-canvas').evaluate(
-      (canvas, point) => {
-        canvas.dispatchEvent(
-          new MouseEvent('contextmenu', {
-            bubbles: true,
-            cancelable: true,
-            button: 2,
-            clientX: point.x,
-            clientY: point.y,
-          })
-        )
-      },
-      { x: viewport.width - 2, y: viewport.height - 2 }
-    )
+    // 右键菜单自 db274ca 起改由右键抬起路径决策，合成 contextmenu 事件
+    // 不再打开菜单；这里用真实右键点击画布右下角区域（下方留出图层
+    // 停靠栏，避免点在 dock 上），仍然压到视口右缘与底缘做钳制测试。
+    await page.mouse.click(viewport.width - 2, viewport.height - 100, { button: 'right' })
 
     const menu = page.getByRole('menu', { name: '画布上下文菜单' })
     await expect(menu).toBeVisible()
