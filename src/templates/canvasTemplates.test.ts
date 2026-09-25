@@ -7,6 +7,7 @@ import {
   LEGACY_CUSTOM_TEMPLATE_STORAGE_KEY,
   createTemplateFromElements,
   deleteCustomTemplate,
+  findTemplateInsertionCenter,
   getBuiltInTemplates,
   getTemplateBounds,
   instantiateTemplate,
@@ -198,5 +199,99 @@ describe('canvas templates', () => {
 
     expect(loadCustomTemplates()).toEqual([expect.objectContaining({ name: 'v4' })])
     expect(localStorage.getItem(LEGACY_V4_CUSTOM_TEMPLATE_STORAGE_KEY)).toBeNull()
+  })
+})
+
+describe('findTemplateInsertionCenter', () => {
+  const preferredCenter = { x: 300, y: 400 }
+
+  function insertedBoundsAt(center: { x: number; y: number }, elements: CanvasElement[]) {
+    const bounds = requireBounds(getTemplateBounds(elements))
+    return {
+      left: center.x - bounds.w / 2,
+      right: center.x + bounds.w / 2,
+      top: center.y - bounds.h / 2,
+      bottom: center.y + bounds.h / 2,
+    }
+  }
+
+  function expectDisjoint(
+    a: { left: number; right: number; top: number; bottom: number },
+    b: { left: number; right: number; top: number; bottom: number }
+  ) {
+    expect(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top).toBe(
+      true
+    )
+  }
+
+  it('keeps the preferred center on an empty canvas', () => {
+    const elements = [makeShape('existing')]
+
+    expect(
+      findTemplateInsertionCenter({
+        templateElements: elements,
+        existingElements: [],
+        preferredCenter,
+      })
+    ).toEqual(preferredCenter)
+  })
+
+  it('walks right until the template clears existing content', () => {
+    const templateElements = [makeShape('tpl', 250, 370)]
+    // makeShape(300,400) 的包围盒外扩后为 295..405 × 395..465，压住居中落点。
+    const existingElements = [makeShape('stroke', 300, 400)]
+    const center = findTemplateInsertionCenter({
+      templateElements,
+      existingElements,
+      preferredCenter,
+    })
+
+    expect(center.x).toBeGreaterThan(preferredCenter.x)
+    expectDisjoint(insertedBoundsAt(center, templateElements), {
+      left: 295,
+      right: 405,
+      top: 395,
+      bottom: 465,
+    })
+  })
+
+  it('falls back to walking down when the whole right lane is blocked', () => {
+    const templateElements = [makeShape('template')]
+    // 模板步长为 130（宽 110 + 间距 20），沿右方向铺一排障碍封死 6 步试探。
+    const existingElements = Array.from({ length: 6 }, (_, index) =>
+      makeShape(`row-${index}`, 300 + (index + 1) * 130, 400)
+    )
+    // 居中落点本身也要有内容才会触发避让。
+    existingElements.push(makeShape('stroke', 300, 400))
+    const center = findTemplateInsertionCenter({
+      templateElements,
+      existingElements,
+      preferredCenter,
+    })
+
+    expect(center.y).toBeGreaterThan(preferredCenter.y)
+    expectDisjoint(insertedBoundsAt(center, templateElements), {
+      left: 295,
+      right: 1075,
+      top: 395,
+      bottom: 465,
+    })
+  })
+
+  it('returns the preferred center when no clear spot exists within the budget', () => {
+    const templateElements = [makeShape('template')]
+    const existingElements: CanvasElement[] = [makeShape('stroke', 300, 400)]
+    // 在右移与下移的每个候选位置都铺上障碍（步长与实现一致：130/90）。
+    for (let step = 1; step <= 6; step += 1) {
+      existingElements.push(makeShape(`right-${step}`, 300 + step * 130, 400))
+      existingElements.push(makeShape(`down-${step}`, 300, 400 + step * 90))
+    }
+    const center = findTemplateInsertionCenter({
+      templateElements,
+      existingElements,
+      preferredCenter,
+    })
+
+    expect(center).toEqual(preferredCenter)
   })
 })

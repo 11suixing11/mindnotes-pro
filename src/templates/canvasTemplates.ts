@@ -408,6 +408,60 @@ export function getTemplateBounds(
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
 }
 
+// 落点避让的试探参数：步长保证相邻候选位置互不重叠，两个方向各试有限步，
+// 全部失败时保持居中落点（由 zoomToFit 兜底可见性），不报错。
+const INSERTION_PROBE_GAP = 20
+const INSERTION_PROBE_MAX_STEPS = 6
+
+export interface TemplateInsertionOptions {
+  templateElements: CanvasElement[]
+  existingElements: CanvasElement[]
+  preferredCenter: { x: number; y: number }
+}
+
+/**
+ * Pick the insertion center for a template. Falls back to the preferred
+ * center when the canvas is empty or no clear spot is found within the probe
+ * budget; otherwise walks right, then down, in whole-template steps until the
+ * template bounds clear every existing element.
+ */
+export function findTemplateInsertionCenter({
+  templateElements,
+  existingElements,
+  preferredCenter,
+}: TemplateInsertionOptions): { x: number; y: number } {
+  const bounds = getTemplateBounds(templateElements)
+  if (!bounds || existingElements.length === 0) return preferredCenter
+
+  const overlapsExisting = (center: { x: number; y: number }): boolean => {
+    const left = center.x - bounds.w / 2
+    const top = center.y - bounds.h / 2
+    return existingElements.some((el) => {
+      const existing = elementBounds(el)
+      return (
+        left < existing.x + existing.w &&
+        left + bounds.w > existing.x &&
+        top < existing.y + existing.h &&
+        top + bounds.h > existing.y
+      )
+    })
+  }
+
+  if (!overlapsExisting(preferredCenter)) return preferredCenter
+
+  const stepX = bounds.w + INSERTION_PROBE_GAP
+  const stepY = bounds.h + INSERTION_PROBE_GAP
+  for (let step = 1; step <= INSERTION_PROBE_MAX_STEPS; step += 1) {
+    const candidate = { x: preferredCenter.x + stepX * step, y: preferredCenter.y }
+    if (!overlapsExisting(candidate)) return candidate
+  }
+  for (let step = 1; step <= INSERTION_PROBE_MAX_STEPS; step += 1) {
+    const candidate = { x: preferredCenter.x, y: preferredCenter.y + stepY * step }
+    if (!overlapsExisting(candidate)) return candidate
+  }
+  return preferredCenter
+}
+
 export function instantiateTemplate(
   template: CanvasTemplate,
   centerX: number,

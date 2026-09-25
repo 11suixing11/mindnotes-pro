@@ -4,6 +4,7 @@ import { getTemplateBounds } from '../../templates/canvasTemplates'
 import {
   createTemplateFromElements,
   deleteCustomTemplate,
+  findTemplateInsertionCenter,
   getBuiltInTemplates,
   instantiateTemplate,
   loadCustomTemplates,
@@ -59,7 +60,14 @@ const TemplateMenu = memo(function TemplateMenu() {
   const insertTemplate = useCallback(
     (template: CanvasTemplate) => {
       const viewport = getVisibleCanvasViewport(getMainCanvas())
-      const inserted = instantiateTemplate(template, viewport.centerX, viewport.centerY)
+      // 落点避让：模板包围盒压到已有内容时沿右/下方向试探空位，避免
+      // "模板自带线条"和用户已画内容叠在一起分不清。
+      const center = findTemplateInsertionCenter({
+        templateElements: template.elements,
+        existingElements: useAppStore.getState().elements,
+        preferredCenter: { x: viewport.centerX, y: viewport.centerY },
+      })
+      const inserted = instantiateTemplate(template, center.x, center.y)
 
       if (inserted.length === 0) {
         toast('模板为空', 'warning')

@@ -1,6 +1,7 @@
 import {
   appStatus,
   downloadBuffer,
+  drawStroke,
   expect,
   focusCanvas,
   getFittedZoom,
@@ -8,6 +9,44 @@ import {
   openApp,
   test,
 } from './helpers'
+
+interface BackupElement {
+  type: string
+  x?: number
+  y?: number
+  w?: number
+  h?: number
+  width?: number
+  height?: number
+  points?: number[][]
+}
+
+// 镜像 src/core/geometry.ts elementBounds 的外扩语义（各类型 ±5）。
+function elementWorldBounds(element: BackupElement) {
+  if (element.type === 'stroke' && element.points) {
+    const xs = element.points.map(([x]) => x)
+    const ys = element.points.map(([, y]) => y)
+    return {
+      left: Math.min(...xs) - 5,
+      right: Math.max(...xs) + 5,
+      top: Math.min(...ys) - 5,
+      bottom: Math.max(...ys) + 5,
+    }
+  }
+  return {
+    left: (element.x ?? 0) - 5,
+    right: (element.x ?? 0) + (element.w ?? element.width ?? 0) + 5,
+    top: (element.y ?? 0) - 5,
+    bottom: (element.y ?? 0) + (element.h ?? element.height ?? 0) + 5,
+  }
+}
+
+function boundsIntersect(
+  a: { left: number; right: number; top: number; bottom: number },
+  b: { left: number; right: number; top: number; bottom: number }
+) {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+}
 
 test.describe('模板与导入导出', () => {
   test('内置模板插入后仍是可编辑元素', async ({ page }) => {
@@ -112,6 +151,41 @@ test.describe('模板与导入导出', () => {
     expect(backup.document.elements).toEqual(
       expect.arrayContaining([expect.objectContaining({ content: '起点' })])
     )
+  })
+
+  test('插入模板时避让画布上已有内容', async ({ page }) => {
+    await openApp(page)
+    await drawStroke(page)
+    await expect(appStatus(page)).toContainText('1 个元素')
+
+    await page.getByRole('button', { name: '模板库' }).click()
+    await expect(page.getByRole('dialog', { name: '模板库' })).toBeVisible()
+    await page.getByRole('button', { name: '插入 流程图 模板' }).click()
+    await expect(page.getByRole('dialog', { name: '模板库' })).toBeHidden()
+    await expect(appStatus(page)).toContainText('14 个元素')
+
+    // 用 JSON 备份读回世界坐标：模板 13 个元素的包围盒必须与先画的
+    // 笔画包围盒不相交，否则用户分不清模板自带线条和自己画的内容。
+    await page.getByRole('button', { name: '文件', exact: true }).click()
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'JSON 备份', exact: true }).click()
+    const backup = JSON.parse((await downloadBuffer(await downloadPromise)).toString('utf8'))
+    const elements = backup.document.elements as BackupElement[]
+    const strokes = elements.filter((element) => element.type === 'stroke')
+    const templateElements = elements.filter((element) => element.type !== 'stroke')
+    expect(strokes).toHaveLength(1)
+    expect(templateElements).toHaveLength(13)
+
+    const strokeBounds = elementWorldBounds(strokes[0])
+    const templateBounds = templateElements
+      .map(elementWorldBounds)
+      .reduce((acc, bounds) => ({
+        left: Math.min(acc.left, bounds.left),
+        right: Math.max(acc.right, bounds.right),
+        top: Math.min(acc.top, bounds.top),
+        bottom: Math.max(acc.bottom, bounds.bottom),
+      }))
+    expect(boundsIntersect(strokeBounds, templateBounds)).toBe(false)
   })
 
   test('JSON 导出遵循 v5 备份协议', async ({ page }) => {
