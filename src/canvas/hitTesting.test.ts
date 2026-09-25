@@ -1,8 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { CanvasElement, CanvasLayer, ImageElement, ShapeElement } from '../store/types'
+import type {
+  CanvasElement,
+  CanvasLayer,
+  ImageElement,
+  ShapeElement,
+  TextElement,
+} from '../store/types'
 import {
   findSelectionHandleAtPoint,
   findTopmostElementAtPoint,
+  findTopmostTextElementInBounds,
   isElementHitAtPoint,
   mergeElementBounds,
 } from './hitTesting'
@@ -208,5 +215,62 @@ describe('canvas hit testing', () => {
         getBounds: bounds,
       })
     ).toMatchObject({ handle: 99, id: 'first', isRotate: true })
+  })
+})
+
+describe('findTopmostTextElementInBounds', () => {
+  function textElement(id: string, x: number, y: number, layerId = 'background'): TextElement {
+    return {
+      type: 'text',
+      id,
+      layerId,
+      x,
+      y,
+      width: 40,
+      height: 20,
+      content: id,
+      color: '#000',
+      fontSize: 14,
+    }
+  }
+
+  it('returns the topmost text element overlapping the given bounds', () => {
+    const node = shape('node', 0, 0)
+    const bottomLabel = textElement('bottom-label', 5, 5)
+    const topLabel = textElement('top-label', 10, 10, 'foreground')
+
+    expect(
+      findTopmostTextElementInBounds({
+        bounds: bounds(node),
+        elements: [node, bottomLabel, topLabel],
+        getBounds: bounds,
+      })
+    ).toMatchObject({ id: 'top-label' })
+  })
+
+  it('matches partially overlapping labels and ignores non-text elements', () => {
+    const node = shape('node', 0, 0, 'foreground')
+    const pokingLabel = textElement('poking-label', -20, 10, 'background')
+
+    expect(
+      findTopmostTextElementInBounds({
+        bounds: bounds(node),
+        elements: [pokingLabel, node],
+        getBounds: bounds,
+      })
+    ).toMatchObject({ id: 'poking-label' })
+  })
+
+  it('returns null when no text element intersects the bounds', () => {
+    const node = shape('node', 0, 0)
+    const distantLabel = textElement('distant-label', 200, 200)
+
+    expect(
+      findTopmostTextElementInBounds({
+        bounds: bounds(node),
+        elements: [node, distantLabel],
+        getBounds: bounds,
+      })
+    ).toBeNull()
   })
 })

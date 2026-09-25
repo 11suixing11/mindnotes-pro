@@ -65,6 +65,55 @@ test.describe('模板与导入导出', () => {
     )
   })
 
+  test('双击节点框体直接编辑节点文字而不是新建文本', async ({ page }) => {
+    await openApp(page)
+    await insertFlowchart(page)
+
+    const canvas = page.locator('#main-canvas')
+    const box = await canvas.boundingBox()
+    expect(box).not.toBeNull()
+    const zoom = await getFittedZoom(page)
+
+    // 先双击"开始"文字本身（命中区宽松），借原位编辑器的 textarea 左上角
+    // 量出该文本锚点的精确客户端坐标，避免手算视口适配的取整/居中误差。
+    await page.mouse.dblclick(
+      box!.x + box!.width / 2 + (280 - 322) * zoom,
+      box!.y + box!.height / 2 + (39 - 251) * zoom
+    )
+    const probe = page.locator('textarea')
+    await expect(probe).toHaveValue('开始')
+    const anchor = await probe.boundingBox()
+    expect(anchor).not.toBeNull()
+    await probe.press('Control+Enter')
+
+    // 模板把节点框体和文字存成两个元素。"开始"框体的命中区（padded AABB
+    // 205,5,150,68）远大于文字命中区（230,25,100,28 再外扩 12/zoom）。
+    // 取框体内、文字命中区之外的一点，确保双击命中的是 shape 本身，
+    // 走"框体转所属标签"的原位编辑路径而不是新建错位文本。
+    const labelAnchor = { x: 230, y: 25 }
+    const shapeOnlyPoint = { x: 210.6, y: 39 }
+    await page.mouse.dblclick(
+      anchor!.x + (shapeOnlyPoint.x - labelAnchor.x) * zoom,
+      anchor!.y + (shapeOnlyPoint.y - labelAnchor.y) * zoom
+    )
+
+    const nodeEditor = page.locator('textarea')
+    await expect(nodeEditor).toHaveValue('开始')
+    await expect(appStatus(page)).toContainText('13 个元素')
+
+    await nodeEditor.fill('起点')
+    await nodeEditor.press('Control+Enter')
+    await expect(appStatus(page)).toContainText('13 个元素')
+
+    await page.getByRole('button', { name: '文件', exact: true }).click()
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'JSON 备份', exact: true }).click()
+    const backup = JSON.parse((await downloadBuffer(await downloadPromise)).toString('utf8'))
+    expect(backup.document.elements).toEqual(
+      expect.arrayContaining([expect.objectContaining({ content: '起点' })])
+    )
+  })
+
   test('JSON 导出遵循 v5 备份协议', async ({ page }) => {
     await openApp(page)
     await insertFlowchart(page)

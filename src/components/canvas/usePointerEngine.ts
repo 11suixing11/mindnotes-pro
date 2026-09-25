@@ -595,6 +595,12 @@ export function usePointerEngine(opts: {
       getTool: () => useAppStore.getState().tool,
       setTool: (tool) => useAppStore.getState().setTool(tool),
       getElement: (id) => useAppStore.getState().idToElement.get(id),
+      getElements: () => {
+        const state = useAppStore.getState()
+        return getRenderableElements(state.elements, state.layers).filter((element) =>
+          isElementLayerEditable(element, state.layers)
+        )
+      },
       getViewBox: () => useViewStore.getState().viewBox,
       setViewBox: (viewBox) => useViewStore.getState().setViewBox(viewBox),
       getIsPanning: () => useViewStore.getState().isPanning,

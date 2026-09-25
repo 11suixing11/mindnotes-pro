@@ -1,6 +1,6 @@
 import type { Bounds } from '../core/geometry'
 import { distanceToSegmentSquared } from '../core/geometry'
-import type { CanvasElement, CanvasLayer, ImageElement } from '../core/model'
+import type { CanvasElement, CanvasLayer, ImageElement, TextElement } from '../core/model'
 
 export interface HitTestPoint {
   x: number
@@ -176,6 +176,35 @@ export function findTopmostElementAtPoint(options: HitTestOptions): HitTestResul
   for (let index = renderableElements.length - 1; index >= 0; index--) {
     const element = renderableElements[index]
     if (isHit(element)) return { id: element.id, element }
+  }
+  return null
+}
+
+export interface TextInBoundsOptions {
+  bounds: Bounds
+  elements: readonly CanvasElement[]
+  getBounds: (element: CanvasElement) => Bounds
+}
+
+/**
+ * Find the topmost text element whose bounds overlap the given bounds.
+ * Templates keep node shapes and their labels as separate elements, so a
+ * double-click on a shape body must route to the label it contains instead
+ * of creating a stray new text. Callers pass an already filtered element
+ * list (visible layers, editable layers).
+ */
+export function findTopmostTextElementInBounds(options: TextInBoundsOptions): TextElement | null {
+  const { bounds, elements, getBounds } = options
+  for (let index = elements.length - 1; index >= 0; index--) {
+    const element = elements[index]
+    if (element.type !== 'text') continue
+    const textBounds = getBounds(element)
+    const overlaps =
+      textBounds.x < bounds.x + bounds.w &&
+      textBounds.x + textBounds.w > bounds.x &&
+      textBounds.y < bounds.y + bounds.h &&
+      textBounds.y + textBounds.h > bounds.y
+    if (overlaps) return element
   }
   return null
 }

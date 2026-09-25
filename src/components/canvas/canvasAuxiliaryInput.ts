@@ -1,4 +1,5 @@
 import { worldToClient, zoomViewBoxAtScreenPoint } from '../../canvas/coordinates'
+import { findTopmostTextElementInBounds } from '../../canvas/hitTesting'
 import type { ViewBox } from '../../core/viewport'
 import type { CanvasElement, TextElement, ToolType } from '../../store/types'
 import { isInteractiveShortcutTarget } from '../../keyboard/shortcuts'
@@ -40,6 +41,7 @@ interface CanvasAuxiliaryInputOptions {
   getTool: () => ToolType
   setTool: (tool: ToolType) => void
   getElement: (id: string) => CanvasElement | undefined
+  getElements: () => CanvasElement[]
   getViewBox: () => ViewBox
   setViewBox: (viewBox: ViewBox) => void
   getIsPanning: () => boolean
@@ -72,6 +74,7 @@ export function createCanvasAuxiliaryInputHandlers(
     getTool,
     setTool,
     getElement,
+    getElements,
     getViewBox,
     setViewBox,
     getIsPanning,
@@ -168,6 +171,27 @@ export function createCanvasAuxiliaryInputHandlers(
       focusAfterStartingEdit()
     } else if (element.type === 'shape') {
       const bounds = getBounds(element)
+      // 模板把节点框体和标签存成两个元素，双击框体时应优先转入它自带的
+      // 标签原位编辑，而不是在形状中心新建一个错位的文本。
+      const overlappingText = findTopmostTextElementInBounds({
+        bounds,
+        elements: getElements(),
+        getBounds,
+      })
+      if (overlappingText) {
+        const screen = worldToClient({ x: overlappingText.x, y: overlappingText.y }, rect, viewBox)
+        startEditText(
+          overlappingText.x,
+          overlappingText.y,
+          screen.x,
+          screen.y,
+          overlappingText.color,
+          overlappingText
+        )
+        focusAfterStartingEdit()
+        return
+      }
+
       const textPosition = {
         x: bounds.x + bounds.w / 2,
         y: bounds.y + bounds.h / 2,

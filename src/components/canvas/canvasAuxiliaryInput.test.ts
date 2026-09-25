@@ -16,8 +16,10 @@ function createHarness(
   overrides: {
     tool?: ToolType
     element?: CanvasElement
+    elements?: CanvasElement[]
     position?: { x: number; y: number } | null
     bounds?: { x: number; y: number; w: number; h: number }
+    boundsById?: Record<string, { x: number; y: number; w: number; h: number }>
     viewBox?: { x: number; y: number; zoom: number }
   } = {}
 ) {
@@ -67,6 +69,7 @@ function createHarness(
     getTool: () => tool,
     setTool,
     getElement: () => overrides.element,
+    getElements: () => overrides.elements ?? [],
     getViewBox: () => viewBox,
     setViewBox,
     getIsPanning: () => false,
@@ -74,7 +77,8 @@ function createHarness(
     getEditCanvasRect: () => canvas.getBoundingClientRect(),
     getPosition: () => overrides.position ?? { x: 25, y: 35 },
     hitTest: () => overrides.element?.id ?? null,
-    getBounds: () => overrides.bounds ?? { x: 20, y: 30, w: 80, h: 40 },
+    getBounds: (element) =>
+      overrides.boundsById?.[element.id] ?? overrides.bounds ?? { x: 20, y: 30, w: 80, h: 40 },
     startEditText,
     focusTextEditor,
     scheduleRedraw,
@@ -259,5 +263,88 @@ describe('createCanvasAuxiliaryInputHandlers', () => {
 
     expect(startEditText).toHaveBeenCalledWith(60, 50, 110, 80, '#654321')
     expect(focusTextEditor).toHaveBeenCalledTimes(1)
+  })
+
+  it('edits the contained label when a shape with a text element is double-clicked', () => {
+    vi.useFakeTimers()
+    const element: ShapeElement = {
+      type: 'shape',
+      id: 'shape-1',
+      kind: 'rectangle',
+      x: 20,
+      y: 30,
+      w: 80,
+      h: 40,
+      color: '#654321',
+      size: 2,
+    }
+    const label: TextElement = {
+      type: 'text',
+      id: 'label-1',
+      x: 30,
+      y: 38,
+      width: 60,
+      height: 24,
+      content: '开始',
+      color: '#14532D',
+      fontSize: 18,
+    }
+    const { handlers, startEditText, focusTextEditor } = createHarness({
+      tool: 'select',
+      element,
+      elements: [element, label],
+      boundsById: {
+        'shape-1': { x: 20, y: 30, w: 80, h: 40 },
+        'label-1': { x: 30, y: 38, w: 60, h: 24 },
+      },
+      viewBox: { x: 10, y: 20, zoom: 2 },
+    })
+
+    handlers.onDoubleClick(new MouseEvent('dblclick'))
+    vi.advanceTimersByTime(50)
+
+    expect(startEditText).toHaveBeenCalledWith(30, 38, 50, 56, '#14532D', label)
+    expect(focusTextEditor).toHaveBeenCalledTimes(1)
+  })
+
+  it('still creates a centered label when no text overlaps the shape', () => {
+    vi.useFakeTimers()
+    const element: ShapeElement = {
+      type: 'shape',
+      id: 'shape-1',
+      kind: 'rectangle',
+      x: 20,
+      y: 30,
+      w: 80,
+      h: 40,
+      color: '#654321',
+      size: 2,
+    }
+    const elsewhere: TextElement = {
+      type: 'text',
+      id: 'label-1',
+      x: 500,
+      y: 500,
+      width: 60,
+      height: 24,
+      content: '远处',
+      color: '#14532D',
+      fontSize: 18,
+    }
+    const { handlers, startEditText } = createHarness({
+      tool: 'select',
+      element,
+      elements: [element, elsewhere],
+      boundsById: {
+        'shape-1': { x: 20, y: 30, w: 80, h: 40 },
+        'label-1': { x: 500, y: 500, w: 60, h: 24 },
+      },
+      viewBox: { x: 10, y: 20, zoom: 2 },
+    })
+
+    handlers.onDoubleClick(new MouseEvent('dblclick'))
+    vi.advanceTimersByTime(50)
+
+    expect(startEditText).toHaveBeenCalledWith(60, 50, 110, 80, '#654321')
   })
 })
