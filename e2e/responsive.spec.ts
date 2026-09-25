@@ -121,6 +121,16 @@ test('900px 与 1025px 只滚动中部工具，宽屏不显示溢出提示', asy
     await page.setViewportSize({ width, height: 700 })
     await resetToolbarScroll(page)
     await expect.poll(() => toolbarIsOverflowing(page)).toBe(true)
+    // 跨越 1024px 断点时 .pill-btn 的 all 0.22s 过渡会动画改变固定组宽度；
+    // 等宽度连续两次采样一致后再取基线，避免把动画中间态当作稳定位置。
+    const endGroup = page.locator('.toolbar-fixed-end')
+    await expect
+      .poll(async () => {
+        const first = (await endGroup.boundingBox())!.width
+        await page.waitForTimeout(150)
+        return (await endGroup.boundingBox())!.width - first
+      })
+      .toBe(0)
 
     const fixedStart = page.locator('.toolbar-fixed-start')
     const fixedEnd = page.locator('.toolbar-fixed-end')

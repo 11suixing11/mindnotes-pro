@@ -25,6 +25,15 @@ export function appStatus(page: Page) {
   return page.getByRole('status', { name: '应用状态' })
 }
 
+/**
+ * 状态栏常驻缩放读数（aria-label="缩放 N%，点击适应内容"）。
+ * 缩放控件在 v5.3 移入"画布更多"菜单后，这是唯一不抢焦点的实时读数，
+ * 文字编辑器打开时也能安全断言。
+ */
+export function zoomReadout(page: Page) {
+  return appStatus(page).getByRole('button', { name: /缩放 \d+%，点击适应内容/ })
+}
+
 export async function openApp(page: Page) {
   await page.goto('/')
   await expect(page.getByRole('region', { name: '交互式绘图画布' })).toBeVisible()

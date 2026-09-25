@@ -1,5 +1,13 @@
 import type { Page } from '@playwright/test'
-import { appStatus, downloadBuffer, expect, focusCanvas, openApp, test } from './helpers'
+import {
+  appStatus,
+  downloadBuffer,
+  expect,
+  focusCanvas,
+  openApp,
+  test,
+  zoomReadout,
+} from './helpers'
 
 async function exportBackup(page: Page) {
   await page.getByRole('button', { name: '文件', exact: true }).click()
@@ -77,10 +85,9 @@ test.describe('高级交互回归', () => {
 
     await page.mouse.move(900, 450)
     await page.mouse.wheel(0, -300)
-    await expect(page.getByRole('button', { name: /重置缩放/ })).toHaveAttribute(
-      'aria-label',
-      /110%/
-    )
+    // 缩放控件在 v5.3 移入"画布更多"菜单，改用状态栏常驻读数（不抢焦点，
+    // 不会让打开中的文字编辑器失焦提交）。
+    await expect(zoomReadout(page)).toHaveAttribute('aria-label', /缩放 110%/)
 
     const after = await editor.boundingBox()
     expect(after).not.toBeNull()
@@ -226,10 +233,7 @@ test.describe('高级交互回归', () => {
       ]
     )
 
-    await expect(page.getByRole('button', { name: /重置缩放/ })).toHaveAttribute(
-      'aria-label',
-      /200%/
-    )
+    await expect(zoomReadout(page)).toHaveAttribute('aria-label', /缩放 200%/)
     await expect(appStatus(page)).toContainText('1 个元素')
   })
 
@@ -263,14 +267,15 @@ test.describe('高级交互回归', () => {
   test('主题切换会实际刷新自定义背景上的画布纹理', async ({ page }) => {
     await openApp(page)
     await page.getByLabel('选择背景颜色').fill('#f0e0d0')
-    await page.getByRole('button', { name: '背景设置' }).click()
+    // v5.3 把背景样式与深浅色切换并入了"画布更多"菜单。
+    await page.getByRole('button', { name: '画布更多', exact: true }).click()
     await page.getByRole('menuitemradio', { name: '点阵' }).click()
     await page.waitForTimeout(50)
 
     const before = await page
       .locator('#main-canvas')
       .evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL())
-    await page.getByRole('button', { name: /切换到深色模式|切换到浅色模式/ }).click()
+    await page.getByRole('menuitemcheckbox', { name: /切换到深色模式|切换到浅色模式/ }).click()
     await page.waitForTimeout(50)
     const after = await page
       .locator('#main-canvas')

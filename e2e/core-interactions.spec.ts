@@ -1,5 +1,13 @@
 import type { Page } from '@playwright/test'
-import { appStatus, downloadBuffer, expect, focusCanvas, openApp, test } from './helpers'
+import {
+  appStatus,
+  downloadBuffer,
+  expect,
+  focusCanvas,
+  openApp,
+  test,
+  zoomReadout,
+} from './helpers'
 
 async function exportBackup(page: Page) {
   await page.getByRole('button', { name: '文件', exact: true }).click()
@@ -132,8 +140,10 @@ test.describe('核心编辑交互回归', () => {
     await page.mouse.move(820, 340, { steps: 6 })
     await page.mouse.up()
 
-    await page.getByRole('button', { name: '背景设置' }).click()
+    // v5.3 把背景样式并入了"画布更多"菜单。
+    await page.getByRole('button', { name: '画布更多', exact: true }).click()
     await page.getByRole('menuitemradio', { name: '点阵' }).click()
+    await page.keyboard.press('Escape')
     await focusCanvas(page)
     await page.keyboard.press('0')
     await expect(page.getByRole('button', { name: /^选择工具/ })).toHaveClass(/on/)
@@ -153,12 +163,13 @@ test.describe('核心编辑交互回归', () => {
 
   test('平移、滚轮缩放、Space 临时平移和右键拖动画布可用', async ({ page }) => {
     await openApp(page)
-    const zoomButton = page.getByRole('button', { name: /重置缩放/ })
-    await expect(zoomButton).toHaveAttribute('aria-label', /100%/)
+    // 缩放控件在 v5.3 移入"画布更多"菜单，改用状态栏常驻读数。
+    const zoomButton = zoomReadout(page)
+    await expect(zoomButton).toHaveAttribute('aria-label', /缩放 100%/)
 
     await page.mouse.move(900, 450)
     await page.mouse.wheel(0, -300)
-    await expect(zoomButton).toHaveAttribute('aria-label', /110%/)
+    await expect(zoomButton).toHaveAttribute('aria-label', /缩放 110%/)
 
     await page.getByRole('button', { name: /^平移工具/ }).click()
     await page.mouse.move(900, 450)
@@ -201,7 +212,8 @@ test.describe('核心编辑交互回归', () => {
     await page.getByRole('menuitemradio', { name: '荧光笔' }).click()
     await page.getByRole('button', { name: '颜色' }).click()
     await page.getByRole('button', { name: '蓝色' }).click()
-    await page.getByRole('button', { name: '粗 16像素' }).click()
+    // 线宽按钮在 radiogroup 内以 role="radio" 呈现。
+    await page.getByRole('radio', { name: '粗 16像素' }).click()
 
     await page.mouse.move(360, 260)
     await page.mouse.down()
