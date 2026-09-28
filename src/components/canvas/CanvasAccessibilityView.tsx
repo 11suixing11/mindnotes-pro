@@ -59,8 +59,15 @@ export function CanvasAccessibilityView({ onEditText }: CanvasAccessibilityViewP
     const element = getElement(id)
     if (!item || !element) return
 
-    if (event.key === 'F2' && element.type === 'text') {
+    // 元素列表按键语义（F2/方向键/Delete）与全局快捷键重叠，这里处理后
+    // 必须阻止冒泡，否则 window 上的快捷键处理器会再执行一次（双重移动等）。
+    const claim = () => {
       event.preventDefault()
+      event.stopPropagation()
+    }
+
+    if (event.key === 'F2' && element.type === 'text') {
+      claim()
       if (item.hidden || item.locked) {
         setActionStatus(`${item.label}无法编辑：${item.hidden ? '图层已隐藏' : '元素已锁定'}`)
         return
@@ -72,7 +79,7 @@ export function CanvasAccessibilityView({ onEditText }: CanvasAccessibilityViewP
     }
 
     if (NUDGE_KEYS.has(event.key)) {
-      event.preventDefault()
+      claim()
       if (item.hidden || item.locked) {
         setActionStatus(`${item.label}无法移动：${item.hidden ? '图层已隐藏' : '元素已锁定'}`)
         return
@@ -87,7 +94,7 @@ export function CanvasAccessibilityView({ onEditText }: CanvasAccessibilityViewP
     }
 
     if (event.key === 'Delete' || event.key === 'Backspace') {
-      event.preventDefault()
+      claim()
       if (item.hidden || item.locked) {
         setActionStatus(`${item.label}无法删除：${item.hidden ? '图层已隐藏' : '元素已锁定'}`)
         return
