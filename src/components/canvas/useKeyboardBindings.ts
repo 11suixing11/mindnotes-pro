@@ -26,7 +26,7 @@ export function useKeyboardBindings(options: KeyboardBindingOptions = {}) {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isInteractiveShortcutTarget(e.target)) return
+      if (isInteractiveShortcutTarget(e.target, e.key)) return
 
       if (handleEscapeShortcut(e)) return
 

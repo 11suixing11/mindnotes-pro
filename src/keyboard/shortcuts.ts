@@ -268,22 +268,29 @@ export function isEditableShortcutTarget(target: EventTarget | null): boolean {
   )
 }
 
+// 只有这些按键会原生激活按钮和链接；其余按键（如 Ctrl+Z）在按钮持有焦点时
+// 仍必须作为快捷键生效，否则点击工具栏按钮后焦点滞留会让快捷键全部失灵。
+const CONTROL_ACTIVATION_KEYS = new Set(['Enter', 'Space'])
+
 /**
  * Return whether a keyboard event originated in a control that owns normal
- * browser keyboard behaviour. Canvas-level shortcuts must not cancel these
- * events (for example, Space in a textarea or Space activating a button).
+ * browser keyboard behaviour. Editable controls always keep their keys; a
+ * focused button or link only keeps the keys that activate it (Enter/Space).
  *
  * The event target can be a descendant of the interactive control (such as an
  * SVG path inside a button), so walk up through its parent elements as well.
  */
-export function isInteractiveShortcutTarget(target: EventTarget | null): boolean {
+export function isInteractiveShortcutTarget(target: EventTarget | null, key?: string): boolean {
   let element = target as (HTMLElement & { parentElement: HTMLElement | null }) | null
   let editableBoundary = false
 
   while (element) {
     const tagName = element.tagName
     if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') return true
-    if (tagName === 'BUTTON' || tagName === 'A') return true
+    if (tagName === 'BUTTON' || tagName === 'A') {
+      // 未提供按键时保持保守（视为激活按键），供无法拿到 key 的调用方使用。
+      if (!key || CONTROL_ACTIVATION_KEYS.has(normalizeKey(key))) return true
+    }
 
     // jsdom and some browsers do not consistently expose isContentEditable for
     // an explicitly marked contenteditable element, so inspect the attribute

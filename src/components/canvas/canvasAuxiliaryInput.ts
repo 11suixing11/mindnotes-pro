@@ -109,7 +109,7 @@ export function createCanvasAuxiliaryInputHandlers(
       event.code !== 'Space' ||
       event.repeat ||
       !state.enabled ||
-      isInteractiveShortcutTarget(event.target)
+      isInteractiveShortcutTarget(event.target, event.key)
     ) {
       return
     }

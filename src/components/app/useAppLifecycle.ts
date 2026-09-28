@@ -42,7 +42,7 @@ export function useAppLifecycle(onToggleShortcuts: () => void): AppLifecycleStat
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (isInteractiveShortcutTarget(event.target)) return
+      if (isInteractiveShortcutTarget(event.target, event.key)) return
 
       const action = findShortcutAction(event, useShortcutStore.getState().bindings)
       if (action === 'help.shortcuts') {

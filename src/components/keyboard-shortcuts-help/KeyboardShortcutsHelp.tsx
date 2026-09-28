@@ -85,7 +85,7 @@ export default memo(function KeyboardShortcutsHelp({
   useEffect(() => {
     if (!visible) return
     const handler = (e: KeyboardEvent) => {
-      if (isInteractiveShortcutTarget(e.target)) return
+      if (isInteractiveShortcutTarget(e.target, e.key)) return
       const action = findShortcutAction(e, useShortcutStore.getState().bindings)
       if (action === 'help.shortcuts') {
         e.preventDefault()

@@ -131,7 +131,7 @@ describe('useKeyboardBindings', () => {
       if (moved.type !== 'shape') return
       expect(moved.x).toBe(1)
       expect(useAppStore.getState().undoStack).toHaveLength(1)
-      expect(getHistoryActionLabel(useAppStore.getState().undoStack[0])).toBe('Move element')
+      expect(getHistoryActionLabel(useAppStore.getState().undoStack[0])).toBe('移动元素')
 
       useAppStore.getState().undo()
       const restored = useAppStore.getState().elements[0]
@@ -442,14 +442,29 @@ describe('useKeyboardBindings', () => {
       undoSpy.mockRestore()
     })
 
-    it('does not consume shortcuts when a button or link has focus', () => {
+    it('keeps shortcuts working while a button holds focus', () => {
+      // 点击工具栏按钮后焦点会留在按钮上，快捷键必须照常触发，
+      // 否则 Ctrl+Z 会在任何按钮点击后失效。
       const undoSpy = vi.spyOn(useAppStore.getState(), 'undo')
       renderHook(() => useKeyboardBindings())
       const button = document.createElement('button')
       document.body.appendChild(button)
       button.focus()
       button.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }))
-      expect(undoSpy).not.toHaveBeenCalled()
+      expect(undoSpy).toHaveBeenCalled()
+      button.remove()
+      undoSpy.mockRestore()
+    })
+
+    it('leaves Space activation of a focused button to the browser', () => {
+      const undoSpy = vi.spyOn(useAppStore.getState(), 'undo')
+      renderHook(() => useKeyboardBindings())
+      const button = document.createElement('button')
+      document.body.appendChild(button)
+      button.focus()
+      const event = new KeyboardEvent('keydown', { key: ' ', ctrlKey: true, bubbles: true })
+      button.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(false)
       button.remove()
       undoSpy.mockRestore()
     })

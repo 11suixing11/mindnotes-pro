@@ -55,6 +55,18 @@ describe('keyboard shortcuts', () => {
       expect(isInteractiveShortcutTarget(document.createElement('div'))).toBe(false)
       expect(isInteractiveShortcutTarget(null)).toBe(false)
     })
+
+    it('yields buttons to the browser only for their activation keys', () => {
+      const button = document.createElement('button')
+      // Ctrl+Z 等快捷键在按钮持有焦点时必须继续生效
+      expect(isInteractiveShortcutTarget(button, 'z')).toBe(false)
+      expect(isInteractiveShortcutTarget(button, 'Delete')).toBe(false)
+      // Enter/Space 会原生激活按钮，仍让给浏览器
+      expect(isInteractiveShortcutTarget(button, 'Enter')).toBe(true)
+      expect(isInteractiveShortcutTarget(button, ' ')).toBe(true)
+      // 未传 key 时保持保守行为（视为激活按键）
+      expect(isInteractiveShortcutTarget(button)).toBe(true)
+    })
   })
 
   it('normalizes shifted punctuation as the printed key', () => {
