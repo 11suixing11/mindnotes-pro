@@ -81,7 +81,7 @@ describe('pointer session helpers', () => {
         [shape('a', 15), shape('b', 20)],
         new Map([['a', { x: 10, y: 20 }]])
       )
-    ).toEqual({ affectedIds: ['a'], label: 'Move element' })
+    ).toEqual({ affectedIds: ['a'], label: '移动元素' })
 
     expect(
       getDragHistoryDetails(
@@ -92,7 +92,7 @@ describe('pointer session helpers', () => {
           ['b', { x: 20, y: 20 }],
         ])
       )
-    ).toEqual({ affectedIds: ['a', 'b'], label: 'Move 2 elements' })
+    ).toEqual({ affectedIds: ['a', 'b'], label: '移动 2 个元素' })
   })
 
   it('creates resize and rotation snapshots without mutating current elements', () => {

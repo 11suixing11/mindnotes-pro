@@ -40,7 +40,7 @@ export function createAlignmentPlan(
     elements,
     elementIds,
     alignElements(elements, elementIds, alignment),
-    'Align elements'
+    '对齐元素'
   )
 }
 
@@ -53,7 +53,7 @@ export function createDistributionPlan(
     elements,
     elementIds,
     distributeElements(elements, elementIds, distribution),
-    'Distribute elements'
+    '等距分布'
   )
 }
 
@@ -126,10 +126,10 @@ export function createReorderPlan(
   mode: ElementReorderMode
 ): CanvasElementArrangementPlan | null {
   const labels: Record<ElementReorderMode, string> = {
-    front: 'Bring elements to front',
-    forward: 'Bring elements forward',
-    backward: 'Send elements backward',
-    back: 'Send elements to back',
+    front: '置于顶层',
+    forward: '上移一层',
+    backward: '下移一层',
+    back: '置于底层',
   }
   return createArrangementPlan(
     elements,

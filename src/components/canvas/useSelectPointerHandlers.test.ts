@@ -114,7 +114,7 @@ describe('useSelectPointerHandlers', () => {
     expect(useAppStore.getState().undoStack).toHaveLength(1)
     expect(useAppStore.getState().undoStack[0]).toMatchObject({
       type: 'snapshot',
-      label: 'Move element',
+      label: '移动元素',
       affectedIds: ['drag-shape'],
     })
   })

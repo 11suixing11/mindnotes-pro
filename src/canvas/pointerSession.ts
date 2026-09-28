@@ -258,7 +258,7 @@ export function getDragHistoryDetails(
 
   return {
     affectedIds,
-    label: draggedCount === 1 ? 'Move element' : `Move ${draggedCount} elements`,
+    label: draggedCount === 1 ? '移动元素' : `移动 ${draggedCount} 个元素`,
   }
 }
 

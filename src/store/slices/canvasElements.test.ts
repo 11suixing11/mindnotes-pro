@@ -272,7 +272,7 @@ describe('canvasElements slice', () => {
       const undoStack = useAppStore.getState().undoStack
       expect(undoStack).toHaveLength(1)
       expect(undoStack[0].type).toBe('move')
-      expect(getHistoryActionLabel(undoStack[0])).toBe('Move 2 elements')
+      expect(getHistoryActionLabel(undoStack[0])).toBe('移动 2 个元素')
 
       useAppStore.getState().undo()
       const afterUndo = useAppStore.getState().elements as ShapeElement[]

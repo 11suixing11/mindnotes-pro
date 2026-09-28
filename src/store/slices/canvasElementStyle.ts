@@ -380,7 +380,7 @@ export function createSelectionStylePlan(
         type: 'snapshot',
         before: snapshot(context.elements),
         after: snapshot(nextElements),
-        label: 'Style selected elements',
+        label: '修改所选样式',
         affectedIds: model.selectedIds,
       },
     },

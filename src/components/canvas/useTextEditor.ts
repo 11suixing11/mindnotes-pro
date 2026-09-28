@@ -345,9 +345,7 @@ export function useTextEditor(canvasRef: React.RefObject<HTMLCanvasElement | nul
           ...(patch.fontSize !== undefined ? { fontSize: format.fontSize } : {}),
           ...(patch.fontWeight !== undefined ? { fontWeight: format.fontWeight } : {}),
           ...(patch.fontStyle !== undefined ? { fontStyle: format.fontStyle } : {}),
-          ...(patch.textDecoration !== undefined
-            ? { textDecoration: format.textDecoration }
-            : {}),
+          ...(patch.textDecoration !== undefined ? { textDecoration: format.textDecoration } : {}),
           ...(patch.textAlign !== undefined ? { textAlign: format.textAlign } : {}),
           ...(Object.prototype.hasOwnProperty.call(patch, 'backgroundColor')
             ? { backgroundColor: format.backgroundColor }
@@ -425,7 +423,7 @@ export function useTextEditor(canvasRef: React.RefObject<HTMLCanvasElement | nul
               type: 'snapshot',
               before: snapshot(beforeElements),
               after: snapshot(finalElements),
-              label: activeEditingText.isNew ? 'Add text' : 'Edit text',
+              label: activeEditingText.isNew ? '添加文字' : '编辑文字',
               affectedIds: [activeEditingText.id],
             },
             clearRedo: true,

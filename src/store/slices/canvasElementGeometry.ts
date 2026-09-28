@@ -90,7 +90,7 @@ export function createMoveElementsPlan(
           type: 'snapshot',
           before: beforeSnapshot,
           after: snapshot(next),
-          label: elementIds.length === 1 ? 'Move element' : `Move ${elementIds.length} elements`,
+          label: elementIds.length === 1 ? '移动元素' : `移动 ${elementIds.length} 个元素`,
           affectedIds: [...affectedIds],
         }
       : {

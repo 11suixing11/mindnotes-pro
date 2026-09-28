@@ -29,7 +29,7 @@ describe('canvas element arrangement plans', () => {
 
     expect((plan?.elements[1] as ShapeElement).x).toBe(0)
     expect(plan?.action).toEqual(
-      expect.objectContaining({ type: 'snapshot', label: 'Align elements' })
+      expect.objectContaining({ type: 'snapshot', label: '对齐元素' })
     )
     expect(createAlignmentPlan(plan?.elements ?? [], ['left', 'right'], 'alignLeft')).toBeNull()
   })

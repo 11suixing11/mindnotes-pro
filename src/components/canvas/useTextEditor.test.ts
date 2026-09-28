@@ -369,7 +369,7 @@ describe('useTextEditor', () => {
       expect(useAppStore.getState().undoStack[0]).toEqual(
         expect.objectContaining({
           type: 'snapshot',
-          label: 'Edit text',
+          label: '编辑文字',
           affectedIds: ['text-undo'],
         })
       )
