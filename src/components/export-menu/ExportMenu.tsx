@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Download, FileJson, FileText, FileUp, Image as ImageIcon, Shapes } from 'lucide-react'
+import { Bot, Download, FileJson, FileText, FileUp, Image as ImageIcon, Shapes } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import { useThemeStore } from '../../store/useThemeStore'
 import { useToastStore } from '../../store/toastStore'
@@ -10,6 +10,7 @@ import { CANVAS_IMPORT_MAX_JSON_BYTES } from '../../store/importLimits'
 import { getRenderableElements } from '../../store/layers'
 import { useConfirm } from '../confirm-modal'
 import { useDialogFocus } from '../useDialogFocus'
+import { MermaidImportDialog } from '../mermaid-import'
 import { OPEN_FILE_EVENT, type OpenFileEventDetail } from '../../appEvents'
 import {
   canvasToBlob,
@@ -66,6 +67,7 @@ const ExportMenu = memo(function ExportMenu() {
   const fileRef = useRef<HTMLInputElement>(null)
   const opaqueRasterRef = useRef<Promise<RasterExport> | null>(null)
   const [showExport, setShowExport] = useState(false)
+  const [showMermaidImport, setShowMermaidImport] = useState(false)
   const [exportPos, setExportPos] = useState({ top: 0, right: 0 })
   const [jpegQuality, setJpegQuality] = useState(DEFAULT_JPEG_QUALITY)
   const [jpegEstimate, setJpegEstimate] = useState('待估算')
@@ -366,6 +368,27 @@ const ExportMenu = memo(function ExportMenu() {
                 {exports.slice(1).map(renderExportItem)}
               </div>
               <div className="dsep" />
+              <div className="em-section-title">AI 导入</div>
+              <div role="group" aria-label="AI 导入">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMermaidImport(true)
+                    closeExport()
+                  }}
+                  className="ditem"
+                  aria-label="粘贴 Mermaid 代码"
+                >
+                  <span className="di em-icon">
+                    <Bot size={16} />
+                  </span>
+                  <span className="em-labels">
+                    <span className="dl">粘贴 Mermaid 代码</span>
+                    <span className="dd">把豆包、ChatGPT 生成的流程图变成可编辑图形</span>
+                  </span>
+                </button>
+              </div>
+              <div className="dsep" />
               <div className="em-section-title">导入备份</div>
               <div role="group" aria-label="导入备份">
                 <button
@@ -391,6 +414,8 @@ const ExportMenu = memo(function ExportMenu() {
           </>,
           document.body
         )}
+
+      <MermaidImportDialog isOpen={showMermaidImport} onClose={() => setShowMermaidImport(false)} />
 
       <input
         ref={fileRef}

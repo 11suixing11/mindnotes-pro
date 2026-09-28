@@ -12,6 +12,7 @@ import {
 import { LoadingScreen } from './components/loading-screen'
 import { AppStatusBar } from './components/app/AppStatusBar'
 import { useAppLifecycle } from './components/app/useAppLifecycle'
+import { useMermaidPaste } from './components/app/useMermaidPaste'
 import FirstUseNotice from './components/app/FirstUseNotice'
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
   const handleShortcutsToggle = useCallback(() => setShortcutsOpen((open) => !open), [])
   const handleShortcutsClose = useCallback(() => setShortcutsOpen(false), [])
   const { canInstall, installApp } = useAppLifecycle(handleShortcutsToggle)
+  useMermaidPaste()
 
   if (!loaded) {
     return <LoadingScreen />
