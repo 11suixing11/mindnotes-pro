@@ -11,9 +11,9 @@ import {
   createRedoTransition,
   createUndoTransition,
   getAffectedElementIds,
+  MAX_HISTORY,
 } from './historyTransitions'
 
-export const MAX_HISTORY = 50
 const FOCUS_VISIBILITY_PADDING = 24
 
 function focusAffectedElements(

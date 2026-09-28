@@ -1,6 +1,8 @@
 import type { CanvasElement, CanvasWorkspaceMetadata, UndoAction } from '../types'
 import { applyMoveDelta, reverseMoveDelta, shallowClone, snapshot } from '../helpers'
 
+export const MAX_HISTORY = 50
+
 export interface HistoryTransition {
   elements: CanvasElement[]
   inverseAction: UndoAction

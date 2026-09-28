@@ -16,27 +16,11 @@ import {
   type SelectionStyleKey,
   type SelectionStylePatch,
 } from './canvasElementStyle'
+import { DEFAULT_BG_COLOR, DEFAULT_BG_STYLE } from './documentWorkspace'
 
 // 扩展颜色历史记录 - 基于 tldraw #1665 用户需求
 export const COLOR_HISTORY_KEY = 'mn-recent-colors'
 export const MAX_COLOR_HISTORY = 10
-
-// 清空画布会把背景一并重置到这两个默认值（见 canvasElementMutationActions.clearAll）。
-export const DEFAULT_BG_COLOR = '#ffffff'
-export const DEFAULT_BG_STYLE: CanvasBackgroundStyle = 'plain'
-
-/** 背景是否还带着用户自定义设置（贴图 / 颜色 / 样式）。字段缺失视为默认。 */
-export function backgroundNeedsReset(state: {
-  backgroundImage?: CanvasBackgroundImage | null
-  bgColor?: string
-  backgroundStyle?: CanvasBackgroundStyle
-}): boolean {
-  if (state.backgroundImage != null) return true
-  return (
-    (state.bgColor !== undefined && state.bgColor !== DEFAULT_BG_COLOR) ||
-    (state.backgroundStyle !== undefined && state.backgroundStyle !== DEFAULT_BG_STYLE)
-  )
-}
 
 export interface TextToolDefaults {
   fontSize: number

@@ -15,11 +15,7 @@ import {
   createElementUpdatePlan,
 } from './canvasElementMutations'
 import { appendUndoAction } from './canvasElementCommit'
-import {
-  backgroundNeedsReset,
-  DEFAULT_BG_COLOR,
-  DEFAULT_BG_STYLE,
-} from './toolSettings'
+import { backgroundNeedsReset, DEFAULT_BG_COLOR, DEFAULT_BG_STYLE } from './documentWorkspace'
 import { snapshot } from '../helpers'
 
 export interface UpdateElementOptions {

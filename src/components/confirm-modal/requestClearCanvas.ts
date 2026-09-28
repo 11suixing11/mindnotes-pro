@@ -1,5 +1,5 @@
 import type { ConfirmOptions } from './useConfirm'
-import { backgroundNeedsReset } from '../../store/slices/toolSettings'
+import { backgroundNeedsReset } from '../../store/slices/documentWorkspace'
 import { useAppStore } from '../../store/appStore'
 
 type ConfirmFn = (message: string, options?: Partial<ConfirmOptions>) => Promise<boolean>

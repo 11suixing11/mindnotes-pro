@@ -1,5 +1,5 @@
 import type { CanvasElement, UndoAction } from '../types'
-import { MAX_HISTORY } from './history'
+import { MAX_HISTORY } from './historyTransitions'
 
 export interface CommitElementsOptions {
   action?: UndoAction

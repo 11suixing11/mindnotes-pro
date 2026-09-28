@@ -1,4 +1,4 @@
-import type { CanvasElement } from '../store/types'
+import type { CanvasElement } from './model'
 
 /**
  * Mermaid → native canvas elements.
