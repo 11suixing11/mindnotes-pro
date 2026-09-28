@@ -1,5 +1,6 @@
 import type {
   CanvasBackgroundStyle,
+  CanvasBackgroundImage,
   CanvasDoc,
   CanvasElement,
   CanvasLayer,
@@ -14,6 +15,7 @@ export interface DocumentWorkspaceState {
   activeLayerId: string
   bgColor: string
   backgroundStyle: CanvasBackgroundStyle
+  backgroundImage?: CanvasBackgroundImage
   undoStack: UndoAction[]
   redoStack: UndoAction[]
 }
@@ -36,6 +38,7 @@ export function createDocumentWorkspaceState(
     activeLayerId: document?.activeLayerId ?? layers[0]?.id ?? createDefaultLayer().id,
     bgColor: document?.bgColor ?? '#ffffff',
     backgroundStyle: document?.backgroundStyle ?? 'plain',
+    backgroundImage: document?.backgroundImage,
     undoStack: history === 'document' ? (document?.undoStack ?? []) : [],
     redoStack: history === 'document' ? (document?.redoStack ?? []) : [],
   }

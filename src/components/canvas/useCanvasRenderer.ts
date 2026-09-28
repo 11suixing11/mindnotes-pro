@@ -11,9 +11,11 @@ import {
   drawSelBox,
   drawMonetGrid,
   drawCanvasBackground,
+  drawCanvasBackgroundImage,
   drawZoomLevel,
   drawGrid,
 } from '../../canvas/canvasDrawing'
+import { isDarkPaperColor } from '../../canvas/canvasBackground'
 import { getEraserWorldRadius } from '../../eraser/simpleEraser'
 import { normalizeCanvasMetrics, useCanvasRendererLifecycle } from './useCanvasRendererLifecycle'
 
@@ -217,7 +219,7 @@ export function useCanvasRenderer(
     ctx.scale(vb.zoom, vb.zoom)
     ctx.translate(-vb.x, -vb.y)
     if (st.backgroundStyle === 'plain') {
-      drawMonetGrid(ctx, vb, canvasSize, dark)
+      drawMonetGrid(ctx, vb, canvasSize, dark || isDarkPaperColor(st.bgColor))
     }
     const vl = vb.x,
       vt = vb.y,
@@ -278,6 +280,8 @@ export function useCanvasRenderer(
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, canvasSize.w, canvasSize.h)
     drawCanvasBackground(ctx, canvasSize, st.bgColor, dark, st.backgroundStyle, vb)
+    // 导入的背景图：铺在背景色之上、网格辅助线与元素之下
+    drawCanvasBackgroundImage(ctx, canvasSize, st.backgroundImage, vb)
     // Draw grid overlay if enabled
     if (ds.showGrid) {
       ctx.save()

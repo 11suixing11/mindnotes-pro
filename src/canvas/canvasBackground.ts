@@ -1,7 +1,76 @@
-import type { CanvasBackgroundStyle } from '../store/types'
+import type { CanvasBackgroundImage, CanvasBackgroundStyle } from '../store/types'
+import { getImage } from './canvasUtils'
 
 type ViewBox = { x: number; y: number; zoom: number }
 type CanvasSize = { w: number; h: number }
+
+export interface BackgroundViewport {
+  /** 可视区域宽度（屏幕像素） */
+  width: number
+  /** 可视区域高度（屏幕像素） */
+  height: number
+  /** 可视区域中心（世界坐标） */
+  centerX: number
+  centerY: number
+}
+
+/**
+ * 计算铺满当前可视区域的等比背景图矩形（世界坐标）。
+ * 视口宽高先换算成世界尺寸，再按“覆盖”取较大缩放比。
+ */
+export function computeBackgroundCoverRect(
+  viewport: BackgroundViewport,
+  imageWidth: number,
+  imageHeight: number,
+  zoom: number
+): { x: number; y: number; width: number; height: number } {
+  const safeZoom = Math.max(zoom, 0.01)
+  const worldWidth = Math.max(1, viewport.width) / safeZoom
+  const worldHeight = Math.max(1, viewport.height) / safeZoom
+  const scale = Math.max(worldWidth / imageWidth, worldHeight / imageHeight)
+  const width = imageWidth * scale
+  const height = imageHeight * scale
+  return {
+    x: viewport.centerX - width / 2,
+    y: viewport.centerY - height / 2,
+    width,
+    height,
+  }
+}
+
+/**
+ * 在背景色之上、元素之下绘制导入的背景图。
+ * fit='cover'：按导入时记录的世界矩形绘制；fit='tile'：以图片为单元平铺可视区域。
+ * 图片未就绪时返回，加载完成由现有 'image-loaded' 事件触发重绘。
+ */
+export function drawCanvasBackgroundImage(
+  ctx: CanvasRenderingContext2D,
+  canvasSize: CanvasSize,
+  backgroundImage: CanvasBackgroundImage | undefined,
+  viewBox: ViewBox = { x: 0, y: 0, zoom: 1 }
+) {
+  if (!backgroundImage) return
+  const img = getImage(backgroundImage.dataUrl)
+  if (!img?.complete || !img.naturalWidth) return
+
+  const zoom = Math.max(viewBox.zoom, 0.01)
+  ctx.save()
+  ctx.scale(zoom, zoom)
+  ctx.translate(-viewBox.x, -viewBox.y)
+
+  if (backgroundImage.fit === 'tile') {
+    const pattern = ctx.createPattern(img, 'repeat')
+    if (pattern) {
+      ctx.fillStyle = pattern
+      ctx.fillRect(viewBox.x, viewBox.y, canvasSize.w / zoom, canvasSize.h / zoom)
+    }
+  } else {
+    const { x = 0, y = 0, width, height } = backgroundImage
+    ctx.drawImage(img, x, y, width, height)
+  }
+
+  ctx.restore()
+}
 
 let cachedMonetGridPath: Path2D | null = null
 let cachedMonetGridParams: {
@@ -23,6 +92,23 @@ let cachedGridParams: {
   step: number
 } | null = null
 
+/**
+ * The paper color is user content: a dark custom background needs light
+ * ink/dots regardless of the chrome theme. Judges relative luminance of a
+ * hex color (#rgb / #rrggbb); unparseable values count as light.
+ */
+export function isDarkPaperColor(color: string): boolean {
+  const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim())
+  if (!match) return false
+  const hex = match[1].length === 3
+    ? match[1].split('').map((c) => c + c).join('')
+    : match[1]
+  const r = parseInt(hex.slice(0, 2), 16) / 255
+  const g = parseInt(hex.slice(2, 4), 16) / 255
+  const b = parseInt(hex.slice(4, 6), 16) / 255
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.4
+}
+
 export function drawMonetGrid(
   ctx: CanvasRenderingContext2D,
   viewBox: ViewBox,
@@ -37,10 +123,10 @@ export function drawMonetGrid(
   const ex = viewBox.x + canvasSize.w / viewBox.zoom
   const ey = viewBox.y + canvasSize.h / viewBox.zoom
   const dotSize = Math.max(0.8, 1.2 / viewBox.zoom)
-  const alpha = Math.min(0.12, 0.06 + (viewBox.zoom - 0.3) * 0.03)
+  const alpha = Math.min(0.2, 0.1 + (viewBox.zoom - 0.3) * 0.05)
 
   ctx.save()
-  ctx.fillStyle = isDarkMode ? `rgba(160,150,180,${alpha})` : `rgba(155,142,127,${alpha})`
+  ctx.fillStyle = isDarkMode ? `rgba(190,170,150,${alpha})` : `rgba(155,142,127,${alpha})`
 
   const currentParams = {
     startX: sx,
@@ -91,8 +177,9 @@ export function drawCanvasBackground(
   if (backgroundStyle === 'plain') return
 
   const zoom = Math.max(viewBox.zoom, 0.01)
-  const lineColor = isDarkMode ? 'rgba(200, 190, 220, 0.16)' : 'rgba(86, 104, 128, 0.16)'
-  const dotColor = isDarkMode ? 'rgba(210, 200, 225, 0.28)' : 'rgba(76, 92, 112, 0.28)'
+  const darkPaper = isDarkMode || isDarkPaperColor(bgColor)
+  const lineColor = darkPaper ? 'rgba(214, 200, 182, 0.16)' : 'rgba(122, 105, 88, 0.16)'
+  const dotColor = darkPaper ? 'rgba(222, 208, 190, 0.3)' : 'rgba(122, 105, 88, 0.3)'
 
   const screenOffset = (worldOffset: number, spacing: number) => {
     const raw = (worldOffset - viewBox.x) * zoom

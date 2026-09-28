@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CanvasElement, CanvasLayer, ShapeElement, UndoAction } from '../types'
+import type {
+  CanvasBackgroundImage,
+  CanvasBackgroundStyle,
+  CanvasElement,
+  CanvasLayer,
+  ShapeElement,
+  UndoAction,
+} from '../types'
 import { createCanvasElementMutationActions } from './canvasElementMutationActions'
 
 vi.mock('../saveManager', () => ({
@@ -34,6 +41,9 @@ interface HarnessState {
   idToIndex: Map<string, number>
   undoStack: UndoAction[]
   redoStack: UndoAction[]
+  bgColor?: string
+  backgroundStyle?: CanvasBackgroundStyle
+  backgroundImage?: CanvasBackgroundImage | null
 }
 
 function createHarness(initial: Partial<HarnessState> = {}) {
@@ -282,5 +292,29 @@ describe('canvas element mutation actions', () => {
     )
     expect(context.replaceElementCollection).toHaveBeenCalledWith([], expect.anything())
     expect(incrementSaveGeneration).toHaveBeenCalledOnce()
+  })
+
+  it('resets background image, color and style when clearing', () => {
+    const backgroundImage = { dataUrl: 'data:image/png;base64,x' } as CanvasBackgroundImage
+    const { state, actions } = createHarness({
+      elements: [],
+      backgroundImage,
+      bgColor: '#232733',
+      backgroundStyle: 'ruled',
+    })
+
+    expect(actions.clearAll()).toBe(true)
+    expect(state.bgColor).toBe('#ffffff')
+    expect(state.backgroundStyle).toBe('plain')
+    expect(state.backgroundImage).toBeUndefined()
+    expect(scheduleSave).toHaveBeenCalledOnce()
+  })
+
+  it('keeps a pristine background untouched and reports nothing to clear', () => {
+    const { context, actions } = createHarness({ elements: [] })
+
+    expect(actions.clearAll()).toBe(false)
+    expect(context.set).not.toHaveBeenCalled()
+    expect(scheduleSave).not.toHaveBeenCalled()
   })
 })

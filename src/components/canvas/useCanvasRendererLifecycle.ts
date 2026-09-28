@@ -133,12 +133,19 @@ export function useCanvasRendererLifecycle(options: UseCanvasRendererLifecycleOp
   useEffect(() => {
     let previousColor = useAppStore.getState().bgColor
     let previousStyle = useAppStore.getState().backgroundStyle
+    let previousBackgroundImage = useAppStore.getState().backgroundImage
     const unsubscribeBackground = useAppStore.subscribe((state) => {
-      if (state.bgColor === previousColor && state.backgroundStyle === previousStyle) return
+      if (
+        state.bgColor === previousColor &&
+        state.backgroundStyle === previousStyle &&
+        state.backgroundImage === previousBackgroundImage
+      )
+        return
 
       const plainLayerChanged = (state.backgroundStyle === 'plain') !== (previousStyle === 'plain')
       previousColor = state.bgColor
       previousStyle = state.backgroundStyle
+      previousBackgroundImage = state.backgroundImage
       if (plainLayerChanged) elementsDirtyRef.current = true
       scheduleRedraw()
     })

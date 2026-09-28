@@ -54,16 +54,16 @@ function isBoundsVisibleInCurrentView(bounds: { x: number; y: number; w: number;
 }
 
 function getElementActionLabel(element?: CanvasElement): string {
-  if (!element) return 'Update element'
+  if (!element) return '更新元素'
 
-  if (element.type === 'stroke') return 'Draw stroke'
-  if (element.type === 'text') return 'Add text'
-  if (element.type === 'image') return 'Insert image'
-  if (element.kind === 'rectangle') return 'Draw rectangle'
-  if (element.kind === 'circle') return 'Draw circle'
-  if (element.kind === 'line') return 'Draw line'
-  if (element.kind === 'arrow') return 'Draw arrow'
-  return 'Add shape'
+  if (element.type === 'stroke') return '绘制笔画'
+  if (element.type === 'text') return '添加文字'
+  if (element.type === 'image') return '插入图片'
+  if (element.kind === 'rectangle') return '绘制矩形'
+  if (element.kind === 'circle') return '绘制圆形'
+  if (element.kind === 'line') return '绘制直线'
+  if (element.kind === 'arrow') return '绘制箭头'
+  return '添加形状'
 }
 
 export function getHistoryActionLabel(action: UndoAction): string {
@@ -71,31 +71,25 @@ export function getHistoryActionLabel(action: UndoAction): string {
     case 'add':
       return action.els?.length === 1
         ? getElementActionLabel(action.els[0])
-        : `Add ${action.ids.length} elements`
+        : `添加 ${action.ids.length} 个元素`
     case 'remove':
-      return action.items.length === 1 ? 'Delete element' : `Delete ${action.items.length} elements`
+      return action.items.length === 1 ? '删除元素' : `删除 ${action.items.length} 个元素`
     case 'clear':
-      return 'Clear canvas'
+      return '清空画布'
     case 'snapshot':
       return action.label
     case 'move':
-      return action.deltas.length === 1 ? 'Move element' : `Move ${action.deltas.length} elements`
+      return action.deltas.length === 1 ? '移动元素' : `移动 ${action.deltas.length} 个元素`
     case 'erase':
-      return 'Erase stroke'
+      return '擦除笔画'
     case 'group':
-      return `Group ${action.elementIds.length} elements`
+      return `组合 ${action.elementIds.length} 个元素`
     case 'ungroup':
-      return action.groupIds.length === 1
-        ? 'Ungroup elements'
-        : `Ungroup ${action.groupIds.length} groups`
+      return action.groupIds.length === 1 ? '取消组合' : `取消组合 ${action.groupIds.length} 组`
     case 'lock':
-      return action.elementIds.length === 1
-        ? 'Lock element'
-        : `Lock ${action.elementIds.length} elements`
+      return action.elementIds.length === 1 ? '锁定元素' : `锁定 ${action.elementIds.length} 个元素`
     case 'unlock':
-      return action.elementIds.length === 1
-        ? 'Unlock element'
-        : `Unlock ${action.elementIds.length} elements`
+      return action.elementIds.length === 1 ? '解锁元素' : `解锁 ${action.elementIds.length} 个元素`
   }
 }
 
@@ -104,9 +98,8 @@ export function getHistoryFeedbackMessage(
   action: UndoAction,
   stepsRemaining: number
 ): string {
-  const historyName = direction === 'Undo' ? 'undo' : 'redo'
-  const stepLabel = stepsRemaining === 1 ? 'step' : 'steps'
-  return `${direction}: ${getHistoryActionLabel(action)} · ${stepsRemaining} ${historyName} ${stepLabel} left`
+  const historyName = direction === 'Undo' ? '撤销' : '重做'
+  return `${historyName}：${getHistoryActionLabel(action)} · 还可${historyName} ${stepsRemaining} 步`
 }
 
 function showHistoryFeedback(
@@ -165,6 +158,7 @@ function createWorkspaceHistoryPatch(
               activeLayerId: workspace.activeLayerId,
               bgColor: workspace.bgColor,
               backgroundStyle: workspace.backgroundStyle,
+              backgroundImage: workspace.backgroundImage,
               updatedAt: Date.now(),
               undoStack,
               redoStack,
@@ -180,6 +174,7 @@ function createWorkspaceHistoryPatch(
     activeLayerId: workspace.activeLayerId,
     bgColor: workspace.bgColor,
     backgroundStyle: workspace.backgroundStyle,
+    backgroundImage: workspace.backgroundImage,
     selectedIds: [],
   }
 }

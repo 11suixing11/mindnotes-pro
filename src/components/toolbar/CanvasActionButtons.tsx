@@ -12,11 +12,13 @@ import {
   ZoomOut,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
+import { computeBackgroundCoverRect } from '../../canvas/canvasBackground'
 import { sanitizeImageDataUrl } from '../../canvas/svgSanitizer'
 import { useAppStore } from '../../store/appStore'
+import { CANVAS_IMPORT_MAX_IMAGE_DATA_URL_LENGTH } from '../../store/importLimits'
 import { createRuntimeId } from '../../store/runtimeId'
 import { useThemeStore } from '../../store/useThemeStore'
-import type { CanvasBackgroundStyle } from '../../store/types'
+import type { CanvasBackgroundImage, CanvasBackgroundStyle } from '../../store/types'
 import { useViewStore } from '../../store/useViewStore'
 import { useToastStore } from '../../store/toastStore'
 import { getMainCanvas, getVisibleCanvasViewport } from '../canvas/viewport'
@@ -82,13 +84,23 @@ const CanvasActionButtons = memo(function CanvasActionButtons({
   const [showMore, setShowMore] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [menuPos, setMenuPos] = useState({ top: 0, right: 8 })
-  const { canvasBg, setCanvasBg, backgroundStyle, setBackgroundStyle, addElement } = useAppStore(
+  const {
+    canvasBg,
+    setCanvasBg,
+    backgroundStyle,
+    setBackgroundStyle,
+    addElement,
+    backgroundImage,
+    commitBackgroundImage,
+  } = useAppStore(
     useShallow((state) => ({
       canvasBg: state.bgColor,
       setCanvasBg: state.setBgColor,
       backgroundStyle: state.backgroundStyle,
       setBackgroundStyle: state.setBackgroundStyle,
       addElement: state.addElement,
+      backgroundImage: state.backgroundImage,
+      commitBackgroundImage: state.commitBackgroundImage,
     }))
   )
   const {
@@ -120,6 +132,7 @@ const CanvasActionButtons = memo(function CanvasActionButtons({
 
   const imgRef = useRef<HTMLInputElement>(null)
   const bgRef = useRef<HTMLInputElement>(null)
+  const bgImageRef = useRef<HTMLInputElement>(null)
   const moreBtnRef = useRef<HTMLButtonElement>(null)
   const closeMoreMenu = useCallback(() => setShowMore(false), [])
   const moreMenuRef = useDialogFocus<HTMLDivElement>({ open: showMore, onClose: closeMoreMenu })
@@ -184,6 +197,83 @@ const CanvasActionButtons = memo(function CanvasActionButtons({
     },
     [addElement, toast]
   )
+
+  const importBackgroundImage = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = () => {
+        const safeDataUrl = sanitizeImageDataUrl(reader.result as string)
+        if (!safeDataUrl) {
+          toast('图片格式不受支持', 'error')
+          return
+        }
+        if (safeDataUrl.length > CANVAS_IMPORT_MAX_IMAGE_DATA_URL_LENGTH) {
+          toast('背景图片过大，请压缩后再试', 'error')
+          return
+        }
+        const image = new Image()
+        image.onload = () => {
+          const canvas = getMainCanvas()
+          const viewport = canvas ? getVisibleCanvasViewport(canvas) : null
+          const rect = viewport
+            ? computeBackgroundCoverRect(viewport, image.width, image.height, zoom)
+            : null
+          const next: CanvasBackgroundImage = rect
+            ? { dataUrl: safeDataUrl, fit: 'cover', ...rect }
+            : { dataUrl: safeDataUrl, fit: 'tile', width: image.width, height: image.height }
+          commitBackgroundImage(next, '导入背景图片')
+          toast('已导入背景图片', 'success')
+          closeMoreMenu()
+        }
+        image.onerror = () => toast('图片加载失败', 'error')
+        image.src = safeDataUrl
+      }
+      reader.onerror = () => toast('图片读取失败，请重试', 'error')
+      reader.readAsDataURL(file)
+      event.target.value = ''
+    },
+    [closeMoreMenu, commitBackgroundImage, toast, zoom]
+  )
+
+  const changeBackgroundFit = useCallback(
+    (fit: CanvasBackgroundImage['fit']) => {
+      if (!backgroundImage || backgroundImage.fit === fit) return
+      if (fit === 'tile') {
+        commitBackgroundImage(
+          {
+            dataUrl: backgroundImage.dataUrl,
+            fit: 'tile',
+            width: backgroundImage.width,
+            height: backgroundImage.height,
+          },
+          '切换背景图放置方式'
+        )
+        return
+      }
+      const canvas = getMainCanvas()
+      if (!canvas) return
+      const viewport = getVisibleCanvasViewport(canvas)
+      const rect = computeBackgroundCoverRect(
+        viewport,
+        backgroundImage.width,
+        backgroundImage.height,
+        zoom
+      )
+      commitBackgroundImage(
+        { dataUrl: backgroundImage.dataUrl, fit: 'cover', ...rect },
+        '切换背景图放置方式'
+      )
+    },
+    [backgroundImage, commitBackgroundImage, zoom]
+  )
+
+  const removeBackgroundImage = useCallback(() => {
+    if (!backgroundImage) return
+    commitBackgroundImage(null, '移除背景图片')
+    closeMoreMenu()
+  }, [backgroundImage, closeMoreMenu, commitBackgroundImage])
 
   const toggleFullscreen = useCallback(() => {
     const request = async () => {
@@ -311,6 +401,44 @@ const CanvasActionButtons = memo(function CanvasActionButtons({
                 type="button"
                 className="toolbar-menu-item"
                 role="menuitem"
+                onClick={() => bgImageRef.current?.click()}
+              >
+                导入背景图片…
+              </button>
+              {backgroundImage && (
+                <>
+                  <div className="canvas-more-grid-sizes" role="group" aria-label="背景图放置方式">
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={backgroundImage.fit === 'cover'}
+                      onClick={() => changeBackgroundFit('cover')}
+                    >
+                      铺满当前视图
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={backgroundImage.fit === 'tile'}
+                      onClick={() => changeBackgroundFit('tile')}
+                    >
+                      平铺
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="toolbar-menu-item"
+                    role="menuitem"
+                    onClick={removeBackgroundImage}
+                  >
+                    移除背景图片
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                className="toolbar-menu-item"
+                role="menuitem"
                 onClick={() => bgRef.current?.click()}
               >
                 自定义背景色
@@ -324,7 +452,11 @@ const CanvasActionButtons = memo(function CanvasActionButtons({
                 aria-checked={isDarkMode}
                 onClick={toggleTheme}
               >
-                {isDarkMode ? <Sun size={15} aria-hidden="true" /> : <Moon size={15} aria-hidden="true" />}
+                {isDarkMode ? (
+                  <Sun size={15} aria-hidden="true" />
+                ) : (
+                  <Moon size={15} aria-hidden="true" />
+                )}
                 {isDarkMode ? '切换到浅色模式' : '切换到深色模式'}
               </button>
               <button
@@ -368,6 +500,16 @@ const CanvasActionButtons = memo(function CanvasActionButtons({
         aria-label="选择图片文件"
         accept="image/*"
         onChange={importImage}
+        className="absolute w-0 h-0 opacity-0 pointer-events-none"
+      />
+      <input
+        ref={bgImageRef}
+        type="file"
+        tabIndex={-1}
+        aria-hidden="true"
+        aria-label="选择背景图片文件"
+        accept="image/*"
+        onChange={importBackgroundImage}
         className="absolute w-0 h-0 opacity-0 pointer-events-none"
       />
       <input

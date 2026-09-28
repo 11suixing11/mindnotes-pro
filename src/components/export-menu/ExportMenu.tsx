@@ -55,6 +55,7 @@ function getExportContext(): ExportContext {
     activeLayerId: state.activeLayerId,
     bgColor: state.bgColor,
     backgroundStyle: state.backgroundStyle,
+    backgroundImage: state.backgroundImage,
   }
   return {
     doc,
@@ -82,6 +83,7 @@ const ExportMenu = memo(function ExportMenu() {
       const rendered = await renderDocumentToCanvas(context.visibleElements, {
         bgColor: context.doc.bgColor,
         backgroundStyle: context.doc.backgroundStyle,
+        backgroundImage: context.doc.backgroundImage,
         isDarkMode,
         transparent,
         maxPixels: transparent ? undefined : LOSSY_EXPORT_MAX_PIXELS,
@@ -176,6 +178,7 @@ const ExportMenu = memo(function ExportMenu() {
       isDarkMode,
       backgroundColor: doc.bgColor,
       backgroundStyle: doc.backgroundStyle,
+      backgroundImage: doc.backgroundImage,
     })
     download(new Blob([svg], { type: 'image/svg+xml' }), buildExportFilename(doc, 'svg'))
     showToast('SVG 导出成功', 'success')

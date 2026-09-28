@@ -38,6 +38,9 @@ function isCanvasDoc(value: unknown): value is CanvasDoc {
     (value.activeLayerId === undefined || typeof value.activeLayerId === 'string') &&
     typeof value.bgColor === 'string' &&
     (value.backgroundStyle === undefined || typeof value.backgroundStyle === 'string') &&
+    // 背景图只做浅校验：格式异常时宁可带着图失败渲染，也不丢弃整份恢复草稿
+    (value.backgroundImage === undefined ||
+      (isRecord(value.backgroundImage) && typeof value.backgroundImage.dataUrl === 'string')) &&
     (value.folderId === undefined ||
       value.folderId === null ||
       typeof value.folderId === 'string') &&

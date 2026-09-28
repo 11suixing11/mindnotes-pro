@@ -10,7 +10,12 @@ import {
 
 export { drawImageEl, drawShapeEl, drawTextEl } from './elementRenderers'
 export { drawSelBox, drawZoomLevel } from './canvasOverlays'
-export { drawCanvasBackground, drawGrid, drawMonetGrid } from './canvasBackground'
+export {
+  drawCanvasBackground,
+  drawCanvasBackgroundImage,
+  drawGrid,
+  drawMonetGrid,
+} from './canvasBackground'
 export { drawStrokeEl, drawStrokeRaw } from './strokeRenderer'
 
 // Shape, text, and image rotation remains centralized in the shared dispatcher.

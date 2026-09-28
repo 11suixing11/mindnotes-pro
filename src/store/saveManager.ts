@@ -1,5 +1,6 @@
 import type {
   CanvasBackgroundStyle,
+  CanvasBackgroundImage,
   CanvasDoc,
   CanvasElement,
   CanvasLayer,
@@ -19,6 +20,7 @@ interface StoreRef {
     activeLayerId: string
     bgColor: string
     backgroundStyle: CanvasBackgroundStyle
+    backgroundImage?: CanvasBackgroundImage
     undoStack: UndoAction[]
     redoStack: UndoAction[]
     saveStatus: string
@@ -165,6 +167,7 @@ function createRecoveryDocument(state: StoreState): CanvasDoc | null {
     activeLayerId: state.activeLayerId,
     bgColor: state.bgColor,
     backgroundStyle: state.backgroundStyle,
+    backgroundImage: state.backgroundImage,
     folderId: currentStateDoc?.folderId ?? null,
     createdAt: currentStateDoc?.createdAt ?? Date.now(),
     updatedAt: Date.now(),
@@ -292,6 +295,7 @@ async function persistCurrentDocument(): Promise<boolean> {
     activeLayerId,
     bgColor,
     backgroundStyle,
+    backgroundImage,
     undoStack,
     redoStack,
   } = state
@@ -322,6 +326,7 @@ async function persistCurrentDocument(): Promise<boolean> {
         activeLayerId,
         bgColor,
         backgroundStyle,
+        backgroundImage,
         folderId: currentStateDoc?.folderId ?? existing?.folderId ?? null,
         createdAt: currentStateDoc?.createdAt ?? existing?.createdAt ?? now,
         updatedAt: now,

@@ -540,6 +540,60 @@ describe('buildSVGString', () => {
 
   // ── mixed elements ──────────────────────────────────────────────────────
 
+  describe('background image', () => {
+    it('embeds a cover background image at its world rect', () => {
+      const svg = buildSVGString([], {
+        width: W,
+        height: H,
+        backgroundColor: '#ffffff',
+        backgroundImage: {
+          dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+          fit: 'cover',
+          x: -20,
+          y: -30,
+          width: 900,
+          height: 700,
+        },
+      })
+      expect(svg).toContain(
+        '<image href="data:image/png;base64,iVBORw0KGgo=" x="-20" y="-30" width="900" height="700" preserveAspectRatio="none"/>'
+      )
+    })
+
+    it('tiles a background image through an SVG pattern', () => {
+      const svg = buildSVGString([], {
+        width: W,
+        height: H,
+        backgroundColor: '#ffffff',
+        backgroundImage: {
+          dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+          fit: 'tile',
+          width: 64,
+          height: 32,
+        },
+      })
+      expect(svg).toContain('id="canvas-background-image"')
+      expect(svg).toContain('width="64" height="32" patternUnits="userSpaceOnUse"')
+      expect(svg).toContain('fill="url(#canvas-background-image)"')
+    })
+
+    it('drops a background image whose data URL fails sanitization', () => {
+      const svg = buildSVGString([], {
+        width: W,
+        height: H,
+        backgroundColor: '#ffffff',
+        backgroundImage: {
+          dataUrl: 'javascript:alert(1)',
+          fit: 'tile',
+          width: 64,
+          height: 64,
+        },
+      })
+      expect(svg).not.toContain('canvas-background-image')
+      expect(svg).not.toContain('javascript:alert(1)')
+    })
+  })
+
   describe('mixed elements', () => {
     it('should render multiple elements in order', () => {
       const els: CanvasElement[] = [

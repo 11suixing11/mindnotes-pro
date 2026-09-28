@@ -136,6 +136,21 @@ export interface CanvasWorkspaceMetadata {
   activeLayerId: string
   bgColor: string
   backgroundStyle: CanvasBackgroundStyle
+  backgroundImage?: CanvasBackgroundImage
+}
+
+/**
+ * 用户导入的画布背景图片。对象视为不可变，更新时整体替换引用。
+ * fit='cover' 时以世界坐标矩形 (x, y, width, height) 铺满导入时的可视区域；
+ * fit='tile' 时以 (width, height) 为平铺单元（导入时记录图片自然尺寸）。
+ */
+export interface CanvasBackgroundImage {
+  dataUrl: string
+  fit: 'cover' | 'tile'
+  x?: number
+  y?: number
+  width: number
+  height: number
 }
 
 export type UndoAction =
@@ -177,6 +192,7 @@ export interface CanvasDoc {
   activeLayerId?: string
   bgColor: string
   backgroundStyle?: CanvasBackgroundStyle
+  backgroundImage?: CanvasBackgroundImage
   folderId: string | null
   createdAt: number
   updatedAt: number

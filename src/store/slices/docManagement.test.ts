@@ -703,7 +703,7 @@ describe('docManagement slice', () => {
         useAppStore.getState().undoStack[useAppStore.getState().undoStack.length - 1]
       expect(importAction).toMatchObject({
         type: 'snapshot',
-        label: 'Import canvas',
+        label: '导入画布',
         workspace: {
           before: { title: '原始画布' },
           after: { title: '导入后' },

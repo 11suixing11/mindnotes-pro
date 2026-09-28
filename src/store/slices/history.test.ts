@@ -107,7 +107,7 @@ describe('history slice', () => {
       useAppStore.getState().undo()
 
       const toasts = useToastStore.getState().toasts
-      expect(toasts[toasts.length - 1]?.message).toBe('Undo: Draw rectangle · 1 undo step left')
+      expect(toasts[toasts.length - 1]?.message).toBe('撤销：绘制矩形 · 还可撤销 1 步')
     })
   })
 
@@ -187,7 +187,7 @@ describe('history slice', () => {
       useAppStore.getState().redo()
 
       const toasts = useToastStore.getState().toasts
-      expect(toasts[toasts.length - 1]?.message).toBe('Redo: Draw rectangle · 0 redo steps left')
+      expect(toasts[toasts.length - 1]?.message).toBe('重做：绘制矩形 · 还可重做 0 步')
     })
   })
 
@@ -199,7 +199,7 @@ describe('history slice', () => {
           { type: 'remove', items: [{ el: makeStroke('s1'), index: 0 }] },
           0
         )
-      ).toBe('Undo: Delete element · 0 undo steps left')
+      ).toBe('撤销：删除元素 · 还可撤销 0 步')
 
       expect(
         getHistoryFeedbackMessage(
@@ -207,7 +207,7 @@ describe('history slice', () => {
           { type: 'move', deltas: [{ id: 's1', dx: 10, dy: 5 }] },
           2
         )
-      ).toBe('Redo: Move element · 2 redo steps left')
+      ).toBe('重做：移动元素 · 还可重做 2 步')
     })
   })
 
@@ -256,11 +256,52 @@ describe('history slice', () => {
       expect(useAppStore.getState().undoStack).toHaveLength(1)
       expect(useAppStore.getState().undoStack[0].type).toBe('add')
     })
-
     it('clears redo stack when pushing undo', () => {
       useAppStore.setState({ redoStack: [{ type: 'add', ids: ['x'] }] })
       useAppStore.getState().pushUndo({ type: 'add', ids: ['y'] })
       expect(useAppStore.getState().redoStack).toHaveLength(0)
+    })
+  })
+
+  describe('background image changes', () => {
+    it('undo restores the previous background and redo reapplies it', () => {
+      const backgroundImage = {
+        dataUrl: 'data:image/png;base64,AAA',
+        fit: 'cover' as const,
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 80,
+      }
+
+      useAppStore.getState().commitBackgroundImage(backgroundImage, '导入背景图片')
+      expect(useAppStore.getState().backgroundImage).toEqual(backgroundImage)
+
+      useAppStore.getState().undo()
+      expect(useAppStore.getState().backgroundImage).toBeUndefined()
+
+      useAppStore.getState().redo()
+      expect(useAppStore.getState().backgroundImage).toEqual(backgroundImage)
+    })
+
+    it('removing the background is undoable and keeps feedback', () => {
+      useAppStore.setState({
+        backgroundImage: {
+          dataUrl: 'data:image/png;base64,AAA',
+          fit: 'tile',
+          width: 64,
+          height: 64,
+        },
+      })
+      useToastStore.setState({ toasts: [] })
+
+      useAppStore.getState().commitBackgroundImage(null, '移除背景图片')
+      expect(useAppStore.getState().backgroundImage).toBeUndefined()
+
+      useAppStore.getState().undo()
+      expect(useAppStore.getState().backgroundImage?.fit).toBe('tile')
+      const toasts = useToastStore.getState().toasts
+      expect(toasts[toasts.length - 1]?.message).toBe('撤销：移除背景图片 · 还可撤销 0 步')
     })
   })
 })

@@ -1,4 +1,10 @@
-import type { CanvasElement, CanvasLayer, UndoAction } from '../types'
+import type {
+  CanvasBackgroundImage,
+  CanvasBackgroundStyle,
+  CanvasElement,
+  CanvasLayer,
+  UndoAction,
+} from '../types'
 import { isElementLayerEditable } from '../layers'
 import { incrementSaveGeneration, scheduleSave } from '../saveManager'
 import { assignToWritableLayer, getAtomicEditableIds } from './canvasElementRules'
@@ -9,6 +15,11 @@ import {
   createElementUpdatePlan,
 } from './canvasElementMutations'
 import { appendUndoAction } from './canvasElementCommit'
+import {
+  backgroundNeedsReset,
+  DEFAULT_BG_COLOR,
+  DEFAULT_BG_STYLE,
+} from './toolSettings'
 import { snapshot } from '../helpers'
 
 export interface UpdateElementOptions {
@@ -194,16 +205,32 @@ export function createCanvasElementMutationActions(
 
     clearAll: () => {
       const state = get()
-      if (state.elements.length === 0) return false
-      const plan = createElementClearPlan(state.elements)
+      // 清空 = 回到纯净画布：背景图 / 自定义背景色 / 背景样式一并重置，
+      // 否则贴图会压在空状态引导上（用户反馈：清空后应得到纯净界面）。
+      const needsReset = backgroundNeedsReset(
+        get() as {
+          backgroundImage?: CanvasBackgroundImage | null
+          bgColor?: string
+          backgroundStyle?: CanvasBackgroundStyle
+        }
+      )
+      if (state.elements.length === 0 && !needsReset) return false
+      const plan = state.elements.length > 0 ? createElementClearPlan(state.elements) : null
       incrementSaveGeneration()
       set({
-        elements: plan.elements,
-        undoStack: appendUndoAction(state.undoStack, plan.action),
-        redoStack: [],
-        selectedIds: plan.selectedIds,
+        ...(plan
+          ? {
+              elements: plan.elements,
+              undoStack: appendUndoAction(state.undoStack, plan.action),
+              redoStack: [],
+            }
+          : {}),
+        selectedIds: plan ? plan.selectedIds : [],
+        bgColor: DEFAULT_BG_COLOR,
+        backgroundStyle: DEFAULT_BG_STYLE,
+        backgroundImage: undefined,
       })
-      replaceElementCollection(plan.elements, get())
+      if (plan) replaceElementCollection(plan.elements, get())
       scheduleSave()
       return true
     },

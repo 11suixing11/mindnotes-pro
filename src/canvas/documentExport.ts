@@ -1,6 +1,6 @@
-import type { CanvasBackgroundStyle, CanvasElement } from '../store/types'
+import type { CanvasBackgroundImage, CanvasBackgroundStyle, CanvasElement } from '../store/types'
 import { elementBounds, preloadImage } from './canvasUtils'
-import { drawCanvasBackground, drawElement } from './canvasDrawing'
+import { drawCanvasBackground, drawCanvasBackgroundImage, drawElement } from './canvasDrawing'
 
 export const DOCUMENT_EXPORT_PADDING = 24
 export const DOCUMENT_EXPORT_MAX_DIMENSION = 8192
@@ -16,6 +16,7 @@ export interface DocumentExportBounds {
 export interface RenderDocumentOptions {
   bgColor: string
   backgroundStyle?: CanvasBackgroundStyle
+  backgroundImage?: CanvasBackgroundImage
   isDarkMode?: boolean
   transparent?: boolean
   padding?: number
@@ -126,6 +127,7 @@ export async function renderDocumentToCanvas(
   if (!bounds) throw new EmptyDocumentError()
 
   await preloadDocumentImages(elements)
+  if (options.backgroundImage) await preloadImage(options.backgroundImage.dataUrl)
 
   const scale = getDocumentExportScale(bounds, options.maxDimension, options.maxPixels)
   const canvas = document.createElement('canvas')
@@ -141,6 +143,12 @@ export async function renderDocumentToCanvas(
       options.bgColor,
       options.isDarkMode ?? false,
       options.backgroundStyle ?? 'plain',
+      { x: bounds.x, y: bounds.y, zoom: scale }
+    )
+    drawCanvasBackgroundImage(
+      context,
+      { w: canvas.width, h: canvas.height },
+      options.backgroundImage,
       { x: bounds.x, y: bounds.y, zoom: scale }
     )
   }

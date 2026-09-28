@@ -15,6 +15,7 @@ import { CANVAS_SCHEMA_VERSION, LEGACY_CANVAS_SCHEMA_VERSION } from './schema'
 import type {
   Binding,
   BrushType,
+  CanvasBackgroundImage,
   CanvasBackgroundStyle,
   CanvasDoc,
   CanvasElement,
@@ -35,6 +36,7 @@ export interface CanvasBackupDocument {
   activeLayerId: string
   bgColor: string
   backgroundStyle: CanvasBackgroundStyle
+  backgroundImage?: CanvasBackgroundImage
 }
 
 export interface CanvasBackupV5 {
@@ -304,6 +306,38 @@ function parseLayer(value: unknown, index: number): CanvasLayer {
   }
 }
 
+function parseBackgroundImage(value: unknown): CanvasBackgroundImage {
+  if (!isRecord(value)) throw new CanvasImportError('背景图片格式无效')
+  const fit = value.fit
+  if (fit !== 'cover' && fit !== 'tile') {
+    throw new CanvasImportError('背景图片放置方式无效')
+  }
+  const dataUrl = requiredString(value, 'dataUrl', CANVAS_IMPORT_MAX_IMAGE_DATA_URL_LENGTH)
+  const safeDataUrl = sanitizeImageDataUrl(dataUrl)
+  if (!safeDataUrl) {
+    throw new CanvasImportError('背景图片必须使用受支持的 data:image URL')
+  }
+  if (safeDataUrl.length > CANVAS_IMPORT_MAX_IMAGE_DATA_URL_LENGTH) {
+    throw new CanvasImportError('背景图片清理后超过大小限制')
+  }
+  const width = requiredNumber(value, 'width')
+  const height = requiredNumber(value, 'height')
+  if (width <= 0 || height <= 0) {
+    throw new CanvasImportError('背景图片尺寸无效')
+  }
+  if (fit === 'cover') {
+    return {
+      dataUrl: safeDataUrl,
+      fit,
+      x: requiredNumber(value, 'x'),
+      y: requiredNumber(value, 'y'),
+      width,
+      height,
+    }
+  }
+  return { dataUrl: safeDataUrl, fit, width, height }
+}
+
 function normalizeImportedDocument(value: Record<string, unknown>): CanvasBackupDocument {
   if (!Array.isArray(value.elements)) throw new CanvasImportError('缺少 elements 数组')
   if (value.elements.length > CANVAS_IMPORT_MAX_ELEMENTS) {
@@ -346,6 +380,10 @@ function normalizeImportedDocument(value: Record<string, unknown>): CanvasBackup
     activeLayerId: normalized.activeLayerId,
     bgColor: optionalString(value, 'bgColor') ?? '#ffffff',
     backgroundStyle: backgroundStyle as CanvasBackgroundStyle,
+    backgroundImage:
+      value.backgroundImage === undefined || value.backgroundImage === null
+        ? undefined
+        : parseBackgroundImage(value.backgroundImage),
   }
 }
 
@@ -468,6 +506,7 @@ export function createCanvasBackup(doc: CanvasDoc): CanvasBackupV5 {
     activeLayerId: doc.activeLayerId,
     bgColor: doc.bgColor,
     backgroundStyle: doc.backgroundStyle,
+    backgroundImage: doc.backgroundImage,
   })
   return {
     format: CANVAS_BACKUP_FORMAT,

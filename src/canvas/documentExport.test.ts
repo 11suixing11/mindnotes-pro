@@ -1,14 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CanvasElement } from '../store/types'
 
-const { drawBackgroundMock, drawElementMock } = vi.hoisted(() => ({
-  drawBackgroundMock: vi.fn(),
-  drawElementMock: vi.fn(),
-}))
+const { drawBackgroundMock, drawBackgroundImageMock, drawElementMock, preloadImageMock } =
+  vi.hoisted(() => ({
+    drawBackgroundMock: vi.fn(),
+    drawBackgroundImageMock: vi.fn(),
+    drawElementMock: vi.fn(),
+    preloadImageMock: vi.fn(async () => {}),
+  }))
 
 vi.mock('./canvasDrawing', () => ({
   drawCanvasBackground: drawBackgroundMock,
+  drawCanvasBackgroundImage: drawBackgroundImageMock,
   drawElement: drawElementMock,
+}))
+
+vi.mock('./canvasUtils', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  preloadImage: preloadImageMock,
 }))
 
 import {
@@ -98,6 +107,44 @@ describe('document export', () => {
     )
     expect(context.translate).toHaveBeenCalledWith(129, 9)
     expect(drawElementMock).toHaveBeenCalledWith(context, shape, false)
+  })
+
+  it('draws an imported background image on opaque exports only', async () => {
+    const context = {
+      save: vi.fn(),
+      scale: vi.fn(),
+      translate: vi.fn(),
+      restore: vi.fn(),
+    } as unknown as CanvasRenderingContext2D
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context)
+    const backgroundImage = {
+      dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+      fit: 'cover' as const,
+      x: -129,
+      y: -9,
+      width: 108,
+      height: 98,
+    }
+
+    await renderDocumentToCanvas([shape], {
+      bgColor: '#ffffff',
+      backgroundImage,
+    })
+    expect(drawBackgroundImageMock).toHaveBeenCalledWith(
+      context,
+      { w: 108, h: 98 },
+      backgroundImage,
+      { x: -129, y: -9, zoom: 1 }
+    )
+    expect(preloadImageMock).toHaveBeenCalledWith(backgroundImage.dataUrl)
+
+    drawBackgroundImageMock.mockClear()
+    await renderDocumentToCanvas([shape], {
+      bgColor: '#ffffff',
+      backgroundImage,
+      transparent: true,
+    })
+    expect(drawBackgroundImageMock).not.toHaveBeenCalled()
   })
 
   it('rejects an empty document before allocating an export canvas', async () => {

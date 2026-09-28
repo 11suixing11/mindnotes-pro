@@ -57,6 +57,45 @@ describe('CanvasActionButtons', () => {
     expect(useAppStore.getState().backgroundStyle).toBe('dots')
   })
 
+  it('offers background image import and removal in the More menu', () => {
+    useAppStore.setState({
+      backgroundImage: {
+        dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+        fit: 'cover',
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 80,
+      },
+    })
+    render(<CanvasActionButtons />)
+
+    fireEvent.click(screen.getByLabelText('画布更多'))
+    expect(screen.getByRole('menuitem', { name: '导入背景图片…' })).toBeTruthy()
+    expect(screen.getByRole('menuitemradio', { name: '铺满当前视图' })).toBeTruthy()
+    expect(screen.getByRole('menuitemradio', { name: '平铺' })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: '移除背景图片' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('menuitem', { name: '移除背景图片' }))
+    expect(useAppStore.getState().backgroundImage).toBeUndefined()
+    // 移除后菜单关闭，相关菜单项不再渲染
+    expect(screen.queryByRole('menuitem', { name: '移除背景图片' })).toBeNull()
+  })
+
+  it('hides placement and removal controls until a background image exists', () => {
+    render(<CanvasActionButtons />)
+
+    fireEvent.click(screen.getByLabelText('画布更多'))
+    expect(screen.getByRole('menuitem', { name: '导入背景图片…' })).toBeTruthy()
+    expect(screen.queryByRole('menuitemradio', { name: '铺满当前视图' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: '移除背景图片' })).toBeNull()
+  })
+
+  it('renders a hidden file input for background image import', () => {
+    render(<CanvasActionButtons />)
+    expect(screen.getByLabelText('选择背景图片文件')).toBeTruthy()
+  })
+
   it('renders hidden inputs for image import and custom background color', () => {
     render(<CanvasActionButtons />)
 

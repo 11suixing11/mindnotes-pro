@@ -5,6 +5,7 @@ export type {
   ShapeKind,
   ToolType,
   CanvasBackgroundStyle,
+  CanvasBackgroundImage,
   TextFontWeight,
   TextFontStyle,
   TextDecoration,

@@ -3,6 +3,7 @@ import type {
   ToolType,
   BrushType,
   CanvasBackgroundStyle,
+  CanvasBackgroundImage,
   TextAlign,
   TextDecoration,
   TextFontStyle,
@@ -19,6 +20,23 @@ import {
 // 扩展颜色历史记录 - 基于 tldraw #1665 用户需求
 export const COLOR_HISTORY_KEY = 'mn-recent-colors'
 export const MAX_COLOR_HISTORY = 10
+
+// 清空画布会把背景一并重置到这两个默认值（见 canvasElementMutationActions.clearAll）。
+export const DEFAULT_BG_COLOR = '#ffffff'
+export const DEFAULT_BG_STYLE: CanvasBackgroundStyle = 'plain'
+
+/** 背景是否还带着用户自定义设置（贴图 / 颜色 / 样式）。字段缺失视为默认。 */
+export function backgroundNeedsReset(state: {
+  backgroundImage?: CanvasBackgroundImage | null
+  bgColor?: string
+  backgroundStyle?: CanvasBackgroundStyle
+}): boolean {
+  if (state.backgroundImage != null) return true
+  return (
+    (state.bgColor !== undefined && state.bgColor !== DEFAULT_BG_COLOR) ||
+    (state.backgroundStyle !== undefined && state.backgroundStyle !== DEFAULT_BG_STYLE)
+  )
+}
 
 export interface TextToolDefaults {
   fontSize: number
@@ -71,6 +89,7 @@ export interface ToolSettingsState {
   size: number
   bgColor: string
   backgroundStyle: CanvasBackgroundStyle
+  backgroundImage?: CanvasBackgroundImage
   colorHistory: string[]
   textDefaults: TextToolDefaults
   // 样式吸管 (Eyedropper)
@@ -87,6 +106,7 @@ export interface ToolSettingsActions {
   setSize: (s: number) => void
   setBgColor: (c: string) => void
   setBackgroundStyle: (style: CanvasBackgroundStyle) => void
+  setBackgroundImage: (image: CanvasBackgroundImage | null) => void
   setTextDefaults: (patch: Partial<TextToolDefaults>) => void
   applyStyle: (patch: SelectionStylePatch) => StyleCommandResult
   addColorToHistory: (c: string) => void
@@ -112,8 +132,8 @@ export function createToolSettingsSlice(
     color: '#2c2416',
     fillColor: 'transparent',
     size: 4,
-    bgColor: '#ffffff',
-    backgroundStyle: 'plain',
+    bgColor: DEFAULT_BG_COLOR,
+    backgroundStyle: DEFAULT_BG_STYLE,
     colorHistory: loadColorHistory(),
     textDefaults: {
       fontSize: DEFAULT_TEXT_FONT_SIZE,
@@ -143,6 +163,11 @@ export function createToolSettingsSlice(
     setBackgroundStyle: (backgroundStyle) => {
       incrementSaveGeneration()
       set({ backgroundStyle })
+      scheduleSave()
+    },
+    setBackgroundImage: (image) => {
+      incrementSaveGeneration()
+      set({ backgroundImage: image ?? undefined })
       scheduleSave()
     },
     setTextDefaults: (patch) => {

@@ -1,5 +1,6 @@
 import type {
   CanvasElement,
+  CanvasBackgroundImage,
   CanvasBackgroundStyle,
   StrokeElement,
   ShapeElement,
@@ -186,6 +187,8 @@ export interface SVGExportOptions {
   backgroundColor?: string
   /** Document background pattern */
   backgroundStyle?: CanvasBackgroundStyle
+  /** 导入的背景图片（cover 世界矩形 / tile 平铺单元） */
+  backgroundImage?: CanvasBackgroundImage
   /** Set false for a transparent SVG */
   includeBackground?: boolean
   /** Dark mode determines the background fill */
@@ -205,6 +208,7 @@ export function buildSVGString(elements: CanvasElement[], options: SVGExportOpti
     isDarkMode = false,
     backgroundColor,
     backgroundStyle = 'plain',
+    backgroundImage,
     includeBackground = true,
   } = options
   const bg = esc(backgroundColor ?? (isDarkMode ? DARK_BG : '#ffffff'))
@@ -224,10 +228,24 @@ export function buildSVGString(elements: CanvasElement[], options: SVGExportOpti
   } else if (backgroundStyle === 'ruled' || backgroundStyle === 'notebook') {
     svg += `<pattern id="document-background" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M 0 0 H 28" fill="none" stroke="${lineColor}" stroke-width="1"/></pattern>`
   }
+  const safeBackgroundImageDataUrl = backgroundImage
+    ? sanitizeImageDataUrl(backgroundImage.dataUrl)
+    : null
+  if (backgroundImage && safeBackgroundImageDataUrl && backgroundImage.fit === 'tile') {
+    svg += `<pattern id="canvas-background-image" width="${backgroundImage.width}" height="${backgroundImage.height}" patternUnits="userSpaceOnUse"><image href="${esc(safeBackgroundImageDataUrl)}" x="0" y="0" width="${backgroundImage.width}" height="${backgroundImage.height}" preserveAspectRatio="none"/></pattern>`
+  }
   svg += `</defs>\n`
 
   if (includeBackground) {
     svg += `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${bg}"/>\n`
+    if (backgroundImage && safeBackgroundImageDataUrl) {
+      if (backgroundImage.fit === 'tile') {
+        svg += `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#canvas-background-image)"/>\n`
+      } else {
+        const { x: imgX = 0, y: imgY = 0, width: imgW, height: imgH } = backgroundImage
+        svg += `<image href="${esc(safeBackgroundImageDataUrl)}" x="${imgX}" y="${imgY}" width="${imgW}" height="${imgH}" preserveAspectRatio="none"/>\n`
+      }
+    }
     if (backgroundStyle !== 'plain') {
       svg += `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#document-background)"/>\n`
     }

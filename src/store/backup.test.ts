@@ -82,6 +82,69 @@ describe('canvas backup format', () => {
     })
   })
 
+  it('roundtrips a cover background image through the backup', () => {
+    const doc = {
+      ...makeDocument(),
+      backgroundImage: {
+        dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+        fit: 'cover' as const,
+        x: -10,
+        y: 5,
+        width: 400,
+        height: 300,
+      },
+    }
+    const imported = parseCanvasImport(createCanvasBackup(doc))
+
+    expect(imported.backgroundImage).toEqual({
+      dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+      fit: 'cover',
+      x: -10,
+      y: 5,
+      width: 400,
+      height: 300,
+    })
+  })
+
+  it('roundtrips a tiled background image through the backup', () => {
+    const doc = {
+      ...makeDocument(),
+      backgroundImage: {
+        dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+        fit: 'tile' as const,
+        width: 64,
+        height: 64,
+      },
+    }
+    const imported = parseCanvasImport(createCanvasBackup(doc))
+
+    expect(imported.backgroundImage).toMatchObject({ fit: 'tile', width: 64, height: 64 })
+  })
+
+  it('rejects a background image with an unsupported data URL', () => {
+    const backup = createCanvasBackup(makeDocument())
+    backup.document.backgroundImage = {
+      dataUrl: 'javascript:alert(1)',
+      fit: 'tile',
+      width: 64,
+      height: 64,
+    }
+
+    expect(() => parseCanvasImport(backup)).toThrow(CanvasImportError)
+  })
+
+  it('rejects a cover background image without placement coordinates', () => {
+    const backup = createCanvasBackup(makeDocument())
+    backup.document.backgroundImage = {
+      dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+      fit: 'cover',
+      width: 400,
+      height: 300,
+    }
+
+    expect(() => parseCanvasImport(backup)).toThrow(CanvasImportError)
+  })
+
   it('imports a v4 backup through the read-only compatibility boundary', () => {
     const backup = createCanvasBackup(makeDocument())
     const imported = parseCanvasImport({ ...backup, version: 4 })

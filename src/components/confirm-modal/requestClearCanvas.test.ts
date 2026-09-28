@@ -31,4 +31,17 @@ describe('requestClearCanvas', () => {
     expect(clearAll).toHaveBeenCalledOnce()
     expect(onCleared).toHaveBeenCalledOnce()
   })
+
+  it('still clears when only the background needs reset', async () => {
+    const confirm = vi.fn(async () => true)
+    const clearAll = vi.fn(() => true)
+
+    await expect(
+      requestClearCanvas(0, confirm, clearAll, { backgroundNeedsReset: true })
+    ).resolves.toBe(true)
+    expect(confirm).toHaveBeenCalledWith(
+      '当前画布没有元素，但背景仍有自定义设置。画布背景也会一并重置。'
+    )
+    expect(clearAll).toHaveBeenCalledOnce()
+  })
 })

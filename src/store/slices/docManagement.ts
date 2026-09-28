@@ -1,4 +1,10 @@
-import type { CanvasDoc, CanvasWorkspaceMetadata, CurrentCanvasDoc, UndoAction } from '../types'
+import type {
+  CanvasBackgroundImage,
+  CanvasDoc,
+  CanvasWorkspaceMetadata,
+  CurrentCanvasDoc,
+  UndoAction,
+} from '../types'
 import { getDocumentRepository } from '../documentRepository'
 import { useViewStore } from '../useViewStore'
 import {
@@ -8,6 +14,7 @@ import {
   incrementSaveGeneration,
   markDocumentDeleted,
   unmarkDocumentDeleted,
+  scheduleSave,
 } from '../saveManager'
 import { clearRecoveryDraftForDocument } from '../recovery'
 import { normalizeCanvasDocLayers } from '../layers'
@@ -53,6 +60,11 @@ export interface DocManagementActions {
   duplicateDoc: (id: string) => Promise<void>
   /** Import into the one canonical board without creating another document. */
   replaceCurrentDoc: (document: CanvasBackupDocument) => Promise<string>
+  /**
+   * 应用一次背景图变更（导入/移除/切换放置方式）并推送 workspace 快照，
+   * 使其可被撤销/重做。next 传 null 表示移除背景图。
+   */
+  commitBackgroundImage: (next: CanvasBackgroundImage | null, label: string) => void
   /** Compatibility alias; import still replaces the single board. */
   importDoc: (document: CanvasBackupDocument) => Promise<string>
   saveNow: () => Promise<void>
@@ -60,7 +72,10 @@ export interface DocManagementActions {
 
 function createWorkspaceMetadata(
   title: string,
-  source: Pick<CanvasWorkspaceMetadata, 'layers' | 'activeLayerId' | 'bgColor' | 'backgroundStyle'>
+  source: Pick<
+    CanvasWorkspaceMetadata,
+    'layers' | 'activeLayerId' | 'bgColor' | 'backgroundStyle' | 'backgroundImage'
+  >
 ): CanvasWorkspaceMetadata {
   return {
     title,
@@ -68,6 +83,7 @@ function createWorkspaceMetadata(
     activeLayerId: source.activeLayerId,
     bgColor: source.bgColor,
     backgroundStyle: source.backgroundStyle,
+    backgroundImage: source.backgroundImage,
   }
 }
 
@@ -278,7 +294,7 @@ export function createDocManagementSlice(
         type: 'snapshot',
         before: snapshot(state.elements),
         after: snapshot(replaced.elements),
-        label: 'Import canvas',
+        label: '导入画布',
         affectedIds: [
           ...new Set([...state.elements, ...replaced.elements].map((element) => element.id)),
         ],
@@ -359,6 +375,33 @@ export function createDocManagementSlice(
     // Importing always replaces the current single board rather than
     // appending a document.
     importDoc: async (document) => get().replaceCurrentDoc(document),
+
+    commitBackgroundImage: (next, label) => {
+      const state = get()
+      const currentDoc =
+        state.docs.find((doc: CanvasDoc) => doc.id === state.currentDocId) ??
+        selectCanonicalDocument(state.docs)
+      const title = currentDoc?.title ?? DEFAULT_DOCUMENT_TITLE
+      const elements = snapshot(state.elements)
+      const before = createWorkspaceMetadata(title, state)
+
+      incrementSaveGeneration()
+      set({ backgroundImage: next ?? undefined })
+      scheduleSave()
+
+      const action: UndoAction = {
+        type: 'snapshot',
+        before: elements,
+        after: elements,
+        label,
+        affectedIds: [],
+        workspace: {
+          before,
+          after: createWorkspaceMetadata(title, get()),
+        },
+      }
+      set({ undoStack: appendUndoAction(state.undoStack, action), redoStack: [] })
+    },
 
     saveNow: async () => {
       await saveDocNow()

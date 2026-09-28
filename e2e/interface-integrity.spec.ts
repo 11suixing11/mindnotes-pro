@@ -47,7 +47,8 @@ test.describe('v5.3 界面完整性', () => {
 
     const topbar = page.getByRole('toolbar', { name: '画布工具' })
     const nativeInputs = topbar.locator('input[type="file"], input[type="color"]')
-    await expect(nativeInputs).toHaveCount(5)
+    // 6 = 颜色、填充颜色、插入图片、背景图片、背景颜色、JSON 导入
+    await expect(nativeInputs).toHaveCount(6)
 
     for (let index = 0; index < (await nativeInputs.count()); index += 1) {
       const input = nativeInputs.nth(index)
