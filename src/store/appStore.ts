@@ -20,6 +20,7 @@ import type { DocManagementState, DocManagementActions } from './slices/docManag
 import { createUISlice } from './slices/uiState'
 import type { UIState, UIActions } from './slices/uiState'
 import { initSaveManager } from './saveManager'
+import { installAutoSaveScheduler } from './autoSaveScheduler'
 import { bindThemeAppPort } from './useThemeStore'
 
 // Re-export all slice types for consumers
@@ -78,3 +79,6 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
     ...createUISlice(set, get),
   }
 })
+
+// 集中式存盘调度：文档承载键一变即标脏+调度保存，slice 不再手动碰 saveManager。
+installAutoSaveScheduler(useAppStore)

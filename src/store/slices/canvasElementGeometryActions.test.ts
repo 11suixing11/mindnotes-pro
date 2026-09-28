@@ -2,13 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CanvasElement, CanvasLayer, ShapeElement, UndoAction } from '../types'
 import { createCanvasElementGeometryActions } from './canvasElementGeometryActions'
 
-vi.mock('../saveManager', () => ({
-  incrementSaveGeneration: vi.fn(),
-  scheduleSave: vi.fn(),
-}))
-
-const { incrementSaveGeneration, scheduleSave } = await import('../saveManager')
-
 function makeShape(id: string, overrides: Partial<ShapeElement> = {}): ShapeElement {
   return {
     type: 'shape',
@@ -89,7 +82,6 @@ describe('canvas element geometry actions', () => {
       [shape.id],
       expect.anything()
     )
-    expect(scheduleSave).toHaveBeenCalledOnce()
   })
 
   it('records one history action for a multi-element move', () => {
@@ -125,7 +117,5 @@ describe('canvas element geometry actions', () => {
     actions.rotateElementsById([locked.id], Math.PI / 2)
 
     expect(state.elements[0]).toEqual(locked)
-    expect(scheduleSave).not.toHaveBeenCalled()
-    expect(incrementSaveGeneration).toHaveBeenCalledTimes(3)
   })
 })

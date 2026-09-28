@@ -1,6 +1,5 @@
 import type { CanvasElement, CanvasLayer, UndoAction } from '../types'
 import { shallowClone } from '../helpers'
-import { incrementSaveGeneration, scheduleSave } from '../saveManager'
 import { getAtomicEditableIds } from './canvasElementRules'
 import { copySelectedElements, createOffsetCopyPlan } from './canvasElementClipboard'
 import { createElementAdditionPlan } from './canvasElementMutations'
@@ -53,7 +52,6 @@ export function createCanvasElementClipboardActions(
     const plan = createElementAdditionPlan(state.elements, copied)
     if (!plan) return
 
-    incrementSaveGeneration()
     set({
       elements: plan.elements,
       selectedIds: newIds,
@@ -61,7 +59,6 @@ export function createCanvasElementClipboardActions(
       redoStack: [],
     })
     appendElementCollection(plan.addedElements, startIndex, state)
-    scheduleSave()
   }
 
   return {
@@ -84,7 +81,6 @@ export function createCanvasElementClipboardActions(
       const plan = createElementAdditionPlan(state.elements, pasted)
       if (!plan) return
 
-      incrementSaveGeneration()
       set({
         elements: plan.elements,
         selectedIds: newIds,
@@ -93,7 +89,6 @@ export function createCanvasElementClipboardActions(
         redoStack: [],
       })
       appendElementCollection(plan.addedElements, startIndex, state)
-      scheduleSave()
     },
 
     duplicateSelected: () => {

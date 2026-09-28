@@ -9,13 +9,6 @@ import type {
 } from '../types'
 import { createCanvasElementMutationActions } from './canvasElementMutationActions'
 
-vi.mock('../saveManager', () => ({
-  incrementSaveGeneration: vi.fn(),
-  scheduleSave: vi.fn(),
-}))
-
-const { incrementSaveGeneration, scheduleSave } = await import('../saveManager')
-
 function makeShape(id: string, overrides: Partial<ShapeElement> = {}): ShapeElement {
   return {
     type: 'shape',
@@ -106,7 +99,6 @@ describe('canvas element mutation actions', () => {
       0,
       expect.anything()
     )
-    expect(scheduleSave).toHaveBeenCalledOnce()
   })
 
   it('returns false without dirtying when no layer can accept an element', () => {
@@ -117,8 +109,6 @@ describe('canvas element mutation actions', () => {
 
     expect(added).toBe(false)
     expect(context.set).not.toHaveBeenCalled()
-    expect(incrementSaveGeneration).not.toHaveBeenCalled()
-    expect(scheduleSave).not.toHaveBeenCalled()
   })
 
   it('updates an editable element and synchronizes its runtime replacement', () => {
@@ -169,8 +159,6 @@ describe('canvas element mutation actions', () => {
 
     expect(updated).toBe(false)
     expect(context.set).not.toHaveBeenCalled()
-    expect(incrementSaveGeneration).not.toHaveBeenCalled()
-    expect(scheduleSave).not.toHaveBeenCalled()
   })
 
   it('falls back to the element array when an update index points to another element', () => {
@@ -189,8 +177,6 @@ describe('canvas element mutation actions', () => {
       target.id,
       expect.anything()
     )
-    expect(incrementSaveGeneration).toHaveBeenCalledOnce()
-    expect(scheduleSave).toHaveBeenCalledOnce()
   })
 
   it('falls back to the element array when a removal index is out of bounds', () => {
@@ -203,8 +189,6 @@ describe('canvas element mutation actions', () => {
 
     expect(state.elements).toEqual([first])
     expect(context.removeElementCollection).toHaveBeenCalledWith([target.id], expect.anything())
-    expect(incrementSaveGeneration).toHaveBeenCalledOnce()
-    expect(scheduleSave).toHaveBeenCalledOnce()
   })
 
   it('does not dirty or save the document when an update target is missing', () => {
@@ -217,8 +201,6 @@ describe('canvas element mutation actions', () => {
     expect(update).not.toHaveBeenCalled()
     expect(context.set).not.toHaveBeenCalled()
     expect(context.synchronizeElementReplacement).not.toHaveBeenCalled()
-    expect(incrementSaveGeneration).not.toHaveBeenCalled()
-    expect(scheduleSave).not.toHaveBeenCalled()
   })
 
   it('does not dirty or save the document when a removal target is missing', () => {
@@ -230,8 +212,6 @@ describe('canvas element mutation actions', () => {
     expect(context.set).not.toHaveBeenCalled()
     expect(context.removeElementCollection).not.toHaveBeenCalled()
     expect(context.markIndexDirty).not.toHaveBeenCalled()
-    expect(incrementSaveGeneration).not.toHaveBeenCalled()
-    expect(scheduleSave).not.toHaveBeenCalled()
   })
 
   it('removes a fully editable batch and marks indexes dirty', () => {
@@ -252,8 +232,6 @@ describe('canvas element mutation actions', () => {
       expect.anything()
     )
     expect(context.markIndexDirty).toHaveBeenCalledOnce()
-    expect(incrementSaveGeneration).toHaveBeenCalledOnce()
-    expect(scheduleSave).toHaveBeenCalledOnce()
   })
 
   it('refuses to remove a batch that contains a locked element', () => {
@@ -272,8 +250,6 @@ describe('canvas element mutation actions', () => {
     expect(context.set).not.toHaveBeenCalled()
     expect(context.removeElementCollection).not.toHaveBeenCalled()
     expect(context.markIndexDirty).not.toHaveBeenCalled()
-    expect(incrementSaveGeneration).not.toHaveBeenCalled()
-    expect(scheduleSave).not.toHaveBeenCalled()
   })
 
   it('clears the collection and records an exact snapshot', () => {
@@ -291,7 +267,6 @@ describe('canvas element mutation actions', () => {
       expect.objectContaining({ type: 'clear' })
     )
     expect(context.replaceElementCollection).toHaveBeenCalledWith([], expect.anything())
-    expect(incrementSaveGeneration).toHaveBeenCalledOnce()
   })
 
   it('resets background image, color and style when clearing', () => {
@@ -307,7 +282,6 @@ describe('canvas element mutation actions', () => {
     expect(state.bgColor).toBe('#ffffff')
     expect(state.backgroundStyle).toBe('plain')
     expect(state.backgroundImage).toBeUndefined()
-    expect(scheduleSave).toHaveBeenCalledOnce()
   })
 
   it('keeps a pristine background untouched and reports nothing to clear', () => {
@@ -315,6 +289,5 @@ describe('canvas element mutation actions', () => {
 
     expect(actions.clearAll()).toBe(false)
     expect(context.set).not.toHaveBeenCalled()
-    expect(scheduleSave).not.toHaveBeenCalled()
   })
 })

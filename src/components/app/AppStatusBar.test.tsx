@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
+import { beginHydration, endHydration } from '../../store/saveManager'
 import { AppStatusBar } from './AppStatusBar'
 
 describe('AppStatusBar', () => {
@@ -16,34 +17,39 @@ describe('AppStatusBar', () => {
   })
 
   it('projects single-board, element, zoom, save, feedback, and help state', () => {
-    useAppStore.setState({
-      elements: [
-        {
-          type: 'shape',
-          id: 'shape-1',
-          kind: 'rectangle',
-          x: 10,
-          y: 20,
-          w: 40,
-          h: 30,
-          color: '#000000',
-          size: 2,
-        },
-      ],
-      docs: [
-        {
-          schemaVersion: 5,
-          id: 'doc-1',
-          title: 'Canvas',
-          elements: [],
-          bgColor: '#ffffff',
-          folderId: null,
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      ],
-      saveStatus: 'saving',
-    })
+    beginHydration()
+    try {
+      useAppStore.setState({
+        elements: [
+          {
+            type: 'shape',
+            id: 'shape-1',
+            kind: 'rectangle',
+            x: 10,
+            y: 20,
+            w: 40,
+            h: 30,
+            color: '#000000',
+            size: 2,
+          },
+        ],
+        docs: [
+          {
+            schemaVersion: 5,
+            id: 'doc-1',
+            title: 'Canvas',
+            elements: [],
+            bgColor: '#ffffff',
+            folderId: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ],
+        saveStatus: 'saving',
+      })
+    } finally {
+      endHydration()
+    }
     useViewStore.setState({ viewBox: { x: 0, y: 0, zoom: 1.25 } })
     const onOpenShortcuts = vi.fn()
 

@@ -2,13 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CanvasElement, CanvasLayer, ShapeElement, UndoAction } from '../types'
 import { createCanvasElementMetadataActions } from './canvasElementMetadataActions'
 
-vi.mock('../saveManager', () => ({
-  incrementSaveGeneration: vi.fn(),
-  scheduleSave: vi.fn(),
-}))
-
-const { incrementSaveGeneration, scheduleSave } = await import('../saveManager')
-
 function makeShape(id: string, overrides: Partial<ShapeElement> = {}): ShapeElement {
   return {
     type: 'shape',
@@ -67,8 +60,6 @@ function createHarness(initial: Partial<HarnessState> = {}) {
 
 describe('canvas element metadata actions', () => {
   beforeEach(() => {
-    vi.mocked(incrementSaveGeneration).mockClear()
-    vi.mocked(scheduleSave).mockClear()
     vi.spyOn(Date, 'now').mockReturnValue(1000)
   })
 
@@ -92,7 +83,6 @@ describe('canvas element metadata actions', () => {
     expect(state.selectedIds).toEqual([first.id, second.id])
     expect(state.undoStack[state.undoStack.length - 1]?.type).toBe('group')
     expect(synchronizeElementReferences).toHaveBeenCalledOnce()
-    expect(scheduleSave).toHaveBeenCalledOnce()
   })
 
   it('ungroups the selected group and preserves non-selected members', () => {
@@ -123,7 +113,6 @@ describe('canvas element metadata actions', () => {
     actions.unlockSelected()
     expect(state.elements[0].locked).toBe(false)
     expect(state.undoStack[state.undoStack.length - 1]?.type).toBe('unlock')
-    expect(incrementSaveGeneration).toHaveBeenCalledTimes(2)
   })
 
   it('does not mutate metadata when selection is empty or the layer is not writable', () => {
@@ -150,6 +139,5 @@ describe('canvas element metadata actions', () => {
 
     expect(state.elements[0]).toEqual(locked)
     expect(state.undoStack).toEqual([])
-    expect(scheduleSave).not.toHaveBeenCalled()
   })
 })

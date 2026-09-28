@@ -1,6 +1,5 @@
 import type { CanvasElement, UndoAction } from '../types'
 import { shallowClone } from '../helpers'
-import { incrementSaveGeneration, scheduleSave } from '../saveManager'
 import type { CommitElementsOptions } from './canvasElementCommit'
 
 export interface CanvasElementSnapshotActions {
@@ -52,13 +51,11 @@ export function createCanvasElementSnapshotActions(
     restoreElementsSnapshot: (elements, selectedIds = get().selectedIds) => {
       const nextElements = elements.map(shallowClone)
       const nextIds = new Set(nextElements.map((element) => element.id))
-      incrementSaveGeneration()
       set({
         elements: nextElements,
         selectedIds: selectedIds.filter((id) => nextIds.has(id)),
       })
       replaceElementCollection(nextElements, get())
-      scheduleSave()
     },
   }
 }

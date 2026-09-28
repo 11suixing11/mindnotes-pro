@@ -10,11 +10,12 @@ import { useViewStore } from '../useViewStore'
 import {
   saveDocNow,
   clearSaveTimer,
+  beginHydration,
+  endHydration,
   getSaveGeneration,
   incrementSaveGeneration,
   markDocumentDeleted,
   unmarkDocumentDeleted,
-  scheduleSave,
 } from '../saveManager'
 import { clearRecoveryDraftForDocument } from '../recovery'
 import { normalizeCanvasDocLayers } from '../layers'
@@ -114,17 +115,21 @@ export function createDocManagementSlice(
         const { docs, recovery } = initialization
         const current = selectCanonicalDocument(docs)
 
-        set({
-          docs,
-          ...createDocumentWorkspaceState(current),
-          loaded: true,
-          saveStatus: 'idle',
-          persistenceMode: 'persistent',
-          lastSavedAt: current?.updatedAt ?? null,
-          saveError: null,
-        })
-
-        rebuildDocumentRuntimeIndexes(get(), current?.elements ?? [])
+        beginHydration()
+        try {
+          set({
+            docs,
+            ...createDocumentWorkspaceState(current),
+            loaded: true,
+            saveStatus: 'idle',
+            persistenceMode: 'persistent',
+            lastSavedAt: current?.updatedAt ?? null,
+            saveError: null,
+          })
+          rebuildDocumentRuntimeIndexes(get(), current?.elements ?? [])
+        } finally {
+          endHydration()
+        }
         if (recovery.recoveredDocumentIds.length > 0) {
           useToastStore.getState().show('已恢复最近一次未保存草稿', 'warning', 5000)
         }
@@ -132,16 +137,21 @@ export function createDocManagementSlice(
       } catch (error) {
         console.error('[documents] Failed to initialize persistent storage', error)
         const { document: fallback, recoveredFromDraft } = createDocumentInitializationFallback()
-        set({
-          docs: [fallback],
-          ...createDocumentWorkspaceState(fallback),
-          loaded: true,
-          saveStatus: 'error',
-          persistenceMode: 'memory-only',
-          lastSavedAt: null,
-          saveError: error instanceof Error ? error.message : '浏览器存储初始化失败',
-        })
-        rebuildDocumentRuntimeIndexes(get(), fallback.elements)
+        beginHydration()
+        try {
+          set({
+            docs: [fallback],
+            ...createDocumentWorkspaceState(fallback),
+            loaded: true,
+            saveStatus: 'error',
+            persistenceMode: 'memory-only',
+            lastSavedAt: null,
+            saveError: error instanceof Error ? error.message : '浏览器存储初始化失败',
+          })
+          rebuildDocumentRuntimeIndexes(get(), fallback.elements)
+        } finally {
+          endHydration()
+        }
         useToastStore
           .getState()
           .show(
@@ -167,12 +177,17 @@ export function createDocManagementSlice(
       const repository = getDocumentRepository()
       await repository.saveDocument({ ...doc, schemaVersion: CANVAS_SCHEMA_VERSION })
       const docs = normalizeAndSortDocuments(await repository.listDocuments())
-      set({
-        docs,
-        ...createDocumentWorkspaceState(doc, { history: 'empty' }),
-        selectedIds: [],
-      })
-      rebuildDocumentRuntimeIndexes(get(), [])
+      beginHydration()
+      try {
+        set({
+          docs,
+          ...createDocumentWorkspaceState(doc, { history: 'empty' }),
+          selectedIds: [],
+        })
+        rebuildDocumentRuntimeIndexes(get(), [])
+      } finally {
+        endHydration()
+      }
       return doc.id
     },
 
@@ -185,11 +200,16 @@ export function createDocManagementSlice(
       const doc = await getDocumentRepository().getDocument(id)
       if (doc) {
         const normalizedDoc = normalizeCanvasDocLayers(doc)
-        set({
-          ...createDocumentWorkspaceState(normalizedDoc),
-          selectedIds: [],
-        })
-        rebuildDocumentRuntimeIndexes(get(), normalizedDoc.elements)
+        beginHydration()
+        try {
+          set({
+            ...createDocumentWorkspaceState(normalizedDoc),
+            selectedIds: [],
+          })
+          rebuildDocumentRuntimeIndexes(get(), normalizedDoc.elements)
+        } finally {
+          endHydration()
+        }
         useViewStore.getState().resetView()
       }
     },
@@ -251,11 +271,16 @@ export function createDocManagementSlice(
       const docs = sortDocuments(await repository.listDocuments())
       if (currentDocId === id) {
         const first = docs[0] ? normalizeCanvasDocLayers(docs[0]) : undefined
-        set({
-          docs,
-          ...createDocumentWorkspaceState(first, { history: 'empty' }),
-        })
-        rebuildDocumentRuntimeIndexes(get(), first?.elements ?? [])
+        beginHydration()
+        try {
+          set({
+            docs,
+            ...createDocumentWorkspaceState(first, { history: 'empty' }),
+          })
+          rebuildDocumentRuntimeIndexes(get(), first?.elements ?? [])
+        } finally {
+          endHydration()
+        }
       } else {
         set({ docs })
       }
@@ -358,16 +383,21 @@ export function createDocManagementSlice(
         throw new Error('导入已取消：导入期间画布发生变化，请重试')
       }
 
-      set({
-        docs: [replacedWithHistory],
-        ...createDocumentWorkspaceState(replacedWithHistory),
-        selectedIds: [],
-        saveStatus: 'saved',
-        persistenceMode: 'persistent',
-        lastSavedAt: replaced.updatedAt,
-        saveError: null,
-      })
-      rebuildDocumentRuntimeIndexes(get(), replacedWithHistory.elements)
+      beginHydration()
+      try {
+        set({
+          docs: [replacedWithHistory],
+          ...createDocumentWorkspaceState(replacedWithHistory),
+          selectedIds: [],
+          saveStatus: 'saved',
+          persistenceMode: 'persistent',
+          lastSavedAt: replaced.updatedAt,
+          saveError: null,
+        })
+        rebuildDocumentRuntimeIndexes(get(), replacedWithHistory.elements)
+      } finally {
+        endHydration()
+      }
       useViewStore.getState().resetView()
       return replacedWithHistory.id
     },
@@ -385,9 +415,7 @@ export function createDocManagementSlice(
       const elements = snapshot(state.elements)
       const before = createWorkspaceMetadata(title, state)
 
-      incrementSaveGeneration()
       set({ backgroundImage: next ?? undefined })
-      scheduleSave()
 
       const action: UndoAction = {
         type: 'snapshot',

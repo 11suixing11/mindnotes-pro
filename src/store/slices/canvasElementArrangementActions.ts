@@ -5,7 +5,6 @@ import type {
   DistributionType,
   UndoAction,
 } from '../types'
-import { incrementSaveGeneration, scheduleSave } from '../saveManager'
 import { getAtomicEditableIds } from './canvasElementRules'
 import {
   createAlignmentPlan,
@@ -65,14 +64,12 @@ export function createCanvasElementArrangementActions(
     elementIds: string[]
   ) => {
     synchronizeElementGeometry(plan.elements, elementIds, state)
-    incrementSaveGeneration()
     set({
       elements: plan.elements,
       selectedIds: elementIds,
       undoStack: appendUndoAction(state.undoStack, plan.action),
       redoStack: [],
     })
-    scheduleSave()
   }
 
   return {

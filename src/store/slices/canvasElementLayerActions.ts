@@ -1,6 +1,5 @@
 import type { CanvasElement, CanvasLayer } from '../types'
 import { createCanvasLayer, isLayerWritable } from '../layers'
-import { incrementSaveGeneration, scheduleSave } from '../saveManager'
 import {
   createLayerDeletionPlan,
   createLayerLockPlan,
@@ -40,10 +39,8 @@ export function createCanvasElementLayerActions(
     const plan = createMoveElementsToLayerPlan(state, ids, layerId)
     if (!plan) return
 
-    incrementSaveGeneration()
     set({ elements: plan.elements, selectedIds: plan.selectedIds })
     replaceElementCollection(plan.elements, get())
-    scheduleSave()
   }
 
   return {
@@ -54,12 +51,10 @@ export function createCanvasElementLayerActions(
           ? 0
           : Math.max(...state.layers.map((layer: CanvasLayer) => layer.order)) + 1
       const layer = createCanvasLayer(name ?? `图层 ${order + 1}`, order)
-      incrementSaveGeneration()
       set({
         layers: [...state.layers, layer],
         activeLayerId: layer.id,
       })
-      scheduleSave()
       return layer.id
     },
 
@@ -69,13 +64,11 @@ export function createCanvasElementLayerActions(
       const state = get()
       const layer = state.layers.find((item: CanvasLayer) => item.id === id)
       if (!layer || layer.name === nextName) return
-      incrementSaveGeneration()
       set({
         layers: state.layers.map((item: CanvasLayer) =>
           item.id === id ? { ...item, name: nextName, updatedAt: Date.now() } : item
         ),
       })
-      scheduleSave()
     },
 
     deleteLayer: (id) => {
@@ -83,7 +76,6 @@ export function createCanvasElementLayerActions(
       const plan = createLayerDeletionPlan(state, id)
       if (!plan) return
 
-      incrementSaveGeneration()
       set({
         layers: plan.layers,
         activeLayerId: plan.activeLayerId,
@@ -91,18 +83,15 @@ export function createCanvasElementLayerActions(
         selectedIds: plan.selectedIds,
       })
       replaceElementCollection(plan.elements, get())
-      scheduleSave()
     },
 
     setActiveLayer: (id) => {
       const state = get()
       if (!isLayerWritable(state.layers, id) || state.activeLayerId === id) return
-      // The active layer is part of the persisted workspace metadata. Treat
-      // switching it as a document mutation so a refresh does not silently
-      // revert the user's next drawing target.
-      incrementSaveGeneration()
+      // The active layer is part of the persisted workspace metadata. The
+      // centralized save subscription treats the switch as a document
+      // mutation so a refresh does not revert the user's next drawing target.
       set({ activeLayerId: id })
-      scheduleSave()
     },
 
     setLayerVisibility: (id, visible) => {
@@ -110,13 +99,11 @@ export function createCanvasElementLayerActions(
       const plan = createLayerVisibilityPlan(state, id, visible, Date.now())
       if (!plan) return
 
-      incrementSaveGeneration()
       set({
         layers: plan.layers,
         activeLayerId: plan.activeLayerId,
         selectedIds: plan.selectedIds,
       })
-      scheduleSave()
     },
 
     setLayerLocked: (id, locked) => {
@@ -124,13 +111,11 @@ export function createCanvasElementLayerActions(
       const plan = createLayerLockPlan(state, id, locked, Date.now())
       if (!plan) return
 
-      incrementSaveGeneration()
       set({
         layers: plan.layers,
         activeLayerId: plan.activeLayerId,
         selectedIds: plan.selectedIds,
       })
-      scheduleSave()
     },
 
     moveLayer: (id, direction) => {
@@ -138,9 +123,7 @@ export function createCanvasElementLayerActions(
       const plan = createLayerReorderPlan(state.layers, id, direction, Date.now())
       if (!plan) return
 
-      incrementSaveGeneration()
       set({ layers: plan })
-      scheduleSave()
     },
 
     moveElementsToLayer,

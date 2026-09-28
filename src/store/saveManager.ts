@@ -100,6 +100,26 @@ export function getSaveGeneration(documentId: string | null | undefined): number
 export function initSaveManager(store: StoreRef): void {
   _storeRef = store
 }
+
+// Hydration guard: while the live workspace is being replaced wholesale
+// (initial load, document switch, import), the auto-save subscription must
+// not treat the swap as a user edit and schedule a redundant write.
+let _hydrationDepth = 0
+
+/** Suppress auto-save scheduling for the duration of a workspace hydration. */
+export function beginHydration(): void {
+  _hydrationDepth += 1
+}
+
+/** Release one beginHydration() guard. Scheduling resumes at depth zero. */
+export function endHydration(): void {
+  _hydrationDepth = Math.max(0, _hydrationDepth - 1)
+}
+
+/** True while a hydration guard is active (read by the auto-save scheduler). */
+export function isHydrating(): boolean {
+  return _hydrationDepth > 0
+}
 /**
  * Clear any pending save timer.
  */

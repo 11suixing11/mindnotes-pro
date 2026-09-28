@@ -2,13 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CanvasElement, ShapeElement, StrokeElement, UndoAction } from '../types'
 import { createCanvasElementSnapshotActions } from './canvasElementSnapshotActions'
 
-vi.mock('../saveManager', () => ({
-  incrementSaveGeneration: vi.fn(),
-  scheduleSave: vi.fn(),
-}))
-
-const { incrementSaveGeneration, scheduleSave } = await import('../saveManager')
-
 function makeShape(id: string): ShapeElement {
   return {
     type: 'shape',
@@ -108,7 +101,5 @@ describe('canvas element snapshot actions', () => {
     expect((state.elements[1] as StrokeElement).points).not.toBe(second.points)
     expect(state.selectedIds).toEqual([first.id])
     expect(replaceElementCollection).toHaveBeenCalledWith(state.elements, state)
-    expect(incrementSaveGeneration).toHaveBeenCalledOnce()
-    expect(scheduleSave).toHaveBeenCalledOnce()
   })
 })

@@ -1,6 +1,5 @@
 import type { CanvasElement, CanvasLayer, UndoAction } from '../types'
 import { isElementLayerEditable } from '../layers'
-import { incrementSaveGeneration, scheduleSave } from '../saveManager'
 import { getAtomicEditableIds } from './canvasElementRules'
 import {
   createMoveElementPlan,
@@ -64,7 +63,6 @@ export function createCanvasElementGeometryActions(
   return {
     moveElementById: (id, dx, dy) => {
       if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return
-      incrementSaveGeneration()
 
       const state = get()
       rebuildIndexIfNeeded()
@@ -86,13 +84,11 @@ export function createCanvasElementGeometryActions(
         state
       )
       set({ elements: plan.elements })
-      scheduleSave()
     },
 
     moveElementsById: (ids, dx, dy, options = {}) => {
       if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return
       if (ids.length === 0) return
-      incrementSaveGeneration()
 
       const state = get()
       const editableIds = getAtomicEditableIds(ids, state)
@@ -106,10 +102,7 @@ export function createCanvasElementGeometryActions(
         state.idToIndex,
         options.recordHistory !== false
       )
-      if (!plan) {
-        scheduleSave()
-        return
-      }
+      if (!plan) return
 
       synchronizeElementGeometry(
         plan.elements,
@@ -125,12 +118,10 @@ export function createCanvasElementGeometryActions(
             }
           : {}),
       })
-      scheduleSave()
     },
 
     resizeElementById: (id, ax, ay, sx, sy) => {
       if (Math.abs(sx - 1) < 0.001 && Math.abs(sy - 1) < 0.001) return
-      incrementSaveGeneration()
 
       const state = get()
       rebuildIndexIfNeeded()
@@ -141,12 +132,10 @@ export function createCanvasElementGeometryActions(
       const plan = createResizeElementPlan(state.elements, index, ax, ay, sx, sy)
       synchronizeElementGeometry(plan.elements, [id], state)
       set({ elements: plan.elements })
-      scheduleSave()
     },
 
     rotateElementById: (id, angle, cx, cy) => {
       if (Math.abs(angle) < 0.0001) return
-      incrementSaveGeneration()
 
       const state = get()
       rebuildIndexIfNeeded()
@@ -157,13 +146,11 @@ export function createCanvasElementGeometryActions(
       const plan = createRotateElementPlan(state.elements, index, angle, cx, cy)
       synchronizeElementGeometry(plan.elements, [id], state)
       set({ elements: plan.elements })
-      scheduleSave()
     },
 
     rotateElementsById: (ids, angleDelta, commonCenterX, commonCenterY) => {
       if (Math.abs(angleDelta) < 0.0001) return
       if (ids.length === 0) return
-      incrementSaveGeneration()
 
       const state = get()
       const editableIds = getAtomicEditableIds(ids, state)
@@ -175,14 +162,10 @@ export function createCanvasElementGeometryActions(
         commonCenterX,
         commonCenterY
       )
-      if (!plan) {
-        scheduleSave()
-        return
-      }
+      if (!plan) return
 
       synchronizeElementGeometry(plan.elements, editableIds, state)
       set({ elements: plan.elements })
-      scheduleSave()
     },
   }
 }

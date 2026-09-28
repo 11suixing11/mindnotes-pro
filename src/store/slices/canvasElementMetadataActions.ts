@@ -1,5 +1,4 @@
 import type { CanvasElement, CanvasLayer, UndoAction } from '../types'
-import { incrementSaveGeneration, scheduleSave } from '../saveManager'
 import { createRuntimeId } from '../runtimeId'
 import { getAtomicEditableIds } from './canvasElementRules'
 import { createElementLockPlan, createGroupPlan, createUngroupPlan } from './canvasElementMetadata'
@@ -48,14 +47,12 @@ export function createCanvasElementMetadataActions(
     selectedIds: string[]
   ) => {
     synchronizeElementReferences(plan.updatedElements, state)
-    incrementSaveGeneration()
     set({
       elements: plan.elements,
       selectedIds,
       undoStack: appendUndoAction(state.undoStack, plan.action),
       redoStack: [],
     })
-    scheduleSave()
   }
 
   return {

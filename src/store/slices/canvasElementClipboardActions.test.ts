@@ -2,13 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CanvasElement, CanvasLayer, ShapeElement, StrokeElement, UndoAction } from '../types'
 import { createCanvasElementClipboardActions } from './canvasElementClipboardActions'
 
-vi.mock('../saveManager', () => ({
-  incrementSaveGeneration: vi.fn(),
-  scheduleSave: vi.fn(),
-}))
-
-const { incrementSaveGeneration, scheduleSave } = await import('../saveManager')
-
 function makeShape(id: string, overrides: Partial<ShapeElement> = {}): ShapeElement {
   return {
     type: 'shape',
@@ -85,8 +78,6 @@ function createHarness(initial: Partial<HarnessState> = {}) {
 
 describe('canvas element clipboard actions', () => {
   beforeEach(() => {
-    vi.mocked(incrementSaveGeneration).mockClear()
-    vi.mocked(scheduleSave).mockClear()
     vi.spyOn(Date, 'now').mockReturnValue(1000)
   })
 
@@ -104,7 +95,6 @@ describe('canvas element clipboard actions', () => {
     expect(state.clipboard[0]).not.toBe(source)
     expect((state.clipboard[0] as StrokeElement).points).not.toBe(source.points)
     expect((state.clipboard[0] as StrokeElement).pressures).not.toBe(source.pressures)
-    expect(incrementSaveGeneration).not.toHaveBeenCalled()
   })
 
   it('pastes offset copies, selects them, and appends them to runtime indexes', () => {
@@ -120,8 +110,6 @@ describe('canvas element clipboard actions', () => {
     expect(state.selectedIds).toEqual([state.elements[0].id])
     expect(state.clipboard[0]).not.toBe(state.elements[0])
     expect(appendElementCollection).toHaveBeenCalledWith([state.elements[0]], 0, expect.anything())
-    expect(incrementSaveGeneration).toHaveBeenCalledOnce()
-    expect(scheduleSave).toHaveBeenCalledOnce()
   })
 
   it('duplicates a fully editable selection and selects the copies', () => {
@@ -137,8 +125,6 @@ describe('canvas element clipboard actions', () => {
     expect(state.elements).toHaveLength(4)
     const copyIds = state.elements.slice(2).map((element) => element.id)
     expect(state.selectedIds).toEqual(copyIds)
-    expect(incrementSaveGeneration).toHaveBeenCalledOnce()
-    expect(scheduleSave).toHaveBeenCalledOnce()
   })
 
   it('does not duplicate a selection that contains a locked element', () => {
@@ -154,8 +140,6 @@ describe('canvas element clipboard actions', () => {
     expect(state.elements).toEqual([editable, locked])
     expect(state.selectedIds).toEqual([editable.id, locked.id])
     expect(set).not.toHaveBeenCalled()
-    expect(incrementSaveGeneration).not.toHaveBeenCalled()
-    expect(scheduleSave).not.toHaveBeenCalled()
   })
 
   it('does nothing when no source is available', () => {
@@ -166,7 +150,5 @@ describe('canvas element clipboard actions', () => {
     actions.duplicateSelected()
 
     expect(state.elements).toEqual([])
-    expect(incrementSaveGeneration).not.toHaveBeenCalled()
-    expect(scheduleSave).not.toHaveBeenCalled()
   })
 })

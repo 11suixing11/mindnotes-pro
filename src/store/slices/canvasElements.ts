@@ -6,7 +6,6 @@ import type {
   UndoAction,
 } from '../types'
 import { createDefaultLayer } from '../layers'
-import { scheduleSave, incrementSaveGeneration } from '../saveManager'
 import type { SpatialIndex } from '../../eraser/SpatialIndex'
 import { getSelectableIds } from './canvasElementRules'
 import {
@@ -171,7 +170,6 @@ export function createCanvasElementsSlice(
     const plan = createCanvasElementCommitPlan(st, nextElements, options)
     if (!plan) return
 
-    incrementSaveGeneration()
     set({
       elements: plan.elements,
       selectedIds: plan.selectedIds,
@@ -179,7 +177,6 @@ export function createCanvasElementsSlice(
       ...(plan.clearRedo ? { redoStack: [] } : {}),
     })
     syncElementCollection(plan.elements, get())
-    scheduleSave()
   }
 
   const defaultLayer = createDefaultLayer()

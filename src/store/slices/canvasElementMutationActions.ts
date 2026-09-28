@@ -6,7 +6,6 @@ import type {
   UndoAction,
 } from '../types'
 import { isElementLayerEditable } from '../layers'
-import { incrementSaveGeneration, scheduleSave } from '../saveManager'
 import { assignToWritableLayer, getAtomicEditableIds } from './canvasElementRules'
 import {
   createElementAdditionPlan,
@@ -93,14 +92,12 @@ export function createCanvasElementMutationActions(
     const plan = createElementAdditionPlan(state.elements, layeredElements)
     if (!plan) return false
 
-    incrementSaveGeneration()
     set({
       elements: plan.elements,
       undoStack: appendUndoAction(state.undoStack, plan.action),
       redoStack: [],
     })
     appendElementCollection(plan.addedElements, startIndex, state)
-    scheduleSave()
     return true
   }
 
@@ -134,7 +131,6 @@ export function createCanvasElementMutationActions(
             affectedIds: [id],
           }
         : undefined
-      incrementSaveGeneration()
       synchronizeElementReplacement(plan.elements, index, id, state)
       set({
         elements: plan.elements,
@@ -145,7 +141,6 @@ export function createCanvasElementMutationActions(
             }
           : {}),
       })
-      scheduleSave()
       return true
     },
 
@@ -166,7 +161,6 @@ export function createCanvasElementMutationActions(
 
       const plan = createElementRemovalPlan(state.elements, [id], state.selectedIds)
       if (!plan) return false
-      incrementSaveGeneration()
       set({
         elements: plan.elements,
         undoStack: appendUndoAction(state.undoStack, plan.action),
@@ -175,7 +169,6 @@ export function createCanvasElementMutationActions(
       })
       removeElementCollection(plan.removedIds, state)
       markIndexDirty()
-      scheduleSave()
       return true
     },
 
@@ -186,7 +179,6 @@ export function createCanvasElementMutationActions(
       const plan = createElementRemovalPlan(state.elements, editableIds, state.selectedIds, true)
       if (!plan) return false
 
-      incrementSaveGeneration()
       set({
         elements: plan.elements,
         undoStack: appendUndoAction(state.undoStack, plan.action),
@@ -195,7 +187,6 @@ export function createCanvasElementMutationActions(
       })
       removeElementCollection(plan.removedIds, state)
       markIndexDirty()
-      scheduleSave()
       return true
     },
 
@@ -212,7 +203,6 @@ export function createCanvasElementMutationActions(
       )
       if (state.elements.length === 0 && !needsReset) return false
       const plan = state.elements.length > 0 ? createElementClearPlan(state.elements) : null
-      incrementSaveGeneration()
       set({
         ...(plan
           ? {
@@ -227,7 +217,6 @@ export function createCanvasElementMutationActions(
         backgroundImage: undefined,
       })
       if (plan) replaceElementCollection(plan.elements, get())
-      scheduleSave()
       return true
     },
   }

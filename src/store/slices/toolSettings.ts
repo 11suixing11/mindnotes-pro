@@ -9,7 +9,6 @@ import type {
   TextFontStyle,
   TextFontWeight,
 } from '../types'
-import { incrementSaveGeneration, scheduleSave } from '../saveManager'
 import {
   getStylePatchFromElement,
   type SelectionStyleApplyResult,
@@ -140,19 +139,13 @@ export function createToolSettingsSlice(
     setFillColor: (c) => set({ fillColor: c }),
     setSize: (s) => set({ size: s }),
     setBgColor: (c) => {
-      incrementSaveGeneration()
       set({ bgColor: c })
-      scheduleSave()
     },
     setBackgroundStyle: (backgroundStyle) => {
-      incrementSaveGeneration()
       set({ backgroundStyle })
-      scheduleSave()
     },
     setBackgroundImage: (image) => {
-      incrementSaveGeneration()
       set({ backgroundImage: image ?? undefined })
-      scheduleSave()
     },
     setTextDefaults: (patch) => {
       const current = _get().textDefaults as TextToolDefaults

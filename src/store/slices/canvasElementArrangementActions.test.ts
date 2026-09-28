@@ -1,14 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CanvasElement, CanvasLayer, ShapeElement, UndoAction } from '../types'
 import type { CommitElementsOptions } from './canvasElementCommit'
 import { createCanvasElementArrangementActions } from './canvasElementArrangementActions'
-
-vi.mock('../saveManager', () => ({
-  incrementSaveGeneration: vi.fn(),
-  scheduleSave: vi.fn(),
-}))
-
-const { incrementSaveGeneration, scheduleSave } = await import('../saveManager')
 
 function makeShape(id: string, x: number, overrides: Partial<ShapeElement> = {}): ShapeElement {
   return {
@@ -81,11 +74,6 @@ function createHarness(initial: Partial<HarnessState> = {}) {
 }
 
 describe('canvas element arrangement actions', () => {
-  beforeEach(() => {
-    vi.mocked(incrementSaveGeneration).mockClear()
-    vi.mocked(scheduleSave).mockClear()
-  })
-
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -107,7 +95,6 @@ describe('canvas element arrangement actions', () => {
       [left.id, right.id],
       expect.anything()
     )
-    expect(scheduleSave).toHaveBeenCalledOnce()
   })
 
   it('distributes three editable elements and filters locked selections', () => {
@@ -123,7 +110,6 @@ describe('canvas element arrangement actions', () => {
 
     expect(state.elements.map((element) => (element as ShapeElement).x)).toEqual([0, 30, 100])
     expect(state.undoStack).toEqual([])
-    expect(scheduleSave).not.toHaveBeenCalled()
   })
 
   it('skips commands with too few editable selections or no geometry change', () => {
@@ -138,8 +124,6 @@ describe('canvas element arrangement actions', () => {
     actions.distributeSelected('distributeH')
 
     expect(state.undoStack).toEqual([])
-    expect(incrementSaveGeneration).not.toHaveBeenCalled()
-    expect(scheduleSave).not.toHaveBeenCalled()
   })
 
   it('commits one stable reorder snapshot for a non-contiguous selection', () => {
