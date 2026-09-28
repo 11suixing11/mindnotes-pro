@@ -58,11 +58,11 @@ const ToolButtons = memo(function ToolButtons({ tool, setTool }: ToolButtonsProp
 
   return (
     <>
-      <div className="sb-group" role="group" aria-label="基础工具">
+      <div className="tb-group" role="group" aria-label="基础工具">
         {TOOLS.map(renderToolButton)}
       </div>
-      <div className="sb-sep" role="separator" />
-      <div className="sb-group" role="group" aria-label="形状工具">
+      <div className="tb-sep" role="separator" />
+      <div className="tb-group" role="group" aria-label="形状工具">
         {SHAPES.map(renderToolButton)}
       </div>
     </>

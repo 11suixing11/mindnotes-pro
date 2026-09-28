@@ -82,7 +82,7 @@ describe('Toolbar', () => {
 
     expect(within(toolbar).getByRole('group', { name: '品牌' })).toBeTruthy()
     expect(within(toolbar).getByRole('group', { name: '当前工具与选择' })).toBeTruthy()
-    const tail = within(toolbar).getByRole('group', { name: '模板与文件' })
+    const tail = within(toolbar).getByRole('group', { name: '历史与文件' })
     expect(within(tail).getByRole('button', { name: '模板库' })).toBeTruthy()
     expect(within(tail).getByRole('button', { name: '插入图片' })).toBeTruthy()
     expect(within(tail).getByRole('button', { name: '画布更多' })).toBeTruthy()
@@ -91,20 +91,20 @@ describe('Toolbar', () => {
 
   it('keeps accessible names and tooltips on the icon-only history buttons', () => {
     render(<Toolbar />)
-    const sidebar = screen.getByRole('toolbar', { name: '绘图工具' })
+    const toolbar = screen.getByRole('toolbar', { name: '画布工具' })
 
     // 初始 undoStack/redoStack 为空：撤销/重做处于禁用态，aria-label 与
     // title 必须仍然存在，屏幕阅读器和自动化才能按名称定位。
     for (const name of ['撤销', '重做', '清空画布']) {
-      const button = within(sidebar).getByRole('button', { name })
+      const button = within(toolbar).getByRole('button', { name })
       expect(button.getAttribute('aria-label')).toBe(name)
       expect(button.getAttribute('title')).toBe(name)
       expect(button.getAttribute('type')).toBe('button')
     }
-    expect(within(sidebar).getByRole('button', { name: '撤销' }).hasAttribute('disabled')).toBe(
+    expect(within(toolbar).getByRole('button', { name: '撤销' }).hasAttribute('disabled')).toBe(
       true
     )
-    expect(within(sidebar).getByRole('button', { name: '重做' }).hasAttribute('disabled')).toBe(
+    expect(within(toolbar).getByRole('button', { name: '重做' }).hasAttribute('disabled')).toBe(
       true
     )
   })

@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, memo } from 'react'
+import { createPortal } from 'react-dom'
 
 const TOOLTIP_DELAY = 600
 
@@ -45,34 +46,36 @@ const Tooltip = memo(function Tooltip({ content, shortcut, children }: TooltipPr
       onBlur={handleLeave}
     >
       {children}
-      {show && (
-        <div
-          className="fixed z-[600] pointer-events-none"
-          style={{
-            top: pos.top,
-            left: pos.left,
-            transform: 'translateX(-50%)',
-            animation: 'fadeIn 0.12s ease',
-          }}
-        >
-          <div className="bg-[var(--card-solid)] text-[var(--text)] text-[12px] font-normal leading-[18px] px-[10px] py-[5px] rounded-[8px] border border-[var(--border)] shadow-[var(--shadow-md)] whitespace-nowrap flex items-center gap-[6px]">
-            <span>{content}</span>
-            {shortcut && (
-              <kbd className="text-[11px] text-[var(--text-3)] bg-[var(--bg)] border border-[var(--border)] rounded-[4px] px-[4px] py-[1px] font-normal">
-                {shortcut}
-              </kbd>
-            )}
-          </div>
+      {show &&
+        createPortal(
           <div
-            className="absolute left-1/2 -translate-x-1/2 -top-[4px] w-0 h-0"
+            className="fixed z-[600] pointer-events-none"
             style={{
-              borderLeft: '5px solid transparent',
-              borderRight: '5px solid transparent',
-              borderBottom: '5px solid var(--card-solid)',
+              top: pos.top,
+              left: pos.left,
+              transform: 'translateX(-50%)',
+              animation: 'fadeIn 0.12s ease',
             }}
-          />
-        </div>
-      )}
+          >
+            <div className="bg-[var(--card-solid)] text-[var(--text)] text-[12px] font-normal leading-[18px] px-[10px] py-[5px] rounded-[8px] border border-[var(--border)] shadow-[var(--shadow-md)] whitespace-nowrap flex items-center gap-[6px]">
+              <span>{content}</span>
+              {shortcut && (
+                <kbd className="text-[11px] text-[var(--text-3)] bg-[var(--bg)] border border-[var(--border)] rounded-[4px] px-[4px] py-[1px] font-normal">
+                  {shortcut}
+                </kbd>
+              )}
+            </div>
+            <div
+              className="absolute left-1/2 -translate-x-1/2 -top-[4px] w-0 h-0"
+              style={{
+                borderLeft: '5px solid transparent',
+                borderRight: '5px solid transparent',
+                borderBottom: '5px solid var(--card-solid)',
+              }}
+            />
+          </div>,
+          document.body
+        )}
     </div>
   )
 })

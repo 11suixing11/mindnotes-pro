@@ -1,24 +1,19 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { getTemplateBounds } from '../../templates/canvasTemplates'
 import {
   createTemplateFromElements,
   deleteCustomTemplate,
-  findTemplateInsertionCenter,
   getBuiltInTemplates,
-  instantiateTemplate,
   loadCustomTemplates,
   saveCustomTemplate,
   type CanvasTemplate,
 } from '../../templates/canvasTemplates'
 import { useAppStore } from '../../store/appStore'
-import { useViewStore } from '../../store/useViewStore'
 import { useToastStore } from '../../store/toastStore'
 import { useConfirm } from '../confirm-modal'
-import { getMainCanvas, getVisibleCanvasViewport } from '../canvas/viewport'
-import { CANVAS_INVALIDATED_EVENT } from '../canvas/renderEvents'
 import { icons } from '../toolbar/icons'
 import TemplatePicker from './TemplatePicker'
+import { insertTemplateIntoCanvas } from './templateInsertion'
 import { OPEN_TEMPLATES_EVENT } from '../../appEvents'
 
 const TemplateMenu = memo(function TemplateMenu() {
@@ -27,11 +22,8 @@ const TemplateMenu = memo(function TemplateMenu() {
   const [showTemplates, setShowTemplates] = useState(false)
   const [customTemplates, setCustomTemplates] = useState(() => loadCustomTemplates())
   const builtInTemplates = useMemo(() => getBuiltInTemplates(), [])
-  const { addElements, setSelectedIds, setTool, elements, selectedIds } = useAppStore(
+  const { elements, selectedIds } = useAppStore(
     useShallow((state) => ({
-      addElements: state.addElements,
-      setSelectedIds: state.setSelectedIds,
-      setTool: state.setTool,
       elements: state.elements,
       selectedIds: state.selectedIds,
     }))
@@ -59,33 +51,15 @@ const TemplateMenu = memo(function TemplateMenu() {
 
   const insertTemplate = useCallback(
     (template: CanvasTemplate) => {
-      const viewport = getVisibleCanvasViewport(getMainCanvas())
-      // 落点避让：模板包围盒压到已有内容时沿右/下方向试探空位，避免
-      // "模板自带线条"和用户已画内容叠在一起分不清。
-      const center = findTemplateInsertionCenter({
-        templateElements: template.elements,
-        existingElements: useAppStore.getState().elements,
-        preferredCenter: { x: viewport.centerX, y: viewport.centerY },
-      })
-      const inserted = instantiateTemplate(template, center.x, center.y)
-
+      const inserted = insertTemplateIntoCanvas(template)
       if (inserted.length === 0) {
         toast('模板为空', 'warning')
         return
       }
-
-      addElements(inserted)
-      setTool('select')
-      setSelectedIds(inserted.map((element) => element.id))
-
-      const bounds = getTemplateBounds(inserted)
-      if (bounds) useViewStore.getState().zoomToFit(bounds)
-
-      window.dispatchEvent(new Event(CANVAS_INVALIDATED_EVENT))
       setShowTemplates(false)
       toast(`已插入并选中 ${template.name}`, 'success')
     },
-    [addElements, setSelectedIds, setTool, toast]
+    [toast]
   )
 
   const saveTemplate = useCallback(

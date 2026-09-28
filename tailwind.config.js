@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#B07D6E',
+        primary: '#A9583E',
         secondary: '#C4B5D8',
         monet: {
           lavender: '#C4B5D8',

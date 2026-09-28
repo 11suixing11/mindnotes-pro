@@ -159,6 +159,9 @@ test('900px 与 1025px 只滚动中部工具，宽屏不显示溢出提示', asy
 
   await page.setViewportSize({ width: 1600, height: 900 })
   await resetToolbarScroll(page)
+  // 单行顶栏（工具组并入中部）在选中态会携带完整工具组，1600px 下允许中部
+  // 滚动；回到创建态（无选中）时必须完整放下，不出现溢出箭头。
+  await page.mouse.click(300, 700)
   await expect.poll(() => toolbarIsOverflowing(page)).toBe(false)
   await expect(page.getByRole('button', { name: '向左查看更多画布工具' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '向右查看更多画布工具' })).toHaveCount(0)

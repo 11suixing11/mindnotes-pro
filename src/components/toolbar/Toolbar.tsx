@@ -402,51 +402,6 @@ export default function Toolbar({ canInstall = false, onInstall }: ToolbarProps)
     <>
       <MobileToolbar />
       <MobileSelectionActions />
-      <div
-        className="sidebar panel"
-        role="toolbar"
-        aria-label="绘图工具"
-        aria-orientation="vertical"
-      >
-        <ToolButtons tool={tool} setTool={setTool} />
-        <div className="sb-sep" role="separator" />
-        <div className="sb-group">
-          <button
-            type="button"
-            onClick={undo}
-            disabled={undoLen === 0}
-            className={`abtn ${historyPulse === 'undo' ? 'history-pulse' : ''}`}
-            data-tip={`撤销 ${shortcut('edit.undo')}`}
-            aria-label="撤销"
-            title="撤销"
-          >
-            {icons.undo}
-          </button>
-          <button
-            type="button"
-            onClick={redo}
-            disabled={redoLen === 0}
-            className={`abtn ${historyPulse === 'redo' ? 'history-pulse' : ''}`}
-            data-tip={`重做 ${shortcut('edit.redo')}`}
-            aria-label="重做"
-            title="重做"
-          >
-            {icons.redo}
-          </button>
-          <button
-            type="button"
-            onClick={async () => {
-              await requestClearCanvas(elements.length, confirm, clearAll)
-            }}
-            className="abtn"
-            data-tip="清空画布"
-            aria-label="清空画布"
-            title="清空画布"
-          >
-            {icons.trash}
-          </button>
-        </div>
-      </div>
 
       <div
         className="topbar panel"
@@ -480,6 +435,8 @@ export default function Toolbar({ canInstall = false, onInstall }: ToolbarProps)
             role="group"
             aria-label="当前工具与选择"
           >
+            <ToolButtons tool={tool} setTool={setTool} />
+            <div className="tb-sep" role="separator" />
             {mode === 'text-editing' ? (
               <div className="toolbar-editing-status">
                 <Type size={15} aria-hidden="true" />
@@ -511,7 +468,44 @@ export default function Toolbar({ canInstall = false, onInstall }: ToolbarProps)
           )}
         </div>
 
-        <div className="toolbar-fixed-end" role="group" aria-label="模板与文件">
+        <div className="toolbar-fixed-end" role="group" aria-label="历史与文件">
+          <div className="tb-group" role="group" aria-label="历史与清空">
+            <button
+              type="button"
+              onClick={undo}
+              disabled={undoLen === 0}
+              className={`abtn ${historyPulse === 'undo' ? 'history-pulse' : ''}`}
+              data-tip={`撤销 ${shortcut('edit.undo')}`}
+              aria-label="撤销"
+              title="撤销"
+            >
+              {icons.undo}
+            </button>
+            <button
+              type="button"
+              onClick={redo}
+              disabled={redoLen === 0}
+              className={`abtn ${historyPulse === 'redo' ? 'history-pulse' : ''}`}
+              data-tip={`重做 ${shortcut('edit.redo')}`}
+              aria-label="重做"
+              title="重做"
+            >
+              {icons.redo}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                await requestClearCanvas(elements.length, confirm, clearAll)
+              }}
+              className="abtn"
+              data-tip="清空画布"
+              aria-label="清空画布"
+              title="清空画布"
+            >
+              {icons.trash}
+            </button>
+          </div>
+          <div className="tb-sep" role="separator" />
           <TemplateMenu />
           <CanvasActionButtons canInstall={canInstall} onInstall={onInstall} />
           <ExportMenu />

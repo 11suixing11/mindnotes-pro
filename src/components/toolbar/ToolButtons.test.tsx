@@ -53,7 +53,7 @@ describe('ToolButtons', () => {
     expect(setTool).toHaveBeenCalledWith('rectangle')
   })
 
-  it('does not render shortcut badges in the sidebar', () => {
+  it('does not render shortcut badges in the toolbar', () => {
     const { container } = render(<ToolButtons tool="pen" setTool={setTool} />)
     expect(container.querySelectorAll('.tbtn .k')).toHaveLength(0)
   })
@@ -69,7 +69,7 @@ describe('ToolButtons', () => {
 
   it('renders separators', () => {
     const { container } = render(<ToolButtons tool="pen" setTool={setTool} />)
-    const separators = container.querySelectorAll('.sb-sep')
+    const separators = container.querySelectorAll('.tb-sep')
     expect(separators.length).toBeGreaterThan(0)
   })
 })

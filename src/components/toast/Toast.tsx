@@ -10,11 +10,13 @@ const icons: Record<ToastType, string> = {
   warning: '⚠',
 }
 
+// Toast 悬浮在白色画布之上，背景必须使用不透明的卡片色（--card），
+// 否则暗色模式下浅色文字叠在半透明浅色底上会不可见；类型色只保留在边框和图标上。
 const typeColors: Record<ToastType, { bg: string; border: string; icon: string }> = {
-  info: { bg: 'var(--primary-bg)', border: 'var(--primary)', icon: 'var(--primary)' },
-  success: { bg: 'rgba(106,154,88,0.1)', border: 'var(--success)', icon: 'var(--success)' },
-  error: { bg: 'rgba(200,90,90,0.1)', border: 'var(--danger)', icon: 'var(--danger)' },
-  warning: { bg: 'rgba(208,184,136,0.15)', border: 'var(--monet-gold)', icon: 'var(--monet-gold)' },
+  info: { bg: 'var(--card)', border: 'var(--primary)', icon: 'var(--primary)' },
+  success: { bg: 'var(--card)', border: 'var(--success)', icon: 'var(--success)' },
+  error: { bg: 'var(--card)', border: 'var(--danger)', icon: 'var(--danger)' },
+  warning: { bg: 'var(--card)', border: 'var(--monet-gold)', icon: 'var(--monet-gold)' },
 }
 
 const typeLabels: Record<ToastType, string> = {

@@ -136,29 +136,41 @@ button:focus:not(:focus-visible) {
   --ui-line-meta: 18px;
   --ui-weight-regular: 400;
   --ui-weight-medium: 500;
-  --bg: #f4f6f7;
+  /* Warm impressionist identity (see DESIGN.md): cream paper, warm ink,
+     burnt-sienna accent. Every derived color stays in the warm family. */
+  --bg: #f7f4ee;
   --card: rgba(255, 255, 255, 0.94);
   --card-solid: #ffffff;
-  --text: #182326;
-  --text-2: #405156;
-  --text-3: #58696e;
-  --text-4: #5f7075;
-  --border: rgba(41, 63, 68, 0.16);
-  --primary: #147d78;
-  --primary-hover: #0f6a66;
-  --primary-light: rgba(20, 125, 120, 0.14);
-  --primary-bg: rgba(20, 125, 120, 0.08);
+  --text: #1c1917;
+  --text-2: #4d463f;
+  --text-3: #6f675c;
+  --text-4: #7d7468;
+  --border: rgba(58, 48, 38, 0.16);
+  --primary: #a9583e;
+  --primary-hover: #8f4630;
+  --primary-light: rgba(169, 88, 62, 0.14);
+  --primary-bg: rgba(169, 88, 62, 0.08);
   --danger: #b94141;
   --success: #2e7d50;
-  --glow: rgba(20, 125, 120, 0.22);
-  --canvas: #f8fafb;
+  --glow: rgba(169, 88, 62, 0.2);
+  /* Ink CTA pair: primary buttons and the active tool fill with warm ink;
+     sienna stays on small accents (rings, links, hover washes). */
+  --ink: #2b241d;
+  --ink-hover: #1f1a14;
+  --on-ink: #f7f4ee;
+  /* Canvas-content ink: onboarding art sits on the paper, and the paper color
+     is user content — EmptyCanvasState overrides these vars by contrasting
+     bgColor (see isDarkPaperColor), so the art stays readable on any paper. */
+  --paper-ink: #1c1917;
+  --paper-ink-2: rgba(28, 25, 23, 0.62);
+  --canvas: #faf9f5;
   --radius: 6px;
   --radius-sm: 4px;
   --radius-lg: 8px;
   --glass: blur(16px) saturate(1.2);
-  --shadow-sm: 0 1px 3px rgba(20, 33, 36, 0.08);
-  --shadow-md: 0 5px 18px rgba(20, 33, 36, 0.11);
-  --shadow-lg: 0 12px 32px rgba(20, 33, 36, 0.16);
+  --shadow-sm: 0 1px 3px rgba(40, 32, 26, 0.08);
+  --shadow-md: 0 5px 18px rgba(40, 32, 26, 0.11);
+  --shadow-lg: 0 12px 32px rgba(40, 32, 26, 0.16);
 
   --monet-lavender: #b8a0d0;
   --monet-rose: #d49898;
@@ -175,22 +187,28 @@ button:focus:not(:focus-visible) {
 }
 
 .dark {
-  --bg: #151a1c;
-  --card: rgba(30, 38, 41, 0.96);
-  --card-solid: #1e2629;
-  --text: #eef3f3;
-  --text-2: #bdc9cb;
-  --text-3: #aab8bb;
-  --text-4: #8e9da1;
-  --border: rgba(206, 222, 224, 0.14);
-  --primary: #5bc1b9;
-  --primary-hover: #78d0c9;
-  --primary-light: rgba(91, 193, 185, 0.16);
-  --primary-bg: rgba(91, 193, 185, 0.09);
+  --bg: #171411;
+  --card: rgba(37, 31, 27, 0.96);
+  --card-solid: #251f1b;
+  --text: #f2ede6;
+  --text-2: #c8bdb0;
+  --text-3: #ada294;
+  --text-4: #8f8578;
+  --border: rgba(226, 214, 198, 0.14);
+  --primary: #d08a6c;
+  --primary-hover: #dba387;
+  --primary-light: rgba(208, 138, 108, 0.16);
+  --primary-bg: rgba(208, 138, 108, 0.1);
   --danger: #e07878;
   --success: #75bd91;
-  --glow: rgba(91, 193, 185, 0.2);
-  --canvas: #151a1c;
+  --glow: rgba(208, 138, 108, 0.2);
+  --ink: #f2ede6;
+  --ink-hover: #fbf7f0;
+  --on-ink: #241f1a;
+  /* paper ink is identical in dark mode: the paper itself stays light */
+  --paper-ink: #1c1917;
+  --paper-ink-2: rgba(28, 25, 23, 0.62);
+  --canvas: #171411;
   --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.25);
   --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.18);
   --shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.22);
@@ -236,78 +254,155 @@ button:focus:not(:focus-visible) {
   font-weight: 500;
 }
 
-.canvas-empty-state {
+.empty-canvas-state {
   position: absolute;
-  left: 50%;
+  /* Keep the onboarding affordance out of the primary drawing corridor and
+     clear of the first-use notice above. The canvas remains immediately
+     usable even before the first element exists. */
   top: 50%;
+  left: 50%;
   z-index: 10;
-  width: min(440px, calc(100% - 32px));
+  width: min(640px, calc(100% - 32px));
   transform: translate(-50%, -50%);
   text-align: center;
   pointer-events: none;
 }
 
-.canvas-empty-state h2 {
-  color: var(--text);
-  font-size: 20px;
-  font-weight: 500;
+/* Drawnix-style welcome where images do the talking: a hand-sketched mini
+   mind map shows what the app makes, the wordmark brands it, and arrows
+   annotate the real chrome around it. */
+.empty-canvas-sketch {
+  display: block;
+  width: 280px;
+  max-width: 72vw;
+  height: auto;
+  margin: 0 auto;
+}
+.empty-canvas-wordmark {
+  color: var(--paper-ink);
+  font-size: 40px;
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -1px;
+}
+.empty-canvas-swash {
+  display: block;
+  margin: 2px auto 0;
+}
+.empty-canvas-tagline {
+  margin-top: 8px;
+  color: var(--paper-ink-2);
+  font-size: 14px;
+  font-style: italic;
+}
+.empty-canvas-note {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: max-content;
+  color: var(--paper-ink-2);
+  font-size: 12px;
+  opacity: 0.85;
+}
+.empty-canvas-note-left {
+  left: -168px;
+  top: -20px;
+  align-items: flex-end;
+}
+.empty-canvas-note-right {
+  right: -168px;
+  top: -24px;
+  align-items: flex-end;
 }
 
-.canvas-empty-state p {
-  margin-top: 6px;
-  color: var(--text-3);
-  font-size: 13px;
+/* First-run entrance: the sketch draws itself, the chrome staggers in. */
+.empty-canvas-state .ec-up {
+  animation: ecFadeUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.empty-canvas-state .ec-fade {
+  animation: ecFade 0.5s ease both;
+}
+.empty-canvas-state .ec-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ecPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.empty-canvas-state .ec-draw {
+  animation: ecDraw 0.55s ease-out both;
+}
+.empty-canvas-state .ec-pencil {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation:
+    ecPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 1.35s both,
+    ecBob 1.6s ease-in-out 1.9s infinite alternate;
+}
+.empty-canvas-state .ec-dd-1 { animation-delay: 0.12s; }
+.empty-canvas-state .ec-dd-2 { animation-delay: 0.27s; }
+.empty-canvas-state .ec-dd-3 { animation-delay: 0.42s; }
+.empty-canvas-state .ec-dd-4 { animation-delay: 0.55s; }
+.empty-canvas-state .ec-dd-5 { animation-delay: 0.68s; }
+.empty-canvas-state .ec-dd-6 { animation-delay: 0.78s; }
+.empty-canvas-state .ec-dd-7 { animation-delay: 0.9s; }
+.empty-canvas-state .ec-dd-8 { animation-delay: 1.02s; }
+.empty-canvas-state .ec-dd-9 { animation-delay: 1.14s; }
+.empty-canvas-state .ec-dd-10 { animation-delay: 1.26s; }
+.empty-canvas-state .ec-dd-11 { animation-delay: 1.4s; }
+
+@keyframes ecFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes ecFade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ecPop {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+@keyframes ecDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes ecBob {
+  from {
+    transform: translateY(0) rotate(0deg);
+  }
+  to {
+    transform: translateY(-3px) rotate(2.5deg);
+  }
 }
 
-.canvas-empty-actions {
+.empty-canvas-footnote {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 14px auto 0;
+  color: var(--paper-ink-2);
+  font-size: 12px;
+  line-height: 16px;
+  opacity: 0.9;
+}
+@media (max-width: 1199px) {
+  .empty-canvas-note {
+    display: none;
+  }
+}
+.empty-canvas-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
   margin-top: 16px;
   pointer-events: auto;
-}
-
-.canvas-empty-actions button {
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--card-solid);
-  color: var(--text-2);
-  box-shadow: var(--shadow-sm);
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.canvas-empty-actions button:first-child {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: #fff;
-}
-
-.empty-canvas-state {
-  position: absolute;
-  /* Keep the onboarding affordance out of the primary drawing corridor. The
-     canvas remains immediately usable even before the first element exists. */
-  top: 24%;
-  left: 50%;
-  z-index: 10;
-  width: min(440px, calc(100% - 32px));
-  transform: translate(-50%, -50%);
-  text-align: center;
-  pointer-events: none;
-}
-
-.empty-canvas-state h2 {
-  color: var(--text);
-  font-size: 20px;
-  font-weight: 500;
-}
-.empty-canvas-state p {
-  margin-top: 6px;
-  color: var(--text-3);
-  font-size: 13px;
 }
 .empty-canvas-actions {
   display: flex;
@@ -332,9 +427,80 @@ button:focus:not(:focus-visible) {
   font-size: 13px;
 }
 .empty-canvas-action-primary {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--on-ink);
+}
+
+.empty-canvas-action:hover {
   border-color: var(--primary);
-  background: var(--primary);
-  color: #fff;
+  color: var(--primary);
+}
+
+.empty-canvas-action-primary:hover {
+  border-color: var(--ink-hover);
+  background: var(--ink-hover);
+  color: var(--on-ink);
+}
+
+.empty-canvas-templates-label {
+  margin: 22px 0 8px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: var(--ui-weight-medium);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.empty-canvas-templates {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.empty-canvas-template-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 12px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card-solid);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  cursor: pointer;
+  text-align: center;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.empty-canvas-template-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.empty-canvas-template-name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: var(--ui-weight-medium);
+  line-height: var(--ui-line-body);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-canvas-template-meta {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--ui-size-meta);
+  line-height: var(--ui-line-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 768px) {
@@ -348,12 +514,16 @@ button:focus:not(:focus-visible) {
     min-height: 44px;
   }
 
-  .canvas-empty-state {
-    top: 46%;
+  .empty-canvas-state {
+    top: 44%;
   }
 
-  .empty-canvas-state {
-    top: 30%;
+  .empty-canvas-wordmark {
+    font-size: 32px;
+  }
+
+  .empty-canvas-tagline {
+    font-size: 12px;
   }
 }
 
@@ -363,6 +533,7 @@ button:focus:not(:focus-visible) {
   *::after {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
@@ -437,7 +608,7 @@ body,
   border-bottom: none;
   border-radius: var(--radius-lg) 0 0 var(--radius-lg);
   background: var(--card-solid);
-  box-shadow: -8px -8px 24px rgba(20, 33, 36, 0.1);
+  box-shadow: -8px -8px 24px rgba(40, 32, 26, 0.1);
 }
 
 .layers-dock .layers-panel {
@@ -542,43 +713,6 @@ body,
   box-shadow: var(--shadow-md);
 }
 
-.sidebar {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 8px;
-  z-index: 20;
-  /* Keep the working surface stable on first paint; motion is reserved for
-     explicit interactions such as menus and dialogs. */
-  box-shadow:
-    var(--shadow-lg),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  max-height: calc(100vh - 32px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  background: var(--card);
-  backdrop-filter: var(--glass);
-  -webkit-backdrop-filter: var(--glass);
-}
-
-.sidebar .sb-group {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.sidebar .sb-sep {
-  width: 22px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--border), transparent);
-  margin: 5px auto;
-}
-
 .tbtn {
   position: relative;
   display: flex;
@@ -601,7 +735,7 @@ body,
 .tbtn:hover {
   background: var(--primary-bg);
   color: var(--primary);
-  transform: scale(1.1);
+  transform: scale(1.05);
 }
 
 .tbtn:active {
@@ -610,21 +744,13 @@ body,
 }
 
 .tbtn.on {
-  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-  color: #fff;
-  box-shadow:
-    0 4px 16px var(--glow),
-    0 0 0 1px rgba(192, 120, 86, 0.2);
+  background: var(--ink);
+  color: var(--on-ink);
   transform: scale(1.06);
 }
 
-.tbtn.on:hover {
-  transform: scale(1.12);
-  box-shadow: 0 6px 20px var(--glow);
-}
-
 .tbtn:disabled {
-  opacity: 0.15;
+  opacity: 0.38;
   pointer-events: none;
 }
 
@@ -635,7 +761,7 @@ body,
   top: 50%;
   transform: translateY(-50%) translateX(-8px);
   padding: 6px 13px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: var(--ui-size-meta);
   font-weight: var(--ui-weight-regular);
   line-height: var(--ui-line-meta);
@@ -651,6 +777,15 @@ body,
 .tbtn[data-tip]:hover::before {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
+}
+
+/* The merged single-row topbar is dense: 40px controls keep every group on
+   screen at 1440px while touch devices regain 44px via the coarse-pointer
+   media query below. */
+.topbar .tbtn,
+.topbar .abtn {
+  width: 40px;
+  height: 40px;
 }
 
 .topbar {
@@ -1053,16 +1188,16 @@ body,
 /* Canvas grid background - subtle paper-like texture */
 .canvas-grid-bg {
   background-image:
-    linear-gradient(rgba(140, 118, 88, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(140, 118, 88, 0.06) 1px, transparent 1px);
+    linear-gradient(rgba(140, 118, 88, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(140, 118, 88, 0.1) 1px, transparent 1px);
   background-size: 24px 24px;
   background-position: -1px -1px;
 }
 
 .dark .canvas-grid-bg {
   background-image:
-    linear-gradient(rgba(160, 148, 180, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(160, 148, 180, 0.05) 1px, transparent 1px);
+    linear-gradient(rgba(190, 170, 150, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(190, 170, 150, 0.08) 1px, transparent 1px);
 }
 
 /* Install is a low-frequency toolbar action, not a canvas overlay. */
@@ -1113,15 +1248,13 @@ body,
 }
 
 .cdot:hover {
-  transform: scale(1.3);
+  transform: scale(1.1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .cdot.on {
   border-color: var(--primary);
-  box-shadow:
-    0 0 0 3px var(--primary-light),
-    0 3px 12px var(--glow);
+  box-shadow: 0 0 0 3px var(--primary-light);
   transform: scale(1.15);
 }
 
@@ -1143,12 +1276,11 @@ body,
 
 .szbtn:hover {
   background: var(--primary-bg);
-  transform: scale(1.12);
+  transform: scale(1.05);
 }
 .szbtn.on {
-  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  background: var(--ink);
   transform: scale(1.06);
-  box-shadow: 0 3px 10px var(--glow);
 }
 .szbtn .dot {
   border-radius: 50%;
@@ -1156,7 +1288,7 @@ body,
   transition: all 0.15s ease;
 }
 .szbtn.on .dot {
-  background: #fff;
+  background: var(--on-ink);
 }
 
 .abtn {
@@ -1207,7 +1339,7 @@ body,
   transform: scale(0.92);
 }
 .abtn:disabled {
-  opacity: 0.15;
+  opacity: 0.38;
   pointer-events: none;
 }
 
@@ -1279,14 +1411,12 @@ body,
 }
 
 .pill-btn.primary {
-  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-  color: #fff;
-  box-shadow: 0 3px 14px var(--glow);
+  background: var(--ink);
+  color: var(--on-ink);
 }
 
 .pill-btn.primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px var(--glow);
+  background: var(--ink-hover);
 }
 
 .ditem {
@@ -1451,7 +1581,7 @@ body,
   color: #fff;
   font-size: 14px;
   font-weight: 700;
-  box-shadow: 0 2px 8px var(--glow);
+  box-shadow: var(--shadow-sm);
 }
 
 .brand-text {
@@ -1490,7 +1620,7 @@ body,
   height: 7px;
   border-radius: 50%;
   background: var(--success);
-  box-shadow: 0 0 6px rgba(106, 154, 88, 0.4);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--success) 40%, transparent);
 }
 
 .status .status-dot-saving {
@@ -1873,7 +2003,6 @@ body,
 }
 
 @media (max-width: 768px) {
-  .sidebar,
   .topbar,
   .toolbar-scroll-control {
     display: none !important;
@@ -1924,8 +2053,8 @@ body,
   }
 
   .mobile-tool-button.is-active {
-    background: var(--primary);
-    color: #fff;
+    background: var(--ink);
+    color: var(--on-ink);
   }
 
   .mobile-tool-button:disabled {
@@ -1948,7 +2077,7 @@ body,
     inset: 0;
     z-index: 90;
     display: block;
-    background: rgba(12, 18, 20, 0.32);
+    background: rgba(20, 15, 11, 0.32);
   }
 
   .mobile-more-panel {
@@ -1967,7 +2096,7 @@ body,
     border-bottom: 0;
     border-radius: 8px 8px 0 0;
     background: var(--card-solid);
-    box-shadow: 0 -12px 34px rgba(20, 33, 36, 0.18);
+    box-shadow: 0 -12px 34px rgba(40, 32, 26, 0.18);
   }
 
   .mobile-sheet-header {
@@ -2318,7 +2447,7 @@ body,
     border-bottom: 0;
     border-left: 0;
     border-radius: 8px 8px 0 0;
-    box-shadow: 0 -10px 28px rgba(20, 33, 36, 0.16);
+    box-shadow: 0 -10px 28px rgba(40, 32, 26, 0.16);
     overflow: visible;
   }
 
@@ -2328,7 +2457,7 @@ body,
     z-index: -1;
     display: block;
     border: 0;
-    background: rgba(12, 18, 20, 0.32);
+    background: rgba(20, 15, 11, 0.32);
   }
 
   .layers-header {
@@ -2508,7 +2637,7 @@ body,
 .confirm-modal-bg {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(20, 15, 11, 0.25);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
@@ -2583,7 +2712,7 @@ body,
 .template-picker-bg {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(20, 15, 11, 0.28);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
@@ -2681,8 +2810,8 @@ body,
   padding: 0 14px;
   border: none;
   border-radius: 8px;
-  background: var(--primary);
-  color: #fff;
+  background: var(--ink);
+  color: var(--on-ink);
   font-size: var(--ui-size-label);
   font-weight: var(--ui-weight-regular);
   line-height: var(--ui-line-body);
@@ -2692,7 +2821,7 @@ body,
 }
 
 .template-save-btn:hover {
-  background: var(--primary-hover);
+  background: var(--ink-hover);
   transform: translateY(-1px);
 }
 
@@ -2763,7 +2892,7 @@ body,
   border-radius: 6px;
   background:
     linear-gradient(var(--card-solid), var(--card-solid)),
-    radial-gradient(circle, rgba(76, 92, 112, 0.18) 1px, transparent 1.2px);
+    radial-gradient(circle, rgba(122, 105, 88, 0.18) 1px, transparent 1.2px);
   background-size:
     100% 100%,
     12px 12px;
@@ -2844,4 +2973,77 @@ body,
   .template-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Mermaid import dialog (AI 生成 → 可编辑图形) */
+.mermaid-dialog {
+  width: min(680px, 100%);
+}
+
+.mermaid-dialog-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mermaid-dialog-body {
+  padding: 14px 20px 4px;
+  overflow-y: auto;
+}
+
+.mermaid-dialog-hint {
+  margin-bottom: 10px;
+  color: var(--text-3);
+  font-size: var(--ui-size-meta);
+  line-height: var(--ui-line-meta);
+}
+
+.mermaid-code-input {
+  width: 100%;
+  min-height: 230px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Courier New', monospace;
+  font-size: 12.5px;
+  line-height: 20px;
+  resize: vertical;
+  outline: none;
+}
+
+.mermaid-code-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.mermaid-dialog-error {
+  margin-top: 8px;
+  color: var(--danger);
+  font-size: var(--ui-size-meta);
+}
+
+.mermaid-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px 20px;
+}
+
+.mermaid-cancel {
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-solid);
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: var(--ui-size-label);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.mermaid-cancel:hover {
+  border-color: var(--primary);
+  color: var(--primary);
 }

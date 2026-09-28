@@ -253,6 +253,12 @@ export default function Canvas() {
   // 右键上下文菜单处理
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     if (e.defaultPrevented) return
+    // 菜单只属于画布本体：空状态欢迎卡等容器子元素上的右键不触发画布菜单
+    // （否则欢迎卡上的右键拖拽会被误判成"画布纯右键点击"而弹出菜单）。
+    if (e.target !== canvasRef.current) {
+      e.preventDefault()
+      return
+    }
     e.preventDefault()
     setContextMenu({ x: e.clientX, y: e.clientY })
   }, [])

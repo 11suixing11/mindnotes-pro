@@ -187,9 +187,11 @@ test.describe('核心编辑交互回归', () => {
     await page.keyboard.up('Space')
     await expect(page.getByRole('button', { name: /^平移工具/ })).toHaveClass(/on/)
 
-    await page.mouse.move(700, 400)
+    // 拖拽锚点选在欢迎卡片之外的空白纸面：空状态的可交互按钮行位于画布中心，
+    // 右键拖拽应和真实用户一样落在空白处。
+    await page.mouse.move(260, 640)
     await page.mouse.down({ button: 'right' })
-    await page.mouse.move(740, 430, { steps: 4 })
+    await page.mouse.move(300, 670, { steps: 4 })
     await page.mouse.up({ button: 'right' })
     await expect(page.getByRole('menu')).toBeHidden()
   })
