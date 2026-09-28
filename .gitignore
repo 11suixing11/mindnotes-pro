@@ -88,6 +88,8 @@ page-content.pdf
 CLAUDE.md
 CODELY.md
 .codely-cli/
+.codely/
+.zcode/
 
 # Internal docs (not for distribution)
 docs/POSTING_CHECKLIST.md
