@@ -74,6 +74,18 @@ test.describe('v5.3 界面完整性', () => {
     }
   })
 
+  test('常驻界面层不依赖实时背景模糊', async ({ page }) => {
+    await openApp(page)
+
+    const topbar = page.getByRole('toolbar', { name: '画布工具' })
+    const status = page.getByRole('status', { name: '应用状态' })
+    const firstUseNotice = page.locator('.first-use-notice')
+
+    await expect(topbar).toHaveCSS('backdrop-filter', 'none')
+    await expect(status).toHaveCSS('backdrop-filter', 'none')
+    await expect(firstUseNotice).toHaveCSS('backdrop-filter', 'none')
+  })
+
   test('Toast 关闭按钮可由键盘触发', async ({ page }) => {
     await openApp(page)
     await insertFlowchart(page)

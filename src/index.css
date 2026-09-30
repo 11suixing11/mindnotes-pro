@@ -139,7 +139,7 @@ button:focus:not(:focus-visible) {
   /* Warm impressionist identity (see DESIGN.md): cream paper, warm ink,
      burnt-sienna accent. Every derived color stays in the warm family. */
   --bg: #f7f4ee;
-  --card: rgba(255, 255, 255, 0.94);
+  --card: rgba(255, 255, 255, 0.88);
   --card-solid: #ffffff;
   --text: #1c1917;
   --text-2: #4d463f;
@@ -169,8 +169,8 @@ button:focus:not(:focus-visible) {
   --radius-lg: 8px;
   --glass: blur(16px) saturate(1.2);
   --shadow-sm: 0 1px 3px rgba(40, 32, 26, 0.08);
-  --shadow-md: 0 5px 18px rgba(40, 32, 26, 0.11);
-  --shadow-lg: 0 12px 32px rgba(40, 32, 26, 0.16);
+  --shadow-md: 0 1px 2px rgba(40, 32, 26, 0.1), 0 5px 18px rgba(40, 32, 26, 0.11);
+  --shadow-lg: 0 1px 2px rgba(40, 32, 26, 0.1), 0 12px 32px rgba(40, 32, 26, 0.16);
 
   --monet-lavender: #b8a0d0;
   --monet-rose: #d49898;
@@ -188,7 +188,7 @@ button:focus:not(:focus-visible) {
 
 .dark {
   --bg: #171411;
-  --card: rgba(37, 31, 27, 0.96);
+  --card: rgba(37, 31, 27, 0.92);
   --card-solid: #251f1b;
   --text: #f2ede6;
   --text-2: #c8bdb0;
@@ -210,8 +210,10 @@ button:focus:not(:focus-visible) {
   --paper-ink-2: rgba(28, 25, 23, 0.62);
   --canvas: #171411;
   --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.25);
-  --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.18);
-  --shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.22);
+  --shadow-md:
+    0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 24px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.18);
+  --shadow-lg:
+    0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 48px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.22);
 
   --monet-lavender: #7a6890;
   --monet-rose: #9a6868;
@@ -238,20 +240,45 @@ button:focus:not(:focus-visible) {
   max-width: min(560px, calc(100vw - 32px));
   transform: translateX(-50%);
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  color: var(--text-2);
+  gap: 14px;
+  padding: 12px 14px 12px 16px;
+  color: var(--text-3);
   font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
+  box-shadow: var(--shadow-md);
+}
+
+.first-use-notice strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.first-use-notice p {
+  line-height: 17px;
 }
 
 .first-use-notice button {
   flex: 0 0 auto;
+  padding: 6px 12px;
   border: 0;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--primary);
   cursor: pointer;
   font: inherit;
   font-weight: 500;
+  transition: background-color 0.15s ease;
+}
+
+.first-use-notice button:hover {
+  background: var(--primary-bg);
 }
 
 .empty-canvas-state {
@@ -338,17 +365,39 @@ button:focus:not(:focus-visible) {
     ecPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 1.35s both,
     ecBob 1.6s ease-in-out 1.9s infinite alternate;
 }
-.empty-canvas-state .ec-dd-1 { animation-delay: 0.12s; }
-.empty-canvas-state .ec-dd-2 { animation-delay: 0.27s; }
-.empty-canvas-state .ec-dd-3 { animation-delay: 0.42s; }
-.empty-canvas-state .ec-dd-4 { animation-delay: 0.55s; }
-.empty-canvas-state .ec-dd-5 { animation-delay: 0.68s; }
-.empty-canvas-state .ec-dd-6 { animation-delay: 0.78s; }
-.empty-canvas-state .ec-dd-7 { animation-delay: 0.9s; }
-.empty-canvas-state .ec-dd-8 { animation-delay: 1.02s; }
-.empty-canvas-state .ec-dd-9 { animation-delay: 1.14s; }
-.empty-canvas-state .ec-dd-10 { animation-delay: 1.26s; }
-.empty-canvas-state .ec-dd-11 { animation-delay: 1.4s; }
+.empty-canvas-state .ec-dd-1 {
+  animation-delay: 0.12s;
+}
+.empty-canvas-state .ec-dd-2 {
+  animation-delay: 0.27s;
+}
+.empty-canvas-state .ec-dd-3 {
+  animation-delay: 0.42s;
+}
+.empty-canvas-state .ec-dd-4 {
+  animation-delay: 0.55s;
+}
+.empty-canvas-state .ec-dd-5 {
+  animation-delay: 0.68s;
+}
+.empty-canvas-state .ec-dd-6 {
+  animation-delay: 0.78s;
+}
+.empty-canvas-state .ec-dd-7 {
+  animation-delay: 0.9s;
+}
+.empty-canvas-state .ec-dd-8 {
+  animation-delay: 1.02s;
+}
+.empty-canvas-state .ec-dd-9 {
+  animation-delay: 1.14s;
+}
+.empty-canvas-state .ec-dd-10 {
+  animation-delay: 1.26s;
+}
+.empty-canvas-state .ec-dd-11 {
+  animation-delay: 1.4s;
+}
 
 @keyframes ecFadeUp {
   from {
@@ -713,6 +762,17 @@ body,
   box-shadow: var(--shadow-md);
 }
 
+/* Persistent chrome sits above a continuously repainted canvas. Chromium can
+   flash a backdrop-filter layer whenever that canvas updates, so keep these
+   controls on an opaque surface and reserve live blur for transient menus. */
+.topbar.panel,
+.status.panel,
+.first-use-notice {
+  background: var(--card-solid);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .tbtn {
   position: relative;
   display: flex;
@@ -804,7 +864,8 @@ body,
   box-shadow:
     var(--shadow-lg),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   background: var(--card);
   backdrop-filter: var(--glass);
   -webkit-backdrop-filter: var(--glass);
@@ -978,11 +1039,31 @@ body,
 .toolbar-select {
   width: 68px;
   height: 32px;
+  padding: 0 24px 0 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--card-solid);
+  background-color: var(--card-solid);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236f675c' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
   color: var(--text);
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  appearance: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.toolbar-select:hover {
+  border-color: var(--text-4);
+}
+
+.toolbar-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
 }
 
 .text-style-button[aria-pressed='true'],
@@ -3040,7 +3121,9 @@ body,
   color: var(--text-2);
   cursor: pointer;
   font-size: var(--ui-size-label);
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .mermaid-cancel:hover {

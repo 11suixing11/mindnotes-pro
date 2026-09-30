@@ -7,7 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- A redesigned empty-canvas quick-start experience.
+- Background image import with cover and tile placement.
+- Paste support for Mermaid diagrams as editable canvas elements.
+
+### Changed
+
+- Centralized document save scheduling in a store subscription so slices no longer coordinate persistence directly.
+- Added dependency-cruiser boundary rules and resolved the existing layer violations.
+
+### Fixed
+
+- Persistent toolbar, status, and first-use surfaces no longer use live backdrop blur, avoiding Chromium repaint flashes over the canvas.
+- Canvas shortcuts remain available immediately after a dialog or chrome control closes.
+- The accessibility element list no longer fires global shortcuts twice.
+- Remaining English history action labels are now localized.
+
+### Security
+
+- Updated the vulnerable transitive development dependencies `js-yaml`, `joi`, and `undici` to patched releases.
 
 ## [5.1.2] - 2026-09-25
 
