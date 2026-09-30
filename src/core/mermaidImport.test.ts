@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { CanvasElement } from './model'
 import { importMermaidDiagram, parseMermaidDiagram } from './mermaidImport'
 
 const DOUBAO_FLOWCHART = `flowchart TD
@@ -117,5 +118,91 @@ describe('importMermaidDiagram', () => {
     expect(outcome.ok).toBe(false)
     if (outcome.ok) return
     expect(outcome.error).toContain('Mermaid')
+  })
+})
+
+describe('importMermaidDiagram layout', () => {
+  const LR_BRANCHES = `flowchart LR
+    A[开始] --> B[校验]
+    B --> C[审核]
+    C -->|是| D[导出分享]
+    C -->|否| E[再改改]`
+
+  const LR_LOOP = `flowchart LR
+    A[开始] --> B[校验]
+    B --> C[审核]
+    C -->|是| D[通过]
+    C -->|否| B`
+
+  interface Box {
+    x: number
+    y: number
+    w: number
+    h: number
+  }
+
+  const nodeBoxes = (elements: CanvasElement[]): Map<string, Box> => {
+    const boxes = new Map<string, Box>()
+    for (const element of elements) {
+      if (element.type !== 'shape' || !element.id.startsWith('mm-node-')) continue
+      boxes.set(element.id, { x: element.x, y: element.y, w: element.w, h: element.h })
+    }
+    return boxes
+  }
+
+  const overlaps = (a: Box, b: Box): boolean =>
+    a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+
+  it('spreads LR branch siblings vertically instead of stacking them', () => {
+    const outcome = importMermaidDiagram(LR_BRANCHES)
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+    const { elements, edgeCount } = outcome.result
+    const boxes = nodeBoxes(elements)
+    const d = boxes.get('mm-node-D')
+    const e = boxes.get('mm-node-E')
+    expect(d).toBeDefined()
+    expect(e).toBeDefined()
+    expect(d!.y).not.toBe(e!.y)
+    expect(overlaps(d!, e!)).toBe(false)
+
+    const arrows = elements.filter((el) => el.type === 'shape' && el.kind === 'arrow')
+    expect(arrows).toHaveLength(edgeCount)
+    expect(edgeCount).toBe(4)
+
+    const texts = elements.filter((el) => el.type === 'text')
+    expect(texts.some((el) => el.type === 'text' && el.content === '是')).toBe(true)
+    expect(texts.some((el) => el.type === 'text' && el.content === '否')).toBe(true)
+  })
+
+  it('keeps every LR node disjoint when a loop edge points back', () => {
+    const outcome = importMermaidDiagram(LR_LOOP)
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+    const { elements } = outcome.result
+    const boxes = [...nodeBoxes(elements).values()]
+    expect(boxes.length).toBeGreaterThanOrEqual(4)
+    for (let i = 0; i < boxes.length; i += 1) {
+      for (let j = i + 1; j < boxes.length; j += 1) {
+        expect(overlaps(boxes[i], boxes[j])).toBe(false)
+      }
+    }
+
+    const arrows = elements.filter((el) => el.type === 'shape' && el.kind === 'arrow')
+    expect(arrows.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('keeps the TD placeholder spreading siblings horizontally', () => {
+    const outcome = importMermaidDiagram(DOUBAO_FLOWCHART)
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+    const boxes = nodeBoxes(outcome.result.elements)
+    const c = boxes.get('mm-node-C')
+    const d = boxes.get('mm-node-D')
+    expect(c).toBeDefined()
+    expect(d).toBeDefined()
+    expect(c!.y).toBe(d!.y)
+    expect(c!.x).not.toBe(d!.x)
+    expect(overlaps(c!, d!)).toBe(false)
   })
 })

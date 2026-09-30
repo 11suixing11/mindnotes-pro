@@ -304,22 +304,47 @@ function measureLabel(label: string, fontSize: number): number {
 }
 
 function computeRanks(nodeIds: string[], edges: FlowEdge[]): Map<string, number> {
+  const outgoing = new Map<string, string[]>()
   const incoming = new Map<string, string[]>()
-  for (const id of nodeIds) incoming.set(id, [])
-  for (const edge of edges) incoming.get(edge.to)?.push(edge.from)
+  for (const id of nodeIds) {
+    outgoing.set(id, [])
+    incoming.set(id, [])
+  }
+  for (const edge of edges) {
+    outgoing.get(edge.from)?.push(edge.to)
+    incoming.get(edge.to)?.push(edge.from)
+  }
+
+  // Loop edges (C -->|否| B) must stay out of the longest-path ranking:
+  // ranking across a cycle caches the half-computed depth of nodes visited
+  // mid-recursion and scrambles the layers. Mark back edges first, then rank
+  // the remaining DAG where every recursion resolves before it is cached.
+  const backEdges = new Set<string>()
+  const OPEN = 1
+  const DONE = 2
+  const state = new Map<string, number>()
+  const markBackEdges = (id: string): void => {
+    state.set(id, OPEN)
+    for (const next of outgoing.get(id) ?? []) {
+      const nextState = state.get(next) ?? 0
+      if (nextState === 0) markBackEdges(next)
+      else if (nextState === OPEN) backEdges.add(`${id}->${next}`)
+    }
+    state.set(id, DONE)
+  }
+  for (const id of nodeIds) {
+    if (!state.get(id)) markBackEdges(id)
+  }
 
   const memo = new Map<string, number>()
-  const active = new Set<string>()
   const rankOf = (id: string): number => {
     const cached = memo.get(id)
     if (cached !== undefined) return cached
-    if (active.has(id)) return 0
-    active.add(id)
     let rank = 0
     for (const prev of incoming.get(id) ?? []) {
+      if (backEdges.has(`${prev}->${id}`)) continue
       rank = Math.max(rank, rankOf(prev) + 1)
     }
-    active.delete(id)
     memo.set(id, rank)
     return rank
   }
@@ -419,12 +444,14 @@ function layoutFlowchart(diagram: MermaidDiagram): CanvasElement[] {
       return Math.max(96, labelWidth + 40)
     })
     const rowWidth = widths.reduce((sum, w) => sum + w, 0) + SIBLING_GAP * (rowNodes.length - 1)
-    let cross = vertical ? -rowWidth / 2 : cursor
+    // TD spreads siblings on x (cross advances); LR mirrors it on y while x
+    // stays at the rank's column. Sharing `cross` keeps both modes centered.
+    let cross = -rowWidth / 2
     rowNodes.forEach((node, index) => {
       const w = widths[index]
       boxes.set(node.id, {
         x: vertical ? cross : cursor,
-        y: vertical ? cursor : -rowWidth / 2,
+        y: vertical ? cursor : cross,
         w,
         h: NODE_H + 16,
         shape: node.shape,
