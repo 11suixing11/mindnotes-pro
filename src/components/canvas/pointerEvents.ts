@@ -1,3 +1,5 @@
+import { getCoalescedPointerEvents } from './pointerInput'
+
 export type CanvasInputEvent = MouseEvent | TouchEvent | PointerEvent
 
 export interface CanvasInputHandlers {
@@ -26,18 +28,39 @@ export function bindCanvasInputEvents(
   handlers: CanvasInputHandlers
 ): () => void {
   let activePointerId: number | null = null
+  let useWindowFallback = false
+
+  const isOutsideCanvas = (event: PointerEvent) =>
+    !(event.target instanceof Node && canvas.contains(event.target))
 
   const onPointerStart = (event: PointerEvent) => {
     if (event.pointerType === 'touch' || activePointerId !== null) return
     activePointerId = event.pointerId
-    canvas.setPointerCapture?.(event.pointerId)
+    try {
+      if (typeof canvas.setPointerCapture === 'function') {
+        canvas.setPointerCapture(event.pointerId)
+      } else {
+        useWindowFallback = true
+      }
+    } catch {
+      useWindowFallback = true
+    }
     handlers.onStart(event)
   }
 
   const onPointerMove = (event: PointerEvent) => {
     if (event.pointerType === 'touch') return
     if (activePointerId !== null && activePointerId !== event.pointerId) return
-    handlers.onMove(event)
+    const samples =
+      activePointerId === event.pointerId && event.pointerType === 'pen'
+        ? getCoalescedPointerEvents(event)
+        : [event]
+    for (const sample of samples) handlers.onMove(sample)
+  }
+
+  const onWindowPointerMove = (event: PointerEvent) => {
+    if (!useWindowFallback || !isOutsideCanvas(event)) return
+    onPointerMove(event)
   }
 
   const releasePointer = (event: PointerEvent) => {
@@ -48,6 +71,7 @@ export function bindCanvasInputEvents(
       // Pointer capture may already be implicitly released by the browser.
     } finally {
       activePointerId = null
+      useWindowFallback = false
     }
     return true
   }
@@ -62,6 +86,16 @@ export function bindCanvasInputEvents(
     handlers.onCancel(event)
   }
 
+  const onWindowPointerEnd = (event: PointerEvent) => {
+    if (!useWindowFallback || !isOutsideCanvas(event)) return
+    onPointerEnd(event)
+  }
+
+  const onWindowPointerCancel = (event: PointerEvent) => {
+    if (!useWindowFallback || !isOutsideCanvas(event)) return
+    onPointerCancel(event)
+  }
+
   const onTouchStart = (event: TouchEvent) => handlers.onStart(event)
   const onTouchMove = (event: TouchEvent) => handlers.onMove(event)
   const onTouchEnd = (event: TouchEvent) => handlers.onEnd(event)
@@ -71,6 +105,9 @@ export function bindCanvasInputEvents(
   canvas.addEventListener('pointermove', onPointerMove)
   canvas.addEventListener('pointerup', onPointerEnd)
   canvas.addEventListener('pointercancel', onPointerCancel)
+  window.addEventListener('pointermove', onWindowPointerMove)
+  window.addEventListener('pointerup', onWindowPointerEnd)
+  window.addEventListener('pointercancel', onWindowPointerCancel)
   canvas.addEventListener('touchstart', onTouchStart, { passive: false })
   canvas.addEventListener('touchmove', onTouchMove, { passive: false })
   canvas.addEventListener('touchend', onTouchEnd, { passive: false })
@@ -90,6 +127,9 @@ export function bindCanvasInputEvents(
     canvas.removeEventListener('pointermove', onPointerMove)
     canvas.removeEventListener('pointerup', onPointerEnd)
     canvas.removeEventListener('pointercancel', onPointerCancel)
+    window.removeEventListener('pointermove', onWindowPointerMove)
+    window.removeEventListener('pointerup', onWindowPointerEnd)
+    window.removeEventListener('pointercancel', onWindowPointerCancel)
     canvas.removeEventListener('touchstart', onTouchStart)
     canvas.removeEventListener('touchmove', onTouchMove)
     canvas.removeEventListener('touchend', onTouchEnd)

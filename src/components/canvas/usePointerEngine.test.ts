@@ -4,6 +4,7 @@ import { usePointerEngine } from './usePointerEngine'
 import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { createDefaultLayer, DEFAULT_LAYER_ID } from '../../store/layers'
+import { useInputSettingsStore } from '../../store/useInputSettingsStore'
 import type { CanvasElement, ShapeElement } from '../../store/types'
 
 function mockBounds(el: CanvasElement): { x: number; y: number; w: number; h: number } {
@@ -147,6 +148,7 @@ function seedCanvasElements(elements: CanvasElement[]) {
 describe('usePointerEngine', () => {
   beforeEach(() => {
     localStorage.clear()
+    useInputSettingsStore.getState().resetInputSettings()
     const defaultLayer = createDefaultLayer(1)
     const currentState = useAppStore.getState()
     currentState.idToElement.clear()
@@ -570,6 +572,169 @@ describe('usePointerEngine', () => {
         })
       )
       expect(openContextMenu).not.toHaveBeenCalled()
+    })
+
+    it('switches a pen selection drag to side-button panning without reopening selection', () => {
+      useInputSettingsStore.getState().setSecondaryButtonAction('pan')
+      useAppStore.setState({ tool: 'select' })
+      seedCanvasElements([
+        {
+          type: 'shape',
+          id: 'select-pan-target',
+          kind: 'rectangle',
+          x: 100,
+          y: 100,
+          w: 80,
+          h: 50,
+          color: '#000',
+          size: 2,
+        },
+      ])
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 61,
+          pointerType: 'pen',
+          clientX: 140,
+          clientY: 125,
+          pressure: 0.5,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 61,
+          pointerType: 'pen',
+          clientX: 160,
+          clientY: 125,
+          pressure: 0.5,
+          buttons: 1,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 61,
+          pointerType: 'pen',
+          clientX: 180,
+          clientY: 125,
+          pressure: 0.5,
+          buttons: 3,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 61,
+          pointerType: 'pen',
+          clientX: 220,
+          clientY: 155,
+          pressure: 0.5,
+          buttons: 3,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 61,
+          pointerType: 'pen',
+          clientX: 220,
+          clientY: 155,
+          pressure: 0.5,
+          buttons: 1,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 61,
+          pointerType: 'pen',
+          clientX: 220,
+          clientY: 155,
+          pressure: 0,
+          buttons: 0,
+        })
+      )
+
+      expect(useViewStore.getState().viewBox).toMatchObject({ x: -40, y: -30, zoom: 1 })
+      expect(useAppStore.getState().idToElement.get('select-pan-target')).toMatchObject({
+        x: 120,
+        y: 100,
+      })
+      expect(useAppStore.getState().selectedIds).toEqual(['select-pan-target'])
+      expect(useAppStore.getState().undoStack).toHaveLength(1)
+      expect(useAppStore.getState().undoStack[0]?.type).toBe('snapshot')
+    })
+
+    it('switches a pen selection gesture to side-button erasing', () => {
+      useInputSettingsStore.getState().setSecondaryButtonAction('eraser')
+      useAppStore.setState({ tool: 'select', size: 16 })
+      seedCanvasElements([
+        {
+          type: 'stroke',
+          id: 'select-eraser-target',
+          points: [
+            [0, 0],
+            [200, 0],
+          ],
+          color: '#000',
+          size: 2,
+          brush: 'pen',
+        },
+      ])
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 62,
+          pointerType: 'pen',
+          clientX: 80,
+          clientY: 0,
+          pressure: 0.5,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 62,
+          pointerType: 'pen',
+          clientX: 120,
+          clientY: 0,
+          pressure: 0.5,
+          buttons: 3,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 62,
+          pointerType: 'pen',
+          clientX: 160,
+          clientY: 0,
+          pressure: 0.5,
+          buttons: 3,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 62,
+          pointerType: 'pen',
+          clientX: 160,
+          clientY: 0,
+          pressure: 0,
+          buttons: 0,
+        })
+      )
+
+      expect(
+        useAppStore.getState().elements.some((element) => element.id === 'select-eraser-target')
+      ).toBe(false)
+      expect(useAppStore.getState().undoStack).toHaveLength(1)
+      expect(useAppStore.getState().undoStack[0]?.type).toBe('erase')
     })
 
     it('selects editable elements intersecting a marquee and skips locked elements', () => {
@@ -1357,6 +1522,504 @@ describe('usePointerEngine', () => {
         type: 'stroke',
         pressures: [0.25, 0.85],
       })
+    })
+
+    it('uses the pointerup coordinate and carries forward the last pen pressure', () => {
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 12,
+          pointerType: 'pen',
+          clientX: 10,
+          clientY: 20,
+          pressure: 0.2,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 12,
+          pointerType: 'pen',
+          clientX: 50,
+          clientY: 60,
+          pressure: 0,
+          buttons: 0,
+        })
+      )
+
+      expect(useAppStore.getState().elements[0]).toMatchObject({
+        type: 'stroke',
+        points: [
+          [10, 20],
+          [50, 60],
+        ],
+        pressures: [0.2, 0.2],
+      })
+    })
+
+    it('keeps the last effective pressure when pointerup reports zero pressure', () => {
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 120,
+          pointerType: 'pen',
+          clientX: 10,
+          clientY: 20,
+          pressure: 0.2,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 120,
+          pointerType: 'pen',
+          clientX: 30,
+          clientY: 40,
+          pressure: 0.75,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 120,
+          pointerType: 'pen',
+          clientX: 50,
+          clientY: 60,
+          pressure: 0,
+          buttons: 0,
+        })
+      )
+
+      expect(useAppStore.getState().elements[0]).toMatchObject({
+        type: 'stroke',
+        points: [
+          [10, 20],
+          [30, 40],
+          [50, 60],
+        ],
+        pressures: [0.2, 0.75, 0.75],
+      })
+    })
+
+    it('uses pen eraser-end input to erase regardless of the selected tool', () => {
+      useAppStore.setState({ tool: 'pen', size: 16 })
+      seedCanvasElements([
+        {
+          type: 'stroke',
+          id: 'eraser-end-target',
+          points: [
+            [0, 0],
+            [200, 0],
+          ],
+          color: '#000',
+          size: 2,
+          brush: 'pen',
+        },
+      ])
+      const { canvas, openContextMenu } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 13,
+          pointerType: 'pen',
+          clientX: 100,
+          clientY: 0,
+          button: 5,
+          buttons: 32,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 13,
+          pointerType: 'pen',
+          clientX: 100,
+          clientY: 0,
+          buttons: 0,
+        })
+      )
+
+      expect(
+        useAppStore.getState().elements.some((element) => element.id === 'eraser-end-target')
+      ).toBe(false)
+      expect(useAppStore.getState().undoStack[0]?.type).toBe('erase')
+      expect(openContextMenu).not.toHaveBeenCalled()
+    })
+
+    it('maps the pen secondary button to eraser when configured', () => {
+      useInputSettingsStore.getState().setSecondaryButtonAction('eraser')
+      useAppStore.setState({ tool: 'pen', size: 16 })
+      seedCanvasElements([
+        {
+          type: 'stroke',
+          id: 'side-button-target',
+          points: [
+            [0, 0],
+            [200, 0],
+          ],
+          color: '#000',
+          size: 2,
+          brush: 'pen',
+        },
+      ])
+      const { canvas, openContextMenu } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 14,
+          pointerType: 'pen',
+          clientX: 100,
+          clientY: 0,
+          pressure: 0.5,
+          button: 2,
+          buttons: 3,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 14,
+          pointerType: 'pen',
+          clientX: 100,
+          clientY: 0,
+          button: 2,
+          buttons: 0,
+        })
+      )
+
+      expect(
+        useAppStore.getState().elements.some((element) => element.id === 'side-button-target')
+      ).toBe(false)
+      expect(useAppStore.getState().undoStack[0]?.type).toBe('erase')
+      expect(openContextMenu).not.toHaveBeenCalled()
+    })
+
+    it('does not erase when the pen side button is pressed while hovering', () => {
+      useInputSettingsStore.getState().setSecondaryButtonAction('eraser')
+      useAppStore.setState({ tool: 'pen', size: 16 })
+      seedCanvasElements([
+        {
+          type: 'stroke',
+          id: 'hover-side-button-target',
+          points: [
+            [0, 0],
+            [200, 0],
+          ],
+          color: '#000',
+          size: 2,
+          brush: 'pen',
+        },
+      ])
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 15,
+          pointerType: 'pen',
+          clientX: 100,
+          clientY: 0,
+          pressure: 0,
+          button: 2,
+          buttons: 2,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 15,
+          pointerType: 'pen',
+          clientX: 100,
+          clientY: 0,
+          pressure: 0,
+          button: 2,
+          buttons: 0,
+        })
+      )
+
+      expect(
+        useAppStore.getState().elements.some((element) => element.id === 'hover-side-button-target')
+      ).toBe(true)
+      expect(useAppStore.getState().undoStack).toHaveLength(0)
+    })
+
+    it('does not erase when the stylus eraser end is used while hovering', () => {
+      useAppStore.setState({ tool: 'pen', size: 16 })
+      seedCanvasElements([
+        {
+          type: 'stroke',
+          id: 'hover-eraser-end-target',
+          points: [
+            [0, 0],
+            [200, 0],
+          ],
+          color: '#000',
+          size: 2,
+          brush: 'pen',
+        },
+      ])
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 16,
+          pointerType: 'pen',
+          clientX: 100,
+          clientY: 0,
+          pressure: 0,
+          button: 5,
+          buttons: 32,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 16,
+          pointerType: 'pen',
+          clientX: 100,
+          clientY: 0,
+          pressure: 0,
+          button: 5,
+          buttons: 0,
+        })
+      )
+
+      expect(
+        useAppStore.getState().elements.some((element) => element.id === 'hover-eraser-end-target')
+      ).toBe(true)
+      expect(useAppStore.getState().undoStack).toHaveLength(0)
+    })
+
+    it('continues drawing at the updated world position after side-button panning', () => {
+      const { canvas } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 141,
+          pointerType: 'pen',
+          clientX: 10,
+          clientY: 20,
+          pressure: 0.5,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 141,
+          pointerType: 'pen',
+          clientX: 30,
+          clientY: 40,
+          pressure: 0.5,
+          buttons: 3,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 141,
+          pointerType: 'pen',
+          clientX: 60,
+          clientY: 50,
+          pressure: 0.5,
+          buttons: 1,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 141,
+          pointerType: 'pen',
+          clientX: 70,
+          clientY: 60,
+          pressure: 0.5,
+          buttons: 1,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 141,
+          pointerType: 'pen',
+          clientX: 70,
+          clientY: 60,
+          pressure: 0,
+          buttons: 0,
+        })
+      )
+
+      expect(useViewStore.getState().viewBox).toMatchObject({ x: -30, y: -10, zoom: 1 })
+      expect(useAppStore.getState().elements).toEqual([
+        expect.objectContaining({
+          type: 'stroke',
+          points: [
+            [10, 20],
+            [30, 40],
+          ],
+        }),
+        expect.objectContaining({
+          type: 'stroke',
+          points: [
+            [30, 40],
+            [40, 50],
+          ],
+        }),
+      ])
+    })
+
+    it('switches an active pen stroke to side-button erasing and resumes the pen on release', () => {
+      useInputSettingsStore.getState().setSecondaryButtonAction('eraser')
+      useAppStore.setState({ tool: 'pen', size: 16 })
+      seedCanvasElements([
+        {
+          type: 'stroke',
+          id: 'active-side-button-target',
+          points: [
+            [0, 0],
+            [200, 0],
+          ],
+          color: '#000',
+          size: 2,
+          brush: 'pen',
+        },
+      ])
+      const { canvas, openContextMenu } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 142,
+          pointerType: 'pen',
+          clientX: 80,
+          clientY: 0,
+          pressure: 0.5,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 142,
+          pointerType: 'pen',
+          clientX: 100,
+          clientY: 0,
+          pressure: 0.5,
+          buttons: 3,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 142,
+          pointerType: 'pen',
+          clientX: 130,
+          clientY: 0,
+          pressure: 0.5,
+          buttons: 1,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointermove', {
+          pointerId: 142,
+          pointerType: 'pen',
+          clientX: 150,
+          clientY: 20,
+          pressure: 0.5,
+          buttons: 1,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 142,
+          pointerType: 'pen',
+          clientX: 150,
+          clientY: 20,
+          pressure: 0,
+          buttons: 0,
+        })
+      )
+
+      expect(
+        useAppStore
+          .getState()
+          .elements.some((element) => element.id === 'active-side-button-target')
+      ).toBe(false)
+      expect(
+        useAppStore.getState().undoStack.filter((action) => action.type === 'erase')
+      ).toHaveLength(1)
+      const strokes = useAppStore.getState().elements.filter((element) => element.type === 'stroke')
+      expect(strokes).toHaveLength(3)
+      expect(strokes[strokes.length - 1]).toMatchObject({
+        points: [
+          [130, 0],
+          [150, 20],
+        ],
+      })
+      expect(openContextMenu).not.toHaveBeenCalled()
+    })
+
+    it('clears an ignored pen secondary-button gesture when it is cancelled', () => {
+      useInputSettingsStore.getState().setSecondaryButtonAction('ignore')
+      const { canvas, openContextMenu } = renderPointerEngineHarness()
+
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 15,
+          pointerType: 'pen',
+          button: 2,
+          buttons: 2,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointercancel', {
+          pointerId: 15,
+          pointerType: 'pen',
+          button: 2,
+          buttons: 0,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerdown', {
+          pointerId: 16,
+          pointerType: 'pen',
+          clientX: 20,
+          clientY: 30,
+          pressure: 0.4,
+        })
+      )
+      dispatchPointer(
+        canvas,
+        createMockPointerEvent('pointerup', {
+          pointerId: 16,
+          pointerType: 'pen',
+          clientX: 40,
+          clientY: 50,
+          pressure: 0,
+          buttons: 0,
+        })
+      )
+
+      expect(useAppStore.getState().elements).toHaveLength(1)
+      expect(useAppStore.getState().elements[0]).toMatchObject({
+        type: 'stroke',
+        points: [
+          [20, 30],
+          [40, 50],
+        ],
+        pressures: [0.4, 0.4],
+      })
+      expect(openContextMenu).not.toHaveBeenCalled()
     })
 
     it('uses two accepted touches for pinch zoom without creating a stroke', () => {

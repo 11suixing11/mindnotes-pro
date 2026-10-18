@@ -1,3 +1,5 @@
+import { parsePointerEvent } from './pointerInput'
+
 export const DEFAULT_INPUT_PRESSURE = 0.5
 
 const PALM_RADIUS_PX = 32
@@ -12,6 +14,11 @@ export interface InputContact {
   clientX: number
   clientY: number
   pressure?: number
+  button?: number
+  buttons?: number
+  tiltX?: number
+  tiltY?: number
+  isEraser?: boolean
   source: 'mouse' | 'touch' | 'stylus'
 }
 
@@ -86,7 +93,7 @@ export function changedTouchesInclude(event: TouchEvent, identifier: number): bo
 }
 
 export function getEventInputContact(
-  event: MouseEvent | TouchEvent,
+  event: MouseEvent | TouchEvent | PointerEvent,
   activeTouchId: number | null
 ): InputContact | null {
   if (isTouchEvent(event)) {
@@ -99,11 +106,42 @@ export function getEventInputContact(
     return accepted[0] ?? null
   }
 
+  if ('pointerType' in event) {
+    const sample = parsePointerEvent(event)
+    const source =
+      sample.source === 'stylus' ? 'stylus' : sample.source === 'touch' ? 'touch' : 'mouse'
+    return {
+      identifier: sample.pointerId,
+      clientX: sample.clientX,
+      clientY: sample.clientY,
+      pressure: source === 'stylus' ? sample.pressure : undefined,
+      button: sample.button,
+      buttons: sample.buttons,
+      tiltX: sample.tiltX,
+      tiltY: sample.tiltY,
+      isEraser: sample.isEraser,
+      source,
+    }
+  }
+
   return {
     identifier: null,
     clientX: event.clientX,
     clientY: event.clientY,
-    pressure: clampPressure('pressure' in event ? (event as PointerEvent).pressure : undefined),
+    pressure: undefined,
     source: 'mouse',
   }
+}
+
+export function getConfiguredPressure(
+  contact: InputContact,
+  settings: { pressureEnabled: boolean; pressureSensitivity: number }
+): number | undefined {
+  if (contact.source !== 'stylus') return contact.pressure
+  if (!settings.pressureEnabled) return undefined
+  if (contact.pressure === undefined) return undefined
+
+  const sensitivity = Math.max(0, Math.min(100, settings.pressureSensitivity))
+  const exponent = 2 ** ((50 - sensitivity) / 50)
+  return Math.max(0, Math.min(1, contact.pressure)) ** exponent
 }

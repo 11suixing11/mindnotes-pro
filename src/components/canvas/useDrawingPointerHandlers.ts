@@ -18,7 +18,13 @@ import {
   isElementLayerEditable,
   isElementLayerVisible,
 } from '../../store/layers'
-import type { CanvasElement, ShapeElement, ShapeKind, UndoAction } from '../../store/types'
+import type {
+  CanvasElement,
+  ShapeElement,
+  ShapeKind,
+  ToolType,
+  UndoAction,
+} from '../../store/types'
 import { useViewStore } from '../../store/useViewStore'
 import { DEFAULT_INPUT_PRESSURE } from './touchInput'
 
@@ -50,6 +56,7 @@ interface StartDrawingInput {
   position: Point
   pressure?: number
   topOnly: boolean
+  toolOverride?: ToolType
 }
 
 interface MoveDrawingInput extends StartDrawingInput {
@@ -65,6 +72,7 @@ function isShapeTool(tool: string): tool is ShapeKind {
 export function useDrawingPointerHandlers(options: UseDrawingPointerHandlersOptions) {
   const { cachedBounds, scheduleRedraw, elementIndexCacheRef } = options
   const drawingRef = useRef(false)
+  const activeToolRef = useRef<ToolType | null>(null)
   const currentPtsRef = useRef<number[][]>([])
   const currentPressuresRef = useRef<number[]>([])
   const shapeStartRef = useRef<Point | null>(null)
@@ -166,12 +174,13 @@ export function useDrawingPointerHandlers(options: UseDrawingPointerHandlersOpti
   )
 
   const startDrawing = useCallback(
-    ({ position, pressure, topOnly }: StartDrawingInput): boolean => {
+    ({ position, pressure, topOnly, toolOverride }: StartDrawingInput): boolean => {
       const state = useAppStore.getState()
-      const tool = state.tool
+      const tool = toolOverride ?? state.tool
       if (tool !== 'pen' && tool !== 'eraser' && !isShapeTool(tool)) return false
 
       drawingRef.current = true
+      activeToolRef.current = tool
       if (tool === 'pen') {
         currentPtsRef.current = [[position.x, position.y]]
         currentPressuresRef.current =
@@ -200,7 +209,7 @@ export function useDrawingPointerHandlers(options: UseDrawingPointerHandlersOpti
 
   const moveDrawing = useCallback(
     ({ position, pressure, topOnly, preserveSquare }: MoveDrawingInput): boolean => {
-      const tool = useAppStore.getState().tool
+      const tool = activeToolRef.current ?? useAppStore.getState().tool
       if (tool === 'eraser') {
         if (drawingRef.current) eraseAt(position, topOnly)
         scheduleRedraw()
@@ -245,7 +254,7 @@ export function useDrawingPointerHandlers(options: UseDrawingPointerHandlersOpti
 
     drawingRef.current = false
     const state = useAppStore.getState()
-    const tool = state.tool
+    const tool = activeToolRef.current ?? state.tool
     if (tool === 'pen') {
       const element = createStrokeElement({
         id: createRuntimeId('stroke'),
@@ -279,12 +288,14 @@ export function useDrawingPointerHandlers(options: UseDrawingPointerHandlersOpti
       shapeStartRef.current = null
     }
 
+    activeToolRef.current = null
     scheduleRedraw()
     return true
   }, [finishEraseHistory, scheduleRedraw])
 
   const cancelDrawing = useCallback(() => {
     drawingRef.current = false
+    activeToolRef.current = null
     currentPtsRef.current = []
     currentPressuresRef.current = []
     currentShapeRef.current = null
@@ -296,6 +307,7 @@ export function useDrawingPointerHandlers(options: UseDrawingPointerHandlersOpti
   const abortDrawing = useCallback((): boolean => {
     if (!drawingRef.current) return false
     drawingRef.current = false
+    activeToolRef.current = null
     currentPtsRef.current = []
     currentPressuresRef.current = []
     currentShapeRef.current = null

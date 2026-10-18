@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   changedTouchesInclude,
   findAcceptedTouch,
+  getConfiguredPressure,
+  getEventInputContact,
   getAcceptedTouches,
   isPalmTouch,
   isStylusTouch,
@@ -82,5 +84,54 @@ describe('touchInput', () => {
     expect(findAcceptedTouch([active], 7)).toMatchObject({ identifier: 7, clientX: 30 })
     expect(findAcceptedTouch([active], 8)).toBeNull()
     expect(changedTouchesInclude(touchEvent('touchend', [], [ended]), 9)).toBe(true)
+  })
+
+  it('preserves pen identity, pressure, tilt and eraser state from Pointer Events', () => {
+    const pointer = {
+      pointerId: 8,
+      pointerType: 'pen',
+      clientX: 20,
+      clientY: 30,
+      pressure: 0.25,
+      tiltX: 14,
+      tiltY: -7,
+      button: 5,
+      buttons: 32,
+    } as PointerEvent
+
+    const contact = getEventInputContact(pointer, null)
+    expect(contact).toMatchObject({
+      identifier: 8,
+      source: 'stylus',
+      pressure: 0.25,
+      tiltX: 14,
+      tiltY: -7,
+      isEraser: true,
+    })
+  })
+
+  it('applies an adjustable pressure response and bypasses it when disabled', () => {
+    const contact = {
+      identifier: 1,
+      clientX: 0,
+      clientY: 0,
+      source: 'stylus' as const,
+      pressure: 0.5,
+    }
+    expect(getConfiguredPressure(contact, { pressureEnabled: true, pressureSensitivity: 0 })).toBe(
+      0.25
+    )
+    expect(
+      getConfiguredPressure(contact, { pressureEnabled: true, pressureSensitivity: 100 })
+    ).toBe(Math.sqrt(0.5))
+    expect(
+      getConfiguredPressure(contact, { pressureEnabled: false, pressureSensitivity: 50 })
+    ).toBe(undefined)
+    expect(
+      getConfiguredPressure(
+        { ...contact, source: 'mouse', pressure: undefined },
+        { pressureEnabled: true, pressureSensitivity: 50 }
+      )
+    ).toBeUndefined()
   })
 })

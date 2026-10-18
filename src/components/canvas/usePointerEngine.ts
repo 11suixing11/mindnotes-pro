@@ -3,7 +3,7 @@ import { useAppStore } from '../../store/appStore'
 import { useViewStore } from '../../store/useViewStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useThemeStore } from '../../store/useThemeStore'
-import type { CanvasElement, TextElement } from '../../store/types'
+import type { CanvasElement, TextElement, ToolType } from '../../store/types'
 import { isTransparentImagePixel } from '../../canvas/canvasUtils'
 import { clientToWorld, snapPointIfEnabled } from '../../canvas/coordinates'
 import { RIGHT_CLICK_PAN_THRESHOLD, distanceSquared } from '../../canvas/gestureGeometry'
@@ -20,6 +20,7 @@ import {
   changedTouchesInclude,
   findAcceptedTouch,
   getAcceptedTouches,
+  getConfiguredPressure,
   getEventInputContact,
   isTouchEvent,
 } from './touchInput'
@@ -37,6 +38,8 @@ import { bindCanvasPinchZoom } from './touchGestures'
 import { useDrawingPointerHandlers } from './useDrawingPointerHandlers'
 import { useSelectPointerHandlers } from './useSelectPointerHandlers'
 import { useToastStore } from '../../store/toastStore'
+import { useInputSettingsStore } from '../../store/useInputSettingsStore'
+import { isEraserPointerEvent } from './pointerInput'
 
 // 模块级常量，避免每次渲染重建
 const CURSOR_MAP: Record<string, string> = {
@@ -99,6 +102,12 @@ export function usePointerEngine(opts: {
   const activeTouchIdRef = useRef<number | null>(null)
   const isPinchingRef = useRef(false)
   const cursorRef = useRef(CURSOR_MAP.pen)
+  const ignoredPenButtonRef = useRef(false)
+  const activePenContactRef = useRef(false)
+  const penSelectionInterruptedRef = useRef(false)
+  const activePenStrokeRef = useRef(false)
+  const activePenButtonModeRef = useRef<'pan' | 'eraser' | null>(null)
+  const activePenBaseToolRef = useRef<ToolType | null>(null)
 
   const snapPointIfGridEnabled = useCallback((point: { x: number; y: number }) => {
     const { snapToGrid, gridSize } = useViewStore.getState()
@@ -137,7 +146,7 @@ export function usePointerEngine(opts: {
   )
 
   const getPos = useCallback(
-    (e: MouseEvent | TouchEvent) => {
+    (e: MouseEvent | TouchEvent | PointerEvent) => {
       const contact = getEventInputContact(e, activeTouchIdRef.current)
       return contact ? getPosFromContact(contact) : null
     },
@@ -245,8 +254,32 @@ export function usePointerEngine(opts: {
     snapLinesRef,
   })
 
+  const getCursor = useCallback(() => {
+    // 样式吸管激活时显示特殊光标
+    if (useAppStore.getState().styleEyedropperActive) {
+      return EYEDROPPER_CURSOR
+    }
+    if (useViewStore.getState().isPanning) return 'grabbing'
+    if (useAppStore.getState().tool === 'select' && mouseRef.current) {
+      const h = hitHandle(mouseRef.current.x, mouseRef.current.y)
+      if (h) {
+        // 边缘手柄光标支持
+        // 手柄编号约定:
+        // 0-3: 角落手柄 - 对角光标
+        // 4: 上边缘中点 - 上下光标
+        // 5: 下边缘中点 - 上下光标
+        // 6: 左边缘中点 - 左右光标
+        // 7: 右边缘中点 - 左右光标
+        if (h.handle === 4 || h.handle === 5) return 'ns-resize'
+        if (h.handle === 6 || h.handle === 7) return 'ew-resize'
+        return ['nwse-resize', 'nesw-resize', 'nesw-resize', 'nwse-resize'][h.handle]
+      }
+    }
+    return CURSOR_MAP[useAppStore.getState().tool] ?? 'crosshair'
+  }, [hitHandle])
+
   const handleStart = useCallback(
-    (e: MouseEvent | TouchEvent) => {
+    (e: MouseEvent | TouchEvent | PointerEvent) => {
       e.preventDefault()
       let contact = getEventInputContact(e, activeTouchIdRef.current)
       if (isTouchEvent(e)) {
@@ -267,7 +300,64 @@ export function usePointerEngine(opts: {
       }
       if (!contact) return
       const pos = getPosFromContact(contact)
+      const inputSettings = useInputSettingsStore.getState()
+      const isPenPointer = 'pointerType' in e && e.pointerType === 'pen'
+      const isPenSecondaryButton = isPenPointer && e.button === 2
+      const isPenTipContact = (contact.pressure ?? 0) > 0 || Boolean((contact.buttons ?? 0) & 1)
       const st = useAppStore.getState()
+      if (isPenPointer) {
+        activePenContactRef.current = true
+        penSelectionInterruptedRef.current = false
+        activePenBaseToolRef.current = st.tool
+      }
+      if (isPenSecondaryButton) {
+        if (inputSettings.secondaryButtonAction === 'ignore') {
+          ignoredPenButtonRef.current = true
+          return
+        }
+        if (inputSettings.secondaryButtonAction === 'eraser') {
+          if (!isPenTipContact) return
+          const started = startDrawing({
+            position: pos,
+            pressure: 1,
+            topOnly: e.metaKey || e.ctrlKey,
+            toolOverride: 'eraser',
+          })
+          if (started) {
+            activePenStrokeRef.current = true
+            activePenButtonModeRef.current = 'eraser'
+            activePenBaseToolRef.current = st.tool
+          }
+          return
+        }
+        if (useViewStore.getState().isPanning) endPan()
+      }
+      if (
+        inputSettings.stylusEraserEnabled &&
+        'pointerType' in e &&
+        isEraserPointerEvent(e as PointerEvent)
+      ) {
+        if (!isPenTipContact) return
+        const started = startDrawing({
+          position: pos,
+          pressure: 1,
+          topOnly: e.metaKey || e.ctrlKey,
+          toolOverride: 'eraser',
+        })
+        if (started) {
+          activePenStrokeRef.current = true
+          activePenButtonModeRef.current = 'eraser'
+          activePenBaseToolRef.current = st.tool
+        }
+        return
+      }
+      if (isPenSecondaryButton && inputSettings.secondaryButtonAction === 'pan') {
+        activePenButtonModeRef.current = 'pan'
+        activePenStrokeRef.current = true
+        activePenBaseToolRef.current = st.tool
+        startPan(contact.clientX, contact.clientY)
+        return
+      }
 
       // 样式吸管点击应用
       // 当样式吸管激活时，点击元素应用其样式
@@ -291,9 +381,14 @@ export function usePointerEngine(opts: {
         curColor = st.color,
         curVB = useViewStore.getState().viewBox
 
-      // 右键拖拽平移画布
-      // 检测右键按下，记录起始位置
-      if ('button' in e && (e as MouseEvent).button === 2 && rightClickPanRef.current.enabled) {
+      // 右键拖拽平移画布；笔侧键按配置使用同一路径。
+      if (
+        'button' in e &&
+        (e as MouseEvent).button === 2 &&
+        rightClickPanRef.current.enabled &&
+        (!('pointerType' in e && e.pointerType === 'pen') ||
+          inputSettings.secondaryButtonAction === 'pan')
+      ) {
         const screenX = (e as MouseEvent).clientX
         const screenY = (e as MouseEvent).clientY
         rightClickPanRef.current = {
@@ -351,15 +446,21 @@ export function usePointerEngine(opts: {
         }
         return
       }
-      startDrawing({
+      const started = startDrawing({
         position: pos,
-        pressure: contact.pressure,
+        pressure: getConfiguredPressure(contact, inputSettings),
         topOnly: e.metaKey || e.ctrlKey,
       })
+      if (isPenPointer && started) {
+        activePenStrokeRef.current = true
+        activePenButtonModeRef.current = null
+        activePenBaseToolRef.current = curTool
+      }
     },
     [
       getPosFromContact,
       startPan,
+      endPan,
       handleSelectStart,
       startEditText,
       textRef,
@@ -372,7 +473,7 @@ export function usePointerEngine(opts: {
   )
 
   const handleMove = useCallback(
-    (e: MouseEvent | TouchEvent) => {
+    (e: MouseEvent | TouchEvent | PointerEvent) => {
       e.preventDefault()
       let contact = getEventInputContact(e, activeTouchIdRef.current)
       if (isTouchEvent(e)) {
@@ -386,8 +487,118 @@ export function usePointerEngine(opts: {
         }
       }
       if (!contact) return
-      const pos = getPosFromContact(contact)
+      let pos = getPosFromContact(contact)
       mouseRef.current = pos
+
+      const isPenPointer = 'pointerType' in e && e.pointerType === 'pen'
+      const inputSettings = useInputSettingsStore.getState()
+      if (isPenPointer && activePenContactRef.current) {
+        const sideButtonPressed = Boolean((contact.buttons ?? 0) & 2)
+        const isPenTipContact = (contact.pressure ?? 0) > 0 || Boolean((contact.buttons ?? 0) & 1)
+        const eraserEndPressed =
+          inputSettings.stylusEraserEnabled && contact.isEraser === true && isPenTipContact
+        const requestedMode = eraserEndPressed
+          ? 'eraser'
+          : sideButtonPressed && inputSettings.secondaryButtonAction === 'pan'
+            ? 'pan'
+            : sideButtonPressed &&
+                inputSettings.secondaryButtonAction === 'eraser' &&
+                isPenTipContact
+              ? 'eraser'
+              : null
+        const activeMode = activePenButtonModeRef.current
+        const pressure = getConfiguredPressure(contact, inputSettings)
+        const topOnly = e.metaKey || e.ctrlKey
+        const currentTool = useAppStore.getState().tool
+
+        const finishSelectionBeforePenMode = () => {
+          if (currentTool !== 'select' || penSelectionInterruptedRef.current) return
+          handleSelectEnd(e)
+          penSelectionInterruptedRef.current = true
+        }
+
+        if (activeMode) {
+          if (requestedMode === activeMode) {
+            if (activeMode === 'pan') {
+              updatePan(contact.clientX, contact.clientY)
+              scheduleRedraw()
+            } else {
+              moveDrawing({ position: pos, pressure: 1, topOnly, preserveSquare: false })
+            }
+            return
+          }
+
+          if (activeMode === 'pan') {
+            updatePan(contact.clientX, contact.clientY)
+            endPan()
+            pos = getPosFromContact(contact)
+            rightClickPanRef.current = {
+              ...rightClickPanRef.current,
+              isPanning: false,
+              moved: false,
+            }
+          } else {
+            if (getDrawingState().drawing) {
+              moveDrawing({ position: pos, pressure: 1, topOnly, preserveSquare: false })
+              finishDrawing()
+            }
+          }
+          activePenButtonModeRef.current = null
+          if (requestedMode) {
+            if (requestedMode === 'eraser') finishSelectionBeforePenMode()
+            if (requestedMode === 'pan') {
+              startPan(contact.clientX, contact.clientY)
+              activePenButtonModeRef.current = 'pan'
+            } else {
+              startDrawing({ position: pos, pressure: 1, topOnly, toolOverride: 'eraser' })
+              activePenButtonModeRef.current = 'eraser'
+            }
+            return
+          }
+          if (activePenBaseToolRef.current === 'select') {
+            penSelectionInterruptedRef.current = true
+            return
+          }
+          startDrawing({
+            position: pos,
+            pressure,
+            topOnly,
+            toolOverride: activePenBaseToolRef.current ?? undefined,
+          })
+          return
+        }
+
+        if (requestedMode) {
+          finishSelectionBeforePenMode()
+          if (requestedMode === 'pan') {
+            if (getDrawingState().drawing) {
+              moveDrawing({ position: pos, pressure, topOnly, preserveSquare: false })
+              finishDrawing()
+            }
+            startPan(contact.clientX, contact.clientY)
+            activePenButtonModeRef.current = 'pan'
+          } else {
+            if (getDrawingState().drawing) {
+              moveDrawing({ position: pos, pressure, topOnly, preserveSquare: false })
+              finishDrawing()
+            }
+            startDrawing({ position: pos, pressure: 1, topOnly, toolOverride: 'eraser' })
+            activePenButtonModeRef.current = 'eraser'
+          }
+          return
+        }
+
+        if (penSelectionInterruptedRef.current) return
+        if (activePenStrokeRef.current) {
+          moveDrawing({
+            position: pos,
+            pressure,
+            topOnly,
+            preserveSquare: 'shiftKey' in e && (e as MouseEvent).shiftKey,
+          })
+          return
+        }
+      }
 
       // 样式吸管悬停预览
       // 当样式吸管激活时，检测悬停元素并更新样式预览
@@ -431,8 +642,10 @@ export function usePointerEngine(opts: {
       // 检测右键拖动，超过阈值则进入平移模式
       if (
         'buttons' in e &&
-        (e as MouseEvent).buttons === 2 &&
+        Boolean((e as MouseEvent).buttons & 2) &&
         rightClickPanRef.current.enabled &&
+        (!('pointerType' in e && e.pointerType === 'pen') ||
+          inputSettings.secondaryButtonAction === 'pan') &&
         useViewStore.getState().isPanning
       ) {
         const screenX = (e as MouseEvent).clientX
@@ -464,28 +677,42 @@ export function usePointerEngine(opts: {
         const canvas = canvasRef.current
         if (canvas) canvas.style.cursor = nextCursor
       }
-      if (curTool === 'select') {
+      if (curTool === 'select' && !getDrawingState().drawing) {
         handleSelectMove(e, pos)
         return
       }
-      if (curTool === 'pan' && useViewStore.getState().isPanning) {
+      if (curTool === 'pan' && useViewStore.getState().isPanning && !getDrawingState().drawing) {
         updatePan(contact.clientX, contact.clientY)
         scheduleRedraw()
         return
       }
       moveDrawing({
         position: pos,
-        pressure: contact.pressure,
+        pressure: getConfiguredPressure(contact, useInputSettingsStore.getState()),
         topOnly: e.metaKey || e.ctrlKey,
         preserveSquare: 'shiftKey' in e && (e as MouseEvent).shiftKey,
       })
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [getPosFromContact, updatePan, scheduleRedraw, handleSelectMove, moveDrawing]
+    [
+      canvasRef,
+      endPan,
+      finishDrawing,
+      getPosFromContact,
+      getDrawingState,
+      getCursor,
+      handleSelectMove,
+      handleSelectEnd,
+      hitTest,
+      moveDrawing,
+      scheduleRedraw,
+      startDrawing,
+      startPan,
+      updatePan,
+    ]
   )
 
   const handleEnd = useCallback(
-    (e: MouseEvent | TouchEvent) => {
+    (e: MouseEvent | TouchEvent | PointerEvent) => {
       e.preventDefault()
       const isTouchEnd = isTouchEvent(e)
       if (isTouchEnd) {
@@ -497,10 +724,80 @@ export function usePointerEngine(opts: {
         if (isTouchEnd) activeTouchIdRef.current = null
       }
 
+      const pointer = !isTouchEnd && 'pointerType' in e ? (e as PointerEvent) : null
+      if (pointer && getDrawingState().drawing) {
+        const contact = getEventInputContact(pointer, activeTouchIdRef.current)
+        if (contact) {
+          const drawingState = getDrawingState()
+          const finalPosition = getPosFromContact(contact)
+          const lastPoint = drawingState.currentPts[drawingState.currentPts.length - 1]
+          const lastPressure =
+            drawingState.currentPressures[drawingState.currentPressures.length - 1]
+          const finalPressure =
+            pointer.pressure === 0 && lastPressure !== undefined
+              ? lastPressure
+              : getConfiguredPressure(contact, useInputSettingsStore.getState())
+          const positionChanged =
+            !lastPoint ||
+            Math.abs(lastPoint[0] - finalPosition.x) > 0.01 ||
+            Math.abs(lastPoint[1] - finalPosition.y) > 0.01
+          const pressureChanged =
+            finalPressure !== undefined &&
+            drawingState.currentPressures.length > 0 &&
+            Math.abs(
+              finalPressure -
+                drawingState.currentPressures[drawingState.currentPressures.length - 1]
+            ) > 0.01
+          if (!positionChanged && !pressureChanged && !drawingState.currentShape) {
+            // The last move already carried this exact sample.
+          } else {
+            moveDrawing({
+              position: finalPosition,
+              pressure: finalPressure,
+              topOnly: pointer.metaKey || pointer.ctrlKey,
+              preserveSquare: pointer.shiftKey,
+            })
+          }
+        }
+      }
+
+      if (!isTouchEnd && ignoredPenButtonRef.current) {
+        ignoredPenButtonRef.current = false
+        activePenContactRef.current = false
+        penSelectionInterruptedRef.current = false
+        activePenBaseToolRef.current = null
+        clearEndedTouch()
+        return
+      }
+
+      if (pointer && activePenButtonModeRef.current === 'pan') {
+        const contact = getEventInputContact(pointer, activeTouchIdRef.current)
+        if (contact) updatePan(contact.clientX, contact.clientY)
+        endPan()
+        rightClickPanRef.current = {
+          ...rightClickPanRef.current,
+          isPanning: false,
+          moved: false,
+        }
+      }
+      if (pointer) {
+        activePenContactRef.current = false
+        penSelectionInterruptedRef.current = false
+        activePenStrokeRef.current = false
+        activePenButtonModeRef.current = null
+        activePenBaseToolRef.current = null
+      }
+
       // 右键拖拽平移画布
       // 处理右键释放：拖拽过则结束平移且不弹菜单；纯点击则以编程方式
       // 打开菜单（原生 contextmenu 已在按下/抬起时机被统一抑制）
-      if ('button' in e && (e as MouseEvent).button === 2 && rightClickPanRef.current.enabled) {
+      if (
+        'button' in e &&
+        (e as MouseEvent).button === 2 &&
+        rightClickPanRef.current.enabled &&
+        (!('pointerType' in e && e.pointerType === 'pen') ||
+          useInputSettingsStore.getState().secondaryButtonAction === 'pan')
+      ) {
         const wasMoved = rightClickPanRef.current.moved
         if (useViewStore.getState().isPanning) endPan()
         rightClickPanRef.current = {
@@ -509,10 +806,15 @@ export function usePointerEngine(opts: {
           moved: false,
         }
         clearEndedTouch()
-        if (!wasMoved) {
+        if (!wasMoved && !(pointer?.pointerType === 'pen')) {
           const upEvent = e as MouseEvent
           openContextMenu(upEvent.clientX, upEvent.clientY)
         }
+        return
+      }
+
+      if (pointer?.button === 2 && !getDrawingState().drawing) {
+        clearEndedTouch()
         return
       }
 
@@ -533,7 +835,16 @@ export function usePointerEngine(opts: {
       }
       clearEndedTouch()
     },
-    [endPan, finishDrawing, handleSelectEnd, openContextMenu]
+    [
+      endPan,
+      finishDrawing,
+      getDrawingState,
+      getPosFromContact,
+      handleSelectEnd,
+      moveDrawing,
+      openContextMenu,
+      updatePan,
+    ]
   )
 
   const cancelActiveInput = useCallback(
@@ -542,6 +853,12 @@ export function usePointerEngine(opts: {
 
       cancelDrawing()
       cancelSelectionInput()
+      ignoredPenButtonRef.current = false
+      activePenContactRef.current = false
+      penSelectionInterruptedRef.current = false
+      activePenStrokeRef.current = false
+      activePenButtonModeRef.current = null
+      activePenBaseToolRef.current = null
 
       rightClickPanRef.current = {
         ...rightClickPanRef.current,
@@ -647,37 +964,6 @@ export function usePointerEngine(opts: {
       scheduleRedraw,
     })
   }, [abortDrawing, canvasRef, scheduleRedraw])
-
-  // Cursor (使用模块级常量，避免每次渲染重建)
-  const cursorMap = CURSOR_MAP
-  function getCursor() {
-    // 样式吸管激活时显示特殊光标
-    if (useAppStore.getState().styleEyedropperActive) {
-      return EYEDROPPER_CURSOR
-    }
-    if (useViewStore.getState().isPanning) return 'grabbing'
-    if (useAppStore.getState().tool === 'select' && mouseRef.current) {
-      const h = hitHandle(mouseRef.current.x, mouseRef.current.y)
-      if (h) {
-        // 边缘手柄光标支持
-        // 手柄编号约定:
-        // 0-3: 角落手柄 - 对角光标
-        // 4: 上边缘中点 - 上下光标
-        // 5: 下边缘中点 - 上下光标
-        // 6: 左边缘中点 - 左右光标
-        // 7: 右边缘中点 - 左右光标
-        if (h.handle === 4 || h.handle === 5) {
-          return 'ns-resize' // 上下边缘：垂直调整光标
-        } else if (h.handle === 6 || h.handle === 7) {
-          return 'ew-resize' // 左右边缘：水平调整光标
-        } else {
-          // 角落手柄
-          return ['nwse-resize', 'nesw-resize', 'nesw-resize', 'nwse-resize'][h.handle]
-        }
-      }
-    }
-    return cursorMap[useAppStore.getState().tool] ?? 'crosshair'
-  }
 
   // Copy to clipboard
   async function copySelectedToSystemClipboard() {

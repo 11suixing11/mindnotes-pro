@@ -40,6 +40,7 @@ import MobileSelectionActions from './MobileSelectionActions'
 import MobileToolbar from './MobileToolbar'
 import TextStyleControls from './TextStyleControls'
 import ToolButtons from './ToolButtons'
+import PenInputSettings from './PenInputSettings'
 import { icons } from './icons'
 import { getStyleCommandMessage } from './styleCommandFeedback'
 
@@ -149,6 +150,7 @@ function CreationStyleControls({
     return (
       <>
         <BrushSelector brush={brush} setBrush={(next) => onChange({ brush: next })} visible />
+        <PenInputSettings />
         <ColorPicker
           colorValue={valueState(color)}
           sizeValue={valueState(size)}

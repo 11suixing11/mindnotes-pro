@@ -45,6 +45,30 @@ describe('bindCanvasInputEvents', () => {
     expect(onStart).toHaveBeenCalledTimes(1)
   })
 
+  it('forwards coalesced pen samples in order during a captured stroke', () => {
+    const canvas = document.createElement('canvas')
+    const handlers = {
+      onStart: vi.fn(),
+      onMove: vi.fn(),
+      onEnd: vi.fn(),
+      onCancel: vi.fn(),
+    }
+    const unbind = bindCanvasInputEvents(canvas, handlers)
+    const first = createPointerEvent('pointermove', 4, 'pen')
+    const second = createPointerEvent('pointermove', 4, 'pen')
+    const move = createPointerEvent('pointermove', 4, 'pen')
+    Object.defineProperty(first, 'clientX', { value: 10 })
+    Object.defineProperty(second, 'clientX', { value: 20 })
+    Object.defineProperty(move, 'clientX', { value: 30 })
+    Object.defineProperty(move, 'getCoalescedEvents', { value: () => [first, second] })
+
+    canvas.dispatchEvent(createPointerEvent('pointerdown', 4, 'pen'))
+    canvas.dispatchEvent(move)
+
+    expect(handlers.onMove.mock.calls.map(([event]) => event.clientX)).toEqual([10, 20, 30])
+    unbind()
+  })
+
   it('forwards hover movement and recovers when pointer capture release throws', () => {
     const canvas = document.createElement('canvas')
     const releasePointerCapture = vi.fn(() => {
@@ -70,6 +94,34 @@ describe('bindCanvasInputEvents', () => {
     expect(releasePointerCapture).toHaveBeenCalledWith(1)
 
     unbind()
+  })
+
+  it('finishes gestures outside the canvas when pointer capture is unavailable', () => {
+    const canvas = document.createElement('canvas')
+    canvas.setPointerCapture = vi.fn(() => {
+      throw new DOMException('capture unavailable', 'NotFoundError')
+    })
+    const handlers = {
+      onStart: vi.fn(),
+      onMove: vi.fn(),
+      onEnd: vi.fn(),
+      onCancel: vi.fn(),
+    }
+    const unbind = bindCanvasInputEvents(canvas, handlers)
+    const outside = document.createElement('div')
+    document.body.append(outside)
+
+    canvas.dispatchEvent(createPointerEvent('pointerdown', 12))
+    outside.dispatchEvent(createPointerEvent('pointermove', 12))
+    outside.dispatchEvent(createPointerEvent('pointerup', 12))
+    canvas.dispatchEvent(createPointerEvent('pointerdown', 13))
+
+    expect(handlers.onMove).toHaveBeenCalledTimes(1)
+    expect(handlers.onEnd).toHaveBeenCalledTimes(1)
+    expect(handlers.onStart).toHaveBeenCalledTimes(2)
+
+    unbind()
+    outside.remove()
   })
 
   it('cancels a captured pointer and releases it', () => {
