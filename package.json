@@ -94,7 +94,7 @@
     "@typescript-eslint/eslint-plugin": "^8.67.0",
     "@typescript-eslint/parser": "^8.67.0",
     "@vitejs/plugin-react": "^6.1.0",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.2",
     "autoprefixer": "^10.4.20",
     "concurrently": "^10.0.5",
     "dependency-cruiser": "^18.4.0",
