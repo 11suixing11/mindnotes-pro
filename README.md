@@ -47,6 +47,8 @@ MindNotes Pro starts on a blank, immediately usable canvas. It focuses on a smal
 
 ## Quick start
 
+[![Launch on PicoRunner](https://picorunner.com/badges/launch.svg)](https://picorunner.com/launch/?repository=https%3A%2F%2Fgithub.com%2F11suixing11%2Fmindnotes-pro)
+
 Requirements: Node.js `>=22.22.2` and npm.
 
 ```bash
