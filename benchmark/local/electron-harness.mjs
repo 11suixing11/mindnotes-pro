@@ -1,7 +1,9 @@
-/* global process, Buffer, fetch, setTimeout, clearTimeout, URL, window, innerWidth, innerHeight, PerformanceObserver, requestAnimationFrame, cancelAnimationFrame */
+/* global process, Buffer, fetch, setTimeout, clearTimeout, AbortController, URL, window, innerWidth, innerHeight, PerformanceObserver, requestAnimationFrame, cancelAnimationFrame */
 import http from 'node:http'
+import { execFile } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import path from 'node:path'
-import { access, mkdir, open, readFile, realpath, writeFile } from 'node:fs/promises'
+import { access, mkdir, open, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { performance } from 'node:perf_hooks'
@@ -11,20 +13,110 @@ import { withWorkspace } from './runtime.mjs'
 
 const require = createRequire(import.meta.url)
 const localRoot = 'tmp/local-baseline-20261113/runtime'
+const sdkTempRoot = path.resolve(localRoot, `sdk-${randomUUID()}`)
+let workspaceUsers = 0
 export class DesktopUnavailable extends Error {}
+
+async function bounded(work, milliseconds, description) {
+  let timer
+  const controller = new AbortController()
+  try {
+    return await Promise.race([Promise.resolve().then(() => work(controller.signal)), new Promise((_resolve, reject) => {
+      timer = setTimeout(() => { controller.abort(); reject(new Error(`Timed out: ${description}`)) }, milliseconds)
+    })])
+  } finally { clearTimeout(timer); controller.abort() }
+}
+
+function pidAlive(pid) {
+  try { process.kill(pid, 0); return true }
+  catch (error) { if (error.code === 'ESRCH') return false; throw error }
+}
+
+/** Attach the exit observer immediately after launch, before any renderer/main evaluation. */
+export function createDesktopCloser(options) {
+  const { child, proxy, beforeClose, closeApplication, graceMs = 5000, killMs = 5000 } = options
+  const hasExited = () => child.exitCode !== null || child.signalCode !== null
+  let exitListener, closing
+  const exited = hasExited() ? Promise.resolve() : new Promise(resolve => {
+    exitListener = () => resolve()
+    child.once('exit', exitListener)
+    if (hasExited()) resolve()
+  })
+  const waitForExit = async signal => {
+    await exited
+    // On Windows Playwright owns cmd.exe; Electron's real main PID can outlive it.
+    if (process.platform === 'win32' && options.mainPid && options.mainPid !== child.pid)
+      while (!signal.aborted && pidAlive(options.mainPid)) await new Promise(resolve => setTimeout(resolve, 25))
+  }
+  return () => {
+    closing ??= (async () => {
+      const errors = []
+      try {
+        await bounded(async signal => {
+          try { await beforeClose() } catch (error) { errors.push(error) }
+          if (signal.aborted) return
+          await closeApplication()
+          await waitForExit(signal)
+        }, graceMs, 'complete graceful desktop teardown')
+      } catch (error) { errors.push(error) }
+      try {
+        const mainAlive = process.platform === 'win32' && options.mainPid && options.mainPid !== child.pid && pidAlive(options.mainPid)
+        if (!hasExited() || mainAlive) {
+          errors.push(new Error('Desktop required forced process-tree termination.'))
+          await bounded(async signal => {
+            if (process.platform === 'win32') {
+              const pids = new Set([!hasExited() && child.pid, mainAlive && options.mainPid].filter(Boolean))
+              for (const pid of pids) {
+                if (signal.aborted) return
+                await new Promise((resolve, reject) => {
+                  execFile('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { timeout: killMs, windowsHide: true }, error => {
+                    try {
+                      if (error && pidAlive(pid)) reject(error)
+                      else resolve()
+                    } catch (observationError) { reject(observationError) }
+                  })
+                })
+              }
+            } else if (!child.kill('SIGKILL') && !hasExited()) throw new Error('Owned desktop child could not be killed.')
+            await waitForExit(signal)
+          }, killMs, 'owned desktop process-tree exit')
+        }
+      } catch (error) { errors.push(error) }
+      finally {
+        if (exitListener) child.removeListener('exit', exitListener)
+        if (proxy) { try { await bounded(() => proxy.close(), killMs, 'deny proxy cleanup') } catch (error) { errors.push(error) } }
+      }
+      if (errors.length) throw new AggregateError(errors, 'Desktop teardown failed.')
+    })()
+    return closing
+  }
+}
 
 export async function withDesktopWorkspace(work) {
   return withWorkspace(await realpath(process.cwd()), async directory => {
-    const previous = { TEMP: process.env.TEMP, TMP: process.env.TMP, TMPDIR: process.env.TMPDIR }
-    Object.assign(process.env, { TEMP: directory, TMP: directory, TMPDIR: directory })
-    try { return await work(directory) }
+    // The SDK caches its artifact prefix. Recreate this same owned root for later runs.
+    await mkdir(sdkTempRoot, { recursive: true })
+    workspaceUsers++
+    try { return await withDesktopTempDirectory(sdkTempRoot, () => work(directory)) }
     finally {
-      for (const [key, value] of Object.entries(previous)) {
-        if (value === undefined) delete process.env[key]
-        else process.env[key] = value
-      }
+      workspaceUsers--
+      if (workspaceUsers === 0) await rm(sdkTempRoot, { recursive: true, force: true })
     }
   })
+}
+
+/** os.tmpdir is consumed by the SDK in this parent process at import/initialization time. */
+export async function withDesktopTempDirectory(directory, work) {
+  directory = await ownedDirectory(directory)
+  const previous = { TEMP: process.env.TEMP, TMP: process.env.TMP, TMPDIR: process.env.TMPDIR }
+  Object.assign(process.env, { TEMP: directory, TMP: directory, TMPDIR: directory })
+  try { return await work() }
+  finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+  }
 }
 
 /** Read-only guard: never runs a candidate binary, creates a database or downloads Electron. */
@@ -79,7 +171,7 @@ export async function startDenyProxy() {
   const requests = [], sockets = new Set()
   let overflow = false, closing
   const record = request => {
-    if (requests.length < 10000) requests.push({ method: request.method ?? '', url: request.url ?? '' })
+    if (requests.length < 10000) requests.push({ method: request.method ?? '', url: request.url ?? '', status: 503 })
     else overflow = true
   }
   const server = http.createServer((request, response) => {
@@ -136,14 +228,27 @@ export async function openLibrary(session) {
   return shell
 }
 
+function matchingProxyRequests(proxy, before, target) {
+  return proxy.requests.slice(before).filter(request => request.method === 'GET' && request.url === target && request.status === 503)
+}
+
+/** Evidence is confined to this request interval; an old canary or unrelated traffic is insufficient. */
+export function proxyControlEvidence(proxy, before, target, control, directHits) {
+  const proxyRequests = matchingProxyRequests(proxy, before, target)
+  if (control.route !== `PROXY 127.0.0.1:${proxy.port}` || control.response !== 503 || !proxyRequests.length || directHits !== 0 || proxy.overflow)
+    throw new Error('Session proxy control failed.')
+  return { ...control, target, proxyRequests: proxyRequests.map(request => ({ ...request })) }
+}
+
 /** Controls run before broad cancellation, against actual default and lazily created page sessions. */
 async function proveOffline(session, proxy) {
   let hits = 0
   const canary = http.createServer((_request, response) => { hits++; response.end('baseline-canary') })
   await new Promise((resolve, reject) => { canary.once('error', reject); canary.listen(0, '127.0.0.1', resolve) })
-  const url = `http://127.0.0.1:${canary.address().port}/offline-control`
+  const base = `http://127.0.0.1:${canary.address().port}/${randomUUID()}`
+  const defaultUrl = `${base}/default-fetch`, navigationUrl = `${base}/lazy-navigation`, pageUrl = `${base}/page-fetch`
   try {
-    if (await (await fetch(url)).text() !== 'baseline-canary') throw new Error('Direct Node canary control failed.')
+    if (await (await fetch(`${base}/node-direct`)).text() !== 'baseline-canary') throw new Error('Direct Node canary control failed.')
     hits = 0
     await session.app.evaluate(async ({ app, session: sessions }, port) => {
       const state = { sessions: new Set(), pending: [], cancel: false, listener: undefined }
@@ -163,17 +268,20 @@ async function proveOffline(session, proxy) {
       await configure(sessions.defaultSession)
     }, proxy.port)
     const beforeDefault = proxy.requests.length
-    const defaultControl = await session.app.evaluate(async ({ session: sessions }, target) => {
+    const defaultResult = await session.app.evaluate(async ({ session: sessions }, target) => {
       const route = await sessions.defaultSession.resolveProxy(target)
       const response = await sessions.defaultSession.fetch(target).then(value => value.status, () => 0)
       return { route, response }
-    }, url)
-    if (!defaultControl.route.includes(`127.0.0.1:${proxy.port}`) || proxy.requests.length <= beforeDefault || hits !== 0)
-      throw new Error('Default-session proxy control failed.')
+    }, defaultUrl)
+    const defaultControl = proxyControlEvidence(proxy, beforeDefault, defaultUrl, defaultResult, hits)
     const shell = await openLibrary(session)
-    await shell.evaluate(target => window.mindnotes.navigate(target), url)
+    const beforeNavigation = proxy.requests.length
+    await shell.evaluate(target => window.mindnotes.navigate(target), navigationUrl)
+    const navigationRequests = matchingProxyRequests(proxy, beforeNavigation, navigationUrl)
+    if (!navigationRequests.length || hits !== 0 || proxy.overflow) throw new Error('Initial lazy navigation proxy control failed.')
+    const lazyNavigation = { target: navigationUrl, proxyRequests: navigationRequests.map(request => ({ ...request })) }
     const beforePage = proxy.requests.length
-    const pageControl = await session.app.evaluate(async ({ BrowserWindow }, target) => {
+    const pageResult = await session.app.evaluate(async ({ BrowserWindow }, target) => {
       const state = globalThis.__mindnotesBaselineIsolation
       await Promise.all(state.pending)
       const shellWindow = BrowserWindow.getAllWindows().find(window => {
@@ -186,10 +294,8 @@ async function proveOffline(session, proxy) {
       const route = await page.session.resolveProxy(target)
       const response = await page.session.fetch(target).then(value => value.status, () => 0)
       return { route, response, partition: page.getLastWebPreferences().partition }
-    }, url)
-    if (!pageControl.route.includes(`127.0.0.1:${proxy.port}`) || proxy.requests.length <= beforePage || hits !== 0 || proxy.overflow)
-      throw new Error('Lazy page-session proxy control failed.')
-    if (!proxy.requests.slice(beforeDefault).some(request => request.url === url)) throw new Error('Proxy did not record the canary URL.')
+    }, pageUrl)
+    const pageControl = proxyControlEvidence(proxy, beforePage, pageUrl, pageResult, hits)
     await session.app.evaluate(async () => {
       const state = globalThis.__mindnotesBaselineIsolation
       await Promise.all(state.pending)
@@ -198,7 +304,7 @@ async function proveOffline(session, proxy) {
         actual.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (_details, callback) => callback({ cancel: true }))
     })
     await shell.evaluate(() => window.mindnotes.command('home'))
-    return { directControl: true, directApplicationHits: hits, defaultControl, pageControl,
+    return { directControl: true, directApplicationHits: hits, defaultControl, lazyNavigation, pageControl,
       proxyRequests: proxy.requests.map(request => ({ ...request })) }
   } finally {
     canary.closeAllConnections()
@@ -209,52 +315,47 @@ async function proveOffline(session, proxy) {
 export async function launchIsolated({ directory, executable, offline = false, allowVisible = false }) {
   const ready = await preflightDesktop({ allowVisible, executable })
   directory = await ownedDirectory(directory)
+  if (!workspaceUsers) throw new Error('Desktop SDK launch requires withDesktopWorkspace to own its complete artifact lifetime.')
   const env = {}
   for (const [key, value] of Object.entries(process.env))
     if (value !== undefined && !['ELECTRON_RUN_AS_NODE', 'MINDNOTES_START_WORKSPACE', 'NODE_OPTIONS'].includes(key)) env[key] = value
   Object.assign(env, { MINDNOTES_USE_DIST: '1', MINDNOTES_USER_DATA_DIR: directory, TEMP: directory, TMP: directory, TMPDIR: directory })
-  let app, proxy, closed = false
+  let app, proxy, applicationClose
+  const lifecycle = {}
   const close = async () => {
-    if (closed) return
-    closed = true
-    const errors = []
-    if (app) {
-      try {
-        const toolbar = app.windows().find(page => page.url().includes('surface=toolbar'))
-        await toolbar?.evaluate(() => window.mindnotesFloating.command('collapse'))
-      } catch { /* Teardown still attempts the application's durable close handshake. */ }
-      try {
-        await app.evaluate(async ({ app: electronApp }) => {
+    if (applicationClose) return applicationClose()
+    if (proxy) await proxy.close()
+  }
+  try {
+    if (offline) proxy = await startDenyProxy()
+    const args = ready.packaged ? [] : ['.']
+    if (proxy) args.push(`--proxy-server=http://127.0.0.1:${proxy.port}`, '--proxy-bypass-list=<-loopback>')
+    const start = performance.now()
+    app = await withDesktopTempDirectory(sdkTempRoot, async () => {
+      const { _electron } = await import('@playwright/test')
+      return _electron.launch({ executablePath: ready.executablePath, args, env, timeout: 30000 })
+    })
+    Object.assign(lifecycle, { child: app.process(), proxy,
+      beforeClose: async () => {
+        const errors = []
+        try {
+          const toolbar = app.windows().find(page => page.url().includes('surface=toolbar'))
+          await toolbar?.evaluate(() => window.mindnotesFloating.command('collapse'))
+        } catch (error) { errors.push(error) }
+        try { await app.evaluate(async ({ app: electronApp }) => {
           const state = globalThis.__mindnotesBaselineIsolation
           if (!state) return
           electronApp.removeListener('session-created', state.listener)
           await Promise.allSettled(state.pending)
           for (const actual of state.sessions) actual.webRequest.onBeforeRequest(null)
           delete globalThis.__mindnotesBaselineIsolation
-        })
-      } catch { /* Process may already have exited; close below still owns it. */ }
-      try { await app.close() }
-      catch (error) {
-        errors.push(error)
-        const child = app.process()
-        if (child.exitCode === null) {
-          const exited = new Promise(resolve => child.once('exit', resolve))
-          child.kill('SIGKILL')
-          await exited
-        }
-      }
-    }
-    if (proxy) { try { await proxy.close() } catch (error) { errors.push(error) } }
-    if (errors.length) throw new AggregateError(errors, 'Desktop teardown failed.')
-  }
-  try {
-    if (offline) proxy = await startDenyProxy()
-    const { _electron } = await import('@playwright/test')
-    const args = ready.packaged ? [] : ['.']
-    if (proxy) args.push(`--proxy-server=http://127.0.0.1:${proxy.port}`, '--proxy-bypass-list=<-loopback>')
-    const start = performance.now()
-    app = await _electron.launch({ executablePath: ready.executablePath, args, env, timeout: 30000 })
-    const actual = await app.evaluate(({ app: electronApp }) => ({ directory: electronApp.getPath('userData'), packaged: electronApp.isPackaged }))
+        }) } catch (error) { errors.push(error) }
+        if (errors.length) throw new AggregateError(errors, 'Desktop pre-close cleanup failed.')
+      }, closeApplication: () => app.close() })
+    applicationClose = createDesktopCloser(lifecycle)
+    const actual = await app.evaluate(({ app: electronApp }) => ({ directory: electronApp.getPath('userData'), packaged: electronApp.isPackaged, mainPid: process.pid }))
+    if (!Number.isSafeInteger(actual.mainPid) || actual.mainPid <= 0) throw new Error('Electron main PID was not captured.')
+    lifecycle.mainPid = actual.mainPid
     if ((await realpath(actual.directory)).toLowerCase() !== directory.toLowerCase()) throw new Error('Electron userData does not match the isolated task directory.')
     if (actual.packaged !== ready.packaged) throw new Error('Actual app packaging mode differs from the requested launch mode.')
     const surface = name => waitUntil(() => app.windows().find(page => {

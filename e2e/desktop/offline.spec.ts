@@ -38,7 +38,22 @@ async function launch(directory: string) {
   try {
     expect(session.offlineEvidence?.directControl).toBe(true)
     expect(session.offlineEvidence?.directApplicationHits).toBe(0)
+    expect(session.offlineEvidence?.defaultControl.response).toBe(503)
+    expect(session.offlineEvidence?.pageControl.response).toBe(503)
     expect(session.offlineEvidence?.pageControl.partition).toBe('persist:mindnotes-pages')
+    const controls = [
+      session.offlineEvidence!.defaultControl,
+      session.offlineEvidence!.lazyNavigation,
+      session.offlineEvidence!.pageControl,
+    ]
+    expect(new Set(controls.map((control) => control.target)).size).toBe(3)
+    for (const control of controls)
+      expect(
+        control.proxyRequests.some(
+          (request) =>
+            request.method === 'GET' && request.url === control.target && request.status === 503
+        )
+      ).toBe(true)
     expect(session.offlineEvidence?.proxyRequests.length).toBeGreaterThanOrEqual(3)
     return session
   } catch (error) {

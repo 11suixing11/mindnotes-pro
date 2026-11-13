@@ -7,11 +7,11 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
-import { collectIdentity, collectEnvironment, parseOptions, withWorkspace, writeReport } from './runtime.mjs'
+import { collectIdentity, collectEnvironment, parseOptions, writeReport } from './runtime.mjs'
 import { createReport, summarize } from './report.mjs'
 import { fixtureIdentity, makeStrokes, makeScreenEntries, makePageNotebooks } from './fixtures.mjs'
 import { DesktopUnavailable, preflightDesktop, launchIsolated, prepareFixture, openLibrary,
-  importFullDraft, measureGesture, observeFrames, waitUntil } from './electron-harness.mjs'
+  importFullDraft, measureGesture, observeFrames, waitUntil, withDesktopWorkspace } from './electron-harness.mjs'
 
 function normalizedOptions(input) {
   const names = { iterations: '--iterations', warmups: '--warmups', notes: '--notes', output: '--output',
@@ -113,7 +113,7 @@ export async function runDesktopBenchmark(input = {}) {
       identity.files['package/executable.exe'] = await sha256(ready.executablePath)
       identity.files['package/resources/app.asar'] = await sha256(path.join(path.dirname(ready.executablePath), 'resources/app.asar'))
     } else identity = await collectIdentity(root, ['benchmark/local/run-desktop.mjs', 'dist-electron/electron/main.mjs', ...await assetFiles('dist')])
-    await withWorkspace(root, async directory => {
+    await withDesktopWorkspace(async directory => {
       environment = collectEnvironment(directory)
       for (let index = 0; index < options.warmups + options.iterations; index++) {
         const measured = index >= options.warmups

@@ -1,4 +1,5 @@
 import type { ElectronApplication, Page } from '@playwright/test'
+import type { ChildProcess } from 'node:child_process'
 import type { ScreenStroke } from '../../src/notes/screenInk.js'
 import type { ScreenNote } from '../../src/notes/screenNotebook.js'
 import type { PageNotebook } from '../../src/notes/model.js'
@@ -15,12 +16,26 @@ export interface DesktopLaunchOptions {
 export interface ProxyRequest {
   method: string
   url: string
+  status: number
+}
+export interface DenyProxy {
+  port: number
+  requests: ProxyRequest[]
+  readonly overflow: boolean
+  close(): Promise<void>
+}
+export interface ProxyControl {
+  route: string
+  response: number
+  target: string
+  proxyRequests: ProxyRequest[]
 }
 export interface OfflineEvidence {
   directControl: boolean
   directApplicationHits: number
-  defaultControl: { route: string; response: number }
-  pageControl: { route: string; response: number; partition: string }
+  defaultControl: ProxyControl
+  lazyNavigation: { target: string; proxyRequests: ProxyRequest[] }
+  pageControl: ProxyControl & { partition: string }
   proxyRequests: ProxyRequest[]
 }
 export interface DesktopSession {
@@ -35,14 +50,22 @@ export interface DesktopSession {
 export function preflightDesktop(
   options?: Pick<DesktopLaunchOptions, 'allowVisible' | 'executable'>
 ): Promise<{ executablePath: string; packaged: boolean }>
-export function startDenyProxy(): Promise<{
-  port: number
-  requests: ProxyRequest[]
-  readonly overflow: boolean
-  close(): Promise<void>
-}>
+export function startDenyProxy(): Promise<DenyProxy>
+export function createDesktopCloser(options: {
+  child: ChildProcess
+  proxy?: DenyProxy
+  mainPid?: number
+  beforeClose(): Promise<void>
+  closeApplication(): Promise<void>
+  graceMs?: number
+  killMs?: number
+}): () => Promise<void>
+export function proxyControlEvidence<T extends { route: string; response: number }>(
+  proxy: DenyProxy, before: number, target: string, control: T, directHits: number
+): T & ProxyControl
 export function launchIsolated(options: DesktopLaunchOptions): Promise<DesktopSession>
 export function withDesktopWorkspace<T>(work: (directory: string) => Promise<T>): Promise<T>
+export function withDesktopTempDirectory<T>(directory: string, work: () => Promise<T>): Promise<T>
 export function waitUntil<T>(
   read: () => T | Promise<T>,
   accepts: (value: T) => boolean,
