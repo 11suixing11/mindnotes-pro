@@ -7,10 +7,42 @@ import { statfsSync } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
-import { collectIdentity, collectEnvironment, withWorkspace, parseOptions } from './runtime.mjs'
+import * as runtimeModule from './runtime.mjs'
+const { collectIdentity, collectEnvironment, withWorkspace, parseOptions } = runtimeModule
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const runtime = path.join(root, 'tmp/local-baseline-20261113/runtime')
+
+test('report output replaces only its JSON target and rejects traversal or symlink escapes', async () => {
+  assert.equal(typeof runtimeModule.writeReport, 'function')
+  await mkdir(runtime, { recursive: true })
+  const project = await mkdtemp(path.join(runtime, 'output-test-'))
+  const outside = await mkdtemp(path.join(runtime, 'outside-output-'))
+  try {
+    await runtimeModule.writeReport({ answer: 42 }, undefined, project)
+    assert.deepEqual(await readdir(project), [])
+    await writeFile(path.join(project, 'sentinel.json'), 'keep')
+    await runtimeModule.writeReport({ answer: 42 }, 'new/sub/report.json', project)
+    await runtimeModule.writeReport({ answer: 43 }, 'new/sub/report.json', project)
+    assert.deepEqual(JSON.parse(await readFile(path.join(project, 'new/sub/report.json'), 'utf8')), { answer: 43 })
+    assert.deepEqual(await readdir(path.join(project, 'new/sub')), ['report.json'])
+    assert.equal(await readFile(path.join(project, 'sentinel.json'), 'utf8'), 'keep')
+    await mkdir(path.join(project, 'directory.json'))
+    await writeFile(path.join(project, 'neighbor.tmp'), 'keep temporary neighbor')
+    await assert.rejects(runtimeModule.writeReport({ answer: 1 }, 'directory.json', project))
+    assert.equal(await readFile(path.join(project, 'neighbor.tmp'), 'utf8'), 'keep temporary neighbor')
+    assert.equal((await readdir(project)).some(file => file.startsWith('.local-report-')), false)
+    for (const output of ['../escape.json', path.join(outside, 'escape.json'), 'wrong.txt'])
+      await assert.rejects(runtimeModule.writeReport({ answer: 1 }, output, project))
+    if (process.platform !== 'win32') {
+      await symlink(outside, path.join(project, 'linked'))
+      await assert.rejects(runtimeModule.writeReport({ answer: 1 }, 'linked/new/report.json', project))
+      await symlink(path.join(outside, 'target.json'), path.join(project, 'target.json'))
+      await assert.rejects(runtimeModule.writeReport({ answer: 1 }, 'target.json', project))
+    }
+    assert.deepEqual(await readdir(outside), [])
+  } finally { await rm(project, { recursive: true, force: true }); await rm(outside, { recursive: true, force: true }) }
+})
 
 test('workspace cleans successful and failed callbacks while preserving neighboring files', async () => {
   await mkdir(runtime, { recursive: true })

@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { mkdir, mkdtemp, readFile, realpath, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rm, lstat, open, rename } from 'node:fs/promises'
 import { statfsSync } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -10,6 +10,44 @@ import ts from 'typescript'
 const execute = promisify(execFile)
 const runtimePath = 'tmp/local-baseline-20261113/runtime'
 const inside = (root, file) => { const relative = path.relative(root, file); return relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative) }
+
+/** Reports have their own atomic target, separate from the disposable data workspace. */
+export async function writeReport(report, outputPath, projectRoot) {
+  if (outputPath === undefined) return
+  if (typeof outputPath !== 'string' || !outputPath.trim() || path.extname(outputPath) !== '.json')
+    throw new TypeError('Report output path must name a workspace .json file.')
+  const root = await realpath(projectRoot)
+  const target = path.resolve(root, outputPath)
+  if (!inside(root, target)) throw new Error('Report output path is outside the workspace.')
+  const parent = path.dirname(target)
+  let existing = parent
+  while (true) {
+    try {
+      if (!inside(root, await realpath(existing))) throw new Error('Report output path resolves outside the workspace.')
+      break
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error
+      const next = path.dirname(existing)
+      if (next === existing) throw error
+      existing = next
+    }
+  }
+  try {
+    if ((await lstat(target)).isSymbolicLink()) throw new Error('Report output path cannot be a symlink.')
+  } catch (error) { if (error.code !== 'ENOENT') throw error }
+  await mkdir(parent, { recursive: true })
+  if (!inside(root, await realpath(parent))) throw new Error('Report output parent resolves outside the workspace.')
+  const temporary = path.join(parent, `.local-report-${randomUUID()}.tmp`)
+  const content = `${JSON.stringify(report, null, 2)}\n`
+  let owned = false
+  try {
+    const file = await open(temporary, 'wx')
+    owned = true
+    try { await file.writeFile(content) }
+    finally { await file.close() }
+    await rename(temporary, target)
+  } finally { if (owned) await rm(temporary, { force: true }) }
+}
 
 function localDependencies(file, content) {
   const source = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true,
