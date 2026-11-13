@@ -10,10 +10,10 @@ import { isDeepStrictEqual } from 'node:util'
 import { collectIdentity, collectEnvironment, parseOptions, writeReport } from './runtime.mjs'
 import { createReport, summarize } from './report.mjs'
 import { fixtureIdentity, makeStrokes, makeScreenEntries, makePageNotebooks } from './fixtures.mjs'
-import { DesktopUnavailable, preflightDesktop, launchIsolated, prepareFixture, openLibrary,
+import { DesktopUnavailable, preflightDesktop, selectDesktopExecutable, launchIsolated, prepareFixture, openLibrary,
   importFullDraft, measureGesture, observeFrames, waitUntil, withDesktopWorkspace } from './electron-harness.mjs'
 
-function normalizedOptions(input) {
+export function desktopLaunchOptions(input = {}, environment = process.env) {
   const names = { iterations: '--iterations', warmups: '--warmups', notes: '--notes', output: '--output',
     allowVisible: '--allow-visible', executable: '--executable', idleSeconds: '--idle-seconds', frameSeconds: '--frame-seconds' }
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('Desktop options must be an object.')
@@ -26,7 +26,8 @@ function normalizedOptions(input) {
       if (value) args.push(names[key])
     } else args.push(names[key], String(value))
   }
-  return parseOptions(args, 'desktop')
+  const options = parseOptions(args, 'desktop')
+  return { ...options, executable: selectDesktopExecutable(options.executable, environment).executable }
 }
 
 async function assetFiles(directory) {
@@ -65,7 +66,7 @@ async function resources(session) {
 
 /** Public runner returns diagnostic reports; only genuine target measurements can pass. */
 export async function runDesktopBenchmark(input = {}) {
-  const options = normalizedOptions(input), root = await realpath(process.cwd())
+  const options = desktopLaunchOptions(input), root = await realpath(process.cwd())
   const parameters = { iterations: options.iterations, warmups: options.warmups, notes: options.notes,
     measurementVersion: 'local-measurement-v1', idleSeconds: options.idleSeconds, frameSeconds: options.frameSeconds }
   const fixture = fixtureIdentity({ strokes: makeStrokes(), entries: makeScreenEntries(options.notes), pages: makePageNotebooks(),

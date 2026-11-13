@@ -6,7 +6,7 @@ import net from 'node:net'
 import { execFile, spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { promisify } from 'node:util'
-import { mkdtemp, writeFile, readFile, readdir, rm, access, mkdir, copyFile } from 'node:fs/promises'
+import { mkdtemp, writeFile, readFile, readdir, rm, access, mkdir, copyFile, symlink } from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 import { pathToFileURL } from 'node:url'
@@ -18,6 +18,103 @@ const parent = path.join(root, 'tmp/local-baseline-20261113/sdd')
 const inventory = directory => readdir(path.join(directory, 'tmp/local-baseline-20261113/runtime'))
   .catch(error => error.code === 'ENOENT' ? [] : Promise.reject(error))
 const harness = await import('./electron-harness.mjs').catch(error => error.code === 'ERR_MODULE_NOT_FOUND' ? {} : Promise.reject(error))
+
+const buildReferences = ['js/index.js', 'js/preload.js', 'css/index.css', 'css/preload.css', 'manifest.json', 'icons/icon.svg', 'icons/touch.png']
+const buildHtml = `<!doctype html><html><head>
+  <script type="module" crossorigin src="./js/index.js"></script>
+  <link rel="modulepreload" href="./js/preload.js">
+  <link rel="stylesheet" href="./css/index.css">
+  <link rel="preload" as="style" href="./css/preload.css">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icons/icon.svg">
+  <link rel="apple-touch-icon" href="./icons/touch.png">
+  <!-- <script src="https://comment.invalid/not-an-asset"></script> -->
+</head><body><div id="root"></div></body></html>`
+
+async function withSourceBuild(work) {
+  const scratch = await mkdtemp(path.join(parent, 'source-build-'))
+  const directory = path.join(scratch, 'dist')
+  await mkdir(directory)
+  await writeFile(path.join(directory, 'index.html'), buildHtml)
+  for (const reference of buildReferences) {
+    const file = path.join(directory, reference)
+    await mkdir(path.dirname(file), { recursive: true })
+    await writeFile(file, 'fixture')
+  }
+  try { return await work(directory, scratch) }
+  finally { await rm(scratch, { recursive: true, force: true }) }
+}
+
+test('source asset validator accepts the emitted js/css layout and checks every linked production asset', async () => {
+  assert.equal(typeof harness.validateSourceAssets, 'function')
+  await withSourceBuild(async directory => {
+    assert.deepEqual(await harness.validateSourceAssets(directory), buildReferences.map(reference => `./${reference}`))
+    for (const reference of buildReferences) {
+      await rm(path.join(directory, reference))
+      await assert.rejects(harness.validateSourceAssets(directory), /asset/i, `missing ${reference} must fail`)
+      await writeFile(path.join(directory, reference), 'fixture')
+    }
+  })
+})
+
+test('source asset validator rejects absolute, external, escaping and symlinked-outside assets', async () => {
+  assert.equal(typeof harness.validateSourceAssets, 'function')
+  await withSourceBuild(async (directory, scratch) => {
+    for (const reference of ['/js/index.js', '//cdn.invalid/index.js', 'https://cdn.invalid/index.js',
+      'file:///outside.js', '../outside.js', './../outside.js', './%2e%2e/outside.js', './js\\index.js']) {
+      await writeFile(path.join(directory, 'index.html'), buildHtml.replace('./js/index.js', reference))
+      await assert.rejects(harness.validateSourceAssets(directory), /asset/i, reference)
+    }
+    await writeFile(path.join(directory, 'index.html'), buildHtml.replace('</head>', '<base href="https://base.invalid/"></head>'))
+    await assert.rejects(harness.validateSourceAssets(directory), /asset/i)
+    await writeFile(path.join(directory, 'index.html'), buildHtml)
+    await writeFile(path.join(scratch, 'outside.js'), 'outside')
+    await rm(path.join(directory, 'js/index.js'))
+    await symlink(path.join(scratch, 'outside.js'), path.join(directory, 'js/index.js'))
+    await assert.rejects(harness.validateSourceAssets(directory), /asset/i)
+  })
+})
+
+test('source asset validator reads the existing production dist without launching Electron or rebuilding it', async () => {
+  assert.equal(typeof harness.validateSourceAssets, 'function')
+  const before = await readFile(path.join(root, 'dist/index.html'))
+  const references = await harness.validateSourceAssets(path.join(root, 'dist'))
+  assert.ok(references.some(reference => reference.startsWith('./js/')))
+  assert.ok(references.some(reference => reference.startsWith('./css/')))
+  assert.ok(references.includes('./manifest.json'))
+  assert.ok(references.some(reference => reference.startsWith('./icons/')))
+  assert.deepEqual(await readFile(path.join(root, 'dist/index.html')), before)
+})
+
+test('executable selection uses explicit option before MINDNOTES_EXECUTABLE and preserves the environment', async () => {
+  const desktop = await import('./run-desktop.mjs'), offline = await import('./run-offline.mjs')
+  assert.equal(typeof harness.selectDesktopExecutable, 'function')
+  assert.equal(typeof desktop.desktopLaunchOptions, 'function')
+  assert.equal(typeof offline.offlineLaunchOptions, 'function')
+  const environment = Object.freeze({ MINDNOTES_EXECUTABLE: 'env-package.exe' })
+  assert.deepEqual(harness.selectDesktopExecutable(undefined, environment), { executable: 'env-package.exe', packaged: true })
+  assert.deepEqual(harness.selectDesktopExecutable('explicit-package.exe', environment), { executable: 'explicit-package.exe', packaged: true })
+  assert.deepEqual(harness.selectDesktopExecutable(undefined, {}), { executable: undefined, packaged: false })
+  assert.deepEqual(harness.selectDesktopExecutable(undefined, { MINDNOTES_EXECUTABLE: '  ' }), { executable: undefined, packaged: false })
+  assert.equal(desktop.desktopLaunchOptions({}, environment).executable, 'env-package.exe')
+  assert.equal(desktop.desktopLaunchOptions({ executable: 'explicit-package.exe' }, environment).executable, 'explicit-package.exe')
+  assert.equal(offline.offlineLaunchOptions([], environment).executable, 'env-package.exe')
+  assert.equal(offline.offlineLaunchOptions(['--executable', 'explicit-package.exe'], environment).executable, 'explicit-package.exe')
+  assert.equal(desktop.desktopLaunchOptions({}, {}).executable, undefined)
+  assert.equal(offline.offlineLaunchOptions([], {}).executable, undefined)
+  assert.deepEqual(environment, { MINDNOTES_EXECUTABLE: 'env-package.exe' })
+  const previous = process.env.MINDNOTES_EXECUTABLE
+  try {
+    process.env.MINDNOTES_EXECUTABLE = 'process-env-package.exe'
+    assert.equal(desktop.desktopLaunchOptions({}).executable, 'process-env-package.exe')
+    assert.equal(offline.offlineLaunchOptions([]).executable, 'process-env-package.exe')
+    assert.equal(process.env.MINDNOTES_EXECUTABLE, 'process-env-package.exe')
+  } finally {
+    if (previous === undefined) delete process.env.MINDNOTES_EXECUTABLE
+    else process.env.MINDNOTES_EXECUTABLE = previous
+  }
+  assert.equal(process.env.MINDNOTES_EXECUTABLE, previous)
+})
 
 for (const stage of ['pre-close', 'app.close']) {
   test(`desktop cleanup bounds a never-resolving ${stage}, observes real child exit and releases proxy`, async () => {

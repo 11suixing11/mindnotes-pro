@@ -50,6 +50,10 @@ export interface DesktopSession {
 export function preflightDesktop(
   options?: Pick<DesktopLaunchOptions, 'allowVisible' | 'executable'>
 ): Promise<{ executablePath: string; packaged: boolean }>
+export function validateSourceAssets(directory?: string): Promise<string[]>
+export function selectDesktopExecutable(
+  executable?: string, environment?: Readonly<{ MINDNOTES_EXECUTABLE?: string }>
+): { executable: string | undefined; packaged: boolean }
 export function startDenyProxy(): Promise<DenyProxy>
 export function createDesktopCloser(options: {
   child: ChildProcess

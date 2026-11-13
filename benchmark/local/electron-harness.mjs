@@ -3,7 +3,7 @@ import http from 'node:http'
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
-import { access, mkdir, open, readFile, realpath, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, open, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { performance } from 'node:perf_hooks'
@@ -119,12 +119,63 @@ export async function withDesktopTempDirectory(directory, work) {
   }
 }
 
+/** Read-only validation of the controlled production index emitted by Vite, independent of host OS. */
+export async function validateSourceAssets(directory = 'dist') {
+  try {
+    const root = await realpath(directory)
+    const inside = file => {
+      const relative = path.relative(root, file)
+      return relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)
+    }
+    const index = await realpath(path.join(root, 'index.html'))
+    if (!inside(index)) throw new Error('index asset escapes the build directory')
+    const html = (await readFile(index, 'utf8')).replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/(<script\b[^>]*>)[\s\S]*?<\/script\s*>/gi, '$1</script>')
+    const references = [], kinds = new Set()
+    for (const tag of html.matchAll(/<(script|link|base)\b([^>]*)>/gi)) {
+      const attributes = new Map()
+      for (const attribute of tag[2].matchAll(/([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g))
+        attributes.set(attribute[1].toLowerCase(), attribute[2] ?? attribute[3] ?? attribute[4] ?? '')
+      const name = tag[1].toLowerCase(), relations = (attributes.get('rel') ?? '').toLowerCase().split(/\s+/)
+      const linkedAsset = name === 'link' && relations.some(rel => ['stylesheet', 'preload', 'modulepreload', 'manifest', 'icon', 'apple-touch-icon', 'mask-icon'].includes(rel))
+      if (name === 'base' && attributes.has('href')) throw new Error('base asset URL is unsupported')
+      let reference
+      if (name === 'script' && attributes.has('src')) { reference = attributes.get('src'); kinds.add('script') }
+      if (linkedAsset) {
+        reference = attributes.get('href')
+        if (relations.includes('stylesheet')) kinds.add('stylesheet')
+      }
+      if (reference === undefined && !linkedAsset) continue
+      if (!reference || reference !== reference.trim() || /^[a-z][a-z\d+.-]*:/i.test(reference)) throw new Error('nonlocal or missing asset reference')
+      const decoded = decodeURIComponent(reference.split(/[?#]/, 1)[0])
+      if (!decoded || decoded.includes('\\') || decoded.includes('\0') || decoded.includes('&') || path.posix.isAbsolute(decoded) || path.win32.isAbsolute(decoded) || decoded.split('/').includes('..'))
+        throw new Error('absolute or escaping asset reference')
+      const requested = path.resolve(root, decoded), actual = await realpath(requested)
+      if (!inside(requested) || !inside(actual) || !(await stat(actual)).isFile()) throw new Error('asset must be a file inside the build directory')
+      references.push(reference)
+    }
+    if (!kinds.has('script') || !kinds.has('stylesheet')) throw new Error('production script and stylesheet assets are required')
+    return references
+  } catch (error) { throw new DesktopUnavailable(`Source assets unavailable: ${error.message}`, { cause: error }) }
+}
+
+/** The public package override is shared by both runners and every subsequent preflight. */
+export function selectDesktopExecutable(executable, environment = process.env) {
+  if (executable !== undefined && (typeof executable !== 'string' || !executable.trim()))
+    throw new TypeError('Explicit executable must be a nonempty path.')
+  const selected = executable ?? environment.MINDNOTES_EXECUTABLE
+  if (selected === undefined || (typeof selected === 'string' && !selected.trim())) return { executable: undefined, packaged: false }
+  if (typeof selected !== 'string') throw new TypeError('MINDNOTES_EXECUTABLE must be a path.')
+  return { executable: selected, packaged: true }
+}
+
 /** Read-only guard: never runs a candidate binary, creates a database or downloads Electron. */
 export async function preflightDesktop({ allowVisible = false, executable } = {}) {
   if (allowVisible !== true) throw new DesktopUnavailable('Visible desktop launch requires --allow-visible.')
   if (process.platform !== 'win32') throw new DesktopUnavailable('A visible target Windows environment is required; this host cannot execute the Windows desktop baseline.')
+  const selected = selectDesktopExecutable(executable)
   let executablePath
-  try { executablePath = await realpath(executable ?? require('electron')) }
+  try { executablePath = await realpath(selected.executable ?? require('electron')) }
   catch { throw new DesktopUnavailable('Electron executable is unavailable; prepare the target installation or pass --executable.') }
   const file = await open(executablePath, 'r').catch(() => { throw new DesktopUnavailable('Electron executable cannot be read.') })
   try {
@@ -135,17 +186,13 @@ export async function preflightDesktop({ allowVisible = false, executable } = {}
     await file.read(signature, 0, 4, header.readUInt32LE(60))
     if (!signature.equals(Buffer.from([80, 69, 0, 0]))) throw new DesktopUnavailable('Executable has no valid Windows PE signature.')
   } finally { await file.close() }
-  if (executable) {
+  if (selected.packaged) {
     await access(path.join(path.dirname(executablePath), 'resources/app.asar'))
       .catch(() => { throw new DesktopUnavailable('Packaged mode requires the executable and its sibling resources/app.asar.') })
   } else {
     try {
       await access('dist-electron/electron/main.mjs')
-      const html = await readFile('dist/index.html', 'utf8')
-      if (!/\b(?:src|href)=["']\.\/assets\//.test(html) || /\b(?:src|href)=["'](?:\/assets\/|https?:\/\/)/.test(html))
-        throw new Error('nonlocal assets')
-      for (const reference of html.matchAll(/\b(?:src|href)=["'](\.\/assets\/[^"']+)["']/g))
-        await access(path.resolve('dist', reference[1]))
+      await validateSourceAssets('dist')
     } catch { throw new DesktopUnavailable('Local production assets are unavailable. Run npm run build:electron and npm run build -- --base=./ explicitly.') }
   }
   try {
@@ -154,7 +201,7 @@ export async function preflightDesktop({ allowVisible = false, executable } = {}
   } catch { throw new DesktopUnavailable('Current compiled fixture repositories are unavailable; run npm run build:electron explicitly.') }
   try { require.resolve('@playwright/test') }
   catch { throw new DesktopUnavailable('The existing Playwright development dependency is unavailable.') }
-  return { executablePath, packaged: Boolean(executable) }
+  return { executablePath, packaged: selected.packaged }
 }
 
 async function ownedDirectory(directory) {

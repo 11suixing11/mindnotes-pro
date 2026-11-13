@@ -31,6 +31,8 @@ NODE_ENV=production npm run build -- --base=./
 
 缺编译模块、缺相对路径生产资源或缺目标环境时，运行器记录失败/不可用并以非零状态退出，不自动安装、构建或以跳过代替成功。存储 npm 入口自带 `build:electron`；Node 工具测试本身不依赖 Vite，但真实存储/fixture 测试需要当前编译模块。项目行为检查继续使用 `npm run typecheck`、`npm run lint`、`npm run test:storage` 与 `npm run check`；日志应记录实际退出阶段，测试未收集到用例不能写成全部通过。
 
+源码资源预检按生产 `dist/index.html` 中实际的 script、stylesheet、preload、manifest 和 icon 引用检查本地文件，不要求统一放在 `assets/`。当前 Vite 的 `js/`、`css/` 与 `icons/` 布局可以使用；绝对/外部地址、缺失文件以及逃出 dist 的路径或符号链接会被拒绝。Node 工具套件中的资源 smoke 只读检查已有 production dist，需要上面显式准备的相对路径资源，不会自动调用 Vite 或启动 Electron。
+
 本地工具使用独立 lint 入口，将 Node 全局限定到早期存储/报告工具并继承项目规则；它不改写应用的 ESLint 配置。完整工具门禁为：
 
 ```bash
@@ -76,7 +78,7 @@ desktop 不可用报告保留诊断，指标为空；offline 入口报告实际�
 
 ```powershell
 $baselinePreviousEnvironment = @{}
-foreach ($name in @('TEMP', 'TMP', 'TMPDIR', 'NODE_ENV')) {
+foreach ($name in @('TEMP', 'TMP', 'TMPDIR', 'NODE_ENV', 'MINDNOTES_EXECUTABLE')) {
     $baselinePreviousEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 $baselineTemp = Join-Path (Get-Location) 'tmp/local-baseline-20261113/command-temp'
@@ -86,6 +88,7 @@ $env:TMP = $baselineTemp
 $env:TMPDIR = $baselineTemp
 
 $env:NODE_ENV = 'production'
+$env:MINDNOTES_EXECUTABLE = $null
 npm run build:electron
 npm run build -- --base=./
 npm run benchmark:local:desktop -- --allow-visible --output tmp/local-baseline-20261113/desktop-windows-source.json
@@ -102,6 +105,8 @@ npm run benchmark:local:desktop -- --allow-visible --executable 'release/win-unp
 npm run test:offline -- --allow-visible --executable 'release/win-unpacked/MindNotes Pro.exe'
 ```
 
+两个入口也支持 `MINDNOTES_EXECUTABLE` 环境变量作为实际包路径的回退值。显式 `--executable` 优先；二者均未提供或环境变量为空时选择源码模式。上面的源码示例先清空该变量，并在下方恢复原值，避免已有包路径改变本次源码测量模式。使用环境变量选包时，身份记录和启动模式与显式传入同一路径一致。
+
 实际包模式要求 exe 旁的 `resources/app.asar` 存在，记录 exe 与 app.asar 的 SHA256，并从运行中的应用记录实际版本、Electron/Chromium 及 `isPackaged`。工具还需要当前编译的 fixture 准备仓库，因此仍要执行 `build:electron`。测已有包不要求重建或重新打包它；源码模式的前端构建也不会自动证明该包已验收。每次启动核对实际 `userData` 与请求目录，以及源码/实际包模式是否吻合。
 
 存储与桌面可配置 `--iterations`（1–30，默认 5）、`--warmups`（0–10，默认 1）、`--notes`（100/1000/10000，默认 1000）和工作区内的 `.json` `--output`。桌面另外支持 `--idle-seconds`（0–900，默认 5）与 `--frame-seconds`（1–60，默认 5），单段 15 分钟 idle 观察使用一次测量、零次预热，避免默认重复产生多段 15 分钟等待：
@@ -115,7 +120,7 @@ offline 使用其独立旅程入口，支持 `--allow-visible` 与 `--executable
 完成本节所需源码/实际包命令后，恢复当前 PowerShell 进程原有环境值（包括原来未设置的值）：
 
 ```powershell
-foreach ($name in @('TEMP', 'TMP', 'TMPDIR', 'NODE_ENV')) {
+foreach ($name in @('TEMP', 'TMP', 'TMPDIR', 'NODE_ENV', 'MINDNOTES_EXECUTABLE')) {
     [Environment]::SetEnvironmentVariable($name, $baselinePreviousEnvironment[$name], 'Process')
 }
 ```
