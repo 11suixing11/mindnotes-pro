@@ -5,10 +5,34 @@ import { mkdir, mkdtemp, readFile, realpath, rm } from 'node:fs/promises'
 import { statfsSync } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import ts from 'typescript'
 
 const execute = promisify(execFile)
 const runtimePath = 'tmp/local-baseline-20261113/runtime'
 const inside = (root, file) => { const relative = path.relative(root, file); return relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative) }
+
+function localDependencies(file, content) {
+  const source = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true,
+    /\.(?:ts|mts|cts)$/.test(file) ? ts.ScriptKind.TS : ts.ScriptKind.JS)
+  if (source.parseDiagnostics.length) throw new Error('Measured source has invalid syntax.')
+  const dependencies = new Set()
+  function visit(node) {
+    let specifier
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) specifier = node.moduleSpecifier
+    else if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+      (ts.isIdentifier(node.expression) && node.expression.text === 'require'))) specifier = node.arguments[0]
+    else if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'URL') {
+      const base = node.arguments?.[1]
+      if (base && ts.isPropertyAccessExpression(base) && base.name.text === 'url' &&
+        ts.isMetaProperty(base.expression) && base.expression.keywordToken === ts.SyntaxKind.ImportKeyword &&
+        base.expression.name.text === 'meta') specifier = node.arguments[0]
+    }
+    if (specifier && ts.isStringLiteralLike(specifier) && specifier.text.startsWith('.')) dependencies.add(specifier.text)
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  return dependencies
+}
 
 /** Hash only explicit/generated code inputs and literal project-local dependencies. */
 export async function collectIdentity(projectRoot, measuredFiles) {
@@ -28,15 +52,8 @@ export async function collectIdentity(projectRoot, measuredFiles) {
     const bytes = await readFile(file)
     files[path.relative(root, file).split(path.sep).join('/')] = createHash('sha256').update(bytes).digest('hex')
     if (!/\.(?:mjs|cjs|js|mts|cts|ts)$/.test(file)) continue
-    const source = bytes.toString('utf8')
-    const patterns = [
-      /\b(?:import|export)\s+(?:[^'";]*?\s+from\s*)?['"]([^'"]+)['"]/g,
-      /\b(?:import|require)\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-      /\bnew\s+URL\s*\(\s*['"]([^'"]+)['"]\s*,\s*import\.meta\.url\s*\)/g,
-    ]
-    for (const pattern of patterns) for (const match of source.matchAll(pattern)) {
-      if (match[1].startsWith('.')) pending.push(path.resolve(path.dirname(file), match[1]))
-    }
+    for (const dependency of localDependencies(file, bytes.toString('utf8')))
+      pending.push(path.resolve(path.dirname(file), dependency))
   }
   const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
   if (typeof pkg.version !== 'string' || !pkg.version) throw new Error('Application version is missing.')

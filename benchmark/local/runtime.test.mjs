@@ -131,3 +131,59 @@ test('identity hashes transitive loaded files and the lockfile without reading n
     assert.ok((await readdir(project)).includes('private-notes.json'))
   } finally { await rm(project, { recursive: true, force: true }) }
 })
+
+test('identity follows commented imports and dynamic import attributes using code syntax', async () => {
+  await mkdir(runtime, { recursive: true })
+  const project = await mkdtemp(path.join(runtime, 'identity-syntax-test-'))
+  try {
+    execFileSync('git', ['init', '--quiet', project])
+    await writeFile(path.join(project, 'package.json'), '{"version":"1.2.3","type":"module"}')
+    await writeFile(path.join(project, 'package-lock.json'), '{"lockfileVersion":3}')
+    await writeFile(path.join(project, 'main.mjs'), `import /* provenance */ './dep.mjs'
+import('./payload.json', { with: { type: 'json' } })
+export /* provenance */ { value } from './reexport.mjs'
+const cjs = require /* provenance */ ('./legacy.cjs')
+const worker = new URL /* provenance */ ('./worker.mjs', import.meta.url)
+import 'node:fs'
+import 'not-crawled-bare-package'
+`)
+    await writeFile(path.join(project, 'dep.mjs'), 'export const dep = 1\n')
+    await writeFile(path.join(project, 'payload.json'), '{"value":42}')
+    await writeFile(path.join(project, 'reexport.mjs'), 'export const value = 42\n')
+    await writeFile(path.join(project, 'legacy.cjs'), 'module.exports = 42\n')
+    await writeFile(path.join(project, 'worker.mjs'), 'export const worker = true\n')
+    execFileSync('git', ['-C', project, 'add', '.'])
+    execFileSync('git', ['-C', project, '-c', 'user.name=Codex', '-c', 'user.email=codex@localhost', 'commit', '--quiet', '-m', 'fixture'])
+    const identity = await collectIdentity(project, ['main.mjs'])
+    assert.deepEqual(Object.keys(identity.files).sort(), ['dep.mjs', 'legacy.cjs', 'main.mjs',
+      'package-lock.json', 'package.json', 'payload.json', 'reexport.mjs', 'worker.mjs'])
+    assert.equal(identity.files['payload.json'], createHash('sha256').update('{"value":42}').digest('hex'))
+    await writeFile(path.join(project, 'payload.json'), '{"value":43}')
+    assert.notEqual((await collectIdentity(project, ['main.mjs'])).files['payload.json'], identity.files['payload.json'])
+  } finally { await rm(project, { recursive: true, force: true }) }
+})
+
+test('identity does not read imports mentioned only in comments or string examples', async () => {
+  await mkdir(runtime, { recursive: true })
+  const project = await mkdtemp(path.join(runtime, 'identity-private-test-'))
+  try {
+    execFileSync('git', ['init', '--quiet', project])
+    await writeFile(path.join(project, 'package.json'), '{"version":"1.2.3","type":"module"}')
+    await writeFile(path.join(project, 'package-lock.json'), '{"lockfileVersion":3}')
+    await writeFile(path.join(project, 'main.mjs'), `// import './private-notes.json'
+/* export { secret } from './private-export.json' */
+const example = "import './private-example.json'"
+const dynamicExample = "import('./private-dynamic.json')"
+const workerExample = "new URL('./private-worker.json', import.meta.url)"
+const templateExample = \`require('./private-template.json')\`
+export const value = 42
+`)
+    for (const file of ['private-notes.json', 'private-export.json', 'private-example.json',
+      'private-dynamic.json', 'private-worker.json', 'private-template.json'])
+      await writeFile(path.join(project, file), '{"generatedPrivateMarker":42}')
+    execFileSync('git', ['-C', project, 'add', '.'])
+    execFileSync('git', ['-C', project, '-c', 'user.name=Codex', '-c', 'user.email=codex@localhost', 'commit', '--quiet', '-m', 'fixture'])
+    const identity = await collectIdentity(project, ['main.mjs'])
+    assert.deepEqual(Object.keys(identity.files).sort(), ['main.mjs', 'package-lock.json', 'package.json'])
+  } finally { await rm(project, { recursive: true, force: true }) }
+})

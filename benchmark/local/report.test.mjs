@@ -68,6 +68,39 @@ test('failed and unavailable reports retain diagnostics without requiring metric
   }
 })
 
+test('reports accept only versioned workload parameters for their runner', () => {
+  const storage = input()
+  const desktop = { ...input(), runner: 'desktop', parameters: {
+    ...input().parameters, idleSeconds: 5, frameSeconds: 5,
+  } }
+  assert.equal(createReport(storage).status, 'passed')
+  assert.equal(createReport(desktop).status, 'passed')
+  for (const original of [storage, desktop]) {
+    for (const extra of [{ output: 'tmp/result.json' }, { executable: 'app.exe' },
+      { allowVisible: true }, { arbitrary: 42 }]) {
+      const data = structuredClone(original)
+      Object.assign(data.parameters, extra)
+      assert.throws(() => createReport(data))
+      const malformed = { ...data, format: 'mindnotes-pro.local-baseline', schemaVersion: 1,
+        generatedAt: '2026-11-13T00:00:00.000Z' }
+      assert.equal(compareReports(malformed, malformed).compatible, false)
+    }
+    for (const version of ['other', 'local-measurement-v2', '']) {
+      const data = structuredClone(original)
+      data.parameters.measurementVersion = version
+      assert.throws(() => createReport(data))
+    }
+  }
+  for (const extra of [{ idleSeconds: 5 }, { frameSeconds: 5 }]) {
+    const data = input(); Object.assign(data.parameters, extra)
+    assert.throws(() => createReport(data))
+  }
+  for (const missing of ['idleSeconds', 'frameSeconds']) {
+    const data = structuredClone(desktop); delete data.parameters[missing]
+    assert.throws(() => createReport(data))
+  }
+})
+
 test('comparison applies p95 and handles hand-calculated regressions including zero', () => {
   for (const [baseline, current, passed, ratio] of [[100, 119, true, .19], [100, 121, false, .21],
     [0, 0, true, 0], [0, 1, false, Infinity], [100, 120, true, .2]]) {

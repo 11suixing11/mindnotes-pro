@@ -64,9 +64,12 @@ function validateReport(report) {
   validateIdentity(report.identity)
   validateEnvironment(report.environment)
   const parameters = report.parameters
+  const workloadFields = ['iterations', 'warmups', 'notes', 'measurementVersion',
+    ...(report.runner === 'desktop' ? ['idleSeconds', 'frameSeconds'] : [])]
   requireCondition(record(parameters) && integer(parameters.iterations, 1, 30) &&
     integer(parameters.warmups, 0, 10) && [100, 1000, 10000].includes(parameters.notes) &&
-    text(parameters.measurementVersion), 'Report workload parameters are invalid.')
+    parameters.measurementVersion === 'local-measurement-v1' &&
+    Object.keys(parameters).every(key => workloadFields.includes(key)), 'Report workload parameters are invalid.')
   if (report.runner === 'desktop') requireCondition(integer(parameters.idleSeconds, 0, 900) &&
     integer(parameters.frameSeconds, 1, 60), 'Desktop workload parameters are invalid.')
   requireCondition(record(report.fixture) && report.fixture.version === 'local-fixture-v1' &&
