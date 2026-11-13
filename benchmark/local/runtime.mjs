@@ -117,13 +117,11 @@ export async function withWorkspace(projectRoot, callback) {
   let value, callbackError, failed = false
   try { value = await callback(directory) }
   catch (error) { callbackError = error; failed = true }
-  finally {
-    try { await rm(directory, { recursive: true, force: true }) }
-    catch (error) {
-      const cleanupError = new Error(`Workspace cleanup failed; inspect ${directory}`, { cause: error })
-      if (failed) throw new AggregateError([callbackError, cleanupError], cleanupError.message)
-      throw cleanupError
-    }
+  try { await rm(directory, { recursive: true, force: true }) }
+  catch (error) {
+    const cleanupError = new Error(`Workspace cleanup failed; inspect ${directory}`, { cause: error })
+    if (failed) throw new AggregateError([callbackError, cleanupError], cleanupError.message, { cause: error })
+    throw cleanupError
   }
   if (failed) throw callbackError
   return value

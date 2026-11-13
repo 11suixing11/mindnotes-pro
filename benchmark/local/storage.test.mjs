@@ -20,6 +20,39 @@ const cli = (args, cwd = root) => spawnSync(process.execPath, [runner, ...args],
   cwd, encoding: 'utf8', env: { ...process.env, TEMP: task, TMP: task, TMPDIR: task }, timeout: 120000,
 })
 
+test('runner rejects a missing thumbnail in a real SQLite export response', async t => {
+  const parent = path.join(root, 'tmp/local-baseline-20261113/runtime')
+  await mkdir(parent, { recursive: true })
+  const sentinel = await mkdtemp(path.join(parent, 'storage-neighbor-'))
+  await writeFile(path.join(sentinel, 'keep.txt'), 'owned neighbor')
+  let ownDirectory
+  const originalExport = ScreenNotebookRepository.prototype.export
+
+  t.mock.method(ScreenNotebookRepository.prototype, 'export', async function (...args) {
+    ownDirectory = process.env.TEMP
+    const entries = await originalExport.apply(this, args)
+    return entries.map((entry, index) => {
+      if (index !== 0) return entry
+      const withoutThumbnail = { ...entry }
+      delete withoutThumbnail.thumbnail
+      return withoutThumbnail
+    })
+  })
+
+  try {
+    const report = await module.runStorageBenchmark({ iterations: 1, warmups: 0, notes: 100 })
+    assert.equal(report.status, 'failed')
+    const failedCheck = report.checks.find(check => check.name === 'prepare-library')
+    assert.equal(failedCheck?.status, 'failed')
+    assert.match(failedCheck.error, /thumbnail/i)
+    await assert.rejects(stat(ownDirectory), { code: 'ENOENT' })
+    assert.equal(await readFile(path.join(sentinel, 'keep.txt'), 'utf8'), 'owned neighbor')
+  } finally {
+    t.mock.restoreAll()
+    await rm(sentinel, { recursive: true, force: true })
+  }
+})
+
 test('import provides the runner without starting a benchmark or printing output', () => {
   assert.equal(typeof module.runStorageBenchmark, 'function')
   const result = spawnSync(process.execPath, ['--input-type=module', '-e', `await import(${JSON.stringify(runner)})`], {
@@ -29,30 +62,66 @@ test('import provides the runner without starting a benchmark or printing output
   assert.equal(result.stdout, '')
 })
 
-test('the runner checks real persistence and leaves no test database behind', async () => {
+test('runner retains validation and cleanup failures while removing its own workspace', async t => {
+  let ownDirectory
+  const originalExport = ScreenNotebookRepository.prototype.export
+  const originalClose = ScreenNotebookRepository.prototype.close
+  t.mock.method(ScreenNotebookRepository.prototype, 'export', async function (...args) {
+    ownDirectory = process.env.TEMP
+    const entries = await originalExport.apply(this, args)
+    delete entries[0].thumbnail
+    return entries
+  })
+  t.mock.method(ScreenNotebookRepository.prototype, 'close', async function (...args) {
+    await originalClose.apply(this, args)
+    throw new Error('generated close failure')
+  })
+  try {
+    const report = await module.runStorageBenchmark({ iterations: 1, warmups: 0, notes: 100 })
+    assert.equal(report.status, 'failed')
+    assert.match(report.checks.find(check => check.name === 'prepare-library').error, /thumbnail/i)
+    assert.match(report.checks.find(check => check.name === 'runner').error, /operation and cleanup failed/i)
+    await assert.rejects(stat(ownDirectory), { code: 'ENOENT' })
+  } finally { t.mock.restoreAll() }
+})
+
+test('the runner checks real persistence and leaves no test database behind', async t => {
   assert.equal(typeof module.runStorageBenchmark, 'function')
   const parent = path.join(root, 'tmp/local-baseline-20261113/runtime')
   await mkdir(parent, { recursive: true })
-  const before = await readdir(parent)
-  const report = await module.runStorageBenchmark({ iterations: 1, warmups: 0, notes: 100 })
-  assert.equal(report.status, 'passed', JSON.stringify(report.checks))
-  for (const name of ['eraseMs', 'draftSaveMs', 'searchMs', 'detailReadMs', 'exportMs', 'streamImportMs',
-    'pageJsonSaveMs', 'pageJsonReloadMs', 'rssBytes', 'heapUsedBytes', 'externalBytes']) {
-    assert.equal(report.metrics[name].count, 1, name)
-    assert.ok(report.metrics[name].samples.every(Number.isFinite), name)
+  const sentinel = await mkdtemp(path.join(parent, 'storage-neighbor-'))
+  await writeFile(path.join(sentinel, 'keep.txt'), 'owned neighbor')
+  let ownDirectory
+  const originalLoad = ScreenNotebookRepository.prototype.load
+  t.mock.method(ScreenNotebookRepository.prototype, 'load', async function (...args) {
+    ownDirectory = process.env.TEMP
+    return originalLoad.apply(this, args)
+  })
+  try {
+    const report = await module.runStorageBenchmark({ iterations: 1, warmups: 0, notes: 100 })
+    assert.equal(report.status, 'passed', JSON.stringify(report.checks))
+    for (const name of ['eraseMs', 'draftSaveMs', 'searchMs', 'detailReadMs', 'exportMs', 'streamImportMs',
+      'pageJsonSaveMs', 'pageJsonReloadMs', 'rssBytes', 'heapUsedBytes', 'externalBytes']) {
+      assert.equal(report.metrics[name].count, 1, name)
+      assert.ok(report.metrics[name].samples.every(Number.isFinite), name)
+    }
+    assert.ok(report.metrics.repositoryReadyMs.count >= 4)
+    for (const name of ['draft-restart', 'page-json-restart', 'search-results', 'detail-content',
+      'export-content', 'stream-import-content', 'stream-import-restart', 'workspace-cleanup'])
+      assert.equal(report.checks.find(check => check.name === name)?.status, 'passed', name)
+    assert.deepEqual(report.parameters, { iterations: 1, warmups: 0, notes: 100, measurementVersion: 'local-measurement-v1' })
+    assert.ok(report.identity.files['dist-electron/electron/screenRepositoryWorker.mjs'])
+    assert.ok(report.identity.files['dist-electron/electron/screenBackup.mjs'])
+    assert.ok(report.identity.files['dist-electron/src/notes/screenInk.js'])
+    assert.match(report.limitations.join(' '), /Node/)
+    assert.equal(JSON.stringify(report).includes('Generated offline page note'), false)
+    assert.equal(JSON.stringify(report).includes('Generated local baseline note'), false)
+    await assert.rejects(stat(ownDirectory), { code: 'ENOENT' })
+    assert.equal(await readFile(path.join(sentinel, 'keep.txt'), 'utf8'), 'owned neighbor')
+  } finally {
+    t.mock.restoreAll()
+    await rm(sentinel, { recursive: true, force: true })
   }
-  assert.ok(report.metrics.repositoryReadyMs.count >= 4)
-  for (const name of ['draft-restart', 'page-json-restart', 'search-results', 'detail-content',
-    'export-content', 'stream-import-content', 'stream-import-restart', 'workspace-cleanup'])
-    assert.equal(report.checks.find(check => check.name === name)?.status, 'passed', name)
-  assert.deepEqual(report.parameters, { iterations: 1, warmups: 0, notes: 100, measurementVersion: 'local-measurement-v1' })
-  assert.ok(report.identity.files['dist-electron/electron/screenRepositoryWorker.mjs'])
-  assert.ok(report.identity.files['dist-electron/electron/screenBackup.mjs'])
-  assert.ok(report.identity.files['dist-electron/src/notes/screenInk.js'])
-  assert.match(report.limitations.join(' '), /Node/)
-  assert.equal(JSON.stringify(report).includes('Generated offline page note'), false)
-  assert.equal(JSON.stringify(report).includes('Generated local baseline note'), false)
-  assert.deepEqual((await readdir(parent)).sort(), before.sort())
 })
 
 test('warmups do not enter steady operation samples and fresh-target import repeats persist all fixtures', async () => {

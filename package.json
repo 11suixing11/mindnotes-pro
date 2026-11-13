@@ -34,7 +34,12 @@
     "deps:check": "depcruise src --config .dependency-cruiser.cjs",
     "check": "npm run lint && npm run typecheck && npm run deps:check && npm run test:run && npm run build",
     "electron:dev": "npm run build:electron && electron .",
-    "electron:build": "npm run build:desktop"
+    "electron:build": "npm run build:desktop",
+    "benchmark:local:storage": "npm run build:electron && node benchmark/local/run-storage.mjs",
+    "benchmark:local:desktop": "node benchmark/local/run-desktop.mjs",
+    "benchmark:local:compare": "node benchmark/local/compare.mjs",
+    "test:local-baseline": "node --test benchmark/local/*.test.mjs",
+    "test:offline": "node benchmark/local/run-offline.mjs"
   },
   "build": {
     "appId": "com.mindnotes.pro",

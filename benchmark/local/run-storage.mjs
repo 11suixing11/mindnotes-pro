@@ -85,7 +85,7 @@ export async function runStorageBenchmark(input = {}) {
             for (const file of compiled) await access(path.join(projectRoot, file))
             identity = await collectIdentity(projectRoot, [...compiled, 'benchmark/local/run-storage.mjs'])
           } catch (error) {
-            throw new Error(`Current compiled storage modules are unavailable or cannot be identified (${error.code ?? 'invalid input'}); run npm run build:electron explicitly.`)
+            throw new Error(`Current compiled storage modules are unavailable or cannot be identified (${error.code ?? 'invalid input'}); run npm run build:electron explicitly.`, { cause: error })
           }
         })
         const [{ ScreenNotebookRepository }, { NotebookRepository }, model, ink, validation, backup] =
@@ -104,7 +104,7 @@ export async function runStorageBenchmark(input = {}) {
             if (!expected) throw new Error('Screen library contains an unexpected note ID.')
             same(validation.validateScreenNote(entry.note), expected.note, 'Screen note content differs from fixtures.')
             same(new Uint8Array(entry.png), expected.png, 'Screen note PNG differs from fixtures.')
-            if (entry.thumbnail !== undefined && entry.thumbnail !== expected.thumbnail) throw new Error('Screen thumbnail differs from fixtures.')
+            if (entry.thumbnail !== expected.thumbnail) throw new Error('Screen thumbnail differs from fixtures.')
           }
         }
         for (let iteration = 0; iteration < options.warmups + options.iterations; iteration++) {
@@ -138,6 +138,7 @@ export async function runStorageBenchmark(input = {}) {
             })
             return { repository, loaded }
           }
+          let operationError, operationFailed = false
           try {
             const { repository: screen, loaded } = await openScreen(screenDirectory)
             same(loaded.drafts, [], 'Fresh screen repository contains drafts.')
@@ -219,11 +220,17 @@ export async function runStorageBenchmark(input = {}) {
                 samples[name].push(memory[key])
               }
             }
-          } finally {
-            const results = await Promise.allSettled([...workers].map(worker => worker.close()).concat([...pageRepositories].map(page => page.flush())))
-            const failures = results.filter(result => result.status === 'rejected')
-            if (failures.length) throw new Error('Repository cleanup failed; one or more workers or page saves could not close/flush.')
+          } catch (error) { operationError = error; operationFailed = true }
+          const results = await Promise.allSettled([...workers].map(worker => worker.close()).concat([...pageRepositories].map(page => page.flush())))
+          const failures = results.filter(result => result.status === 'rejected')
+          if (failures.length) {
+            const cleanupError = new AggregateError(failures.map(result => result.reason),
+              'Repository cleanup failed; one or more workers or page saves could not close/flush.')
+            if (operationFailed) throw new AggregateError([operationError, cleanupError],
+              'Repository operation and cleanup failed; validation and close/flush errors were retained.', { cause: operationError })
+            throw cleanupError
           }
+          if (operationFailed) throw operationError
         }
       } finally {
         for (const [key, value] of Object.entries(previousEnvironment)) {
@@ -239,7 +246,7 @@ export async function runStorageBenchmark(input = {}) {
   }
   if (!identity) identity = await collectIdentity(projectRoot, ['package.json'])
   if (!environment) environment = collectEnvironment(projectRoot)
-  const metrics = Object.fromEntries(Object.entries(samples).filter(([_name, values]) => values.length)
+  const metrics = Object.fromEntries(Object.entries(samples).filter(([, values]) => values.length)
     .map(([name, values]) => [name, summarize(values, name.endsWith('Bytes') ? 'bytes' : 'ms', meanings[name])]))
   return createReport({ runner: 'storage', status: failed ? 'failed' : 'passed', identity, environment, parameters, fixture, metrics,
     checks: [...checks.values()], limitations })

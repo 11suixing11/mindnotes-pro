@@ -101,6 +101,34 @@ test('environment describes the actual data filesystem and reports lookup failur
   assert.ok(missing.fileSystemType.error.length)
 })
 
+test('callback and cleanup failures retain both errors and the cleanup cause', {
+  skip: process.platform === 'win32' || process.getuid?.() === 0 ? 'Permission-denied fixture requires an unprivileged POSIX user.' : false,
+}, async () => {
+  let directory
+  const failure = new Error('generated callback failure')
+  try {
+    await assert.rejects(withWorkspace(root, async own => {
+      directory = own
+      await mkdir(path.join(own, 'locked'))
+      await writeFile(path.join(own, 'locked/data'), 'generated')
+      await chmod(path.join(own, 'locked'), 0)
+      throw failure
+    }), error => {
+      assert.ok(error instanceof AggregateError)
+      assert.equal(error.errors[0], failure)
+      assert.match(error.errors[1].message, /Workspace cleanup failed/)
+      assert.equal(error.errors[1].cause.code, 'EACCES')
+      assert.equal(error.cause, error.errors[1].cause)
+      return true
+    })
+  } finally {
+    if (directory) {
+      await chmod(path.join(directory, 'locked'), 0o700)
+      await rm(directory, { recursive: true, force: true })
+    }
+  }
+})
+
 test('options apply workload defaults and desktop-specific flags', () => {
   assert.deepEqual(parseOptions([], 'storage'), { iterations: 5, warmups: 1, notes: 1000, output: undefined })
   assert.deepEqual(parseOptions(['--iterations', '30', '--warmups', '0', '--notes', '10000', '--output', 'tmp/result.json'], 'storage'),

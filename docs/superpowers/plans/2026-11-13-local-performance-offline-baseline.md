@@ -50,6 +50,10 @@
 - `makeStrokes(count=1000, pointsPerStroke=160)`、`makeScreenEntries(count)`、`makePageNotebooks(count=100)`；屏幕 PNG 为确定性有效小图片，page URL 用 `https://baseline.invalid/article/<id>`，批注字段使用实际 v1 合同，页数不超过 2,000。
 - `fixtureIdentity(data)` 使用 `local-fixture-v1`、seed 20261113 与实际数据 SHA256。
 
+`makeScreenEntries` 的每项为 `{note,png:Uint8Array,thumbnail:string}`，直接满足仓库 import 合同；fixtureIdentity 对二进制正规化为 `{$bytes:base64}`。collectIdentity 只追踪项目内模块依赖，并自动记录 package.json/package-lock.json；不遍历 node_modules，运行依赖版本由锁文件及 environment 记录。
+
+共享对象字段定稿：`identity.workingTree={dirty:boolean,summary:string}`；`fixture={version:'local-fixture-v1',seed:20261113,sha256:string}`；`checks=[{name,status:'passed'|'failed'|'unavailable',error?:string}]`。parseOptions 输出 `{iterations:5,warmups:1,notes:1000,output:undefined}`，desktop 追加 `{allowVisible:false,executable:undefined,idleSeconds:5,frameSeconds:5}`。Report.parameters 只保留工作负载字段与 `measurementVersion:'local-measurement-v1'`，不包含 output/executable/allowVisible。fileSystemType 可用时为 statfs.type 的稳定字符串，不可用时为 `{available:false,error:string}`；比较拒绝不可用的文件系统身份。identity/applicationVersion/工作树摘要用于来源记录，不作为跨代码版本比较的相等条件。
+
 - [ ] **Step 1: 先写行为测试，运行确认缺少实现导致失败。**
 
 ```js
@@ -93,11 +97,14 @@ const ratio = baselineValue === 0
 **Files:**
 - Create: `benchmark/local/run-storage.mjs`, `benchmark/local/storage.test.mjs`
 - Create: `benchmark/local/compare.mjs`, `benchmark/local/compare.test.mjs`
+- Modify: `benchmark/local/runtime.mjs`, `benchmark/local/runtime.test.mjs`（共享报告输出）
 
 **Interfaces:**
 - Consumes: Task 1 的报告、runtime、fixtures 接口，当前 `dist-electron/electron/{screenNotebookRepository,notebookRepository}.mjs`、`dist-electron/src/notes/{model,screenInk}.js`。
 - `runStorageBenchmark(options): Promise<Report>`：export，直接 CLI 执行时写 stdout 和可选 output；import 时不自动运行。
 - `compare.mjs <baseline.json> <current.json> [threshold]`：兼容且未回归退出 0；回归退出 1；参数或报告不兼容退出 2。
+- `writeReport(report,outputPath,projectRoot): Promise<void>` 由 runtime 导出，output 未提供时不写文件；可选输出只允许工作区内 `.json` 路径，检查最近已存在父目录的 realpath，不允许 symlink/traversal 写到工作区外。报告原子写入临时同目录文件后替换，只清理自己的临时文件。stdout 由各 CLI 管理，不能在库 import 时输出。
+- CLI 比较输出将零基线产生的无限变化比例显式序列化为字符串 `"Infinity"`，保留数值基线/当前和失败判定，不让 JSON.stringify 把它静默变为 null。
 
 - [ ] **Step 1: 先写真实存储及 CLI 行为测试，运行确认失败。**
 
@@ -147,6 +154,7 @@ Run: `node benchmark/local/compare.mjs tmp/local-baseline-20261113/storage-linux
 
 **Interfaces:**
 - Consumes: Task 1 报告、workspace、options、fixture 接口；Task 2 的现有仓库 fixtures 准备方式。
+- 实施上下文：`tmp/local-baseline-20261113/sdd/task-3-context.md` 提供源码核对的 UUID、当前屏幕、import-draft、真实懒 session 和 UI/对话框路径。
 - `launchIsolated({directory,executable,offline,allowVisible}): Promise<{app,toolbar,overlay,close}>`；关闭必须结束应用及拒绝代理，出现错误也清理。
 - `startDenyProxy(): Promise<{port,requests,close}>` 仅监听 loopback 的随机端口，HTTP 和 CONNECT 都拒绝，从不连接目标站。
 - `runDesktopBenchmark(options): Promise<Report>`；无可见标志或无可执行 Electron 时，不启动应用，输出 unavailable report 并非零退出。
@@ -206,6 +214,8 @@ const env = { ...filteredEnvironment,
 
 测量 `launchToBubbleReadyMs`、`expandToolbarMs`、`openLibraryMs`、`pointerCommandMs`、`gestureToSavedMs`，通过现有工具条与 screen bridge 核对预期新增笔迹 ID/摘要和保存状态，不能只读旧 saved。帧间隔/长任务 observer 结束时解绑；长笔画 8,000 点使用独立草稿，不叠加到已满 160,000 点的场景。启动/单次展开跨新进程重复，报告明确 OS 缓存未清空；进程内存/CPU 与各个阶段分类记录，不拼成伪精确全局 RSS。
 
+新增 UUID 在 pointerdown 后从实际 SVG data-stroke-id 获取；pointerCommandMs 与 gestureToSavedMs 使用同一手势起点，不同终点。满载草稿只测独立恢复/静态渲染场景，不能追加笔画；通过 toolbar 的 import-draft 和任务文件/对话框 stub 使用已有单一 repository 写入。独立 8,000 点场景从新进程/空草稿开始，保持实际坐标与事件数校验；不以直接 addStroke 伪装 UI 指针测量。帧/资源按普通手势、满载草稿、长手势等实际场景命名，避免混合不同场景为一个未说明 p95。
+
 - [ ] **Step 3: 实现断网回归与独立配置。**
 
 ```ts
@@ -217,6 +227,8 @@ export default defineConfig({
 ```
 
 离线配置启动前由 wrapper 显式提供可见标志。新 spec 使用真实生成库、page-notes.json 和草稿，首次启动即通过 deny proxy 无网络可用；先运行 Node canary 直连控制，再通过应用请求它，确认代理拒绝记录存在且 canary 没有应用直连。覆盖默认及后续创建的 persist:mindnotes-pages session；独立的 session.webRequest 拦截不要吞掉代理控制实验的请求。检查本地笔记库两类数据的检索、编辑、桥 flush、screen 绘制/撤销/重做/持久化/重启；对话框按既有 app.evaluate 方法返回本任务路径，备份导出/导入核对真实数据。导航 `https://baseline.invalid/blocked` 显示错误后返回本地库，数据不丢失。
+
+网页 `flushEdits` 只等待编辑 IPC，不单独证明 JSON 耐久保存。网页导出/重启前核对最新 comment 与当前 saveState=saved，或使用会等待 workspace.flush 的 command('floating')；屏幕 edits 继续使用其真实 queue flush。备份恢复在独立空数据目录执行，避免同 ID/旧时间戳导入跳过更新被误当成功恢复。
 
 截图场景仅目标 Windows 可见环境执行现有真实 capture fixture；Linux 用生成 PNG 做存储验证而不报告 capture 通过。整个测试有真实断网功能 assertions，不能只验证页面打开，也不能用 skip 让 wrapper 在不可用环境返回成功。
 
@@ -236,6 +248,9 @@ Run: `npm run typecheck`
 - Modify: `package.json`（只增加脚本，不改变用户已有版本或依赖）
 - Create: `benchmark/local/README_CN.md`
 - Modify: `benchmark/README.md`（连接新 v6 工具，保留旧白板测量解释）
+- Modify: `benchmark/local/run-storage.mjs`, `benchmark/local/storage.test.mjs`（评审指出的缺失 thumbnail 验证负例；最小修正见 `tmp/local-baseline-20261113/sdd/task-4-thumbnail-test-plan.md`）
+- Create: `benchmark/local/eslint.config.mjs`（继承根配置，只给 Task1/2 工具与本配置增加 Node globals，不改用户已有根 lint 配置）
+- Modify: 必要的 Task1/2 benchmark/runtime/report 文件（仅 lint 指出的异常 cause、finally 控制流及 unused binding，保留原有错误/清理合同并验证）
 
 **Interfaces:**
 - `npm run benchmark:local:storage` → `npm run build:electron && node benchmark/local/run-storage.mjs`
@@ -257,6 +272,18 @@ Run: `npm run typecheck`
 ```
 
 README 写明 TEMP/TMP/TMPDIR 设置、当前来源编译/实际包身份、同机同负载比较、p95 小样本限制、绝对耗时不设通过阈值、fixture 与真实截图/物理输入的区别。Windows 例子用 PowerShell 指向工作区临时目录，显式 `--allow-visible`，实际包可用 `--executable 'release/win-unpacked/MindNotes Pro.exe'`。首份 Linux 与既有历史 Windows 数字不得计算优化比例。
+
+采用 `tmp/local-baseline-20261113/sdd/task-4-readme-draft.md` 的内容但核对实际 CLI。WebStorage 进程选项用于 Vitest/jsdom，不把它描述为 Node 原生工具测试的必需条件。源码前端准备明确 `NODE_ENV=production` 与 `--base=./`；完整 check 以 NODE_ENV=test 运行后，恢复 production 相对路径资产供桌面源码模式使用。Windows示例仅修改当前进程变量并说明恢复；15分钟idle例子使用 iterations1/warmups0，避免默认重复造成多段15分钟运行。截图表述为不读取用户现存截图，显式原生夹具流程会创建真实捕获，不能称所有工作负载仅生成PNG。
+
+Git集成：package.json已有用户未提交改动。仅将五个新增script增量stage，不把原有版本/依赖/script修改混入提交；可基于 HEAD 的原始 package.json生成仅新增keys的cached patch，工作树保持当前v6内容。README与本任务新文件可正常stage。计划文件本轮的接口澄清增量亦单独提交。
+
+并行 Node 测试只验证自己创建的工作区与 sentinel 相邻文件，不能用共享 runtime 父目录的前后全量快照判断是否清理；其他测试可以合法创建/删除自己的目录。保持默认并发运行，不能串行化掩盖错误。完整工具 lint 使用独立 local 配置，不靠宽泛规则禁用或重复 CLI globals。
+
+- [ ] **Step 1a: 先按 thumbnail 负例确认当前 runner 会误接受遗漏字段，再改为无条件比较，跑窄测试与本地工具完整测试。**
+
+```js
+if (entry.thumbnail !== expected.thumbnail) throw new Error('Screen thumbnail differs from fixtures.')
+```
 
 - [ ] **Step 2: 执行新增测试、typecheck、lint、存储检查和 npm run check，保留日志。**
 
