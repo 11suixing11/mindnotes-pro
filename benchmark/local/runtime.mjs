@@ -110,8 +110,8 @@ export function collectEnvironment(dataDirectory) {
     cpuModel: cpus[0]?.model || 'unavailable', cpuCount: cpus.length, totalMemoryBytes: os.totalmem(), fileSystemType }
 }
 
-export async function withWorkspace(projectRoot, callback) {
-  const parent = path.join(projectRoot, runtimePath)
+export async function withWorkspace(projectRoot, callback, directoryPath = runtimePath) {
+  const parent = path.join(projectRoot, directoryPath)
   await mkdir(parent, { recursive: true })
   const directory = await mkdtemp(path.join(parent, 'run-'))
   let value, callbackError, failed = false
@@ -133,15 +133,15 @@ export function parseOptions(argv, mode) {
   const names = { '--iterations': 'iterations', '--warmups': 'warmups', '--notes': 'notes', '--output': 'output' }
   const ranges = { iterations: [1, 30], warmups: [0, 10], idleSeconds: [0, 900], frameSeconds: [1, 60] }
   if (mode === 'desktop') {
-    Object.assign(options, { allowVisible: false, executable: undefined, idleSeconds: 5, frameSeconds: 5 })
-    Object.assign(names, { '--allow-visible': 'allowVisible', '--executable': 'executable', '--idle-seconds': 'idleSeconds', '--frame-seconds': 'frameSeconds' })
+    Object.assign(options, { allowVisible: false, diagnosticNoSandbox: false, executable: undefined, idleSeconds: 5, frameSeconds: 5 })
+    Object.assign(names, { '--allow-visible': 'allowVisible', '--diagnostic-no-sandbox': 'diagnosticNoSandbox', '--executable': 'executable', '--idle-seconds': 'idleSeconds', '--frame-seconds': 'frameSeconds' })
   }
   const seen = new Set()
   for (let index = 0; index < argv.length; index++) {
     const argument = argv[index], key = names[argument]
     if (!Object.hasOwn(names, argument) || seen.has(argument)) throw new TypeError('Unknown or repeated runner option.')
     seen.add(argument)
-    if (key === 'allowVisible') { options.allowVisible = true; continue }
+    if (key === 'allowVisible' || key === 'diagnosticNoSandbox') { options[key] = true; continue }
     const value = argv[++index]
     if (typeof value !== 'string' || !value.trim() || value.startsWith('--')) throw new TypeError(`Missing value for ${argument}.`)
     if (key === 'output' || key === 'executable') { options[key] = value; continue }

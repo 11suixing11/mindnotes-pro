@@ -134,9 +134,9 @@ test('options apply workload defaults and desktop-specific flags', () => {
   assert.deepEqual(parseOptions(['--iterations', '30', '--warmups', '0', '--notes', '10000', '--output', 'tmp/result.json'], 'storage'),
     { iterations: 30, warmups: 0, notes: 10000, output: 'tmp/result.json' })
   assert.deepEqual(parseOptions([], 'desktop'), { iterations: 5, warmups: 1, notes: 1000, output: undefined,
-    allowVisible: false, executable: undefined, idleSeconds: 5, frameSeconds: 5 })
+    allowVisible: false, diagnosticNoSandbox: false, executable: undefined, idleSeconds: 5, frameSeconds: 5 })
   assert.deepEqual(parseOptions(['--allow-visible', '--executable', 'app.exe', '--idle-seconds', '900', '--frame-seconds', '60'], 'desktop'),
-    { iterations: 5, warmups: 1, notes: 1000, output: undefined, allowVisible: true,
+    { iterations: 5, warmups: 1, notes: 1000, output: undefined, allowVisible: true, diagnosticNoSandbox: false,
       executable: 'app.exe', idleSeconds: 900, frameSeconds: 60 })
 })
 

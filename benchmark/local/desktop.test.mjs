@@ -1,4 +1,4 @@
-/* global process, fetch */
+/* global process, fetch, Buffer */
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
@@ -14,7 +14,8 @@ import { createRequire } from 'node:module'
 
 const execute = promisify(execFile)
 const root = process.cwd()
-const parent = path.join(root, 'tmp/local-baseline-20261113/sdd')
+const parent = path.join(root, process.platform === 'linux' ? 'tmp/linux-desktop-20261114/tool-tests' : 'tmp/local-baseline-20261113/sdd')
+await mkdir(parent, { recursive: true })
 const inventory = directory => readdir(path.join(directory, 'tmp/local-baseline-20261113/runtime'))
   .catch(error => error.code === 'ENOENT' ? [] : Promise.reject(error))
 const harness = await import('./electron-harness.mjs').catch(error => error.code === 'ERR_MODULE_NOT_FOUND' ? {} : Promise.reject(error))
@@ -332,7 +333,7 @@ test('two sequential outer desktop runs recreate the cached SDK artifact parent 
   assert.equal(records[0].prefix, records[1].prefix)
   assert.notEqual(records[0].directory, records[1].directory)
   for (const record of records) {
-    assert.ok(path.dirname(record.directory).startsWith(path.join(root, 'tmp/local-baseline-20261113/runtime/sdk-')))
+    assert.ok(path.dirname(record.directory).startsWith(path.join(root, process.platform === 'linux' ? 'tmp/linux-desktop-20261114/runtime/sdk-' : 'tmp/local-baseline-20261113/runtime/sdk-')))
     await assert.rejects(access(record.directory), { code: 'ENOENT' })
   }
 })
@@ -344,6 +345,8 @@ for (const runner of ['run-desktop.mjs', 'run-offline.mjs']) {
     for (const name of ['run-desktop.mjs', 'electron-harness.mjs', 'runtime.mjs', 'report.mjs', 'fixtures.mjs'])
       await copyFile(path.join(root, 'benchmark/local', name), path.join(directory, 'benchmark/local', name))
     for (const name of ['package.json', 'package-lock.json']) await copyFile(path.join(root, name), path.join(directory, name))
+    await mkdir(path.join(directory, 'electron'))
+    await copyFile(path.join(root, 'electron/linuxLaunch.mjs'), path.join(directory, 'electron/linuxLaunch.mjs'))
     const before = await inventory(directory)
     const sentinel = path.join(directory, 'sentinel.exe')
     const touched = path.join(directory, 'executed.txt')
@@ -356,7 +359,7 @@ for (const runner of ['run-desktop.mjs', 'run-offline.mjs']) {
         let failure
         try {
           await execute(process.execPath, [path.join(root, 'benchmark/local', runner), ...invocation],
-            { cwd: directory, timeout: 20_000, env: { ...process.env, TEMP: directory, TMP: directory, TMPDIR: directory } })
+            { cwd: directory, timeout: 20_000, env: { ...process.env, DISPLAY: '', WAYLAND_DISPLAY: '', TEMP: directory, TMP: directory, TMPDIR: directory } })
         } catch (error) { failure = error }
         assert.equal(failure?.code, 2, `guard must exit unavailable/invalid (2): ${invocation.join(' ')}`)
         if (runner === 'run-desktop.mjs' && !args.includes('--unknown')) {
@@ -394,4 +397,302 @@ test('offline journeys require their own explicit configuration and stay out of 
   assert.match(offline.stdout, /offline\.spec\.ts/)
   assert.match(offline.stdout, /Total: 2 tests in 1 file/)
   assert.doesNotMatch(offline.stdout, /floating\.spec\.ts/)
+})
+
+
+test('binary preflight validates Linux ELF class/machine and rejects PE without executing fixtures', async () => {
+  assert.equal(typeof harness.validateDesktopBinary, 'function')
+  const scratch = await mkdtemp(path.join(parent, 'binary-'))
+  const candidate = path.join(scratch, 'electron')
+  const elf = Buffer.alloc(64)
+  elf.set([127, 69, 76, 70, 2, 1, 1]); elf.writeUInt16LE(3, 16); elf.writeUInt16LE(62, 18); elf.writeUInt32LE(1, 20)
+  try {
+    await writeFile(candidate, elf, { mode: 0o700 })
+    assert.deepEqual(await harness.validateDesktopBinary(candidate, 'linux', 'x64'), { format: 'ELF', arch: 'x64' })
+    await assert.rejects(harness.validateDesktopBinary(candidate, 'linux', 'arm64'), /architecture/)
+    const wrongClass = Buffer.from(elf); wrongClass[4] = 1
+    await writeFile(candidate, wrongClass)
+    await assert.rejects(harness.validateDesktopBinary(candidate, 'linux', 'x64'), /architecture/)
+    const pe = Buffer.alloc(134); pe.write('MZ'); pe.writeUInt32LE(128, 60); pe.set([80, 69, 0, 0, 100, 134], 128)
+    await writeFile(candidate, pe)
+    assert.deepEqual(await harness.validateDesktopBinary(candidate, 'win32', 'x64'), { format: 'PE', arch: 'x64' })
+    await assert.rejects(harness.validateDesktopBinary(candidate, 'linux', 'x64'), /ELF/)
+    if (process.platform === 'linux') {
+      await writeFile(candidate, elf); await import('node:fs/promises').then(fs => fs.chmod(candidate, 0o600))
+      await assert.rejects(harness.validateDesktopBinary(candidate, 'linux', 'x64'), /executable permission/)
+    }
+  } finally { await rm(scratch, { recursive: true, force: true }) }
+})
+
+test('desktop backend requires Linux X11/XWayland DISPLAY and reports native Wayland floating unsupported', () => {
+  assert.equal(typeof harness.desktopBackend, 'function')
+  assert.equal(harness.desktopBackend('linux', { DISPLAY: ':90', WAYLAND_DISPLAY: 'wayland-0' }), 'x11')
+  assert.equal(harness.desktopBackend('linux', { DISPLAY: ':90' }, 'x11'), 'x11')
+  assert.throws(() => harness.desktopBackend('linux', { DISPLAY: ':90' }, 'wayland'), /native Wayland.*floating/i)
+  assert.throws(() => harness.desktopBackend('linux', { WAYLAND_DISPLAY: 'wayland-0' }), /native Wayland.*floating/i)
+  assert.throws(() => harness.desktopBackend('linux', {}), /DISPLAY/)
+  assert.equal(harness.desktopBackend('win32', {}), 'windows')
+  assert.throws(() => harness.desktopBackend('darwin', {}), /unsupported/i)
+})
+
+test('isolated paths compare case exactly on Linux and fold only Windows', () => {
+  assert.equal(typeof harness.pathsMatch, 'function')
+  assert.equal(harness.pathsMatch('/tmp/App', '/tmp/app', 'linux'), false)
+  assert.equal(harness.pathsMatch('/tmp/App', '/tmp/App', 'linux'), true)
+  assert.equal(harness.pathsMatch('C:\\App', 'c:\\app', 'win32'), true)
+})
+
+test('diagnostic sandbox disable requires the explicit flag and normal launch always enables Chromium sandbox', async () => {
+  const desktop = await import('./run-desktop.mjs'), offline = await import('./run-offline.mjs')
+  assert.equal(desktop.desktopLaunchOptions({}, {}).diagnosticNoSandbox, false)
+  assert.equal(desktop.desktopLaunchOptions({ diagnosticNoSandbox: true }, {}).diagnosticNoSandbox, true)
+  assert.equal(offline.offlineLaunchOptions([], {}).diagnosticNoSandbox, false)
+  assert.equal(offline.offlineLaunchOptions(['--diagnostic-no-sandbox'], {}).diagnosticNoSandbox, true)
+  assert.throws(() => desktop.desktopLaunchOptions({ diagnosticNoSandbox: 'true' }, {}), /boolean/)
+  assert.throws(() => offline.offlineLaunchOptions(['--diagnostic-no-sandbox', '--diagnostic-no-sandbox'], {}), /Repeated/)
+  assert.equal(typeof harness.desktopSandboxOptions, 'function')
+  assert.deepEqual(harness.desktopSandboxOptions(false), { chromiumSandbox: true, mode: 'normal', kernelSandboxVerified: false })
+  assert.deepEqual(harness.desktopSandboxOptions(true), { chromiumSandbox: false, mode: 'diagnostic-no-sandbox', kernelSandboxVerified: false })
+  assert.throws(() => harness.desktopSandboxOptions('true'), /boolean/)
+})
+
+test('Linux teardown terminates and observes an owned detached group even after its leader exits', { skip: process.platform !== 'linux' }, async () => {
+  const script = `const {spawn}=require('node:child_process'); const c=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'}); console.log(c.pid); setInterval(()=>{},1000)`
+  const child = spawn(process.execPath, ['-e', script], { detached: true, stdio: ['ignore', 'pipe', 'ignore'] })
+  await once(child, 'spawn')
+  const [chunk] = await once(child.stdout, 'data')
+  const descendant = Number(String(chunk).trim())
+  const exited = once(child, 'exit')
+  const unrelated = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { detached: true, stdio: 'ignore' })
+  await once(unrelated, 'spawn')
+  try {
+    const close = harness.createDesktopCloser({ child, ownedProcessGroup: child.pid, graceMs: 100, killMs: 1500,
+      beforeClose: async () => {}, closeApplication: async () => { child.kill('SIGTERM'); await exited } })
+    await assert.rejects(close(), /teardown failed/)
+    await exited
+    const state = await readFile(`/proc/${descendant}/stat`, 'utf8').then(text => text.split(') ')[1].split(' ')[0], error => error.code === 'ENOENT' ? 'gone' : Promise.reject(error))
+    assert.ok(['Z', 'gone'].includes(state), `descendant must exit, observed ${state}`)
+    process.kill(unrelated.pid, 0)
+    await assert.rejects(close(), /teardown failed/)
+  } finally {
+    try { process.kill(-child.pid, 'SIGKILL') } catch (error) { assert.equal(error.code, 'ESRCH') }
+    unrelated.kill('SIGKILL'); await once(unrelated, 'exit')
+  }
+})
+
+test('Linux teardown refuses process-group ownership for a non-leader child', { skip: process.platform !== 'linux' }, async () => {
+  const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' })
+  await once(child, 'spawn')
+  try {
+    assert.throws(() => harness.createDesktopCloser({ child, ownedProcessGroup: child.pid,
+      beforeClose: async () => {}, closeApplication: async () => {} }), /owned.*group.*leader/i)
+  } finally { child.kill('SIGKILL'); await once(child, 'exit') }
+})
+
+test('Linux source preflight accepts the installed ELF read-only and rejects missing display before workspace creation', { skip: process.platform !== 'linux' }, async () => {
+  const previous = { DISPLAY: process.env.DISPLAY, WAYLAND_DISPLAY: process.env.WAYLAND_DISPLAY }
+  try {
+    process.env.DISPLAY = ':90'; delete process.env.WAYLAND_DISPLAY
+    const before = await inventory(root)
+    const ready = await harness.preflightDesktop({ allowVisible: true })
+    assert.equal(ready.binary.format, 'ELF')
+    assert.equal(ready.backend, 'x11')
+    assert.equal(ready.sandbox.chromiumSandbox, true)
+    assert.deepEqual(await inventory(root), before)
+    process.env.DISPLAY = ''
+    await assert.rejects(harness.preflightDesktop({ allowVisible: true }), /DISPLAY/)
+    await assert.rejects(harness.preflightDesktop({ allowVisible: true, diagnosticNoSandbox: true }), /DISPLAY/)
+  } finally {
+    for (const [key, value] of Object.entries(previous)) if (value === undefined) delete process.env[key]; else process.env[key] = value
+  }
+})
+
+test('Linux journeys require explicit standalone collection and ordinary Windows suites exclude them', async () => {
+  const cli = createRequire(import.meta.url).resolve('@playwright/test/cli')
+  const env = { ...process.env, DISPLAY: '', WAYLAND_DISPLAY: '', TEMP: parent, TMP: parent, TMPDIR: parent }
+  delete env.MINDNOTES_LINUX_SUITE; delete env.MINDNOTES_BASELINE_ALLOW_VISIBLE
+  await assert.rejects(execute(process.execPath, [cli, 'test', '--list', '--config', 'playwright.linux.config.ts'], { cwd: root, env }),
+    error => error.code === 1 && error.stderr.includes('run-linux.mjs'))
+  const enabled = await execute(process.execPath, [cli, 'test', '--list', '--config', 'playwright.linux.config.ts'],
+    { cwd: root, env: { ...env, MINDNOTES_LINUX_SUITE: '1', MINDNOTES_BASELINE_ALLOW_VISIBLE: '1' } })
+  assert.match(enabled.stdout, /linux.spec.ts/)
+  assert.doesNotMatch(enabled.stdout, /offline.spec.ts|floating.spec.ts/)
+  const ordinary = await execute(process.execPath, [cli, 'test', '--list', '--config', 'playwright.desktop.config.ts'], { cwd: root, env })
+  assert.doesNotMatch(ordinary.stdout, /linux.spec.ts/)
+})
+
+test('diagnostic CLI rejects ambient sandbox environment and native helper refuses the user desktop', { skip: process.platform !== 'linux' }, async () => {
+  const offline = await import('./run-offline.mjs')
+  const environment = { MINDNOTES_LINUX_DIAGNOSTIC_NO_SANDBOX: '1', MINDNOTES_BASELINE_NO_SANDBOX: '1' }
+  assert.equal(offline.offlineLaunchOptions([], environment).diagnosticNoSandbox, false)
+  assert.throws(() => offline.offlineLaunchOptions(['--no-sandbox'], environment), /Unknown/)
+  for (const display of ['', ':0', ':1']) {
+    const env = { ...process.env, DISPLAY: display, WAYLAND_DISPLAY: '', TEMP: parent, TMP: parent, TMPDIR: parent }
+    await assert.rejects(harness.verifyOwnedX11(env), /Owned X11/)
+    await assert.rejects(execute('python3', ['e2e/desktop/linux-native.py'], { cwd: root, env, timeout: 2000 }),
+      error => error.code === 2 && error.stderr.includes('task-owned virtual DISPLAY'))
+    await assert.rejects(execute(process.execPath, ['benchmark/local/run-linux.mjs', '--allow-visible', '--diagnostic-no-sandbox'], { cwd: root, env, timeout: 2000 }),
+      error => error.code === 2 && error.stderr.includes('Owned X11'))
+  }
+})
+
+test('desktop closer observes ordinary zero exit before SDK artifact cleanup and ignores target-closed only then', async () => {
+  const child = spawn(process.execPath, ['-e', "process.stdin.once('data',()=>process.exit(0))"], { stdio: ['pipe','ignore','ignore'] })
+  await once(child, 'spawn')
+  const exited = once(child, 'exit'), order = []
+  try {
+    const close = harness.createDesktopCloser({ child, graceMs: 1000, killMs: 500, requireNormalExit: true,
+      beforeClose: async () => { order.push('flush') },
+      closeApplication: async () => { order.push('product-quit'); child.stdin.end('quit'); await exited; throw new Error('Target page, context or browser has been closed') },
+      expectedCloseError: error => /has been closed/.test(error.message),
+      artifactCleanup: async () => { assert.equal(child.exitCode, 0); order.push('artifacts-after-exit') } })
+    await close(); await close()
+    assert.deepEqual(order, ['flush','product-quit','artifacts-after-exit'])
+  } finally { if (child.exitCode === null && child.signalCode === null) { child.kill('SIGKILL'); await exited } }
+})
+
+test('desktop closer rejects nonzero exit despite a target-closed transport error and still cleans artifacts', async () => {
+  const child = spawn(process.execPath, ['-e', "process.stdin.once('data',()=>process.exit(7))"], { stdio: ['pipe','ignore','ignore'] })
+  await once(child, 'spawn'); const exited = once(child, 'exit'); let artifacts = false
+  try {
+    const close = harness.createDesktopCloser({ child, graceMs: 1000, killMs: 500, requireNormalExit: true,
+      beforeClose: async () => {},
+      closeApplication: async () => { child.stdin.end('quit'); await exited; throw new Error('Target has been closed') },
+      expectedCloseError: () => true,
+      artifactCleanup: async () => { artifacts = true } })
+    await assert.rejects(close(), error => error.errors.some(item => /normal.*exit/i.test(item.message)))
+    assert.equal(artifacts, true)
+  } finally { if (child.exitCode === null && child.signalCode === null) { child.kill('SIGKILL'); await exited } }
+})
+
+test('desktop closer retains never-quit timeout/forced termination failure and bounds post-exit artifacts', async () => {
+  const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' })
+  await once(child, 'spawn'); const exited = once(child, 'exit'); let artifacts = false
+  try {
+    const close = harness.createDesktopCloser({ child, graceMs: 50, killMs: 80, requireNormalExit: true,
+      beforeClose: async () => {}, closeApplication: async () => {},
+      artifactCleanup: async () => { artifacts = true; assert.equal(child.signalCode, 'SIGKILL'); await new Promise(()=>{}) } })
+    await assert.rejects(close(), error => error.errors.some(item => /artifact/.test(item.message)))
+    assert.equal(artifacts, true); await exited
+  } finally { if (child.exitCode === null && child.signalCode === null) { child.kill('SIGKILL'); await exited } }
+})
+
+for (const diagnosticCode of ['ENOENT', 'EACCES']) {
+  test(`owned Linux termination survives diagnostic cmdline ${diagnosticCode} and still reports forced failure`, { skip: process.platform !== 'linux' }, async () => {
+    // Builtin mutation is confined to this disposable Node interpreter, never the shared test process.
+    const script = `
+      import fs from 'node:fs';
+      import { syncBuiltinESMExports } from 'node:module';
+      import { spawn } from 'node:child_process';
+      import { once } from 'node:events';
+      import assert from 'node:assert/strict';
+      const { createDesktopCloser } = await import(${JSON.stringify(pathToFileURL(path.join(root, 'benchmark/local/electron-harness.mjs')).href)});
+      const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { detached:true, stdio:'ignore' });
+      await once(child,'spawn');
+      const exited = once(child,'exit');
+      const original = fs.readFileSync;
+      let injections = 0, observation, closeError;
+      const close = createDesktopCloser({ child, ownedProcessGroup:child.pid, graceMs:20, killMs:300,
+        beforeClose:async()=>{}, closeApplication:async()=>{}, onTeardown:state=>{observation=state} });
+      fs.readFileSync = function(file, ...args) {
+        if (String(file) === '/proc/' + child.pid + '/cmdline') {
+          injections++; throw Object.assign(new Error('Injected diagnostic only'), { code:${JSON.stringify(diagnosticCode)} });
+        }
+        return original.call(this,file,...args);
+      };
+      syncBuiltinESMExports();
+      try {
+        await assert.rejects(close(), error => { closeError = error; return error instanceof AggregateError; });
+        assert.ok(injections > 0, 'diagnostic failure must actually occur');
+        assert.equal(child.signalCode,'SIGKILL','diagnostic failure must not prevent bounded owned-group kill/exit observation');
+        await exited;
+        assert.equal(observation.forced,true);
+        assert.deepEqual(observation.ownedRemaining,[]);
+        assert.ok(closeError.errors.some(item=>/forced process-tree termination/.test(item.message)));
+        assert.ok(observation.errors.some(message=>/forced process-tree termination/.test(message)));
+        assert.ok(!observation.errors.some(message=>/Injected diagnostic only/.test(message)));
+      } finally {
+        fs.readFileSync = original; syncBuiltinESMExports();
+        if (child.exitCode === null && child.signalCode === null) { process.kill(-child.pid,'SIGKILL'); await exited; }
+      }
+    `
+    await execute(process.execPath, ['--input-type=module','-e',script],
+      { cwd:root, timeout:5000, env:{ ...process.env, DISPLAY:'', WAYLAND_DISPLAY:'', TEMP:parent, TMP:parent, TMPDIR:parent } })
+  })
+}
+
+test('early Linux source launch delegates argument policy while packaged AppRun receives the untouched arguments', async () => {
+  assert.equal(typeof harness.desktopLaunchArgs, 'function')
+  const environment = Object.freeze({ DISPLAY: ':90', XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'wayland-owned-probe' })
+  const original = Object.freeze(['.', '--workspace'])
+  assert.deepEqual(harness.desktopLaunchArgs({ platform: 'linux', env: environment, packaged: false, args: original }), ['--ozone-platform=x11', ...original])
+  assert.deepEqual(harness.desktopLaunchArgs({ platform: 'linux', env: environment, packaged: true, args: original }), [...original])
+  assert.deepEqual(harness.desktopLaunchArgs({ platform: 'win32', env: environment, packaged: false, args: original }), [...original])
+  for (const args of [['--ozone-platform=wayland','.'], ['--ozone-platform-hint','auto','.'], ['--ozone-platform=','.'], ['--','.','--ozone-platform=wayland']]) {
+    const { linuxLaunchArgs } = await import('../../electron/linuxLaunch.mjs')
+    assert.deepEqual(harness.desktopLaunchArgs({ platform: 'linux', env: environment, packaged: false, args }), linuxLaunchArgs('linux',environment,args))
+    assert.deepEqual(harness.desktopLaunchArgs({ platform: 'linux', env: environment, packaged: true, args }), args)
+  }
+})
+
+async function withLaunchPackage(work) {
+  const directory = await mkdtemp(path.join(root, 'tmp/linux-launch-20261114/tool-tests/package-'))
+  const executable = path.join(directory, 'MindNotes Pro')
+  const header = Buffer.alloc(64); header.set([127,69,76,70,2,1,1]); header.writeUInt16LE(3,16); header.writeUInt16LE(62,18); header.writeUInt32LE(1,20)
+  await writeFile(executable,header,{mode:0o700}); await mkdir(path.join(directory,'resources')); await writeFile(path.join(directory,'resources/app.asar'),'read-only fixture')
+  try { return await work({directory,executable,wrapper:path.join(directory,'AppRun')}) }
+  finally { await rm(directory,{recursive:true,force:true}) }
+}
+
+test('Linux packaged entry verifies adjacent AppRun is a regular executable inside its actual app directory', { skip:process.platform!=='linux' }, async () => {
+  assert.equal(typeof harness.validateLinuxAppRun,'function')
+  await withLaunchPackage(async ({directory,executable,wrapper}) => {
+    await assert.rejects(harness.validateLinuxAppRun(executable), /AppRun/)
+    await writeFile(wrapper,'#!/bin/sh\nexit 0\n',{mode:0o700})
+    assert.equal(await harness.validateLinuxAppRun(executable),wrapper)
+    await import('node:fs/promises').then(fs=>fs.chmod(wrapper,0o600))
+    await assert.rejects(harness.validateLinuxAppRun(executable), /executable/)
+    await rm(wrapper)
+    await mkdir(wrapper)
+    await assert.rejects(harness.validateLinuxAppRun(executable), /regular file/)
+    await rm(wrapper,{recursive:true})
+    await symlink(process.execPath,wrapper)
+    await assert.rejects(harness.validateLinuxAppRun(executable), /outside.*app|escapes.*app/i)
+    await rm(wrapper)
+    await writeFile(path.join(directory,'owned-wrapper'),'#!/bin/sh\nexit 0\n',{mode:0o700})
+    await symlink(path.join(directory,'owned-wrapper'),wrapper)
+    assert.equal(await harness.validateLinuxAppRun(executable),path.join(directory,'owned-wrapper'))
+  })
+})
+
+test('Linux packaged preflight keeps expected ELF but selects AppRun launch without running either fixture', { skip:process.platform!=='linux' }, async () => {
+  const previous = { DISPLAY:process.env.DISPLAY,WAYLAND_DISPLAY:process.env.WAYLAND_DISPLAY }
+  try {
+    process.env.DISPLAY=':90'; delete process.env.WAYLAND_DISPLAY
+    await withLaunchPackage(async ({executable,wrapper}) => {
+      await assert.rejects(harness.preflightDesktop({allowVisible:true,executable}),/AppRun/)
+      await writeFile(wrapper,'#!/bin/sh\nexit 7\n',{mode:0o700})
+      const ready=await harness.preflightDesktop({allowVisible:true,executable})
+      assert.equal(ready.executablePath,executable)
+      assert.equal(ready.launchExecutablePath,wrapper)
+      assert.equal(ready.sandbox.chromiumSandbox,true)
+      assert.equal(ready.binary.format,'ELF')
+    })
+  } finally { for(const[key,value]of Object.entries(previous)) if(value===undefined)delete process.env[key];else process.env[key]=value }
+})
+
+test('owned diagnostic accepts only nonexistent synthetic Wayland probe socket under its live runtime alias', { skip:process.platform!=='linux' }, async context => {
+  let owner
+  try { owner=JSON.parse(await readFile('tmp/linux-desktop-20261114/test-display/state/owner.json','utf8'));process.kill(owner.pid,0) }
+  catch { context.skip('No task-owned virtual server; no GUI is launched.');return }
+  const environment={DISPLAY:owner.display,XAUTHORITY:path.resolve('tmp/linux-desktop-20261114/test-display/state/Xauthority'),XDG_RUNTIME_DIR:owner.runtime_alias,XDG_SESSION_TYPE:'wayland'}
+  try { await harness.verifyOwnedX11(environment) } catch { context.skip('Task virtual server identity is no longer live.');return }
+  const probe={...environment,WAYLAND_DISPLAY:'wayland-owned-probe'}
+  assert.equal((await harness.verifyOwnedX11(probe)).display,owner.display)
+  await assert.rejects(harness.verifyOwnedX11({...probe,WAYLAND_DISPLAY:'wayland-0'}),/Wayland/)
+  await assert.rejects(harness.verifyOwnedX11({...probe,XDG_RUNTIME_DIR:parent}),/runtime|Wayland/i)
+  const socketPath=path.join(owner.runtime_alias,'wayland-owned-probe')
+  await writeFile(socketPath,'owned fixture, not a compositor socket',{flag:'wx'})
+  try { await assert.rejects(harness.verifyOwnedX11(probe),/socket|Wayland/i) }
+  finally { await rm(socketPath) }
 })

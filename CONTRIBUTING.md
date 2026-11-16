@@ -1,10 +1,10 @@
 # Contributing to MindNotes Pro
 
-MindNotes Pro is a local-first whiteboard. Contributions should keep user data private by default, behavior predictable, and the code reviewable.
+MindNotes Pro provides Windows screen annotations and anchored webpage notes in one local library. Contributions should keep user data private by default, behavior predictable, and the code reviewable. The existing whiteboard remains a separate compatibility route.
 
 ## Good contributions
 
-- Reproduce and fix a specific canvas, persistence, template, or export bug.
+- Reproduce and fix a specific annotation, positioning, persistence, input-recovery, or export bug.
 - Add a regression test for a real failure mode.
 - Improve keyboard or assistive-technology access.
 - Simplify a large module behind existing behavior tests.
@@ -32,8 +32,8 @@ Requirements: Node.js `>=22.22.2` and npm.
 ```bash
 git clone https://github.com/11suixing11/mindnotes-pro.git
 cd mindnotes-pro
-npm ci
-npm run dev
+npm ci --include=dev
+npm run dev:desktop
 ```
 
 Install Chromium once before running browser tests:

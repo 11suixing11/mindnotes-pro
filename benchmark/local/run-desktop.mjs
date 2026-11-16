@@ -15,14 +15,14 @@ import { DesktopUnavailable, preflightDesktop, selectDesktopExecutable, launchIs
 
 export function desktopLaunchOptions(input = {}, environment = process.env) {
   const names = { iterations: '--iterations', warmups: '--warmups', notes: '--notes', output: '--output',
-    allowVisible: '--allow-visible', executable: '--executable', idleSeconds: '--idle-seconds', frameSeconds: '--frame-seconds' }
+    allowVisible: '--allow-visible', diagnosticNoSandbox: '--diagnostic-no-sandbox', executable: '--executable', idleSeconds: '--idle-seconds', frameSeconds: '--frame-seconds' }
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('Desktop options must be an object.')
   const args = []
   for (const [key, value] of Object.entries(input)) {
     if (!Object.hasOwn(names, key)) throw new TypeError('Unknown desktop option.')
     if (value === undefined) continue
-    if (key === 'allowVisible') {
-      if (typeof value !== 'boolean') throw new TypeError('allowVisible must be boolean.')
+    if (key === 'allowVisible' || key === 'diagnosticNoSandbox') {
+      if (typeof value !== 'boolean') throw new TypeError(`${key} must be boolean.`)
       if (value) args.push(names[key])
     } else args.push(names[key], String(value))
   }
@@ -75,13 +75,14 @@ export async function runDesktopBenchmark(input = {}) {
   let environment = collectEnvironment(root), status = 'passed'
   const checks = new Map(), samples = {}, descriptions = {}
   const limitations = [
-    'Visible target Windows automation only. Programmatic mouse commands, SVG presence and durable bridge state do not measure physical pen-to-pixel or GPU presentation latency.',
+    'Visible target Windows or Linux X11/XWayland automation only. Programmatic mouse commands, SVG presence and durable bridge state do not measure physical pen-to-pixel or GPU presentation latency.',
     'Every measured ordinary, full-draft restore and long-gesture scene launches a fresh application process. OS filesystem caches are not cleared; full-draft import/setup and fixture preparation are excluded from startup timing.',
     'Ordinary gesture uses 24 points on an empty draft; full-draft restore/static rendering uses 1000 strokes and 160000 points without adding ink; 8000-point gesture uses a separate empty draft.',
     'Frame intervals and long tasks observe the first configured frameSeconds of each named scene. Pointer timings share one gesture start; pointerCommandMs ends at mouse.up, gestureToSavedMs at exact new UUID/geometry plus current saved state.',
     'Working-set and CPU metrics are grouped by actual Electron process role at each named phase. Shared memory can be counted in multiple working sets; these values are not total physical RSS. CPU uses Electron getAppMetrics interval since the preceding resource sample.',
     'Default five measured repetitions use nearest-rank p95 (the maximum for five values); results are an exploratory machine baseline.',
     'No native screenshot or offline functionality is claimed by this performance runner; use the independent offline suite for those checks.',
+    'Sandbox is explicitly requested in normal mode. --diagnostic-no-sandbox disables the Chromium OS process sandbox only on a lifecycle-verified owned virtual X11 display; renderer preferences and launch success do not prove kernel sandbox operation.',
     'Child launch filters NODE_OPTIONS, ELECTRON_RUN_AS_NODE and MINDNOTES_START_WORKSPACE; source mode requires an explicit local relative-base build.',
   ]
   const record = (name, values, unit, meaning, measured) => {
@@ -111,21 +112,25 @@ export async function runDesktopBenchmark(input = {}) {
     if (ready.packaged) {
       identity = await collectIdentity(root, ['benchmark/local/run-desktop.mjs',
         'dist-electron/electron/screenNotebookRepository.mjs', 'dist-electron/electron/notebookRepository.mjs'])
-      identity.files['package/executable.exe'] = await sha256(ready.executablePath)
+      identity.files[process.platform === 'linux' ? 'package/executable.elf' : 'package/executable.exe'] = await sha256(ready.executablePath)
       identity.files['package/resources/app.asar'] = await sha256(path.join(path.dirname(ready.executablePath), 'resources/app.asar'))
     } else identity = await collectIdentity(root, ['benchmark/local/run-desktop.mjs', 'dist-electron/electron/main.mjs', ...await assetFiles('dist')])
     await withDesktopWorkspace(async directory => {
-      environment = collectEnvironment(directory)
+      environment = { ...collectEnvironment(directory), desktopBackend: ready.backend, sandboxRequested: ready.sandbox }
       for (let index = 0; index < options.warmups + options.iterations; index++) {
         const measured = index >= options.warmups
         const run = async (scene, operation, prepare = true) => {
           const own = path.join(directory, `${index}-${scene}`)
           if (prepare) await prepareFixture(own, options.notes)
           else await mkdir(own, { recursive: true })
-          const session = await launchIsolated({ directory: own, allowVisible: true, executable: options.executable })
+          const session = await launchIsolated({ directory: own, allowVisible: true, executable: options.executable, diagnosticNoSandbox: options.diagnosticNoSandbox })
           try { return await operation(session) } finally { await session.close() }
         }
         await checked('ordinary-gesture-and-library', () => run('ordinary', async session => {
+          environment.desktopRuntime = { backend: session.runtime.backend, sessionType: session.runtime.sessionType,
+            display: session.runtime.display, binary: session.runtime.binary,
+            sandbox: { ...session.runtime.sandbox, actualSwitches: session.runtime.sandbox.actualSwitches.filter(argument =>
+              /^--(?:no-sandbox|disable-setuid-sandbox|ozone-platform(?:=|$)|enable-sandbox|disable-gpu-sandbox)/.test(argument)) } }
           const metadata = await session.app.evaluate(({ app, screen }) => ({ applicationVersion: app.getVersion(),
             electron: process.versions.electron, chromium: process.versions.chrome, packaged: app.isPackaged,
             displays: screen.getAllDisplays().map(display => ({ id: String(display.id), bounds: display.bounds, scaleFactor: display.scaleFactor })) }))
@@ -156,7 +161,7 @@ export async function runDesktopBenchmark(input = {}) {
         await checked('full-draft-restore-and-static-render', () => run('fullDraft', async setup => {
           const strokes = await importFullDraft(setup, path.join(directory, `full-${index}.json`))
           await setup.close()
-          const restored = await launchIsolated({ directory: setup.directory, allowVisible: true, executable: options.executable })
+          const restored = await launchIsolated({ directory: setup.directory, allowVisible: true, executable: options.executable, diagnosticNoSandbox: options.diagnosticNoSandbox })
           try {
             await waitUntil(() => restored.overlay.evaluate(() => window.mindnotesScreen.getState()),
               value => isDeepStrictEqual(value.strokes, strokes), 'restored full-draft geometry')

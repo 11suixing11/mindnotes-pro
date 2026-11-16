@@ -1,113 +1,83 @@
-<div align="center">
-  <img src="public/icons/icon-192x192.png" width="88" alt="MindNotes Pro アイコン" />
-  <h1>MindNotes Pro</h1>
-  <p><strong>描画、編集可能なテンプレート、持ち運べるエクスポートのためのローカルファースト・ホワイトボード。</strong></p>
-  <p>アカウント、クラウドワークスペース、描画内容の分析はありません。開いてすぐに描けます。</p>
-  <p>
-    <a href="https://11suixing11.github.io/mindnotes-pro"><strong>Web アプリを開く</strong></a>
-    ·
-    <a href="README.md">English</a>
-    ·
-    <a href="README_CN.md">中文</a>
-  </p>
-  <p>
-    <a href="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml"><img src="https://github.com/11suixing11/mindnotes-pro/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
-    <img src="https://img.shields.io/badge/version-5.1.2-0f766e" alt="Version 5.1.2" />
-    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2563eb" alt="MIT License" /></a>
-    <img src="https://img.shields.io/badge/storage-local--first-16a34a" alt="Local-first storage" />
-  </p>
-</div>
+# MindNotes Pro
 
-<p align="center">
-  <img src=".github/mindnotes-pro-v5.png" width="900" alt="編集可能なフローチャートを選択した MindNotes Pro v5" />
-</p>
+**Windows アプリの上に浮かぶツールバーで描画し、Web ノートを再利用。**
 
-## v5 でできること
+v6.0.0-beta.12 は、最前面の小さなボタンと透明な画面注釈レイヤーで起動します。画面ノートと Web ノートは同じローカルライブラリーで検索できます。Web 閲覧にはブラウザー本来のページと独立した注釈レイヤーを使います。
 
-MindNotes Pro は空のキャンバスから始まり、すぐに操作できます。v5 はデモ機能を増やすのではなく、基本的な作業を最後まで完了できることを重視しています。
+[English](README.md) · [中文](README_CN.md)
 
-| 領域           | 現在の動作                                                                           |
-| -------------- | ------------------------------------------------------------------------------------ |
-| 描画           | 複数のブラシ、筆圧ストローク、四角形、円、線、矢印、テキスト、画像                   |
-| 編集           | 選択、移動、リサイズ、回転、グループ化、ロック、コピー、取り消し、やり直し、部分消去 |
-| ワークスペース | 1 枚のボード、レイヤー、背景、グリッド、スナップ、ズーム                             |
-| テンプレート   | 5 個の組み込みテンプレートと、キャンバスから作成するカスタムテンプレート             |
-| 保存           | IndexedDB への自動保存。設定とカスタムテンプレートも端末内に保存                     |
-| 入出力         | 全内容の PNG、JPEG、PDF、SVG。v5 JSON バックアップと v4、v3、旧形式のインポート      |
-| 実行環境       | レスポンシブ Web、オフライン PWA、サンドボックス化された Electron シェル             |
+## 現在の配布範囲
 
-## ローカルファーストの範囲
+beta.12 は、beta.11 の実行ファイルで再現した誤ったインポート成功表示と、以前の保存コピーへの無通知の復元を修正します。インポートは保存完了を待ち、失敗時も現在のノートを書き出せます。復元時は最近の変更が欠ける可能性を継続表示し、保存エラーは書き出しの成功通知と併記します。Setup と Portable のビルドと内容照合が完了し、実行ファイルの非表示検証は統合 8 件、保存復元 8 件、異常復元 10 件が通過しました。表示状態のデスクトップ 34 件は未実行です。[本番検証](PRODUCTION_READINESS_CN.md)に現在の証拠と未完了要件を記録します。
 
-- 現在のボードはブラウザーの IndexedDB `mindnotes-pro-v5` に保存されます。
-- 初回起動時に利用可能な v4 データを読み取り専用でインポートし、元の `mindnotes-pro-v4` データベースは削除しません。
-- アカウント、ホスト型同期、リアルタイム共同編集は提供しません。
-- サイトデータを消去するとローカルボードも失われる場合があります。重要な作業は JSON でバックアップしてください。
-- JSON のインポートは現在のボードを置き換え、2 枚目のボードを開くことはありません。
+- 開発ソースは本リポジトリに集約し、beta.12 のローカル候補は `release/` に保存しました。[チェックサム](release/SHA256SUMS-beta12.txt)と[候補の説明](release/beta12-使用与验收说明.md)を添付します。beta.11 パッケージは `release/beta11-candidate/release`、ソースは `release/beta11-candidate/build-source-beta11.zip` に保存します。過去の検証と元文書は [検証アーカイブ](tmp/qa/history/acceptance-through-beta11.zip) を参照してください。
+- サイトの初期画面は製品紹介です。従来のホワイトボードは `?mode=whiteboard` で利用できます。
+- Web 注釈はデスクトップアプリ内で動作します。このベータ版には Chrome / Edge 拡張機能はありません。
 
-## クイックスタート
+## 画面注釈
 
-必要環境: Node.js `>=22.22.2` と npm。
+ツールバーをドラッグし、ペンや蛍光ペンで描画します。消しゴムは触れた筆跡全体を消します。取り消し、やり直し、取り消せる全消去を利用できます。「鼠标」または Esc で下のアプリを操作し、「收起」で筆跡を隠して小さなボタンにします。Alt+Shift+M でも切り替えられます。
+
+完了した筆跡は下書きとして自動保存され、再起動後も復元されます。「保存笔记」は元のスクリーンショット、編集可能な筆跡、出典と時間をライブラリーに保存します。結論の追記、検索、筆跡の編集、PNG / Markdown / JSON の書き出しとごみ箱からの復元が可能です。「更多」には画面固定と下書きのバックアップがあります。固定画面で Esc を押すと画像を隠し、実際のアプリを操作できます。筆跡は画面座標に固定され、下のアプリの移動やスクロールには追従しません。
+
+「更多 → 我的笔记」でライブラリーを開き、ウィンドウを閉じると小さなボタンに戻ります。終了は「更多 → 退出」を使います。出典はキャプチャした画面中央に見えるウィンドウを示します。一枚の画面には複数のアプリが含まれる場合があります。ロック画面や保護されたデスクトップの保存は拒否されます。過去の beta.6 では Windows 11 のデスクトップ回帰 24 件、実キャプチャ、150% / 100% の複数モニター復元、両モニターの通常全画面、公開記事 3 件、Portable とインストールの検証が通過しました。この記録は beta.11 の検証を代替しません。GAOMON 1060 Pro には beta.3 の部分的な記録があり、ユーザーは選択パネルの点滅修正を確認しました。現候補の表示状態、物理ペン、署名、タッチと Windows 10 は引き続き検証が必要です。
+
+## Web ノート
+
+HTTP(S) の URL を貼り付けてページを開きます。「浏览」で通常のリンクやスクロールを使い、テキストを選択して「摘录」で引用を保存します。ペン、蛍光ペン、付箋でページに注釈を付け、右側のパネルに考えを書きます。Esc で閲覧に戻ります。
+
+DOM と引用テキストのアンカーにより、注釈はページのスクロールやレイアウト変更に追従します。再び開くと保存済みの注釈が復元されます。「我的笔记」で検索し、元ページに戻り、Markdown を他のノートツールで再利用できます。編集可能な JSON バックアップは別の PC に持ち運べます。
+
+本文に追従し、再度開いた際に復元する注釈はこの Web ノート画面を使います。
+
+原文が変更・非表示になった場合や位置を一意に確定できない場合は、該当する注釈をページ上で隠し、位置の状態を表示します。ノートは編集・書き出しを続けられ、原文が戻ると注釈も再表示されます。内部スクロール、SPA と再利用される DOM ノードを回帰テストし、MDN、JavaScript.info、Runoob の公開記事でも確認しました。
+
+## 保存と復元
+
+ノートは Electron のユーザーデータフォルダーにある `page-notes.json` に保存されます。Windows では通常 `%APPDATA%\mindnotes-pro\page-notes.json` です。ポータブル版もこの PC のユーザーデータを使用し、exe 自体にはノートを含めません。
+
+画面ノートと下書きは同じフォルダーの `screen-notes.sqlite` に、WAL/FULL トランザクションで保存します。画面ノートの JSON 形式は `mindnotes-pro.screen-notes`、バージョン `1`。元画像と編集可能な筆跡を含み、全体を検証してから新しい編集を残してマージします。途中の破損は読み込み全体をロールバックします。上限は 256 MB、10,000 ノート、画像ごとに 32 MB / 4,000 万ピクセル、ノートごとに 1,000 筆跡 / 16 万点です。
+
+書き込みを順番に実行し、一時ファイルから置き換えます。有効な前回データは `.previous` に保持します。どちらのファイルも読めない場合は元ファイルを残し、上書きを防ぎます。通常の終了時は保留中の編集と保存を待ちます。
+
+画面ノートの連続編集は変更フィールドをまとめて保存します。失敗した編集はウィンドウに保持し、再試行、現在の変更のバックアップ、確認付きの異常終了を選べます。
+
+Markdown に引用、コメント、出典リンクを含めます。筆跡と位置を完全に保持するには JSON を使います。形式は `mindnotes-pro.page-notes`、バージョン `1`。読み込みは URL と注釈 ID を使ってマージし、新しい編集を残します。上限は 20 MB、2,000 ページ、合計 20,000 注釈です。
+
+アカウント、クラウド同期、共同編集はありません。元の Web ページのオフラインコピーは作成しないため、再訪問にはネットワークやログインが必要な場合があります。
+
+従来のホワイトボードは `mindnotes-pro-v5` IndexedDB と独立した v5 バックアップを維持します。v4 は読み取り専用で移行し、元データを削除しません。ホワイトボード JSON の読み込みは現在の単一ボードを置き換えます。
+
+## 開発とビルド
+
+Node.js `>=22.22.2` と npm が必要です。
 
 ```bash
 git clone https://github.com/11suixing11/mindnotes-pro.git
 cd mindnotes-pro
-npm ci
-npm run dev
+npm ci --include=dev
+npm run dev:desktop
 ```
 
-開発サーバーは [http://localhost:3000](http://localhost:3000) で起動します。
+| コマンド                | 用途                                                     |
+| ----------------------- | -------------------------------------------------------- |
+| `npm run dev`           | Web サイトを localhost:3000 で開発                       |
+| `npm run check`         | lint、型、依存境界、単体・ストレージテスト、Web ビルド   |
+| `npm run test:storage`  | SQLite / JSON、移行、破損とバックアップの検証            |
+| `npm run test:e2e`      | サイトと従来ボードの Chromium テスト                     |
+| `npm run test:desktop`  | 実際の Electron 注釈フローを確認                         |
+| `npm run build:windows` | Windows x64 インストール版とポータブル版を生成、公開なし |
 
-## 主なコマンド
+最初の Web E2E 前に `npx playwright install chromium` を実行します。単体テストは `NODE_ENV=test`、最終ビルドは `NODE_ENV=production` で実行してください。出力は `release/` にあります。
 
-| コマンド                | 用途                                                |
-| ----------------------- | --------------------------------------------------- |
-| `npm run dev`           | Web 開発サーバーを起動                              |
-| `npm run build`         | 型チェックと Web ビルド                             |
-| `npm run test:run`      | Vitest を一度実行                                   |
-| `npm run test:coverage` | カバレッジ基準付きテストを実行                      |
-| `npm run test:e2e`      | ビルド後に Chromium の主要ユーザーフローを実行      |
-| `npm run lint`          | ESLint を実行                                       |
-| `npm run check`         | lint、テスト、Web ビルド、Electron 型チェックを実行 |
-| `npm run dev:desktop`   | Vite と Electron を同時に起動                       |
-| `npm run build:desktop` | 現在のデスクトップ環境向けにパッケージ化            |
+`MINDNOTES_EXECUTABLE` に `release/win-unpacked/MindNotes Pro.exe` を設定すると、`npx playwright test --config=playwright.desktop.config.ts` でパッケージ版を検証できます。
 
-初回の E2E 実行前にブラウザーをインストールします。
+ルートの `dist` と `dist-electron` はソース検証で再生成されます。beta.12 のビルド後に `release/win-unpacked/MindNotes Pro.exe` を検証します。旧候補、重複依存と古い出力は整理し、beta.2 Setup はアップグレード検証用に残します。beta.11 のパッケージと元の検証記録は履歴として保存します。
 
-```bash
-npx playwright install chromium
-```
+beta.11 の [非表示クラッシュ復元 10 段階](tmp/qa/hidden-crash-beta11-final.json) は、ページ再読み込み、有限のシェル復元、編集再開、単一起動、入力解放、ツールバー異常時の終了と保存内容の再起動復元を通過しました。4 プロセスは正常終了しました。実際の preload から受信する注釈状態を確認し、非表示の描画や自動レイアウトの合格とはしていません。
 
-## データとエクスポート
+クロスオリジン iframe、仮想リスト、大幅に変更された原文には位置復元の制限があります。構成と今後の計画は [ARCHITECTURE.md](ARCHITECTURE.md)、[ROADMAP.md](ROADMAP.md) を参照してください。
 
-画像とボードのエクスポートは、現在のパンやズームではなく、表示対象になっているボード全体の境界を使います。PNG は透明背景、JPEG と PDF はボード背景、SVG は可能な範囲でベクター要素を保持します。
+正式版には発行者署名、Windows 10 とタッチ・ペンの実機互換性確認が必要です。未完了項目は [PRODUCTION_READINESS_CN.md](PRODUCTION_READINESS_CN.md) に記録します。
 
-v5 JSON は `format: "mindnotes-pro-backup"` と `version: 5` を持つ明示的な形式です。v4、v3、旧形式もインポートできます。壊れたファイルや未対応バージョンはエラーになり、現在のボードを暗黙に破棄しません。
-
-## 構成
-
-```text
-src/
-├── canvas/        描画、ジオメトリ、ブラシ、エクスポート
-├── components/    React UI とブラウザー操作
-├── eraser/        シンプルな幾何消去と空間インデックス
-├── keyboard/      ショートカット定義
-├── store/         Zustand、IndexedDB、スキーマ、バックアップ
-└── templates/     組み込み・カスタムテンプレート
-
-electron/
-└── main.mts       最小構成のデスクトップシェル
-
-e2e/               Playwright の主要ユーザーフロー
-```
-
-詳しい責務は [ARCHITECTURE.md](ARCHITECTURE.md)、今後の優先順位は [ROADMAP.md](ROADMAP.md) を参照してください。
-
-## コントリビューション
-
-範囲の明確なバグ修正、回帰テスト、アクセシビリティ改善、正確なドキュメント更新を歓迎します。Pull Request の前に [CONTRIBUTING.md](CONTRIBUTING.md) を確認してください。
-
-セキュリティ報告は [SECURITY.md](SECURITY.md)、変更履歴は [CHANGELOG.md](CHANGELOG.md) を参照してください。
-
-## ライセンス
-
-[MIT](LICENSE)
+[貢献](CONTRIBUTING.md) · [セキュリティ](SECURITY.md) · [変更履歴](CHANGELOG.md) · [MIT](LICENSE)

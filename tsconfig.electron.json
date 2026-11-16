@@ -3,12 +3,13 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "rootDir": "electron",
+    "rootDir": ".",
     "outDir": "dist-electron",
     "strict": true,
     "skipLibCheck": true,
     "noEmitOnError": true,
-    "types": ["node"]
+    "types": ["node"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
-  "include": ["electron/**/*.mts"]
+  "include": ["electron/**/*.mts", "electron/**/*.cts", "src/notes/desktop.ts"]
 }

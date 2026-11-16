@@ -11,10 +11,11 @@
 | npm 命令 | 对应入口 | 用途 |
 | --- | --- | --- |
 | `npm run benchmark:local:storage` | `npm run build:electron && node benchmark/local/run-storage.mjs` | 先编译当前 Electron/领域模块，再测真实本地存储 |
-| `npm run benchmark:local:desktop` | `node benchmark/local/run-desktop.mjs` | 在目标 Windows 可见桌面测 Electron；不隐式构建 |
+| `npm run benchmark:local:desktop` | `node benchmark/local/run-desktop.mjs` | 在同平台 Windows 或 Linux X11/XWayland 环境测 Electron；不隐式构建 |
 | `npm run benchmark:local:compare` | `node benchmark/local/compare.mjs` | 验证报告兼容性并比较 p95 |
 | `npm run test:local-baseline` | `node --test benchmark/local/*.test.mjs` | Node 内置测试运行器执行工具行为测试 |
 | `npm run test:offline` | `node benchmark/local/run-offline.mjs` | 预检后执行独立的真实 Electron 断网旅程 |
+| `npm run test:linux` | `node benchmark/local/run-linux.mjs` | 校验任务拥有的虚拟 X11 后执行 Linux 原生/离线旅程；不隐式构建 |
 
 直接运行 `run-storage.mjs` 或使用桌面/断网入口前，必须准备当前 `dist-electron` 模块：
 
@@ -48,7 +49,7 @@ TEMP="$baseline_temp" TMP="$baseline_temp" TMPDIR="$baseline_temp" NODE_ENV=prod
 
 这里的 `$baseline_temp` 使用下节创建的工作区临时目录。Web Storage 选项不证明浏览器或 Electron 的存储行为；桌面子进程会过滤 `NODE_OPTIONS`。
 
-## Linux：存储与不可用分支
+## Linux：存储、原生桌面与诊断范围
 
 以下示例在当前工作区内创建临时目录，并只为对应命令设置 `TEMP`、`TMP`、`TMPDIR`。没有改写系统级目录设置。
 
@@ -63,14 +64,31 @@ npm run benchmark:local:compare -- tmp/local-baseline-20261113/storage-linux.jso
 
 自身比较用于确认该份报告可读、兼容且比较入口能工作；它不能证明性能提升。已有报告代表生成时的代码、参数和机器，不自动代表随后修改的源码。
 
-当前主机是 Linux，现有 Windows 可执行文件不构成可运行的 Windows 桌面环境。可以验证以下 guard 分支，但它们预期以退出码 `2` 告知目标 Windows 环境不可用：
+当前工作区直接开发 Linux；Windows 端在 Windows 环境继续。Linux 桌面入口接受同平台 x64 ELF 和 X11/XWayland，保留 Windows PE 校验。当前 Electron `43.8.8` 已是 Linux ELF，普通沙盒仍因本机 helper 权限及 AppArmor namespace 条件受限，用户选择在以后安装时处理。源码工具不会自动改为无沙盒启动或修改系统权限；没有显示/运行时、传入 Windows PE 或不受支持后端时，以实际预检结果和非零状态退出。
+
+先显式准备 Electron 与 production 相对路径资产，然后在本任务已有的、经认证和 PID 身份校验的 owned Xvfb `:90`/WM 中运行。Linux 原生套件同时覆盖真实 native 输入/层级/截图，以及本地库离线编辑/备份恢复：
 
 ```bash
-TEMP="$baseline_temp" TMP="$baseline_temp" TMPDIR="$baseline_temp" npm run benchmark:local:desktop -- --allow-visible --output tmp/local-baseline-20261113/desktop-linux-unavailable.json
-TEMP="$baseline_temp" TMP="$baseline_temp" TMPDIR="$baseline_temp" npm run test:offline -- --allow-visible
+linux_native_temp="$PWD/tmp/linux-desktop-20261114/command-temp"
+mkdir -p "$linux_native_temp"
+TEMP="$linux_native_temp" TMP="$linux_native_temp" TMPDIR="$linux_native_temp" npm run build:electron
+TEMP="$linux_native_temp" TMP="$linux_native_temp" TMPDIR="$linux_native_temp" NODE_ENV=production npm run build -- --base=./
+source tmp/linux-desktop-20261114/test-display/env.sh
+TEMP="$linux_native_temp" TMP="$linux_native_temp" TMPDIR="$linux_native_temp" npm run test:linux -- --allow-visible
 ```
 
-desktop 不可用报告保留诊断，指标为空；offline 入口报告实际预检/Playwright 执行结果，不生成可用来比较的性能基线。Linux 侧的工具测试、生成 PNG、存储结果或 guard 成功拒绝运行，都不能写成 Windows 原生、可见桌面、真实断网业务或截图验收通过。
+普通模式显式要求 Chromium sandbox。当前机器需要专门无沙盒诊断时，在同一 owned 环境明确加 `--diagnostic-no-sandbox`：
+
+```bash
+TEMP="$linux_native_temp" TMP="$linux_native_temp" TMPDIR="$linux_native_temp" npm run test:linux -- --allow-visible --diagnostic-no-sandbox
+TEMP="$linux_native_temp" TMP="$linux_native_temp" TMPDIR="$linux_native_temp" npm run benchmark:local:desktop -- --allow-visible --diagnostic-no-sandbox --output tmp/linux-desktop-20261114/desktop-linux-diagnostic.json
+```
+
+诊断参数拒绝用户 DISPLAY0/1，只有 live owned 显示身份通过后才允许禁用 Chromium sandbox。它记录真实启动开关、后端和 security scope；窗口 `sandbox:true`/`contextIsolation:true` 不能替代内核沙盒证明。不要将 flag 设为普通产品默认值。当前 owned WM 状态与 lifecycle 见 [显示记录](../../tmp/linux-desktop-20261114/test-display/REPORT.md)；测试结束由拥有显示器的任务按记录身份清理进程，不按名称广泛 kill。
+
+Linux suite 结果写入 `tmp/linux-desktop-20261114/native-results.json` 与 `native-results/`。实际包模式传入 `--executable` 并选解包目录的 ELF，旁边必须有 `resources/app.asar`；该验收入口暂不直接支持 AppImage 容器。Linux 隔离 userData 使用区分大小写的 realpath 比较。
+
+desktop 不可用报告保留诊断，指标为空；offline/native 入口记录实际预检及用例结果，不生成可比较的性能基线。Linux 侧工具测试、生成 PNG、存储或 guard 拒绝结果，不能写成 Windows 原生通过。owned Xvfb 原生结果也不能代表 GNOME compositor、原生 Wayland 客户端像素、portal、正常沙盒、物理笔、多屏混合 DPI 或锁睡拔屏全部通过。完整运行/打包与当前边界见 [Linux 开发说明](../../LINUX_DEVELOPMENT_CN.md)。
 
 ## Windows：源码与已有实际包
 
@@ -127,7 +145,7 @@ foreach ($name in @('TEMP', 'TMP', 'TMPDIR', 'NODE_ENV', 'MINDNOTES_EXECUTABLE')
 
 ## 数据隔离与文件范围
 
-存储与桌面测量使用确定性生成数据，不读取软件真实 `userData`、用户笔记或用户现存截图。断网旅程中显式执行的 Windows 原生 capture fixture 会创建真实桌面捕获；Linux 存储验证使用生成 PNG。每次测量重复在 `tmp/local-baseline-20261113/runtime/` 下建立自己的新目录；导入使用独立空库，重启恢复复用该次测试的同一个目录。桌面满载草稿恢复与单笔 8000 点场景使用独立初始数据，长手势不会追加到已达到点数上限的草稿。
+存储与桌面测量使用确定性生成数据，不读取软件真实 `userData`、用户笔记或用户现存截图。Windows 原生 capture fixture 创建目标测试桌面捕获；Linux 存储使用生成 PNG，Linux native suite 的 capture 只取经过身份校验的 owned X11 独立颜色客户端显示。原有 storage/desktop 测量在 `tmp/local-baseline-20261113/runtime/` 下建立新目录，Linux native 及其桌面数据使用 `tmp/linux-desktop-20261114/runtime/`；导入使用独立空库，重启恢复复用该次测试的同一个目录。桌面满载草稿恢复与单笔 8000 点场景使用独立初始数据，长手势不会追加到已达到点数上限的草稿。
 
 应用数据和应用进程的临时路径均限制在运行器拥有的目录内。结束时先关闭应用、仓库 worker、保存队列与测试网络服务，再清理自己创建的临时文件；错误路径同样执行关闭与清理。清理失败会导致非零退出并保留诊断路径。运行器不删除相邻文件，不通过清空整个 `tmp` 父目录实现清理。报告输出与临时库分离，保留用于复查；输出只允许工作区内 `.json` 路径，并用同目录临时文件原子替换，拒绝符号链接或路径逃逸。
 
@@ -169,8 +187,8 @@ Promise 返回、IPC 编辑回执、pointerup 返回或历史 `saved` 都不能�
 
 offline 在真实 Electron 启动时设置随机 loopback 拒绝代理并禁用 loopback 绕过，代理拒绝 HTTP/CONNECT 且不转发。先用 Node 直连 canary 证明控制服务可用，再从默认 Electron session 和实际懒创建的 `persist:mindnotes-pages` session 验证代理拒绝且 canary 没收到应用直连；随后安装 session 级外部 HTTP(S) 取消。仅看到无效域名加载失败，或只切换页面 DevTools 离线状态，不足以证明该阻断流程生效。
 
-实际旅程验证本地壳/工具条/屏幕层、已有屏幕与网页笔记检索和编辑、程序化绘制与撤销/重做、最新保存和重启、真实备份导出/独立空库导入及第二次重启，以及在线导航被阻断后的错误提示与返回本地库。对话框只返回任务文件路径。截图旅程使用已有真实 PowerShell/Win32 capture fixture、实际显示范围和捕获 PNG 像素，只能在目标 Windows 可见环境执行。
+实际旅程验证本地壳/工具条/屏幕层、已有屏幕与网页笔记检索和编辑、程序化绘制与撤销/重做、最新保存和重启、真实备份导出/独立空库导入及第二次重启，以及在线导航被阻断后的错误提示与返回本地库。对话框只返回任务文件路径。Windows 截图旅程保留 PowerShell/Win32 capture fixture；独立 Linux suite 使用经过认证/拥有校验的 X11/XTest fixture 和其他客户端的真实颜色像素。读取实际 suite 结果，不能将另一平台的原生分支标成通过。
 
-这验证 Chromium 测试 sessions 在外部 HTTP(S) 不可用时的现有业务行为；系统所有进程的网络流量、物理断网、真实笔输入、混合 DPI、鼠标穿透、锁睡拔屏与用户场景截图仍需目标机发行验收。当前 Linux 未执行这些 Windows 原生流程。
+这验证 Chromium 测试 sessions 在外部 HTTP(S) 不可用时的现有业务行为；系统所有进程的网络流量、物理断网、真实笔输入、混合 DPI、锁睡拔屏与用户场景截图仍需目标机发行验收。Linux 鼠标穿透的证据限定于实际执行的 owned X11/WM 流程；当前 Linux 不执行 Windows 原生流程。
 
 现有本地笔记、草稿、受管理的截图及备份可以构成离线核心；已有在线网页入口仍需要网络访问原文。新的本地资料导入与阅读格式、受管理的网页离线副本、本地服务边界整理及依据基线实施的优化属于后续阶段，这份基线不宣称这些未来能力已经实现。

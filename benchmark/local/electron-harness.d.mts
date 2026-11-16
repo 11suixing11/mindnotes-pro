@@ -12,6 +12,8 @@ export interface DesktopLaunchOptions {
   executable?: string
   offline?: boolean
   allowVisible?: boolean
+  diagnosticNoSandbox?: boolean
+  ozonePlatform?: 'x11' | 'wayland'
 }
 export interface ProxyRequest {
   method: string
@@ -46,10 +48,24 @@ export interface DesktopSession {
   close(): Promise<void>
   timings: { launchToBubbleReadyMs: number; expandToolbarMs: number }
   offlineEvidence?: OfflineEvidence
+  runtime: {
+    teardown: { pid?: number; exitCode: number | null; signalCode: string | null; normalExit: boolean; forced: boolean; ownedRemaining?: number[]; errors: string[] }
+    backend: 'x11' | 'windows'
+    sessionType: string
+    display: string
+    executablePath: string
+    launchExecutablePath: string
+    actualExecutablePath: string
+    launchArguments: string[]
+    actualArguments: string[]
+    ozonePlatform: string
+    binary: { format: 'ELF' | 'PE'; arch: string }
+    sandbox: { chromiumSandbox: boolean; mode: string; kernelSandboxVerified: boolean; actualSwitches: string[]; securityScope: string }
+  }
 }
 export function preflightDesktop(
-  options?: Pick<DesktopLaunchOptions, 'allowVisible' | 'executable'>
-): Promise<{ executablePath: string; packaged: boolean }>
+  options?: Pick<DesktopLaunchOptions, 'allowVisible' | 'executable' | 'diagnosticNoSandbox' | 'ozonePlatform'>
+): Promise<{ executablePath: string; launchExecutablePath: string; packaged: boolean; backend: 'x11' | 'windows'; binary: { format: 'ELF' | 'PE'; arch: string }; sandbox: { chromiumSandbox: boolean; mode: string; kernelSandboxVerified: boolean } }>
 export function validateSourceAssets(directory?: string): Promise<string[]>
 export function selectDesktopExecutable(
   executable?: string, environment?: Readonly<{ MINDNOTES_EXECUTABLE?: string }>
@@ -59,10 +75,15 @@ export function createDesktopCloser(options: {
   child: ChildProcess
   proxy?: DenyProxy
   mainPid?: number
+  ownedProcessGroup?: number
   beforeClose(): Promise<void>
   closeApplication(): Promise<void>
   graceMs?: number
   killMs?: number
+  requireNormalExit?: boolean
+  expectedCloseError?(error: Error): boolean
+  artifactCleanup?(): Promise<void>
+  onTeardown?(observation: { pid?: number; exitCode: number | null; signalCode: string | null; normalExit: boolean; forced: boolean; ownedRemaining: number[]; errors: string[] }): void
 }): () => Promise<void>
 export function proxyControlEvidence<T extends { route: string; response: number }>(
   proxy: DenyProxy, before: number, target: string, control: T, directHits: number
@@ -109,3 +130,12 @@ export function observeFrames<T>(
   tasks: number[]
   overflow: boolean
 }>
+
+export function pathsMatch(actual: string, expected: string, platform?: string): boolean
+export function desktopBackend(platform?: string, environment?: Readonly<Record<string, string | undefined>>, ozonePlatform?: string): 'x11' | 'windows'
+export function desktopSandboxOptions(diagnosticNoSandbox?: boolean): { chromiumSandbox: boolean; mode: string; kernelSandboxVerified: boolean }
+export function validateDesktopBinary(executablePath: string, platform?: string, arch?: string): Promise<{ format: 'ELF' | 'PE'; arch: string }>
+export function verifyOwnedX11(environment?: Readonly<Record<string, string | undefined>>): Promise<{ display: string; serverPid: number; marker: string; xauthority: string; runtimeAlias: string }>
+
+export function desktopLaunchArgs(options?: { platform?: string; env?: Readonly<Record<string, string | undefined>>; packaged?: boolean; args?: readonly string[] }): string[]
+export function validateLinuxAppRun(executablePath: string): Promise<string>

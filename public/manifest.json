@@ -1,14 +1,14 @@
 {
   "name": "MindNotes Pro",
   "short_name": "MindNotes Pro",
-  "description": "本地优先、无需账号的轻量白板，支持自由绘制、可编辑模板和多格式导出。",
+  "description": "Windows 悬浮屏幕批注与随正文滚动的网页批注。本机自动保存、统一搜索、继续编辑和备份恢复。",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0f7d78",
+  "background_color": "#f5f5f0",
+  "theme_color": "#426b50",
   "orientation": "any",
-  "categories": ["productivity", "utilities", "graphics"],
+  "categories": ["productivity", "utilities", "education"],
   "lang": "zh-CN",
   "dir": "ltr",
   "icons": [

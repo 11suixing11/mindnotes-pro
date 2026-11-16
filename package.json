@@ -1,39 +1,45 @@
 {
   "name": "mindnotes-pro",
-  "version": "5.1.2",
+  "version": "6.0.0-beta.12",
   "type": "module",
-  "description": "A local-first lightweight whiteboard for drawing, editable templates, and portable exports.",
+  "description": "Linux and Windows screen annotations and anchored webpage notes with local recovery and editable backups.",
   "author": "11suixing11",
   "homepage": "https://github.com/11suixing11/mindnotes-pro",
   "repository": {
     "type": "git",
     "url": "https://github.com/11suixing11/mindnotes-pro.git"
   },
-  "desktopName": "mindnotes-pro.desktop",
-  "main": "dist-electron/main.mjs",
+  "desktopName": "com.mindnotes.pro.desktop",
+  "main": "dist-electron/electron/main.mjs",
   "engines": {
     "node": ">=22.22.2"
   },
   "scripts": {
     "dev": "vite",
-    "dev:desktop": "npm run build:electron && concurrently \"vite\" \"wait-on http://127.0.0.1:3000 && electron .\"",
+    "dev:desktop": "npm run build:electron && concurrently \"vite\" \"wait-on http://127.0.0.1:3000 && node electron/linuxLaunch.mjs .\"",
+    "dev:linux": "npm run dev:desktop",
     "build": "tsc && vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "build:desktop": "npm run build -- --base=./ && npm run build:electron && electron-builder",
+    "build:windows": "npm run build -- --base=./ && npm run build:electron && electron-builder --win nsis portable --x64 --publish never",
+    "build:linux": "npm run build -- --base=./ && npm run build:electron && electron-builder --linux AppImage deb --x64 --publish never --config.directories.output=release/linux",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:storage": "npm run build:electron && node --test electron/repositories.test.mjs",
     "test:coverage": "vitest run --coverage",
     "benchmark": "node benchmark/run-performance-benchmark.mjs",
     "benchmark:browser": "node benchmark/run-browser-performance-benchmark.mjs",
     "benchmark:compare": "node benchmark/compare-performance.mjs",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:run": "playwright test",
-    "lint": "eslint \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\" \"electron/**/*.mts\"",
+    "test:desktop": "npm run build -- --base=./ && npm run build:electron && playwright test --config=playwright.desktop.config.ts",
+    "test:linux": "node benchmark/local/run-linux.mjs",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\" \"electron/**/*.{mts,cts,mjs}\"",
     "typecheck": "tsc --noEmit && tsc -p e2e/tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "deps:check": "depcruise src --config .dependency-cruiser.cjs",
-    "check": "npm run lint && npm run typecheck && npm run deps:check && npm run test:run && npm run build",
-    "electron:dev": "npm run build:electron && electron .",
+    "check": "npm run lint && npm run typecheck && npm run deps:check && npm run test:run && npm run test:storage && npm run build",
+    "electron:dev": "npm run build:electron && node electron/linuxLaunch.mjs .",
     "electron:build": "npm run build:desktop",
     "benchmark:local:storage": "npm run build:electron && node benchmark/local/run-storage.mjs",
     "benchmark:local:desktop": "node benchmark/local/run-desktop.mjs",
@@ -44,6 +50,7 @@
   "build": {
     "appId": "com.mindnotes.pro",
     "productName": "MindNotes Pro",
+    "afterPack": "./electron/linuxAfterPack.mjs",
     "directories": {
       "output": "release"
     },
@@ -61,31 +68,62 @@
           ]
         }
       ],
-      "icon": "public/icons/icon-512x512.png"
+      "icon": "public/icons/icon-512x512.png",
+      "artifactName": "MindNotes-Pro-${version}-Setup-${arch}.${ext}"
     },
     "linux": {
       "target": [
-        "AppImage"
+        "AppImage",
+        "deb"
       ],
+      "maintainer": "11suixing11",
       "category": "Utility",
       "icon": "public/icons/icon-512x512.png",
       "syncDesktopName": true
     },
+    "appImage": {
+      "executableArgs": []
+    },
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0",
+        "systemd",
+        "libglib2.0-bin"
+      ]
+    },
     "nsis": {
-      "oneClick": false,
-      "perMachine": true,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "MindNotes-Pro-${version}-Portable-${arch}.${ext}"
     }
   },
   "dependencies": {
+    "@streamparser/json": "^0.0.26",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.33.0",
     "perfect-freehand": "^1.2.2",
+    "pngjs": "^7.0.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "zustand": "^5.0.15"
+  },
+  "overrides": {
+    "minimatch@>=7.0.0 <11.0.1": "11.0.1",
+    "brace-expansion@>=4.0.0 <5.0.12": "5.0.12"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -94,12 +132,13 @@
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^26.2.0",
+    "@types/pngjs": "^6.0.5",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@typescript-eslint/eslint-plugin": "^8.67.0",
     "@typescript-eslint/parser": "^8.67.0",
     "@vitejs/plugin-react": "^6.1.0",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.12",
     "autoprefixer": "^10.4.20",
     "concurrently": "^10.0.5",
     "dependency-cruiser": "^18.4.0",
@@ -119,7 +158,7 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.67.0",
     "vite": "^8.2.2",
-    "vitest": "^4.1.10",
+    "vitest": "^4.1.12",
     "wait-on": "^9.1.0"
   }
 }

@@ -3,16 +3,18 @@ import http from 'node:http'
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
-import { access, mkdir, open, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import { access, mkdir, open, readFile, readdir, realpath, rm, stat, lstat, symlink, writeFile } from 'node:fs/promises'
+import { constants, readFileSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { performance } from 'node:perf_hooks'
 import { isDeepStrictEqual } from 'node:util'
 import { makeStrokes, makeScreenEntries, makePageNotebooks } from './fixtures.mjs'
 import { withWorkspace } from './runtime.mjs'
+import { linuxLaunchArgs } from '../../electron/linuxLaunch.mjs'
 
 const require = createRequire(import.meta.url)
-const localRoot = 'tmp/local-baseline-20261113/runtime'
+const localRoot = process.platform === 'linux' ? 'tmp/linux-desktop-20261114/runtime' : 'tmp/local-baseline-20261113/runtime'
 const sdkTempRoot = path.resolve(localRoot, `sdk-${randomUUID()}`)
 let workspaceUsers = 0
 export class DesktopUnavailable extends Error {}
@@ -32,9 +34,47 @@ function pidAlive(pid) {
   catch (error) { if (error.code === 'ESRCH') return false; throw error }
 }
 
+function linuxProcessIdentity(pid) {
+  try {
+    const fields = readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ').at(-1).split(' ')
+    return { state: fields[0], group: Number(fields[2]), session: Number(fields[3]), startTicks: fields[19], uid: statSync(`/proc/${pid}`).uid }
+  } catch (error) { if (['ENOENT', 'ESRCH'].includes(error.code)) return undefined; throw error }
+}
+
+/** Diagnostic snapshots are optional; a racing /proc read must never gate termination. */
+function linuxProcessDiagnostic(pid) {
+  try {
+    return { pid, identity: linuxProcessIdentity(pid), command: readFileSync(`/proc/${pid}/cmdline`).toString().split('\0').filter(Boolean) }
+  } catch (error) { return { pid, unavailable: error.code ?? 'unknown' } }
+}
+
+/** Playwright creates a detached Linux session. Ownership is captured before evaluating main/renderer. */
+function ownedLinuxGroup(child, group) {
+  const identity = linuxProcessIdentity(child.pid)
+  if (group !== child.pid || !Number.isSafeInteger(group) || group <= 1 || group === process.pid ||
+      !identity || identity.group !== group || identity.session !== group || identity.uid !== process.getuid())
+    throw new Error('Owned Linux process group requires its own live child group/session leader.')
+  const members = async () => {
+    const leader = linuxProcessIdentity(group)
+    if (leader && leader.startTicks !== identity.startTicks) throw new Error('Owned Linux group leader PID identity changed; refusing termination.')
+    const result = []
+    for (const name of await readdir('/proc')) {
+      if (!/^\d+$/.test(name)) continue
+      const pid = Number(name), member = linuxProcessIdentity(pid)
+      if (member?.group === group && member.session === group && member.uid === identity.uid && member.state !== 'Z') result.push(pid)
+    }
+    return result
+  }
+  return { members, async kill() {
+    if (!(await members()).length) return
+    try { process.kill(-group, 'SIGKILL') } catch (error) { if (error.code !== 'ESRCH') throw error }
+  } }
+}
+
 /** Attach the exit observer immediately after launch, before any renderer/main evaluation. */
 export function createDesktopCloser(options) {
   const { child, proxy, beforeClose, closeApplication, graceMs = 5000, killMs = 5000 } = options
+  const group = process.platform === 'linux' && options.ownedProcessGroup !== undefined ? ownedLinuxGroup(child, options.ownedProcessGroup) : undefined
   const hasExited = () => child.exitCode !== null || child.signalCode !== null
   let exitListener, closing
   const exited = hasExited() ? Promise.resolve() : new Promise(resolve => {
@@ -44,6 +84,7 @@ export function createDesktopCloser(options) {
   })
   const waitForExit = async signal => {
     await exited
+    if (group) while (!signal.aborted && (await group.members()).length) await new Promise(resolve => setTimeout(resolve, 25))
     // On Windows Playwright owns cmd.exe; Electron's real main PID can outlive it.
     if (process.platform === 'win32' && options.mainPid && options.mainPid !== child.pid)
       while (!signal.aborted && pidAlive(options.mainPid)) await new Promise(resolve => setTimeout(resolve, 25))
@@ -51,18 +92,24 @@ export function createDesktopCloser(options) {
   return () => {
     closing ??= (async () => {
       const errors = []
+      let forced = false
       try {
         await bounded(async signal => {
           try { await beforeClose() } catch (error) { errors.push(error) }
           if (signal.aborted) return
-          await closeApplication()
+          let closeError
+          try { await closeApplication() } catch (error) { closeError = error }
           await waitForExit(signal)
+          const normalExit = child.exitCode === 0 && child.signalCode === null
+          if (options.requireNormalExit && !normalExit) errors.push(new Error(`Desktop did not observe normal zero exit (${child.exitCode ?? child.signalCode}).`))
+          if (closeError && !(normalExit && options.expectedCloseError?.(closeError))) errors.push(closeError)
         }, graceMs, 'complete graceful desktop teardown')
       } catch (error) { errors.push(error) }
       try {
         const mainAlive = process.platform === 'win32' && options.mainPid && options.mainPid !== child.pid && pidAlive(options.mainPid)
-        if (!hasExited() || mainAlive) {
-          errors.push(new Error('Desktop required forced process-tree termination.'))
+        if (!hasExited() || mainAlive || (group && (await group.members()).length)) {
+          forced = true
+          errors.push(new Error(`Desktop required forced process-tree termination. Owned members: ${JSON.stringify(group ? (await group.members()).map(linuxProcessDiagnostic) : [])}`))
           await bounded(async signal => {
             if (process.platform === 'win32') {
               const pids = new Set([!hasExited() && child.pid, mainAlive && options.mainPid].filter(Boolean))
@@ -77,15 +124,18 @@ export function createDesktopCloser(options) {
                   })
                 })
               }
-            } else if (!child.kill('SIGKILL') && !hasExited()) throw new Error('Owned desktop child could not be killed.')
+            } else if (group) await group.kill()
+            else if (!child.kill('SIGKILL') && !hasExited()) throw new Error('Owned desktop child could not be killed.')
             await waitForExit(signal)
           }, killMs, 'owned desktop process-tree exit')
         }
       } catch (error) { errors.push(error) }
       finally {
+        if (options.artifactCleanup) { try { await bounded(() => options.artifactCleanup(), killMs, 'SDK desktop artifact cleanup after process exit') } catch (error) { errors.push(error) } }
         if (exitListener) child.removeListener('exit', exitListener)
         if (proxy) { try { await bounded(() => proxy.close(), killMs, 'deny proxy cleanup') } catch (error) { errors.push(error) } }
       }
+      if (options.onTeardown) options.onTeardown({ pid: child.pid, exitCode: child.exitCode, signalCode: child.signalCode, normalExit: child.exitCode === 0 && child.signalCode === null, forced, ownedRemaining: group ? await group.members() : hasExited() ? [] : [child.pid], errors: errors.map(error => error.message) })
       if (errors.length) throw new AggregateError(errors, 'Desktop teardown failed.')
     })()
     return closing
@@ -102,7 +152,7 @@ export async function withDesktopWorkspace(work) {
       workspaceUsers--
       if (workspaceUsers === 0) await rm(sdkTempRoot, { recursive: true, force: true })
     }
-  })
+  }, localRoot)
 }
 
 /** os.tmpdir is consumed by the SDK in this parent process at import/initialization time. */
@@ -169,26 +219,84 @@ export function selectDesktopExecutable(executable, environment = process.env) {
   return { executable: selected, packaged: true }
 }
 
-/** Read-only guard: never runs a candidate binary, creates a database or downloads Electron. */
-export async function preflightDesktop({ allowVisible = false, executable } = {}) {
-  if (allowVisible !== true) throw new DesktopUnavailable('Visible desktop launch requires --allow-visible.')
-  if (process.platform !== 'win32') throw new DesktopUnavailable('A visible target Windows environment is required; this host cannot execute the Windows desktop baseline.')
-  const selected = selectDesktopExecutable(executable)
-  let executablePath
-  try { executablePath = await realpath(selected.executable ?? require('electron')) }
-  catch { throw new DesktopUnavailable('Electron executable is unavailable; prepare the target installation or pass --executable.') }
+export function pathsMatch(actual, expected, platform = process.platform) {
+  return platform === 'win32' ? actual.toLowerCase() === expected.toLowerCase() : actual === expected
+}
+
+export function desktopBackend(platform = process.platform, environment = process.env, ozonePlatform) {
+  if (platform === 'win32') return 'windows'
+  if (platform !== 'linux') throw new DesktopUnavailable(`Unsupported desktop baseline platform: ${platform}.`)
+  if (ozonePlatform === 'wayland' || (!environment.DISPLAY?.trim() && environment.WAYLAND_DISPLAY?.trim()))
+    throw new DesktopUnavailable('Native Wayland floating annotations are unsupported; use the local workspace or X11/XWayland.')
+  if (ozonePlatform && ozonePlatform !== 'x11') throw new DesktopUnavailable('Unsupported Ozone platform for floating baseline.')
+  if (!environment.DISPLAY?.trim()) throw new DesktopUnavailable('Linux floating baseline requires an X11/XWayland DISPLAY.')
+  return 'x11'
+}
+
+export function desktopSandboxOptions(diagnosticNoSandbox = false) {
+  if (typeof diagnosticNoSandbox !== 'boolean') throw new TypeError('diagnosticNoSandbox must be boolean.')
+  return { chromiumSandbox: !diagnosticNoSandbox, mode: diagnosticNoSandbox ? 'diagnostic-no-sandbox' : 'normal', kernelSandboxVerified: false }
+}
+
+/** Inspect bytes and permissions only; never execute candidate runtime images. AppImage containers require extraction. */
+export async function validateDesktopBinary(executablePath, platform = process.platform, arch = process.arch) {
   const file = await open(executablePath, 'r').catch(() => { throw new DesktopUnavailable('Electron executable cannot be read.') })
   try {
     const header = Buffer.alloc(64)
     const { bytesRead } = await file.read(header, 0, header.length, 0)
+    if (platform === 'linux') {
+      if (bytesRead !== 64 || !header.subarray(0, 4).equals(Buffer.from([127, 69, 76, 70]))) throw new DesktopUnavailable('Executable is not a runnable Linux ELF image; extract AppImage before baseline testing.')
+      const machines = { x64: [2, 62], arm64: [2, 183], ia32: [1, 3] }, expected = machines[arch]
+      if (!expected || header[4] !== expected[0] || header[5] !== 1 || header[6] !== 1 || header.readUInt16LE(18) !== expected[1] ||
+          ![2, 3].includes(header.readUInt16LE(16)) || header.readUInt32LE(20) !== 1) throw new DesktopUnavailable('Linux ELF architecture/format does not match this host.')
+      await access(executablePath, constants.X_OK).catch(() => { throw new DesktopUnavailable('Linux ELF lacks executable permission.') })
+      return { format: 'ELF', arch }
+    }
+    if (platform !== 'win32') throw new DesktopUnavailable('Unsupported executable platform.')
     if (bytesRead !== 64 || header.toString('ascii', 0, 2) !== 'MZ') throw new DesktopUnavailable('Executable is not a runnable Windows PE image.')
-    const signature = Buffer.alloc(4)
-    await file.read(signature, 0, 4, header.readUInt32LE(60))
-    if (!signature.equals(Buffer.from([80, 69, 0, 0]))) throw new DesktopUnavailable('Executable has no valid Windows PE signature.')
+    const signature = Buffer.alloc(6)
+    const result = await file.read(signature, 0, 6, header.readUInt32LE(60))
+    if (result.bytesRead !== 6 || !signature.subarray(0, 4).equals(Buffer.from([80, 69, 0, 0]))) throw new DesktopUnavailable('Executable has no valid Windows PE signature.')
+    const machine = { x64: 0x8664, arm64: 0xaa64, ia32: 0x14c }[arch]
+    if (!machine || signature.readUInt16LE(4) !== machine) throw new DesktopUnavailable('Windows PE architecture does not match this host.')
+    return { format: 'PE', arch }
   } finally { await file.close() }
+}
+
+export function desktopLaunchArgs({ platform = process.platform, env = process.env, packaged = false, args = [] } = {}) {
+  return packaged ? [...args] : linuxLaunchArgs(platform, env, args)
+}
+
+/** Select the normal packaged launcher without executing it; expected runtime remains the ELF. */
+export async function validateLinuxAppRun(executablePath) {
+  const appDirectory = await realpath(path.dirname(executablePath))
+  let launcher
+  try { launcher = await realpath(path.join(appDirectory, 'AppRun')) }
+  catch (error) { throw new DesktopUnavailable('Linux packaged mode requires its adjacent AppRun.', { cause: error }) }
+  const relative = path.relative(appDirectory, launcher)
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative))
+    throw new DesktopUnavailable('Linux AppRun escapes outside the actual app directory.')
+  if (!(await stat(launcher)).isFile()) throw new DesktopUnavailable('Linux AppRun must be a regular file.')
+  await access(launcher, constants.X_OK).catch(error => { throw new DesktopUnavailable('Linux AppRun requires executable permission.', { cause: error }) })
+  return launcher
+}
+
+/** Read-only guard: never runs a candidate binary, creates a database or downloads Electron. */
+export async function preflightDesktop({ allowVisible = false, executable, diagnosticNoSandbox = false, ozonePlatform } = {}) {
+  if (allowVisible !== true) throw new DesktopUnavailable('Visible desktop launch requires --allow-visible.')
+  const backend = desktopBackend(process.platform, process.env, ozonePlatform)
+  const sandbox = desktopSandboxOptions(diagnosticNoSandbox)
+  if (diagnosticNoSandbox) await verifyOwnedX11()
+  const selected = selectDesktopExecutable(executable)
+  let executablePath
+  try { executablePath = await realpath(selected.executable ?? require('electron')) }
+  catch { throw new DesktopUnavailable('Electron executable is unavailable; prepare the target installation or pass --executable.') }
+  const binary = await validateDesktopBinary(executablePath)
+  let launchExecutablePath = executablePath
   if (selected.packaged) {
     await access(path.join(path.dirname(executablePath), 'resources/app.asar'))
       .catch(() => { throw new DesktopUnavailable('Packaged mode requires the executable and its sibling resources/app.asar.') })
+    if (process.platform === 'linux') launchExecutablePath = await validateLinuxAppRun(executablePath)
   } else {
     try {
       await access('dist-electron/electron/main.mjs')
@@ -201,7 +309,35 @@ export async function preflightDesktop({ allowVisible = false, executable } = {}
   } catch { throw new DesktopUnavailable('Current compiled fixture repositories are unavailable; run npm run build:electron explicitly.') }
   try { require.resolve('@playwright/test') }
   catch { throw new DesktopUnavailable('The existing Playwright development dependency is unavailable.') }
-  return { executablePath, packaged: selected.packaged }
+  return { executablePath, launchExecutablePath, packaged: selected.packaged, backend, binary, sandbox }
+}
+
+/** Native input and no-sandbox diagnostics are restricted to the recorded task-owned virtual X server. */
+export async function verifyOwnedX11(environment = process.env) {
+  if (process.platform !== 'linux' || !/^:(?:9\d|[1-9]\d{2})(?:\.0)?$/.test(environment.DISPLAY ?? ''))
+    throw new DesktopUnavailable('Owned X11 diagnostics require a virtual DISPLAY 90+.')
+  const marker = path.resolve('tmp/linux-desktop-20261114/test-display/state/owner.json')
+  let record
+  try { record = JSON.parse(await readFile(marker, 'utf8')) } catch { throw new DesktopUnavailable('Owned X11 lifecycle marker is unavailable.') }
+  const identity = linuxProcessIdentity(record.pid)
+  const command = await readFile(`/proc/${record.pid}/cmdline`).then(bytes => bytes.toString().split('\0').filter(Boolean)).catch(() => [])
+  const exe = await realpath(`/proc/${record.pid}/exe`).catch(() => '')
+  const auth = path.join(path.dirname(marker), 'Xauthority')
+  if (record.display !== environment.DISPLAY || record.identity?.start_ticks !== identity?.startTicks || identity?.uid !== process.getuid() ||
+      record.identity?.exe !== exe || !exe.startsWith(path.resolve('tmp/linux-desktop-20261114/test-display/extracted') + path.sep) ||
+      !isDeepStrictEqual(command, record.identity?.cmdline) || !command.includes(record.display) || !command.includes(auth) ||
+      !environment.XAUTHORITY || !pathsMatch(await realpath(environment.XAUTHORITY), await realpath(auth)))
+    throw new DesktopUnavailable('Owned X11 lifecycle identity/authentication does not match; refusing native input or no-sandbox diagnostics.')
+  if (environment.WAYLAND_DISPLAY) {
+    if (environment.WAYLAND_DISPLAY !== 'wayland-owned-probe' || environment.XDG_RUNTIME_DIR !== record.runtime_alias ||
+        !pathsMatch(await realpath(record.runtime_alias), await realpath(path.join(path.dirname(marker), 'runtime'))))
+      throw new DesktopUnavailable('Wayland diagnostics require the nonexistent owned probe socket in the recorded runtime alias.')
+    try {
+      await lstat(path.join(record.runtime_alias, environment.WAYLAND_DISPLAY))
+      throw new DesktopUnavailable('Wayland probe socket path already exists; refusing diagnostics.')
+    } catch (error) { if (error.code !== 'ENOENT') throw error }
+  }
+  return { display: record.display, serverPid: record.pid, marker, xauthority: auth, runtimeAlias: record.runtime_alias }
 }
 
 async function ownedDirectory(directory) {
@@ -328,7 +464,7 @@ async function proveOffline(session, proxy) {
     if (!navigationRequests.length || hits !== 0 || proxy.overflow) throw new Error('Initial lazy navigation proxy control failed.')
     const lazyNavigation = { target: navigationUrl, proxyRequests: navigationRequests.map(request => ({ ...request })) }
     const beforePage = proxy.requests.length
-    const pageResult = await session.app.evaluate(async ({ BrowserWindow }, target) => {
+    const pageResult = await session.app.evaluate(async ({ BrowserWindow, session: sessions }, target) => {
       const state = globalThis.__mindnotesBaselineIsolation
       await Promise.all(state.pending)
       const shellWindow = BrowserWindow.getAllWindows().find(window => {
@@ -336,11 +472,17 @@ async function proveOffline(session, proxy) {
         return address.startsWith('file:') && !new URL(address).searchParams.has('surface')
       })
       const page = shellWindow?.contentView.children.find(view => 'webContents' in view)?.webContents
-      if (!page || page.getLastWebPreferences().partition !== 'persist:mindnotes-pages' || !state.sessions.has(page.session))
-        throw new Error('Actual lazy page session was not observed.')
+      if (!page || !state.sessions.has(page.session))
+        throw new Error(`Actual lazy page session was not observed: ${JSON.stringify({ shellId: shellWindow?.id, childCount: shellWindow?.contentView.children.length, pageId: page?.id, observed: page ? state.sessions.has(page.session) : false, sessionCount: state.sessions.size })}`)
+      // Electron 43 may omit partition from serialized preferences. Only after the
+      // actual lazy view/session exists may we compare its session object identity.
+      const preferencePartition = page.getLastWebPreferences().partition
+      const partition = 'persist:mindnotes-pages'
+      if (preferencePartition === undefined ? page.session !== sessions.fromPartition(partition) : preferencePartition !== partition)
+        throw new Error('Actual lazy page session does not match the persistent page partition.')
       const route = await page.session.resolveProxy(target)
       const response = await page.session.fetch(target).then(value => value.status, () => 0)
-      return { route, response, partition: page.getLastWebPreferences().partition }
+      return { route, response, partition, partitionEvidence: preferencePartition === undefined ? 'actual-session-identity' : 'serialized-preferences', pageId: page.id }
     }, pageUrl)
     const pageControl = proxyControlEvidence(proxy, beforePage, pageUrl, pageResult, hits)
     await session.app.evaluate(async () => {
@@ -359,30 +501,48 @@ async function proveOffline(session, proxy) {
   }
 }
 
-export async function launchIsolated({ directory, executable, offline = false, allowVisible = false }) {
-  const ready = await preflightDesktop({ allowVisible, executable })
+export async function launchIsolated({ directory, executable, offline = false, allowVisible = false, diagnosticNoSandbox = false, ozonePlatform }) {
+  const ready = await preflightDesktop({ allowVisible, executable, diagnosticNoSandbox, ozonePlatform })
   directory = await ownedDirectory(directory)
   if (!workspaceUsers) throw new Error('Desktop SDK launch requires withDesktopWorkspace to own its complete artifact lifetime.')
   const env = {}
   for (const [key, value] of Object.entries(process.env))
     if (value !== undefined && !['ELECTRON_RUN_AS_NODE', 'MINDNOTES_START_WORKSPACE', 'NODE_OPTIONS'].includes(key)) env[key] = value
   Object.assign(env, { MINDNOTES_USE_DIST: '1', MINDNOTES_USER_DATA_DIR: directory, TEMP: directory, TMP: directory, TMPDIR: directory })
-  let app, proxy, applicationClose
+  if (process.platform === 'linux' && ready.packaged) env.APPDIR = path.dirname(ready.executablePath)
+  let app, proxy, applicationClose, tempAlias
+  // Chromium's Unix SingletonSocket cannot use the workspace's long UTF-8 path.
+  // Reuse only the lifecycle-checked virtual-server alias; its target stays inside this task.
+  if (process.platform === 'linux' && diagnosticNoSandbox) {
+    const owned = await verifyOwnedX11()
+    const expected = path.resolve('tmp/linux-desktop-20261114/test-display/state/runtime')
+    if (!owned.runtimeAlias || !pathsMatch(await realpath(owned.runtimeAlias), await realpath(expected)))
+      throw new DesktopUnavailable('Owned virtual runtime alias does not point inside this task.')
+    tempAlias = path.join(owned.runtimeAlias, `desktop-${randomUUID().slice(0, 8)}`)
+    await symlink(directory, tempAlias, 'dir')
+    Object.assign(env, { TEMP: tempAlias, TMP: tempAlias, TMPDIR: tempAlias })
+  }
+  const teardown = { pid: undefined, exitCode: null, signalCode: null, normalExit: false, forced: false, errors: [] }
   const lifecycle = {}
   const close = async () => {
-    if (applicationClose) return applicationClose()
-    if (proxy) await proxy.close()
+    try {
+      if (applicationClose) return await applicationClose()
+      if (proxy) await proxy.close()
+    } finally { if (tempAlias) { await rm(tempAlias, { force: true }); tempAlias = undefined } }
   }
   try {
     if (offline) proxy = await startDenyProxy()
-    const args = ready.packaged ? [] : ['.']
-    if (proxy) args.push(`--proxy-server=http://127.0.0.1:${proxy.port}`, '--proxy-bypass-list=<-loopback>')
+    const requestedArgs = ready.packaged ? [] : ['.']
+    if (!ready.packaged && ozonePlatform) requestedArgs.push(`--ozone-platform=${ozonePlatform}`)
+    if (proxy) requestedArgs.push(`--proxy-server=http://127.0.0.1:${proxy.port}`, '--proxy-bypass-list=<-loopback>')
+    const args = desktopLaunchArgs({ packaged: ready.packaged, env, args: requestedArgs })
     const start = performance.now()
     app = await withDesktopTempDirectory(sdkTempRoot, async () => {
       const { _electron } = await import('@playwright/test')
-      return _electron.launch({ executablePath: ready.executablePath, args, env, timeout: 30000 })
+      return _electron.launch({ executablePath: ready.launchExecutablePath, args, env, chromiumSandbox: ready.sandbox.chromiumSandbox, timeout: 30000 })
     })
-    Object.assign(lifecycle, { child: app.process(), proxy,
+    teardown.pid = app.process().pid
+    Object.assign(lifecycle, { child: app.process(), proxy, ownedProcessGroup: process.platform === 'linux' ? app.process().pid : undefined,
       beforeClose: async () => {
         const errors = []
         try {
@@ -398,13 +558,25 @@ export async function launchIsolated({ directory, executable, offline = false, a
           delete globalThis.__mindnotesBaselineIsolation
         }) } catch (error) { errors.push(error) }
         if (errors.length) throw new AggregateError(errors, 'Desktop pre-close cleanup failed.')
-      }, closeApplication: () => app.close() })
+      },
+      closeApplication: async () => {
+        const toolbar = app.windows().find(page => page.url().includes('surface=toolbar'))
+        if (toolbar) await toolbar.evaluate(() => window.mindnotesFloating.command('quit'))
+        else await app.evaluate(({ app: electronApp }) => electronApp.quit())
+      },
+      requireNormalExit: true,
+      expectedCloseError: error => /Target(?: page, context or browser)? (?:has been )?closed|Target page, context or browser has been closed|Execution context was destroyed/i.test(error.message),
+      artifactCleanup: () => app.close(),
+      onTeardown: observation => Object.assign(teardown, observation) })
     applicationClose = createDesktopCloser(lifecycle)
-    const actual = await app.evaluate(({ app: electronApp }) => ({ directory: electronApp.getPath('userData'), packaged: electronApp.isPackaged, mainPid: process.pid }))
+    const actual = await app.evaluate(({ app: electronApp }) => ({ directory: electronApp.getPath('userData'), packaged: electronApp.isPackaged, mainPid: process.pid, executablePath: process.execPath, argv: process.argv, ozonePlatform: electronApp.commandLine.getSwitchValue('ozone-platform') }))
     if (!Number.isSafeInteger(actual.mainPid) || actual.mainPid <= 0) throw new Error('Electron main PID was not captured.')
     lifecycle.mainPid = actual.mainPid
-    if ((await realpath(actual.directory)).toLowerCase() !== directory.toLowerCase()) throw new Error('Electron userData does not match the isolated task directory.')
+    if (!pathsMatch(await realpath(actual.directory), directory)) throw new Error('Electron userData does not match the isolated task directory.')
     if (actual.packaged !== ready.packaged) throw new Error('Actual app packaging mode differs from the requested launch mode.')
+    const actualExecutablePath = await realpath(actual.executablePath)
+    if (!pathsMatch(actualExecutablePath, ready.executablePath)) throw new Error('Actual Electron runtime is not the preflight-verified ELF/executable.')
+    if (ready.backend === 'x11' && actual.ozonePlatform !== 'x11') throw new Error('Actual early Electron Ozone selection is not X11.')
     const surface = name => waitUntil(() => app.windows().find(page => {
       try { return new URL(page.url()).searchParams.get('surface') === name } catch { return false }
     }), Boolean, `${name} window`)
@@ -416,6 +588,10 @@ export async function launchIsolated({ directory, executable, offline = false, a
     await toolbar.getByRole('toolbar', { name: '悬浮批注工具条' }).waitFor({ state: 'visible' })
     await overlay.locator('.screen-ink-canvas').waitFor({ state: 'attached' })
     const result = { app, toolbar, overlay, directory, close,
+      runtime: { teardown, backend: ready.backend, sessionType: env.XDG_SESSION_TYPE ?? '', display: env.DISPLAY ?? '',
+        executablePath: ready.executablePath, launchExecutablePath: ready.launchExecutablePath, actualExecutablePath,
+        launchArguments: args, actualArguments: actual.argv, ozonePlatform: actual.ozonePlatform, binary: ready.binary, sandbox: { ...ready.sandbox, actualSwitches: app.process().spawnargs,
+          securityScope: diagnosticNoSandbox ? 'Owned virtual X11 diagnostic only; Chromium OS process sandbox disabled. Renderer preference sandbox/contextIsolation is not kernel sandbox evidence.' : 'Chromium sandbox explicitly requested; launch success alone does not verify kernel/helper sandbox enforcement.' } },
       timings: { launchToBubbleReadyMs, expandToolbarMs: performance.now() - expandStart } }
     if (proxy) result.offlineEvidence = await proveOffline(result, proxy)
     return result

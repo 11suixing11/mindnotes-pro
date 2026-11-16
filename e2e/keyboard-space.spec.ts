@@ -15,6 +15,7 @@ test.describe('Space 键原生交互回归', () => {
     await page.getByRole('button', { name: '展开图层' }).click()
     await page.getByRole('button', { name: '重命名 图层 1' }).click()
     const layerName = page.getByRole('textbox', { name: '重命名 图层 1' })
+    await expect(layerName).toBeFocused()
     await layerName.fill('')
     await layerName.pressSequentially('Project Layer')
     await expect(layerName).toHaveValue('Project Layer')

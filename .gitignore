@@ -47,6 +47,7 @@ debug-*.js
 
 # Performance benchmark output
 benchmark/results/
+tmp-*.json
 
 # Test screenshots & PDFs (root level)
 *.pdf
@@ -107,7 +108,6 @@ vercel.json
 .github/architecture.svg
 .github/demo.svg
 .github/features.svg
-.github/metrics.svg
 stats.html
 
 # Local browser inspection artifacts
