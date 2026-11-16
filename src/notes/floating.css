@@ -1,0 +1,305 @@
+html:has(.floating-toolbar-surface),
+html:has(.screen-ink-surface),
+body:has(.floating-toolbar-surface),
+body:has(.screen-ink-surface) {
+  background: transparent !important;
+  margin: 0;
+  overflow: hidden;
+}
+.floating-toolbar-surface {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100vw;
+  height: 100vh;
+  padding: 8px;
+  color: #283d32;
+  font-family: 'Noto Sans SC', 'Segoe UI', sans-serif;
+  font-size: 12px;
+  user-select: none;
+}
+.floating-toolbar-surface * {
+  box-sizing: border-box;
+}
+.floating-toolbar-surface button {
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-app-region: no-drag;
+}
+.floating-toolbar-surface button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.floating-toolbar-surface button:focus-visible {
+  outline: 2px solid #3979cf;
+  outline-offset: -2px;
+}
+.floating-toolbar {
+  height: 62px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border: 1px solid #d6e1d7;
+  background: #fcfdfa;
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 2px 8px #16302420;
+}
+.floating-drag-handle {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 48px;
+  flex-shrink: 0;
+  color: #88978b;
+  cursor: grab;
+  -webkit-app-region: drag;
+}
+.floating-tool {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 48px;
+  min-height: 48px;
+  flex-shrink: 0;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #596a5e;
+  white-space: nowrap;
+  font-size: 11px !important;
+}
+.floating-tool:hover,
+.floating-brush-toggle:hover {
+  background: #eaf0e8;
+  color: #264c37;
+}
+.floating-tool.is-active {
+  color: #fff;
+  background: #3f6552;
+}
+.floating-save {
+  width: 67px;
+}
+.floating-brush-toggle {
+  width: 44px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: #617466;
+  border: 0;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.floating-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  flex-shrink: 0;
+  padding: 0 12px;
+  background: #f0f5ec;
+  border: 1px solid #d6e1d7;
+  border-top: 0;
+  border-radius: 0 0 14px 14px;
+}
+.floating-status.is-error {
+  background: #fff1e9;
+}
+.floating-status button {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #a34f27;
+  min-width: 44px;
+  min-height: 44px;
+}
+.floating-mode-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #5d705c;
+}
+.floating-shortcut {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: #7b8b78;
+}
+.floating-panel {
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid #d6e1d7;
+  background: #fcfdfa;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px #16302420;
+}
+.floating-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+}
+.floating-panel-close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: #65766a;
+}
+.floating-brush-types {
+  display: flex;
+  gap: 8px;
+  margin: 5px 0;
+}
+.floating-brush-types button,
+.floating-more-grid button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid #dce6d9;
+  border-radius: 8px;
+  background: #f4f7f1;
+  color: #465f4b;
+}
+.floating-brush-types button {
+  flex: 1;
+}
+.floating-brush-types button[aria-pressed='true'] {
+  border-color: #3f6552;
+  color: #2c513a;
+  background: #e7efdf;
+}
+.floating-colors {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin: 5px 0;
+}
+.floating-colors button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+}
+.floating-colors button[aria-pressed='true'] {
+  border-color: #506d50;
+  background: #eef3e8;
+}
+.floating-colors span {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+}
+.floating-widths {
+  display: flex;
+  gap: 8px;
+}
+.floating-widths button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  border: 1px solid #dce6d9;
+  border-radius: 8px;
+  background: #f4f7f1;
+  color: #58704e;
+}
+.floating-widths button[aria-pressed='true'] {
+  background: #e7efdf;
+  border-color: #3f6552;
+}
+.floating-widths span {
+  border-radius: 50%;
+  background: currentColor;
+}
+.floating-more-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 0 2px;
+}
+.floating-collapsed {
+  padding: 7px;
+}
+.floating-bubble {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 49px;
+  height: 49px;
+  border: 1px solid #b7cbbc;
+  border-radius: 16px;
+  background: #3f6552;
+  color: white;
+  box-shadow: 0 2px 6px #14342340;
+}
+.floating-bubble:hover {
+  background: #2e5240;
+}
+.floating-bubble-dot {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  background: #f8d978;
+  border-radius: 50%;
+}
+.floating-bubble-dot.is-error {
+  background: #ff927d;
+}
+.floating-bubble-grip {
+  position: absolute;
+  right: 2px;
+  top: 18px;
+  color: #66846d;
+  cursor: grab;
+  -webkit-app-region: drag;
+}
+.floating-toolbar-error {
+  display: flex;
+  min-height: 75px;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  border-radius: 16px;
+  background: #fcfdfa;
+}
+.floating-toolbar-error button {
+  border: 1px solid #b7cbbc;
+  border-radius: 6px;
+  padding: 6px 12px;
+  background: #eef3ed;
+  min-height: 44px;
+}
+.screen-ink-surface,
+.screen-ink-canvas {
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+  overflow: hidden;
+}
+.screen-ink-canvas {
+  display: block;
+  touch-action: none;
+  user-select: none;
+}

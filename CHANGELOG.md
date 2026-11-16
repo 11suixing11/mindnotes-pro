@@ -7,6 +7,225 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0-beta.12] - 2026-11-12
+
+Local acceptance candidate; not released or production qualified.
+
+### Fixed
+
+- Wait for a durable webpage-backup import before reporting success. Failed imports retain merged notes for editable JSON or Markdown recovery export, and pending imports participate in the close handshake.
+- Show a persistent notice when webpage notes are recovered from the previous saved copy, explaining that recent edits may be missing. Keep storage failures visible alongside later operation receipts.
+
+### Validation
+
+- The unchanged beta.11 executable reproduced a success message while import storage failed, and silent fallback to an earlier page copy. Eight isolated recovery-mechanics stages passed, with original files preserved and exact backup reimport, but the candidate failed on these two feedback defects. Original artifacts and reports are preserved.
+- Four component and sixteen real-storage tests pass, including failed import, successful retry, concurrent edits and persistent recovery feedback. Final source checks, independently packaged regressions, visible desktop journeys and production gates are tracked in the production-readiness report.
+- Built Setup and Portable from the main repository: 58 matching production assets, 15 complete runtime dependencies and matching executable/archive payloads. Current source passes 1,283 unit and 16 storage tests; 58 web journeys pass. The actual executable passes 8 hidden integration, 8 storage-fault recovery and 10 crash-recovery stages. Visible desktop, sustained-input and physical-device gates remain pending; signing remains deferred.
+- Source inventories now record deleted Git paths separately, and desktop evidence uses each test's output directory. Focused tool lint and E2E typechecks pass. A prepared storage-fault runner first exited on a removed manifest path; its original log is preserved and a task-local adaptation passed against the verified package.
+
+## [6.0.0-beta.11] - 2026-11-11
+
+Local candidate in preparation; not released or production qualified.
+
+### Fixed
+
+- Show unavailable shortcut feedback when global registration fails. Bubble and collapse hints explain manual button operation, and recovered-draft guidance remains visible in the hint.
+
+### Validation
+
+- A hidden actual beta.10 executable confirmed that registration returned false while the expanded toolbar still displayed Alt+Shift+M. Buttons remained inside the window and their DOM centers remained reachable; no native or visual claim is made.
+- Two focused component cases pass after fixing one unsupported test matcher. Source and independent candidate each pass 1,281 unit, 12 real-storage tests and 58 web journeys. Windows packaging, actual hidden-executable recovery, pointer ownership, released endpoints, library retry, long errors, permission refusal and shortcut feedback pass. The 32 visible desktop journeys, sustained load, physical pen and distribution lifecycle remain pending; beta.10 binaries, copied source and delivery are preserved.
+
+## [6.0.0-beta.10] - 2026-11-11
+
+Independently packaged and hidden package checks passed for local acceptance; visible desktop and production gates remain pending.
+
+### Fixed
+
+- Keep library retry and screen-note recovery buttons inside the minimum workspace when storage errors contain long file paths. Text wraps without shrinking the controls.
+- Add minimum-window recovery journeys for direct library retry and exporting/retrying unsaved screen-note edits. The beta.9 executable reproduced the original off-window controls; its binaries and evidence remain preserved.
+
+### Validation
+
+- Source and independent candidate checks passed 1,279 unit and 12 real-storage tests, types, boundaries and build; both web runs passed 58 journeys. Independent Setup/Portable have 58 matching production assets, 15 complete runtime dependencies and matching executable/archive payloads. All three executables remain unsigned.
+- Hidden actual-executable integration, pointer ownership, nine endpoint/capture cases, eight-stage library recovery and four-stage minimum-window long-error recovery passed, with exact restarts. Packaged storage and actual remote-page permission refusal passed. Eleven renderer PNGs were generated without an effective manual visual pass.
+- The endpoint helper first timed out waiting for persisted ink, including a readiness-adjusted retry. Capture/release/focus/button diagnostics traced this to omitted `button: 'left'` on held-button CDP moves. Correcting only that input parameter passed all nine cases on the unchanged package; original failures and diagnostics remain preserved. Generated fixtures and hidden CDP actions do not establish native input or compositor acceptance.
+- All 32 visible desktop journeys are prepared and unexecuted. Public sites, both ordinary fullscreen displays, distribution lifecycle, sustained input/idle/recovery, physical pen and other production gates remain pending for this package.
+
+## [6.0.0-beta.9] - 2026-11-11
+
+Independently packaged for local acceptance; visible final-package workflows and production gates remain pending.
+
+### Fixed
+
+- Return to the last valid library page after trashing or restoring its only remaining note; pagination describes the displayed result while another request is pending.
+- Offer direct retry after failed library reads, distinguish failed reads from empty results, and clear read errors after successful recovery without losing operation receipts.
+- Retain cached notes only for the same query and trash scope. Webpage-only filtering does not depend on reading screen storage.
+
+### Validation
+
+- The actual hidden beta.8 exe reproduced all four original library defects using 51 isolated valid notes and a transient trusted-IPC rejection; original package and delivery files remain unchanged.
+- Original implementation failed 10 of 11 focused component cases. The repaired implementation passes 13, including trash restoration, zero-count and search-scope boundaries.
+- Source and independent full checks pass 1,279 unit and 12 real-storage tests, types, module boundaries and build, with 0 lint errors and 63 existing warnings. Both web runs pass 58 journeys; production dependencies have no known advisories at the recorded time.
+- Independent Setup and Portable payloads match the unpacked exe and asar; 58 production assets and 15 required runtime dependencies are verified. Hidden actual-executable integration, pointer and released-endpoint regressions, eight-stage library recovery, packaged storage and remote permissions pass. Thirty visible desktop journeys are listed but have not run.
+- Preserve the initial source typecheck failure and initial library diagnostic selector failure. Corrected complete reruns pass; neither original failure is rewritten as a passing run.
+
+## [6.0.0-beta.8] - 2026-11-11
+
+Independently built for local acceptance; later reproduced library defects superseded this candidate. Original passing checks remain historical.
+
+### Fixed
+
+- Preserve the released endpoint of screen, saved-screen and webpage ink, including rapid lines without a delivered move event. Screen erasing also includes the final released segment.
+- Ignore interrupted pointer-capture acquisition in both screen renderers instead of throwing an uncaught error. Secondary touch starts cannot create a stroke when the primary contact began elsewhere.
+
+### Validation
+
+- The actual hidden beta.7 exe independently reproduced three dropped release endpoints and two uncaught capture errors. Its prior checks remain historical, and it is no longer the production candidate.
+- Source and independent checks passed all 1,266 unit tests, 12 real-storage checks, types, module boundaries and build. The initial source check reported 116 lint warnings; formatting the seven changed files reduced this to the existing 63, with no errors. The 16 screen gesture cases passed.
+- The independent package has 58 matching production assets, all 15 required runtime dependencies and matching Setup/Portable payloads. Hidden actual-executable integration, pointer ownership, nine endpoint/capture cases, exact restarts, packaged storage and remote permissions passed.
+- The independent web run initially passed 57/58. Waiting for the injected SVG and two paint frames corrected CDP test readiness; the full 58 journeys then passed on unchanged candidate assets. Original failure, diagnostics and copied source remain preserved. Runtime capture-loss cancellation was retained. The 28 visible desktop journeys, sustained input, physical pen and distribution lifecycle remain pending; hidden CDP and generated fixtures do not constitute hardware or visible-compositor acceptance.
+
+## [6.0.0-beta.7] - 2026-11-11
+
+Prepared for independent local acceptance; not a published or signed stable release.
+
+### Fixed
+
+- A second webpage touch no longer replaces an active ink gesture or creates another point note. Unrelated pointer cancellation no longer discards ink in the webpage overlay, floating screen layer or saved-screen editor.
+- Interrupted webpage strokes now discard their unsaved preview and release pointer capture when the owned pointer is cancelled, capture is lost, browsing resumes, Escape is pressed, or the page loses focus or becomes hidden. Delayed lost-capture events leave a newer captured gesture intact.
+
+### Validation
+
+- Full checks passed all 1,256 unit and 12 storage tests; 56 web journeys passed. The independently built package has matching production assets, runtime dependencies and distribution payloads. Actual-executable hidden integration and pointer/restart checks, packaged storage and permissions passed. CDP browser capture, synthetic interruption cases and generated fixtures do not constitute native hardware acceptance. Visible desktop, sustained-load, physical pen and distribution acceptance remain pending.
+- The preserved beta.6 executable and its earlier passing results remain version-specific evidence. Its pointer defects were independently reproduced from the candidate injection; it is no longer the production candidate.
+
+## [6.0.0-beta.6] - 2026-11-11
+
+Built locally; core visible workflows passed, while sustained-load recovery, hardware and remaining production gates are pending.
+
+### Fixed
+
+- Damaged screen-backup syntax now shows a Chinese recovery instruction. Image validation and storage errors keep their original meaning; streamed-import failures still roll back every partial entry.
+- Explicitly deny reading-page permission checks and requests, device access and display capture. The previous remote session relied on Electron defaults, which approve permission requests.
+
+### Validation
+
+- Current source passed all 1,250 unit tests, 12 real-storage checks, lint, types, module boundaries and build; 47 website/compatibility journeys passed. Hidden packaged-main and actual-executable integration confirmed permission denial and note persistence. The 58 production assets and both executable payloads match; required runtime dependencies are complete. The actual candidate exe passed 24 visible desktop journeys, three public sites and both ordinary fullscreen displays. Actual Portable and installer upgrade/reinstall/uninstall recovery passed. Sustained-load recovery and hardware remain pending. Existing beta.5 evidence stays historical and does not include these corrections.
+- An initial independent build with linked dependencies omitted required transitive packages and was rejected before delivery. Artifact verification now checks the actual archived dependency tree; the candidate was rebuilt with a full local dependency installation.
+
+## [6.0.0-beta.5] - 2026-11-11
+
+Prepared locally for renewed acceptance; not a published or signed stable release.
+
+### Fixed
+
+- Reapply the floating toolbar native shape after display moves and display-metrics changes. Windows retained a physical 150% input region after moving to a 100% display, leaving visible buttons outside the region. The host size remains fixed.
+
+### Validation
+
+- Mixed-DPI desktop acceptance now verifies the toolbar with native hit-testing after each display switch, including restart. Fullscreen diagnostics record actual window regions and rendered control bounds. The final beta.5 package passed all 23 desktop tests, secondary-display ordinary fullscreen, three public articles, Portable and installer lifecycle acceptance; sustained-load and hardware gates remain tracked in `PRODUCTION_READINESS_CN.md`.
+
+## [6.0.0-beta.4] - 2026-11-11
+
+Prepared locally for acceptance; not a signed stable release.
+
+### Fixed
+
+- The floating option panel no longer resizes the transparent compositor window on every toggle. A fixed host keeps the toolbar stationary; native shaping releases input through the unused upper region. The reported option-panel flash was reproduced, and the user confirmed it resolved with a GAOMON 1060 Pro test.
+- Toolbar controls retain their full height when panels open. Existing saved toolbar positions restore at the same visible location.
+- Screen capture restores controls once the image is ready while the note continues saving, reducing the time controls remain hidden. A frozen-note save no longer hides windows for an unnecessary capture.
+
+### Validation
+
+- Added actual native hit-testing for panel input regions and stationary controls, alongside the existing capture, display, persistence and webpage regressions. The final beta.4 executable passed all 23 desktop tests after shared-input coordination and integer test-position correction; previous failed runs remain in the report.
+- Preserved partial beta.3 Windows Ink pen input, erasing, undo and exact draft-recovery evidence from the connected GAOMON tablet. The user confirmed the menu fix on source production assets; beta.4 package hardware acceptance remains separate in `PRODUCTION_READINESS_CN.md`.
+
+## [6.0.0-beta.3] - 2026-11-11
+
+Prepared locally for production acceptance; not a published or signed stable release.
+
+### Added
+
+- SQLite worker persistence for completed screen gestures and frozen backgrounds, restart/crash recovery, and a unified screen/webpage note library.
+- Editable screen snapshots with original pixels, independent ink, source/time, conclusions, search, recoverable trash and PNG/Markdown/JSON export.
+- Streamed screen-library backups and single-transaction import with whole-file, image, size and duplicate-ID validation; draft backup/restore and current-unsaved-edit recovery export.
+- Native save-failure close cancellation, retry, and explicit confirmation for abnormal exit.
+- Real persistence/migration/failure tests and large-note Electron performance measurements.
+- Real mixed-DPI display, native changing-screen capture, sustained pointer-input and public-article acceptance evidence.
+
+### Changed
+
+- Launch from a small floating button; separate brush and more panels; 44px controls in screen and webpage workflows.
+- Treat desktop explanation and webpage reading as equal workflows, with a common library and local reuse.
+- Combine consecutive screen edits over 120ms, transfer changed fields, return small save receipts and reuse rendered ink during text/pointer updates.
+- Load only the active desktop surface; keep the legacy whiteboard and its store/export modules asynchronous.
+- Show an explicit position status when webpage content is missing, hidden, rewritten or ambiguous. Preserve editable notes while hiding uncertain page marks, and restore them when the original content returns.
+- Describe capture source as the visible root window at the captured display's center, rather than the unrelated keyboard-focus window.
+
+### Fixed
+
+- Large screen-note typing no longer queues a full geometry copy per character. A 160,000-point fixture changed from roughly 19s input / 34s save to 147ms input / 463ms save on the test computer.
+- Frozen mouse mode hides the image before passing input to live software; lock/suspend releases input.
+- Per-display save generations and display-restoration generations avoid clearing another screen's failure or restoring stale state.
+- Page storage now fsyncs atomic writes, preserves a validated prior recovery copy and reports close-time failures.
+- UTF-8 software source titles and explicit rejection of locked/protected desktop captures.
+- A delayed pointer-capture release from one stroke no longer cancels the next stroke; consecutive drawing and erasing remain recoverable.
+- Capture cancellation during lock, suspend or close keeps completed ink, hides both windows and releases input.
+- A failed reading-shell renderer reloads once; a repeated failure returns to a usable floating entry with an explicit library retry.
+- Internal scrolling, SPA routes and recycled DOM nodes retain original anchor identity instead of moving annotations onto unrelated duplicate text.
+
+### Security
+
+- Updated vulnerable runtime/build dependencies and bounded streamed JSON/PNG decoding. Dependency audit and complete regression gates remain part of acceptance.
+
+## [6.0.0-beta.2] - 2026-11-10
+
+Prepared locally; not a published GitHub release.
+
+### Added
+
+- A default floating Windows toolbar above ordinary desktop apps, with a transparent screen ink layer, nonactivating controls and native mouse pass-through.
+- Screen pen, highlighter, whole-stroke swept eraser, 40-step undo/redo, reversible clear, a draggable collapse bubble and Alt+Shift+M toggle.
+- PNG capture of the current underlying display and ink; the toolbar and ink windows are hidden during capture.
+- Temporary histories per display, input recovery on cancellation, Escape and renderer failure, and actual Electron floating/capture regressions.
+
+### Changed
+
+- The webpage-note workspace is opened from My notes. Closing it returns to floating mode; explicit toolbar Exit flushes page-note edits and stops the app.
+- The website and delivery guide now describe floating screen annotations as the default, and distinguish fixed screen ink from content-following webpage notes.
+
+## [6.0.0-beta.1] - 2026-11-09
+
+This beta is prepared locally; it is not yet a published GitHub release.
+
+### Added
+
+- A native Electron webpage view with a separate injected annotation layer: browse, pen, highlighter, excerpts, sticky notes, erasing and per-page undo/redo.
+- DOM and text anchors that keep annotations aligned during scrolling and layout changes, with restoration when a page is reopened.
+- A local reading-note library with search, editable comments, source navigation, Markdown exports and versioned JSON backups that merge newer edits.
+- Serialized `page-notes.json` saves, atomic replacement and a valid previous recovery copy; unreadable originals are retained.
+- Windows x64 one-click NSIS and portable packaging with publishing disabled, plus real Electron workflow tests and packaged-executable test support.
+
+### Changed
+
+- The desktop default is webpage reading and annotation. The website introduces the new product; the existing whiteboard remains at `?mode=whiteboard`.
+- Kept the MindNotes Pro name for this beta and reduced the primary interface to reading, annotation and reusable notes.
+
+### Fixed
+
+- Comment edits include the source-page URL and are sent immediately, so fast navigation cannot save a comment onto a different page.
+- Native window close waits for pending comment messages and local writes before exiting.
+- Web E2E discovery no longer excludes all tests when the checkout lives inside a Windows Desktop folder.
+
+### Security
+
+- Remote webpages run without Node access, with sandboxing and context isolation. Trusted file operations are restricted to the local shell; the webpage receives only the annotation bridge.
+
+### Existing whiteboard changes included in this beta
+
+The previously unreleased whiteboard maintenance changes below remain on the compatibility route.
+
 ### Added
 
 - A redesigned empty-canvas quick-start experience.

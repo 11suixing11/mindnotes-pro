@@ -136,7 +136,7 @@ button:focus:not(:focus-visible) {
   --ui-line-meta: 18px;
   --ui-weight-regular: 400;
   --ui-weight-medium: 500;
-  /* Warm impressionist identity (see DESIGN.md): cream paper, warm ink,
+  /* Compatibility whiteboard identity: cream paper, warm ink,
      burnt-sienna accent. Every derived color stays in the warm family. */
   --bg: #f7f4ee;
   --card: rgba(255, 255, 255, 0.88);

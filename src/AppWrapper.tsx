@@ -1,11 +1,13 @@
 import type { ErrorInfo, ReactNode } from 'react'
-import { Component } from 'react'
+import { Component, lazy, Suspense } from 'react'
 import { TriangleAlert } from 'lucide-react'
-import App from './App'
-import { createCanvasBackup } from './store/backup'
-import { buildExportFilename } from './components/export-menu/exportMenuModel'
-import { useAppStore } from './store/appStore'
-import { createBlankDocument } from './store/slices/documentRecords'
+import './notes/floating.css'
+
+const App = lazy(() => import('./App'))
+const NotesApp = lazy(() => import('./notes/NotesApp'))
+const NotesLanding = lazy(() => import('./notes/NotesLanding'))
+const FloatingToolbar = lazy(() => import('./notes/FloatingToolbar'))
+const ScreenAnnotationLayer = lazy(() => import('./notes/ScreenAnnotationLayer'))
 
 interface ErrorProps {
   children: ReactNode
@@ -25,10 +27,26 @@ export class ErrorBoundary extends Component<ErrorProps, ErrorState> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[ErrorBoundary]', error, info)
+    window.mindnotesScreen?.releasePointer()
+    void window.mindnotesFloating?.command('pointer').catch(() => undefined)
   }
 
-  private exportRecovery = () => {
+  private exportRecovery = async () => {
+    if (window.mindnotes?.isDesktop) {
+      void window.mindnotes.exportNotes('json', 'all').catch(() => undefined)
+      return
+    }
     try {
+      const [backupModule, filenameModule, storeModule, documentModule] = await Promise.all([
+        import('./store/backup'),
+        import('./components/export-menu/exportMenuModel'),
+        import('./store/appStore'),
+        import('./store/slices/documentRecords'),
+      ])
+      const { createCanvasBackup } = backupModule
+      const { buildExportFilename } = filenameModule
+      const { useAppStore } = storeModule
+      const { createBlankDocument } = documentModule
       const state = useAppStore.getState()
       const currentDoc =
         state.docs.find((doc) => doc.id === state.currentDocId) ??
@@ -57,6 +75,18 @@ export class ErrorBoundary extends Component<ErrorProps, ErrorState> {
 
   render() {
     if (this.state.hasError) {
+      if (window.mindnotesScreen) return <main className="screen-ink-surface" />
+      if (window.mindnotesFloating) {
+        return (
+          <main className="floating-toolbar-surface">
+            <div className="floating-toolbar-error" role="alert">
+              <span>工具条暂时无法显示</span>
+              <button onClick={() => window.location.reload()}>重试</button>
+              <button onClick={() => void window.mindnotesFloating?.command('quit')}>退出</button>
+            </div>
+          </main>
+        )
+      }
       return (
         <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] p-4">
           <main
@@ -106,9 +136,36 @@ export class ErrorBoundary extends Component<ErrorProps, ErrorState> {
 }
 
 export default function Root() {
+  const floatingSurface = window.mindnotesFloating
+    ? 'floating-toolbar-surface'
+    : window.mindnotesScreen
+      ? 'screen-ink-surface'
+      : null
   return (
     <ErrorBoundary>
-      <App />
+      <Suspense
+        fallback={
+          floatingSurface ? (
+            <main className={floatingSurface} />
+          ) : (
+            <main className="min-h-screen grid place-items-center" role="status">
+              正在打开…
+            </main>
+          )
+        }
+      >
+        {window.mindnotesFloating ? (
+          <FloatingToolbar />
+        ) : window.mindnotesScreen ? (
+          <ScreenAnnotationLayer />
+        ) : window.mindnotes?.isDesktop ? (
+          <NotesApp />
+        ) : new URLSearchParams(window.location.search).get('mode') === 'whiteboard' ? (
+          <App />
+        ) : (
+          <NotesLanding />
+        )}
+      </Suspense>
     </ErrorBoundary>
   )
 }

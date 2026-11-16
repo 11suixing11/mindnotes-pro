@@ -35,7 +35,7 @@ export function zoomReadout(page: Page) {
 }
 
 export async function openApp(page: Page) {
-  await page.goto('/')
+  await page.goto('/?mode=whiteboard')
   await expect(page.getByRole('region', { name: '交互式绘图画布' })).toBeVisible()
   await expect(page.locator('#main-canvas')).toBeVisible()
   await expect(appStatus(page)).toContainText('单画板')

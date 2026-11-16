@@ -63,3 +63,10 @@ npm run benchmark:browser -- benchmark/results/chromium.json
 以同一机器、同一提交基线为准，重构后关键路径（渲染准备、拖动/缩放、命中、自动保存、导出）任一项
 超过 **20%** 回归时，先分析数据结构和缓存变化，再决定是否继续架构拆分。性能基准用于发现回归，
 不把绝对毫秒数当作跨机器 SLA。
+
+
+## v6 本地存储、桌面与断网基线
+
+当前 v6 工具位于 `benchmark/local/`，完整准备、隔离目录、Windows 源码/实际包命令和报告解释见 [v6 本地性能与断网基线](local/README_CN.md)。入口为 `benchmark:local:storage`、`benchmark:local:desktop`、`benchmark:local:compare`、`test:local-baseline` 和 `test:offline`。存储入口先编译当前 Electron 模块；可见桌面与断网入口必须显式传入 `--allow-visible`，并在目标 Windows 环境运行。
+
+这里原有的白板几何、IndexedDB 和浏览器导出说明继续适用。v6 的 SQLite/网页 JSON、Electron 启动与界面报告使用独立 schema、fixture 和测量语义，不能与白板报告、历史 Windows 数字或其他机器的 Linux 报告计算优化比例。首份当前报告只是探索性基线，性能改善需要随后同机、同负载、同采样策略的前后比较。

@@ -13,7 +13,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['src/**/*.{ts,tsx}', 'e2e/**/*.ts', 'electron/**/*.mts'],
+    files: ['src/**/*.{ts,tsx}', 'e2e/**/*.ts', 'electron/**/*.{mts,cts,mjs}'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -71,10 +71,15 @@ export default tseslint.config(
     },
   },
   {
-    files: ['electron/**/*.mts'],
+    files: ['electron/**/*.{mts,cts}'],
     rules: {
       'react-refresh/only-export-components': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
     },
+  },
+  {
+    files: ['electron/**/*.mjs'],
+    rules: { 'no-console': 'off' },
   },
   prettierConfig
 )
